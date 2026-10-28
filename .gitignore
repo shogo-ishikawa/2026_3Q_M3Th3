@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# Local secrets (example files may be shared)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Local editor / operating system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Generated packages
+dist/
+build/
+*.egg-info/
