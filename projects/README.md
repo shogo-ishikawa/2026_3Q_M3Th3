@@ -27,4 +27,4 @@
 
 ## 現在のプロジェクト
 
-- [料理・レシピ提案](recipe-suggester/)：教員が用意する初期コードの作成先です。現時点では実装前です。
+- [料理・レシピ提案](recipe-suggester/)：教員が用意した初期コード（Google Colab 用のノートブック `recipe_suggester.ipynb`）です。
