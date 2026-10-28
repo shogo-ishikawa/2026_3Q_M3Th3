@@ -6,6 +6,14 @@
 
 **現在の状態：開発準備済み・コード未実装です。** このディレクトリに実装と関連ファイルを追加します。
 
+## Claude Codeで作成する場合
+
+詳細な作成指示は [CLAUDE_CODE_PROMPT.md](CLAUDE_CODE_PROMPT.md) にまとめています。リポジトリのトップでClaude Codeを起動し、次を伝えてください。
+
+```text
+projects/recipe-suggester/CLAUDE_CODE_PROMPT.md を読み、仕様に沿って初期コードを実装してください。説明書の更新と、可能な範囲の動作確認までお願いします。
+```
+
 ## 初期版の方針
 
 - Google ColabのCPU環境で、上から順に実行できるノートブックを中心にします。
