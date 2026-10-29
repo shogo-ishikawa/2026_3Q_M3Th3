@@ -1,0 +1,15 @@
+# pip0 本体（Python）が使うライブラリ
+# 導入：python -m pip install -r requirements.txt
+# Windows で常用する場合は scripts/install.ps1 が、pip0 専用の Python にこれらを入れます。
+#
+# 名前                 用途                                         ライセンス
+# sqlcipher3           暗号化DB（SQLCipher 4 を同梱した版）          zlib（SQLCipher は BSD 形式）
+# keyring              DB の鍵を OS の鍵保管機構に保存               MIT（Windows では pywin32-ctypes を使う）
+# watchdog             フォルダーの変更の監視                        Apache-2.0
+# pillow               画像の色・形の解析                            MIT-CMU（HPND）
+# pypdf                PDF のタイトルと本文の取り出し                BSD-3-Clause
+sqlcipher3==0.6.4
+keyring==25.7.0
+watchdog==6.0.0
+pillow==13.0.0
+pypdf==6.21.4
