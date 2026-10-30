@@ -338,6 +338,11 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - **analysis**：`sensitivity.overall` は、解析済みでも本文・タイトル・ラベルを読めなかったもの（画像、スキャンした PDF など）を `unknown` にする（中身を調べていないものを非機密としない）。`throttle.check` は `checked_at` も返す。`HeavyGate` には `history`、`refresh()`、`stop_requested()` もある。`analyse_file` は、途中でファイルが変わったときなども `skipped` を返す。`store_result` は機密の判定 `{"level", "reasons"}` を返す。
 - **fileops／trash**：`move_and_rename` は `new_name=None`（名前は変えずに移動）を受け付け、`actor="auto"` は停止の印があるときは断る。`prepare_deletion` の `problems` は、問題のある項目（辞書）のリスト。削除できるものがなく確認画面を出さなかったときの `answer` は `None`。確認画面の文には、ファイル名を書かない（名前と件数は画面が `items` から一覧にする）。
 - **vault／evacuation／killswitch**：`evacuate(..., rules=None)` と `check_location(platform, path, config, rules=None)`（大きさ0、ハードリンクが複数あるもの、使用中のものも断る）。`restore` の結果に `already`。`vault.cancel`、`vault.record_moved`（`cf.notify_rename` のとき）、`claim_path`／`release_path`／`is_busy`（同じパスを同時に扱わない）。`engage` → `{"ok", "marker", "database", "reason"}`。`request_restore_all` は停止の印もすぐに書く。全復元が終わっていない間は `resume` を断る。
+- **context**：`parse_foreground` の結果には、`document_name`（Office・メモ帳の文書名）、`dialog_rect`、`inaccessible` もある。知らないアプリは `app` が `None`、`category` が `"other"`。`carry_over(previous, current)` は、ファイルダイアログ（題名に文脈がない）に、同じアプリの直前の文脈を引き継ぐ。`partner_label(context)`。
+- **desk**：`DeskController.tick(now)`（隠している間に文脈が変わり、待ち時間が過ぎたら再表示）、`on_show_request(now, ranked=None)`。文脈の区別には、プロセス・会話・ページ題名・文書名・ファイルダイアログかどうかを使う。pip0 自身のウィンドウは文脈として扱わない。`rank_files` は、使用・変更の日時を1回の問い合わせでまとめて読む（`usage.last_use` と同じ決まり）。
+- **search**：結果の各項目は `{"file_id", "path", "name", "status", "reasons", "unmatched": [{"cue", "reason", "missing_info"}], "matched_count", "cue_count"}`。「情報不足」（`missing_info`）は、その種類のファイルに普通はある情報（画像の色・形の解析、文書の本文、Office のグラフの有無、入手経路の記録）がないとき。
+- **hazard**：各項目に `file_id` もある。`end_session` は `unlock`、`resume` でもセッションの区切りとする（終わりの知らせを取りこぼしても、消音を持ち越さない）。
+- **demo_data**：`run_demo(target_dir=None, now=None, rules=None, protected=None)` → 報告の辞書、`report_lines(report)` → 表示する行。一時フォルダーの中に、メモリーの DB と代役の OS 連携だけで動く（本物のフォルダーと DB には触れない）。
 - **inflow／naming**：提案の状態に `needs_analysis`（名前が解析待ち。仕分け先があれば先に移動する）。`MiniDock` の動作に `{"do": "open", "proposal_id", "path"}` があり、`payload(now)` で今の表示内容を返す。`execute_proposal` → `{"ok", "status", "path", "state", "reason"}`。`load_proposal(conn, proposal_id)` で DB から提案を読み直せる。`apply_deferred_renames` は件数の辞書を返す。
 
 ### 6-9. 導入後の配置（`scripts\install.ps1`）
