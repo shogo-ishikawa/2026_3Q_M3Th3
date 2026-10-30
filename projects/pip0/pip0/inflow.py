@@ -284,6 +284,44 @@ def build_skipped_proposal(conn, platform, path, download_event, reason, now):
     return proposal
 
 
+def record_source_only(conn, platform, path, download_event, config, rules, now):
+    """仕分けと改名の提案は作らず、ファイルの索引と由来（送信元）だけを記録する。記録したら True
+
+    次のときに使います（service.py）。どちらも、ファイルは動かしません。
+    - pip0 が動いていなかった間に届いた、ブラウザー拡張の記録（ダウンロードから時間がたっていて、
+      ユーザーがもう使っているかもしれないため）
+    - 画面なし（serve --no-shell）で動いているとき（ミニドックを見せられないため）
+    由来を残すのは、M3 の「Slackで貰った」のような検索の手がかりにするためです。
+    download_event：ブラウザー拡張の記録（download_events の行）。None なら provenance.find_download_event で探す
+    ファイルがない・大きさが記録と違う（別のファイルに置き換わったかもしれない）ときは、何もしません
+    （ブラウザー拡張の記録は、24時間たつと期限切れになります）。
+    """
+    if not path or fileops.location_kind_for(path, config) != "downloads":
+        return False  # ダウンロードフォルダーの外のファイルは扱わない（DownloadTracker と同じ）
+    path = os.path.abspath(os.fspath(path))
+    skip, _reason = scanner.should_skip(path, platform, config, rules)
+    if skip:
+        return False
+    size = file_size(path)
+    if size is None:
+        return False
+    if download_event is not None and download_event.get("file_size") not in (None, size):
+        return False
+    with write_together(conn):
+        file_id = index_file(conn, platform, path, config, now)
+        if file_id is None:
+            return False
+        if download_event is None:
+            download_event = provenance.find_download_event(conn, path, size, now)
+        zone = provenance.parse_zone_identifier(platform.read_zone_identifier(path))
+        source = provenance.determine_source(download_event, zone, rules)
+        provenance.record_provenance(conn, file_id, source, event=download_event, zone=zone, now=now)
+        if download_event is not None and download_event.get("state") == "pending":
+            provenance.mark_event_matched(conn, download_event["id"], file_id)
+    logger.info("流入：提案は作らず、ダウンロードの由来だけを記録しました（ファイルは動かしません）")
+    return True
+
+
 def read_light_metadata(path, platform, config, rules):
     """文書のタイトルを軽く読む（analyse_text.light_metadata）。LIGHT_METADATA_BUDGET_SECONDS 秒で待つのをやめる
 

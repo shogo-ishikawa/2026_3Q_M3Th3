@@ -6,9 +6,11 @@ namespace Pip0Shell.Ui;
 
 /// <summary>
 /// ui.status の payload を、通知領域アイコンの説明（ツールチップ）と状態の画面の文にする。
-/// {"automation": "running"/"stopped", "throttle": {...}, "restore": {...}, "features": [{"feature", "ok", "reason"}]}
+/// {"automation": "running"/"stopped", "throttle": {...}, "restore": {...}, "analysis": {"pending"},
+///  "vault": {状態: 件数}, "features": [{"feature", "ok", "reason", "label"}]}
 ///
-/// 値の意味を決めるのは本体です。ここでは、知っている名前を日本語にし、知らない値はそのまま見せます。
+/// 値の意味を決めるのは本体です。ここでは、知っている名前を日本語にし、
+/// 知らない機能は本体が付けた名前（label）か、機能の名前（feature）をそのまま見せます。
 /// </summary>
 internal sealed class StatusText
 {
@@ -80,6 +82,17 @@ internal sealed class StatusText
             AddRestoreLines(restore, lines);
         }
 
+        long? analysisPending = payload.GetObject("analysis").GetInt64("pending");
+        if (analysisPending is not null)
+        {
+            lines.Add("解析の待ち：" + analysisPending.Value.ToString(CultureInfo.InvariantCulture) + " 件");
+        }
+        long? evacuated = payload.GetObject("vault").GetInt64("evacuated");
+        if (evacuated is not null)
+        {
+            lines.Add("退避中（ゴースト）のファイル：" + evacuated.Value.ToString(CultureInfo.InvariantCulture) + " 件");
+        }
+
         int unavailable = 0;
         IReadOnlyList<Payload>? features = payload.GetObjectArray("features");
         if (features is { Count: > 0 })
@@ -103,7 +116,10 @@ internal sealed class StatusText
                 {
                     unavailable++;
                 }
-                string name = FeatureNames.TryGetValue(id, out string? known) ? known : TextLimit.Shorten(id, 60);
+                string? label = feature.GetString("label");
+                string name = FeatureNames.TryGetValue(id, out string? known)
+                    ? known
+                    : TextLimit.Shorten(string.IsNullOrWhiteSpace(label) ? id : label, 60);
                 string reason = TextLimit.ShortenOrNull(feature.GetString("reason"), MaxTextLength) ?? "";
                 lines.Add((ok ? "　○ " : "　× ") + name + (reason.Length > 0 ? "：" + reason : ""));
                 shown++;

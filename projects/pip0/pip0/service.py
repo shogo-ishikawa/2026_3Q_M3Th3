@@ -636,6 +636,13 @@ class Service:
         if now >= self.next_download_poll:
             self.poll_download_events(now)
         self.held_downloads.extend(self.tracker.ready(now))
+        if self.held_downloads and isinstance(self.link, NoShellLink):
+            # 画面なし（--no-shell）：ミニドックを見せられないので、提案（3秒後の自動の仕分け・改名）はせず、
+            # 由来だけを記録する（見えないまま、ファイルを動かさない）
+            for ready in self.held_downloads:
+                inflow.record_source_only(self.conn, self.platform, ready["path"], ready["download_event"],
+                                          self.config, self.rules, now)
+            self.held_downloads = []
         if self.held_downloads and self.screen_available():
             ready_list, self.held_downloads = self.held_downloads, []
             for ready in ready_list:
@@ -786,9 +793,10 @@ class Service:
         """ミニドックなどの画面を、ユーザーが見られるか
 
         pip0 シェルが落ちて起動し直すまでの間は、ミニドックが見えないので、ダウンロードの提案（3秒後の自動の仕分け）を
-        待たせる（見えないまま自動で動かさない）。シェルを使わない設定（テスト、--no-shell）では待たせない。
+        待たせる（見えないまま自動で動かさない）。シェルを起動しないテスト（link が None）では待たせない。
+        画面なし（--no-shell）のときは、提案そのものをしない（step を参照）。
         """
-        if self.link is None or isinstance(self.link, NoShellLink):
+        if self.link is None:
             return True
         return self.link.is_alive()
 
@@ -1135,7 +1143,12 @@ class Service:
             scanner.upsert_file(self.conn, self.platform, path, location_kind, now)
 
     def poll_download_events(self, now):
-        """ブラウザー拡張の記録（受け口が DB に書いたもの）のうち、新しいものを DownloadTracker に渡す"""
+        """ブラウザー拡張の記録（受け口が DB に書いたもの）のうち、新しいものを扱う
+
+        - 常駐処理の起動の後に届いた記録：DownloadTracker に渡す（完了の確認 → ミニドックの提案）
+        - 起動より前（pip0 が動いていなかった間）に届いた記録：提案は出さず、由来だけを記録する
+          （inflow.record_source_only。時間がたっていて、ユーザーがもう使っているかもしれないため）
+        """
         self.next_download_poll = now + self.config["DOWNLOAD_POLL_SECONDS"]
         rows = database.query_all(self.conn, "SELECT * FROM download_events WHERE state = 'pending' ORDER BY id")
         pending = set()
@@ -1144,7 +1157,11 @@ class Service:
             if row["id"] in self.fed_event_ids:
                 continue
             self.fed_event_ids.add(row["id"])
-            self.tracker.add_browser_event(row, now)
+            if row["received_at"] < self.started_at:
+                inflow.record_source_only(self.conn, self.platform, row["filename"], row, self.config, self.rules,
+                                          now)
+            else:
+                self.tracker.add_browser_event(row, now)
         self.fed_event_ids &= pending  # 結び付いた・期限切れになった記録は忘れる
 
     def propose(self, ready, now):

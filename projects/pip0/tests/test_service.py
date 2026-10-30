@@ -265,6 +265,35 @@ def test_browser_record_is_used_at_once_and_a_user_button_runs_immediately(resid
     assert event["state"] == "matched"
 
 
+def test_browser_record_from_before_start_records_the_source_but_does_not_move_the_file(
+        resident, config, platform, db, ui, clock):
+    path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "document.pdf", "研究室の議事録")
+    missing = Path(config["DOWNLOADS_DIR"]) / "moved-away.pdf"  # 記録の後に、ユーザーが動かしたファイル
+    for download_id, filename, size in ((8, path, path.stat().st_size), (9, missing, 100)):
+        message = {
+            "type": "download_completed", "browser": "chrome",
+            "download": {"id": download_id, "filename": str(filename),
+                         "url": "https://files.slack.com/files-pri/T0-F1/document.pdf", "final_url": None,
+                         "referrer_url": "https://app.slack.com/", "mime": "application/pdf",
+                         "started_at": T0 - 3603, "ended_at": T0 - 3601, "file_size": size, "danger": "safe"},
+            "page": {"tab_url": None, "tab_title": None, "captured_at": None},
+        }
+        # pip0 が動いていなかった1時間前に、受け口が書いた記録
+        provenance.store_download_event(db, message, "chrome-extension://pip0-test/", T0 - 3600)
+
+    for _ in range(3):
+        resident.step(clock.advance(5))
+
+    assert "ui.mini_dock.show" not in ui.names()  # 提案は出さない
+    assert path.exists()  # ファイルは動かさない
+    assert database.query_one(db, "SELECT COUNT(*) AS n FROM inflow")["n"] == 0
+    states = {row["browser_download_id"]: row["state"]
+              for row in database.query_all(db, "SELECT browser_download_id, state FROM download_events")}
+    assert states == {8: "matched", 9: "pending"}  # ファイルがない記録は、そのまま（24時間で期限切れ）
+    file_row = database.query_one(db, "SELECT id FROM files WHERE name = 'document.pdf'")
+    assert provenance.get_provenance(db, file_row["id"])["source_label"] == "Slack"
+
+
 def test_hovering_the_mini_dock_pauses_the_countdown(resident, config, platform, db, ui, clock):
     path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
     finish_download(resident, path, clock)
@@ -794,6 +823,23 @@ def test_no_shell_mode_never_restarts_and_reports_why(config, platform, db, ui, 
         clock.advance(120)
         svc.step()
         assert svc.shell_restart_at is None
+    finally:
+        svc.shutdown()
+
+
+def test_no_shell_mode_never_sorts_downloads_it_cannot_show(config, platform, db, ui, clock):
+    svc = make_service(config, platform, db, ui, clock, link=service.NoShellLink())
+    assert svc.start()["ok"]
+    try:
+        path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
+        platform.zone_identifiers[str(path)] = SLACK_ZONE
+        finish_download(svc, path, clock)
+        for _ in range(3):
+            svc.step(clock.advance(5))  # ミニドックがあれば、時間切れで自動の仕分けが動くころ
+        assert path.exists()  # ミニドックを見せられないので、ファイルを動かさない
+        assert database.query_one(db, "SELECT COUNT(*) AS n FROM inflow")["n"] == 0
+        file_row = database.query_one(db, "SELECT id FROM files WHERE name = 'download.pdf'")
+        assert provenance.get_provenance(db, file_row["id"])["source_label"] == "Slack"  # 由来だけは記録する
     finally:
         svc.shutdown()
 

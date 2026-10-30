@@ -76,7 +76,8 @@ pip0 は、次の3つのプログラムで動きます。
 | Windows の資格情報マネージャー（`pip0` / `database-key-v1`） | DB の鍵（64文字の16進数） | Windows が DPAPI で保護 |
 | `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\content` | 退避したファイルの本体 | **しない**（下の注を参照） |
 | `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\manifest.json` | 復元に必要な最小限の情報（元のパス、サイズ、更新日時、ハッシュ、状態） | **しない**（下の注を参照） |
-| `%LOCALAPPDATA%\pip0\control\` | 自動処理の停止の印、全復元の依頼と進み具合（件数だけ） | しない（解析内容を含まない） |
+| `%LOCALAPPDATA%\pip0\control\` | 自動処理の停止の印、全復元の依頼と進み具合（件数だけ）、常駐処理の状態（`service.status.json`。件数と機能の状態だけで、パスは書かない）、終了の依頼（`shutdown.request.json`） | しない（解析内容を含まない） |
+| `%LOCALAPPDATA%\pip0\locks\service.lock` | 常駐処理と、保管庫・シェルを使うコマンドが、同時に2つ動かないための印（中身なし） | しない |
 | `%LOCALAPPDATA%\pip0\logs\` | 動作の記録（エラーの種類と件数のみ。ファイル名・本文・URL は書かない） | しない（解析内容を含まない） |
 | `%USERPROFILE%\pip0\` | pip0 専用フォルダー（M1 の仕分け先、M4 の同期ルート） | ユーザーのファイルそのもの |
 
@@ -106,6 +107,8 @@ pip0 は、次の3つのプログラムで動きます。
   - 送信元：ブラウザー拡張の記録（ダウンロード URL、なければ参照元 URL のホスト名）、それもなければ Windows が付ける `Zone.Identifier` の `HostUrl`／`ReferrerUrl`。`rules.SOURCE_RULES` に当てはまれば「Slack」などの名前、当てはまらなければホスト名の主要部分（例：`example.co.jp`）。記録がなければ「送信元不明」。ダウンロード開始時に表示していたタブは、送信元とは限らないため、送信元には使いません。
   - 禁止文字（`< > : " / \ | ? *` と制御文字）は全角の文字に置き換え、予約名（`CON` 等）と末尾の点・空白を避け、拡張子は元のまま残します。同じ名前があれば「 (2)」を付け、既存のファイルを上書きしません。
 - **自動実行**：ミニドックの時間が尽きたとき、自動仕分け・自動改名が有効で、キルスイッチが押されていなければ、提案を実行します。仕分け先の候補がない行は、何もせずに閉じます。
+- **画面を見せられないとき**：pip0 シェルが落ちて起動し直すまでの間に完了したダウンロードは、提案を待たせ（最大50件）、シェルが戻ってからミニドックに出します（見えないまま自動で実行しない）。画面なし（`serve --no-shell`、開発用）のときは、提案そのものをせず、索引と由来（送信元）だけを記録します。
+- **pip0 が動いていなかった間のダウンロード**：その間に受け口が書いたブラウザー拡張の記録（24時間以内）は、起動の後に、提案もファイルの移動もせず、記録どおりの場所に同じ大きさのファイルがあるときだけ、索引と由来を記録します（時間がたっていて、ユーザーがもう使っているかもしれないため）。
 
 ### 4-4. M2 作業連動・浮上式デスク
 
@@ -286,7 +289,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - `netguard.install(allowed_executables=())`：監査フックで、ソケットの接続・名前解決・HTTP 等と、許可していない外部コマンドの起動を止める（`NetworkBlocked` を出す）。`netguard.is_installed()`、`netguard.blocked_attempts()`。
 - `shell_link.ShellLink(command, on_event)`：`start()`、`stop()`、`request(type, payload, timeout)`（→ 応答の `payload`、失敗は `ShellError`）、`send_event(type, payload)`、`is_alive()`。
 - `native_host.read_message(stream)`、`write_message(stream, obj)`、`validate_message(message)` → `(整えた辞書 または None, エラーのリスト)`、`native_host.main(argv)`。
-- `service.run(config, platform, ui, link, ...)`：常駐のメインループ。`cli.main(argv)`：コマンド。
+- `service.run(config, rules, platform, ui, conn, link=None, keystore=None)`：常駐のメインループ（終了の依頼まで戻らない。→ `{"ok", "reason"}`）。テストでは `service.Service(config, rules, platform, ui, conn, link=None, clock=time.time, start_threads=True, keystore=None)` の `start()`、`step(now)`、`handle_event(event, now)`、`handle_file_event(event, now)`、`shutdown()` を直接呼ぶ。`cli.main(argv=None, keystore=None, platform=None, out=None)`：コマンド。
 - 通信の形は [ipc-protocol.md](ipc-protocol.md) を参照。
 
 ### 6-7. Native Messaging の受け口が作る辞書
@@ -325,6 +328,11 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 | `check-network` | pip0 のプロセスの中で、外部通信の禁止（監査フック）が働くかを確かめる（OS のファイアウォールの確認は `scripts\network-policy.ps1 -Check`） |
 | `shutdown` | 常駐処理に終了を依頼する |
 
+- 終了コード：0 成功、1 失敗・断った・期待と違う結果、2 使い方の誤り・この PC では使えない操作（Windows 以外での `serve`、`delete` など）。
+- `restore-all` が 0 を返すのは、すべての項目を戻せたとき（衝突で横に戻したもの、開いた後に変更されていたものを含む）だけです。見つからない・失敗・残りがあれば 1 を返します。
+- `delete`、`vault restore`、`register-root`、`unregister-root` は、常駐処理（またはほかの pip0 のコマンド）が動いている間は実行を断ります（pip0 シェルは1つしか動かせず、保管庫を2つのプロセスで同時に扱わないため。`locks\service.lock` で確かめる）。`restore-all` は、常駐処理が動いていれば依頼のファイルを渡して進み具合を表示し、動いていなければ自分で行います。
+- `check-network` は、コマンド自身のプロセスに監査フックを入れて確かめます（常駐処理のプロセスの状態ではありません）。
+
 ### 6-10. 実装で決まった細部（各担当の報告から）
 
 6-1〜6-6 の約束に加えて、実装のときに次のことを決めました。呼ぶ側はこれに合わせてください。
@@ -343,6 +351,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - **search**：結果の各項目は `{"file_id", "path", "name", "status", "reasons", "unmatched": [{"cue", "reason", "missing_info"}], "matched_count", "cue_count"}`。「情報不足」（`missing_info`）は、その種類のファイルに普通はある情報（画像の色・形の解析、文書の本文、Office のグラフの有無、入手経路の記録）がないとき。
 - **hazard**：各項目に `file_id` もある。`end_session` は `unlock`、`resume` でもセッションの区切りとする（終わりの知らせを取りこぼしても、消音を持ち越さない）。
 - **demo_data**：`run_demo(target_dir=None, now=None, rules=None, protected=None)` → 報告の辞書、`report_lines(report)` → 表示する行。一時フォルダーの中に、メモリーの DB と代役の OS 連携だけで動く（本物のフォルダーと DB には触れない）。
+- **service（常駐処理）**：全復元は、メインのスレッドで1件ずつ行います（その間、シェルからの知らせは順番待ちになり、全復元が終わってから処理します）。自動退避の候補探しの1回目は、起動の `600` 秒後（`FIRST_EVACUATION_CHECK_SECONDS`）で、その後は `EVACUATE_CHECK_HOURS` ごとです。候補を探す直前に、pip0 専用フォルダーのファイルの最終アクセス日時を利用の記録に加えます（読んだだけのファイルを、長期間未読としないため）。状態（`ui.status`）は、変わったときと、最短 2 秒ごとに送り、`service.status.json` には最短 5 秒ごとに書きます。
 - **inflow／naming**：提案の状態に `needs_analysis`（名前が解析待ち。仕分け先があれば先に移動する）。`MiniDock` の動作に `{"do": "open", "proposal_id", "path"}` があり、`payload(now)` で今の表示内容を返す。`execute_proposal` → `{"ok", "status", "path", "state", "reason"}`。`load_proposal(conn, proposal_id)` で DB から提案を読み直せる。`apply_deferred_renames` は件数の辞書を返す。
 
 ### 6-9. 導入後の配置（`scripts\install.ps1`）

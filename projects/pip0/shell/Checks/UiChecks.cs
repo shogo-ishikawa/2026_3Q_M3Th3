@@ -244,7 +244,10 @@ internal static class UiChecks
             ""features"": [{""feature"": ""mouse_hook"", ""ok"": true, ""reason"": ""動いています""},
                            {""feature"": ""cloud_files"", ""ok"": false, ""reason"": ""NTFS ではありません""},
                            {""feature"": ""new_feature"", ""ok"": false},
-                           {""ok"": true}]
+                           {""feature"": ""scan"", ""ok"": true, ""label"": ""対象フォルダーの見直し（索引）""},
+                           {""ok"": true}],
+            ""analysis"": {""pending"": 3},
+            ""vault"": {""evacuated"": 2, ""restored"": 5}
         }"));
         string text = string.Join("\n", status.Lines);
         Program.Check(status.AutomationLabel == "動作中" && status.Tooltip() == "pip0（自動処理：動作中）／使えない機能 2 件", "ツールチップに自動処理の状態と使えない機能の数");
@@ -252,6 +255,8 @@ internal static class UiChecks
         Program.Check(text.Contains("全 10 件", StringComparison.Ordinal) && text.Contains("残り 1", StringComparison.Ordinal) && text.Contains("途中です", StringComparison.Ordinal), "全復元の進み具合");
         Program.Check(text.Contains("○ ドラッグの検知：動いています", StringComparison.Ordinal) && text.Contains("× ゴースト（Cloud Files API）：NTFS ではありません", StringComparison.Ordinal), "機能の状態を日本語の名前で");
         Program.Check(text.Contains("× new_feature", StringComparison.Ordinal), "知らない機能は名前のまま出す");
+        Program.Check(text.Contains("○ 対象フォルダーの見直し（索引）", StringComparison.Ordinal), "本体が付けた名前（label）を出す");
+        Program.Check(text.Contains("解析の待ち：3 件", StringComparison.Ordinal) && text.Contains("退避中（ゴースト）のファイル：2 件", StringComparison.Ordinal), "解析の待ちと退避中の件数");
 
         StatusText stopped = StatusText.Parse(Parse("{\"automation\": \"stopped\"}"));
         Program.Check(stopped.AutomationLabel == "停止中" && stopped.Tooltip() == "pip0（自動処理：停止中）", "停止中");

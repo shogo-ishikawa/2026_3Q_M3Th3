@@ -51,13 +51,13 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 | type | payload |
 | --- | --- |
 | `ui.mini_dock.show` | `{"dock_id", "rows": [{"entry_id", "file_name", "status": "proposed"/"no_candidate"/"needs_analysis", "dest_label", "new_name", "reasons": [文字列], "alternatives": [{"index", "label"}], "context_label", "remaining_seconds"}]}`（表示中の全行。行が変わるたびに送り直す） |
-| `ui.mini_dock.close` | `{"dock_id", "reason"}` |
+| `ui.mini_dock.close` | `{"dock_id", "reason": "empty"/"shutdown"}`（`empty`：行がなくなった、`shutdown`：pip0 の終了。表示中の提案は実行せず、提案のまま残る） |
 | `ui.desk.show` | `{"desk_id", "context_label", "partner_label", "dialog_hwnd", "dialog_rect", "items": [{"path", "name", "status": "present"/"ghost", "reasons": [文字列]}]}` |
 | `ui.desk.hide` | `{"reason": "shake"/"no_items"/"context"/"kill_switch"}` |
 | `ui.hazard.show` | `{"level": "sensitive"/"unknown", "message", "items": [{"name", "level", "reasons"}]}`（赤：sensitive、橙：unknown） |
 | `ui.hazard.hide` | `{}` |
 | `ui.notify` | `{"title", "message", "level": "info"/"warning"/"error"}` |
-| `ui.status` | `{"automation": "running"/"stopped", "throttle": {...}, "restore": {...}, "features": [{"feature", "ok", "reason"}]}` |
+| `ui.status` | `{"automation": "running"/"stopped", "throttle": {"allowed", "power", "idle_seconds", "reason", "history"}, "restore": {全復元の件数}, "restoring": bool, "features": [{"feature", "ok", "reason", "label", "source": "core"/"shell"}], "shell": {"connected", "version", "capabilities"}, "analysis": {"pending"}, "vault": {状態: 件数}, "evacuation_waiting": 件数, "ghost_open": {"count", "last_ms", "median_ms", "max_ms", "failed"}}`（パス・ファイル名・ウィンドウタイトルは入れない。シェルは知らないキーを無視する） |
 | `shell.cursor_stream` | `{"enabled": bool}`（デスクの表示中だけ、マウスの位置を送る） |
 | `shell.quit` | `{}` |
 
