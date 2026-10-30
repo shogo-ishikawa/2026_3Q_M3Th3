@@ -1,0 +1,2 @@
+# cmd.exe は改行が CRLF のバッチファイルを前提にしているため、取り出し時に CRLF にします
+*.bat text eol=crlf

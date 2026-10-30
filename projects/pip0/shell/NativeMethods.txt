@@ -1,0 +1,157 @@
+// CsWin32 が C# の宣言を生成する Win32 API の一覧（1行に1つ）
+// 使い方は README.md の「Win32 API の宣言」を参照
+
+// --- Cloud Files API（ゴースト：CloudFiles/） ---
+CfConnectSyncRoot
+CfDisconnectSyncRoot
+CfConvertToPlaceholder
+CfRevertPlaceholder
+CfHydratePlaceholder
+CfExecute
+CfGetPlaceholderInfo
+CfOpenFileWithOplock
+CfReferenceProtectedHandle
+CfReleaseProtectedHandle
+CfGetWin32HandleFromProtectedHandle
+CfCloseHandle
+CfGetPlaceholderStateFromAttributeTag
+CfReportProviderProgress
+CF_PLACEHOLDER_STANDARD_INFO
+STATUS_SUCCESS
+STATUS_CLOUD_FILE_UNSUCCESSFUL
+STATUS_CLOUD_FILE_REQUEST_CANCELED
+
+// --- ファイルの情報と読み取り ---
+CreateFile
+ReadFile
+GetOverlappedResult
+GetFileInformationByHandle
+GetFileInformationByHandleEx
+FILE_ID_INFO
+GetFinalPathNameByHandle
+GetVolumeInformation
+FindFirstFileEx
+FindNextFile
+SetFileTime
+FILE_ACCESS_RIGHTS
+WIN32_ERROR
+
+// --- ごみ箱（IFileOperation：Trash/） ---
+IFileOperation
+IFileOperationProgressSink
+FileOperation
+SHCreateItemFromParsingName
+IShellItem
+_TRANSFER_SOURCE_FLAGS
+FILEOPERATION_FLAGS
+S_OK
+E_ABORT
+E_ACCESSDENIED
+REGDB_E_CLASSNOTREG
+COPYENGINE_E_USER_CANCELLED
+COPYENGINE_E_SHARING_VIOLATION_SRC
+COPYENGINE_E_ACCESS_DENIED_SRC
+COPYENGINE_E_PATH_NOT_FOUND_SRC
+COPYENGINE_E_RECYCLE_BIN_NOT_FOUND
+COPYENGINE_E_RECYCLE_FORCE_NUKE
+COPYENGINE_E_RECYCLE_SIZE_TOO_BIG
+COPYENGINE_E_REQUIRES_ELEVATION
+
+// --- プロセス（ゴーストを開いたのが pip0 自身かを調べる） ---
+CreateToolhelp32Snapshot
+Process32First
+Process32Next
+
+// --- 通知領域アイコン ---
+DestroyIcon
+
+// --- 常駐UI のウィンドウ（Ui/WindowPlacement.cs）：前面に出さない・クリックを通す・物理ピクセルで置く ---
+GetWindowLong
+SetWindowLong
+WINDOW_EX_STYLE
+SetWindowPos
+HWND_TOPMOST
+GetWindowRect
+DwmGetWindowAttribute
+GetCursorPos
+WM_MOUSEACTIVATE
+MA_NOACTIVATE
+
+// --- メッセージループを持つスレッド（Core/MessageLoopThread.cs） ---
+GetMessage
+PeekMessage
+PostThreadMessage
+TranslateMessage
+DispatchMessage
+SetTimer
+KillTimer
+GetCurrentThreadId
+GetModuleHandle
+WM_QUIT
+WM_TIMER
+WM_APP
+
+// --- 前面ウィンドウの監視（Context/ForegroundWatcher.cs、WindowInfo.cs、ProcessInfo.cs） ---
+SetWinEventHook
+UnhookWinEvent
+WINEVENT_OUTOFCONTEXT
+WINEVENT_SKIPOWNPROCESS
+EVENT_SYSTEM_FOREGROUND
+EVENT_OBJECT_NAMECHANGE
+OBJECT_IDENTIFIER
+CHILDID_SELF
+GetForegroundWindow
+GetWindowThreadProcessId
+GetWindowText
+GetWindowTextLength
+GetClassName
+IsWindow
+IsChild
+GetAncestor
+EnumChildWindows
+GetDlgCtrlID
+OpenProcess
+CloseHandle
+QueryFullProcessImageName
+OpenProcessToken
+GetTokenInformation
+GetSidSubAuthority
+GetSidSubAuthorityCount
+TOKEN_MANDATORY_LABEL
+GetCurrentProcess
+
+// --- ドラッグの検知（Input/MouseHook.cs、DragMonitor.cs） ---
+SetWindowsHookEx
+UnhookWindowsHookEx
+CallNextHookEx
+MSLLHOOKSTRUCT
+WM_MOUSEMOVE
+WM_LBUTTONDOWN
+WM_LBUTTONUP
+WindowFromPoint
+GetSystemMetrics
+
+// --- エクスプローラーで選ばれている項目（Input/ExplorerSelection.cs。Shell.Application の Windows() と同じ ShellWindows） ---
+IShellWindows
+ShellWindows
+IWebBrowserApp
+IServiceProvider
+IOleWindow
+SID_STopLevelBrowser
+IShellFolderViewDual
+FolderItems
+FolderItem
+ShellWindowTypeConstants
+ShellWindowFindWindowOptions
+CSIDL_DESKTOP
+
+// --- 最近使ったファイル（Context/ShellLinkReader.cs）：ショートカット（.lnk）の指す先 ---
+IShellLinkW
+ShellLink
+IPersistFile
+SHGetPathFromIDListEx
+ILFree
+
+// --- エクスプローラーで場所を開く（Ui/FileActions.cs） ---
+SHParseDisplayName
+SHOpenFolderAndSelectItems

@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    pip0 シェルのうち、Windows の機能を使わない部分（本体との通信、範囲の計算、保管庫の確認、常駐UI の判定など）を、
+    Windows 以外（授業の Linux 環境など）でも動かして確かめるための小さなプログラムです。配布物には含めません。
+    実行：このフォルダーで dotnet run -c Release
+    Cloud Files API、ごみ箱、画面は、ここでは確かめられません（Windows 11 の実機が必要です）。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>Pip0Shell.Checks</RootNamespace>
+    <AssemblyName>Pip0Shell.Checks</AssemblyName>
+    <!-- 生成された Win32 の宣言は Windows 専用の印が付くが、ここでは定数しか使わない -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 確かめる対象：シェルのソースのうち、Windows の機能を呼ばないもの -->
+    <Compile Include="../Core/Log.cs" Link="Shell/Core/Log.cs" />
+    <Compile Include="../Core/ShellInfo.cs" Link="Shell/Core/ShellInfo.cs" />
+    <Compile Include="../Core/ShellSettings.cs" Link="Shell/Core/ShellSettings.cs" />
+    <Compile Include="../Core/SessionConfiguration.cs" Link="Shell/Core/SessionConfiguration.cs" />
+    <Compile Include="../Core/ShellState.cs" Link="Shell/Core/ShellState.cs" />
+    <Compile Include="../Core/CommandLineOptions.cs" Link="Shell/Core/CommandLineOptions.cs" />
+    <Compile Include="../Core/FeatureReporter.cs" Link="Shell/Core/FeatureReporter.cs" />
+    <Compile Include="../Ipc/*.cs" LinkBase="Shell/Ipc" />
+    <Compile Include="../CloudFiles/ItemId.cs" Link="Shell/CloudFiles/ItemId.cs" />
+    <Compile Include="../CloudFiles/HydrationTracker.cs" Link="Shell/CloudFiles/HydrationTracker.cs" />
+    <Compile Include="../CloudFiles/VaultContent.cs" Link="Shell/CloudFiles/VaultContent.cs" />
+    <Compile Include="../CloudFiles/HResultText.cs" Link="Shell/CloudFiles/HResultText.cs" />
+    <Compile Include="../CloudFiles/PathText.cs" Link="Shell/CloudFiles/PathText.cs" />
+    <Compile Include="../CloudFiles/TransferRange.cs" Link="Shell/CloudFiles/TransferRange.cs" />
+    <Compile Include="../Trash/TrashItem.cs" Link="Shell/Trash/TrashItem.cs" />
+    <!-- 常駐UI・入力・作業文脈のうち、Windows の機能を使わない判定 -->
+    <Compile Include="../Ui/ScreenGeometry.cs" Link="Shell/Ui/ScreenGeometry.cs" />
+    <Compile Include="../Ui/DeskProximity.cs" Link="Shell/Ui/DeskProximity.cs" />
+    <Compile Include="../Ui/DeskPressRecorder.cs" Link="Shell/Ui/DeskPressRecorder.cs" />
+    <Compile Include="../Ui/MiniDockContent.cs" Link="Shell/Ui/MiniDockContent.cs" />
+    <Compile Include="../Ui/DeskContent.cs" Link="Shell/Ui/DeskContent.cs" />
+    <Compile Include="../Ui/HazardContent.cs" Link="Shell/Ui/HazardContent.cs" />
+    <Compile Include="../Ui/StatusText.cs" Link="Shell/Ui/StatusText.cs" />
+    <Compile Include="../Ui/OpenableFile.cs" Link="Shell/Ui/OpenableFile.cs" />
+    <Compile Include="../Input/DragTracker.cs" Link="Shell/Input/DragTracker.cs" />
+    <Compile Include="../Input/CursorBatcher.cs" Link="Shell/Input/CursorBatcher.cs" />
+    <Compile Include="../Context/Debouncer.cs" Link="Shell/Context/Debouncer.cs" />
+    <Compile Include="../Context/RecentItems.cs" Link="Shell/Context/RecentItems.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- HResultText が使う定数（WIN32_ERROR、HRESULT）の宣言を生成する -->
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.183">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>
