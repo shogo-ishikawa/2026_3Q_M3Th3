@@ -169,6 +169,8 @@ def upsert_file(conn, platform, path, location_kind, now):
 
     with write_together(conn):
         row = database.query_one(conn, "SELECT * FROM files WHERE path = ?", (path,))
+        # 同じパスでも、前とは別のファイルなら、観測（first_seen_at）を始め直す
+        new_observation = row is not None and is_different_file(row, file_key, info)
         if row is None:
             row = find_renamed_row(conn, path, file_key, info)
 
@@ -186,7 +188,7 @@ def upsert_file(conn, platform, path, location_kind, now):
             # 更新日時が進んだ＝ファイルが変更された。利用の記録として残す（長期間未読の判定に使う）
             conn.execute("INSERT INTO usage_events (file_id, kind, at) VALUES (?, 'modified', ?)",
                          (row["id"], info["mtime"]))
-        update_row(conn, row, path, file_key, info, location_kind, status, now)
+        update_row(conn, row, path, file_key, info, location_kind, status, now, new_observation)
         if status == "present" and (changed or not has_analysis_row(conn, row["id"])):
             mark_for_analysis(conn, row["id"], now)
         return {"file_id": row["id"], "is_new": False, "changed": changed}
@@ -214,6 +216,22 @@ def creation_time(st):
     if sys.platform == "win32":
         return st.st_ctime  # Python 3.11 の Windows では、st_ctime が作成日時
     return None
+
+
+def is_different_file(row, file_key, info):
+    """同じパスの行が、前とは別のファイルを指しているなら True（長期間未読の判定のため、観測を始め直す）
+
+    - 前のファイルが消えていた（missing）ところに、ファイルができた
+    - ファイル番号が変わった（別のファイルで置き換えられた）
+    - 更新日時が前より古くなった（古いファイルのコピーや、圧縮ファイルから取り出したもので置き換えられた）
+    観測を始め直さないと、新しいファイルが、前のファイルの観測期間を受け継いでしまいます
+    （コピーしたファイルは更新日時が古いままなので、置いた直後に「長期間未読」と判定されてしまう）。
+    """
+    if row["status"] == "missing":
+        return True
+    if row["file_key"] is not None and file_key is not None and row["file_key"] != file_key:
+        return True
+    return row["mtime"] is not None and info["mtime"] < row["mtime"]
 
 
 def find_renamed_row(conn, path, file_key, info):
@@ -249,18 +267,22 @@ def insert_row(conn, path, file_key, info, location_kind, status, now):
     )
 
 
-def update_row(conn, row, path, file_key, info, location_kind, status, now):
-    """files の行を、今のファイルの情報に書き換える（観測の開始 first_seen_at は変えない）"""
+def update_row(conn, row, path, file_key, info, location_kind, status, now, new_observation=False):
+    """files の行を、今のファイルの情報に書き換える
+
+    観測の開始 first_seen_at は、new_observation が True（別のファイルに置き換わった）のときだけ now にする。
+    """
     ctime = info["ctime"] if info["ctime"] is not None else row["ctime"]
     new_values = (path, file_key, info["name"], info["ext"], info["size"], info["mtime"], ctime, location_kind, status)
     old_values = (row["path"], row["file_key"], row["name"], row["ext"], row["size"], row["mtime"], row["ctime"],
                   row["location_kind"], row["status"])
     # updated_at は、行の内容が変わったときだけ進める（last_seen_at は、見つけるたびに進める）
     updated_at = now if new_values != old_values else row["updated_at"]
+    first_seen_at = now if new_observation else row["first_seen_at"]
     conn.execute(
         "UPDATE files SET path = ?, file_key = ?, name = ?, ext = ?, size = ?, mtime = ?, ctime = ?, "
-        "location_kind = ?, status = ?, last_seen_at = ?, updated_at = ? WHERE id = ?",
-        new_values + (now, updated_at, row["id"]),
+        "location_kind = ?, status = ?, first_seen_at = ?, last_seen_at = ?, updated_at = ? WHERE id = ?",
+        new_values + (first_seen_at, now, updated_at, row["id"]),
     )
 
 

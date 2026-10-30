@@ -23,6 +23,7 @@ on_event の中で start() や stop() を呼ばないでください。
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -36,6 +37,8 @@ MAX_LINE_BYTES = 1024 * 1024      # 1行の上限（改行を除くバイト数�
 DISCARD_CHUNK_BYTES = 64 * 1024   # 上限を超えた行を読み捨てるときの、1回に読む量
 STDERR_READ_BYTES = 64 * 1024     # 標準エラー出力を1回に読む量
 STDERR_MAX_CHARS = 200            # ★シェルの標準エラー出力の1行を、記録に残す最大の文字数
+# シェル自身の記録の行の形（shell/Core/Log.cs）：「2026-10-29T01:00:00.000Z [pip0-shell] [情報] …」
+SHELL_LOG_LINE = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z \[pip0-shell\] ")
 EXIT_WAIT_SECONDS = 5             # 標準出力が閉じた後、シェルの終了を待つ秒数
 WRITE_WAIT_SECONDS = 10           # ほかのスレッドの書き込みが終わるのを待つ秒数
 WAIT_SLICE_SECONDS = 0.2          # 答えを待つ区切り（Ctrl+C が効くように、短く区切って待つ）
@@ -50,6 +53,7 @@ COUNTER_NAMES = [
     "callback_errors",       # on_event の中で起きたエラー
     "timeouts",              # 時間内に答えがなかった要求
     "stderr_lines",          # 標準エラー出力の行
+    "stderr_other_lines",    # そのうち、シェルの記録の形でない行（内容は残さない）
 ]
 
 
@@ -385,7 +389,11 @@ class ShellLink:
                        "payload": {"returncode": process.returncode, "requested_stop": requested}})
 
     def _read_stderr(self, process):
-        """標準エラー出力（シェルの動作の記録）を、DEBUG の記録に残す。メッセージとしては読まない"""
+        """標準エラー出力（シェルの動作の記録）を、DEBUG の記録に残す。メッセージとしては読まない
+
+        残すのは、シェル自身の記録の形（SHELL_LOG_LINE）の行だけです。それ以外の行（.NET の実行環境が
+        異常終了のときに書く説明など。ファイルのパスを含むことがある）は、数えるだけで内容は残しません。
+        """
         try:
             while True:
                 raw = process.stderr.readline(STDERR_READ_BYTES)
@@ -393,8 +401,13 @@ class ShellLink:
                     break
                 self._count("stderr_lines")
                 text = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-                if text:
+                if not text:
+                    continue
+                if SHELL_LOG_LINE.match(text):
                     logger.debug("pip0 シェルの記録：%s", text[:STDERR_MAX_CHARS])
+                else:
+                    self._count("stderr_other_lines")
+                    logger.debug("pip0 シェルの標準エラー出力に、記録の形でない行がありました（内容は残しません）")
         except (OSError, ValueError):
             pass
         finally:

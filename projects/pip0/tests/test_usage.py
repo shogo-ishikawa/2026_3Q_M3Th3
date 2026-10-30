@@ -130,6 +130,15 @@ def test_short_observation_cannot_be_judged(env, db, platform):
     assert result["observed_days"] == 30.0
 
 
+def test_observation_does_not_start_before_the_file_was_created(env, db, platform, old_file):
+    # 200 日前から観測している場所に、10 日前にコピーされたファイル（作成日時が 10 日前）
+    db.execute("UPDATE files SET ctime = ? WHERE id = ?", (NOW - 10 * DAY, old_file["id"]))
+    row = database.query_one(db, "SELECT * FROM files WHERE id = ?", (old_file["id"],))
+    result = usage.judge_long_unread(db, row, NOW, env, sources_with_recent(platform, row))
+    assert result["unread"] is None
+    assert result["observed_days"] == 10.0
+
+
 def test_no_reliable_source_cannot_be_judged(env, db, platform, old_file):
     platform.access_time_reliable_value = False
     sources = usage.tracking_sources(platform, old_file["path"], recent_items_enabled=False)

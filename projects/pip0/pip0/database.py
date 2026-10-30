@@ -68,13 +68,13 @@ CREATE TABLE IF NOT EXISTS download_events (
     url                 TEXT,            -- ダウンロードURL（リダイレクト前）。? 以降と # 以降は除く
     final_url           TEXT,            -- ダウンロードURL（リダイレクト後）
     referrer_url        TEXT,            -- 参照元URL
-    tab_url             TEXT,            -- ダウンロード開始時に前面だったタブ（発生元とは限らない）
-    tab_title           TEXT,
+    tab_url             TEXT,            -- ダウンロード開始時に前面だったタブ（発生元とは限らない）。結び付けたら消す
+    tab_title           TEXT,            -- その題名。結び付けたら消す
     mime                TEXT,
     started_at          REAL,
     ended_at            REAL,
     file_size           INTEGER,
-    state               TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'matched' | 'expired'
+    state               TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'matched'（24時間結び付かなければ行ごと消す）
     matched_file_id     INTEGER REFERENCES files(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS download_events_by_state ON download_events(state, received_at);
@@ -88,8 +88,8 @@ CREATE TABLE IF NOT EXISTS provenance (
     download_url      TEXT,
     referrer_url      TEXT,
     host              TEXT,
-    tab_url           TEXT,
-    tab_title         TEXT,
+    tab_url           TEXT,              -- 使わない（画面の文脈は残さない。常に NULL）
+    tab_title         TEXT,              -- 使わない（同上）
     downloaded_at     REAL,
     download_event_id INTEGER REFERENCES download_events(id) ON DELETE SET NULL,
     recorded_at       REAL NOT NULL

@@ -5,6 +5,7 @@ settings.py の値に、データフォルダーの config.json と、テスト�
 この config を引数で受け取ります（テストで場所を差し替えやすくするためです）。
 """
 
+import codecs
 import json
 import os
 import sys
@@ -58,8 +59,7 @@ def read_user_config(data_dir):
     if not path.exists():
         return {}, []
     try:
-        with open(path, encoding="utf-8") as f:
-            values = json.load(f)
+        values = json.loads(read_text_any_bom(path))
     except (OSError, ValueError) as error:
         return {}, [f"config.json を読めませんでした（{error}）。settings.py の値を使います。"]
     if not isinstance(values, dict):
@@ -73,6 +73,18 @@ def read_user_config(data_dir):
         else:
             warnings.append(f"config.json の「{key}」は設定にない名前なので使いません。")
     return accepted, warnings
+
+
+def read_text_any_bom(path):
+    """テキストファイルを読む。UTF-8（先頭の印 BOM があってもなくてもよい）と、BOM 付きの UTF-16 に対応する
+
+    Windows のメモ帳や PowerShell 5.1 の Set-Content・Out-File は、BOM 付きのファイルを作ることがあるため。
+    読めない文字があれば UnicodeDecodeError（ValueError の一種）を出す。
+    """
+    data = Path(path).read_bytes()
+    if data.startswith(codecs.BOM_UTF16_LE) or data.startswith(codecs.BOM_UTF16_BE):
+        return data.decode("utf-16")
+    return data.decode("utf-8-sig")
 
 
 def to_path(value):

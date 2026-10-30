@@ -377,6 +377,7 @@ def test_find_download_event_only_recent_pending_and_newest_first(db):
     row = event_row(db, second_id)
     assert row["state"] == "matched"
     assert row["matched_file_id"] == file_id
+    assert row["tab_url"] is None and row["tab_title"] is None  # 画面の文脈は、使い終わったら消す
     assert provenance.find_download_event(db, path, 1234, NOW)["id"] == first_id
 
 
@@ -386,7 +387,7 @@ def test_expire_old_events(db):
     matched_id = store(db, received_at=NOW - 90000)
     provenance.mark_event_matched(db, matched_id, add_file_row(db))
     assert provenance.expire_old_events(db, NOW) == 1
-    assert event_row(db, old_id)["state"] == "expired"
+    assert event_row(db, old_id) is None  # 24時間結び付かなかった記録は、URL やタブの題名ごと消す
     assert event_row(db, recent_id)["state"] == "pending"
     assert event_row(db, matched_id)["state"] == "matched"
     assert provenance.expire_old_events(db, NOW) == 0
@@ -407,8 +408,8 @@ def test_record_provenance_from_browser_event(db):
     assert row["host"] == "files.slack.com"
     assert row["download_url"] == "https://files.slack.com/files-pri/T0-F0/report.pdf"
     assert row["referrer_url"] == "https://app.slack.com/"
-    assert row["tab_url"] == "https://app.slack.com/client/T0/C0"  # 記録はするが、送信元には使わない
-    assert row["tab_title"] == "予算 (Channel) - ws - Slack"
+    assert row["tab_url"] is None  # ダウンロード開始時のタブ（画面の文脈）は残さない
+    assert row["tab_title"] is None
     assert row["downloaded_at"] == NOW - 5.5  # 拡張機能の終了時刻
     assert row["download_event_id"] == event["id"]
     assert row["recorded_at"] == NOW + 1

@@ -10,10 +10,33 @@ import hashlib
 import json
 import os
 import sys
+import time
+
+
+# ★Windows で、ほかのプロセスが読んでいる間の置き換え・読み取りを、やり直す回数と間隔（合わせて最大 1 秒）
+IN_USE_RETRIES = 20
+IN_USE_RETRY_SECONDS = 0.05
 
 
 class Paused(Exception):
     """should_continue() が偽を返したので、区切りで止めた"""
+
+
+def retry_while_in_use(action):
+    """action()（引数なしの関数）を行い、その結果を返す
+
+    Windows では、ほかのプロセス（例：全復元の進み具合を読むコマンド）がファイルを開いている間、
+    そのファイルの置き換え（os.replace）や、置き換え中のファイルを開くことが PermissionError になることがあります。
+    そのときは少し待ってやり直します。最後まで失敗したら、その PermissionError を出します。
+    Windows 以外の PermissionError は、本当に権限がないので、すぐに出します。
+    """
+    for attempt in range(IN_USE_RETRIES):
+        try:
+            return action()
+        except PermissionError:
+            if sys.platform != "win32" or attempt == IN_USE_RETRIES - 1:
+                raise
+            time.sleep(IN_USE_RETRY_SECONDS)
 
 
 def no_overwrite_rename(src, dst):
@@ -66,7 +89,7 @@ def atomic_write_bytes(path, data):
     with open(tmp, "wb") as f:
         f.write(data)
         fsync_file(f)
-    os.replace(tmp, path)
+    retry_while_in_use(lambda: os.replace(tmp, path))
     fsync_dir(os.path.dirname(path) or ".")
 
 
@@ -75,8 +98,11 @@ def atomic_write_json(path, value):
 
 
 def read_json(path):
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    def read():
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    return retry_while_in_use(read)
 
 
 def sha256_stream(f, chunk_size=1024 * 1024, should_continue=None):

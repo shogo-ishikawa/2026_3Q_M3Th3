@@ -35,6 +35,7 @@
     <Compile Include="../CloudFiles/HResultText.cs" Link="Shell/CloudFiles/HResultText.cs" />
     <Compile Include="../CloudFiles/PathText.cs" Link="Shell/CloudFiles/PathText.cs" />
     <Compile Include="../CloudFiles/TransferRange.cs" Link="Shell/CloudFiles/TransferRange.cs" />
+    <Compile Include="../CloudFiles/LocateAnswer.cs" Link="Shell/CloudFiles/LocateAnswer.cs" />
     <Compile Include="../Trash/TrashItem.cs" Link="Shell/Trash/TrashItem.cs" />
     <!-- 常駐UI・入力・作業文脈のうち、Windows の機能を使わない判定 -->
     <Compile Include="../Ui/ScreenGeometry.cs" Link="Shell/Ui/ScreenGeometry.cs" />

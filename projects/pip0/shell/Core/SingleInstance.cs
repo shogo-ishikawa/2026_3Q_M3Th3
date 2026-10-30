@@ -22,7 +22,22 @@ internal sealed class SingleInstance : IDisposable
     /// <summary>取得できたら SingleInstance、ほかのシェルが動いていたら null</summary>
     public static SingleInstance? TryAcquire(string userSid)
     {
-        var mutex = new Mutex(initiallyOwned: false, name: @"Local\pip0.shell." + userSid);
+        Mutex mutex;
+        try
+        {
+            mutex = new Mutex(initiallyOwned: false, name: @"Local\pip0.shell." + userSid);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // 管理者として動いているシェルが作ったミューテックスは、管理者でないプロセスからは開けない。
+            // ほかのシェルが動いているので、2つ目として終わる
+            return null;
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+            // 同じ名前の、ミューテックスでないもの（イベント等）がある。安全のため、2つ目として終わる
+            return null;
+        }
         bool acquired;
         try
         {

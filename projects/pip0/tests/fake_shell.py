@@ -103,8 +103,11 @@ def handle_request(message):
         respond(request_id, {"sent": 2})
     elif request_type == "stderr":
         # 本物のシェルと同じく、UTF-8 で1行ずつ書く
-        sys.stderr.buffer.write("短い記録です\n".encode("utf-8"))
-        sys.stderr.buffer.write(("長" * 500 + "\n").encode("utf-8"))
+        log_prefix = "2026-10-29T01:00:00.000Z [pip0-shell] [情報] "  # シェル自身の記録の形
+        sys.stderr.buffer.write((log_prefix + "短い記録です\n").encode("utf-8"))
+        sys.stderr.buffer.write((log_prefix + "長" * 500 + "\n").encode("utf-8"))
+        # .NET の実行環境が異常終了のときに書く説明の形（パスを含む）。内容は記録に残らないこと
+        sys.stderr.buffer.write("Unhandled exception. System.IO.IOException: C:\\Users\\u\\給与明細.pdf\n".encode("utf-8"))
         sys.stderr.buffer.write(b'{"kind": "event", "type": "from.stderr", "payload": {}}\n')
         sys.stderr.buffer.flush()
         respond(request_id, {"written": 3})

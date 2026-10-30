@@ -224,6 +224,35 @@ def test_older_mtime_is_a_change_but_not_a_use(db, platform, env):
     assert usage_events(db, file_id) == []
 
 
+def test_new_file_at_the_path_of_a_missing_file_starts_a_new_observation(db, platform, env):
+    path = make_file(env["PIP0_ROOT"] / "資料.pdf")
+    file_id = upsert(db, platform, path, "pip0_root")["file_id"]
+    db.execute("UPDATE files SET status = 'missing' WHERE id = ?", (file_id,))  # 消された
+    # 200 日後に、圧縮ファイルから取り出した（更新日時の古い）別のファイルが、同じ名前で置かれた
+    make_file(path, b"another file from an archive", mtime=OLD_MTIME - 400 * 86400)
+    upsert(db, platform, path, "pip0_root", now=NOW + 200 * 86400)
+    assert file_row(db, path)["first_seen_at"] == NOW + 200 * 86400  # 前の観測期間を受け継がない
+
+
+def test_replaced_file_starts_a_new_observation(db, platform, env):
+    path = make_file(env["PIP0_ROOT"] / "資料.pdf")
+    upsert(db, platform, path, "pip0_root")
+    replacement = make_file(env["PIP0_ROOT"] / "置き換え.tmp", b"copied older file", mtime=OLD_MTIME - 1000)
+    os.replace(replacement, path)  # 古いファイルのコピーで上書きした（ファイル番号と更新日時が変わる）
+    upsert(db, platform, path, "pip0_root", now=NOW + 100 * 86400)
+    assert file_row(db, path)["first_seen_at"] == NOW + 100 * 86400
+
+
+def test_edited_file_keeps_its_observation(db, platform, env):
+    path = make_file(env["PIP0_ROOT"] / "資料.pdf")
+    upsert(db, platform, path, "pip0_root")
+    with open(path, "ab") as f:  # 同じファイルに書き足した（更新日時が進む）
+        f.write(b" more")
+    os.utime(path, (OLD_MTIME + 50, OLD_MTIME + 50))
+    upsert(db, platform, path, "pip0_root", now=NOW + 100 * 86400)
+    assert file_row(db, path)["first_seen_at"] == NOW
+
+
 def test_upsert_returns_none_for_missing_files_and_links(db, platform, env, tmp_path):
     assert upsert(db, platform, env["DOWNLOADS_DIR"] / "none.pdf") is None
     target = make_file(tmp_path / "outside.txt")

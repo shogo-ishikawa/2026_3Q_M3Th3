@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
@@ -17,14 +19,18 @@ namespace Pip0Shell.CloudFiles;
 internal sealed record GhostExpectation(long Size, long MtimeNs, string FileKey, string Sha256);
 
 /// <summary>
-/// ゴースト（プレースホルダー）の状態を読む・作る・戻す（cf.status、cf.make_ghost、cf.restore）。
+/// ゴースト（プレースホルダー）の状態を読む・作る・戻す・探す（cf.status、cf.make_ghost、cf.restore、cf.locate）。
 /// 手順は docs/ipc-protocol.md の2節と docs/design.md の7節に合わせています。
 ///
 /// 大事な約束：
 /// - ゴーストにする前に、原本と保管庫の両方が expected と一致することを確かめる。1つでも違えば "changed" で、何も変えない。
-/// - 通常のファイルへ戻す前に、中身がすべてディスクにあることを確かめる（中身のないまま戻すと、0 で埋まったファイルになるため）。
+/// - 通常のファイルへ戻す前に、自分で中身を戻し（CfHydratePlaceholder）、中身がすべてディスクにあることを確かめる。
+///   CfRevertPlaceholder は、中身がそろっていなければ自分で FETCH_DATA を呼んで中身を戻し、戻せなければ失敗します
+///   （STATUS_CLOUD_FILE_ACCESS_DENIED）。それでも先に自分で戻すのは、保管庫のハッシュの確認と「すべてディスクにある」ことの
+///   確認を、排他的なハンドルで戻す直前に行い、失敗の理由をはっきり返すためです。
 ///   「すべてある」と判断するのは、CfGetPlaceholderInfo の OnDiskDataSize がファイルの大きさ以上で、かつ
 ///   属性に RECALL_ON_DATA_ACCESS（データの一部がローカルにない印）が付いていないときだけです。
+/// - 確かめられなかったことを、確かな答えとして返さない（cf.status の値は、分からなければ null）。
 /// </summary>
 internal sealed class PlaceholderOperations
 {
@@ -45,12 +51,21 @@ internal sealed class PlaceholderOperations
     // cf.status
     // ------------------------------------------------------------------
 
-    /// <summary>{"exists", "is_ghost", "item_id", "dehydrated", "in_sync", "pinned", "reason"} を返す</summary>
+    /// <summary>
+    /// {"exists", "is_ghost", "item_id", "dehydrated", "in_sync", "pinned", "reason"} を返す。
+    /// 読めなかった値は null（分からない）にする。「読めなかった」を「ゴーストではない」「ファイルがない」として返すと、
+    /// 本体が、ゴーストを通常のファイルと思い込んで保管庫の扱いを誤るため。
+    /// </summary>
     public JsonObject Status(string path)
     {
-        if (!DirectoryEntry.TryRead(path, out EntryInfo entry))
+        EntryLookup found = DirectoryEntry.Find(path, out EntryInfo entry, out int findResult);
+        if (found == EntryLookup.NotFound)
         {
             return StatusResult(false, false, null, null, null, null, "ファイルがありません。");
+        }
+        if (found == EntryLookup.Unknown)
+        {
+            return StatusResult(null, null, null, null, null, null, "ファイルがあるかを確かめられません：" + HResultText.Describe(findResult));
         }
         if (entry.IsDirectory)
         {
@@ -70,19 +85,19 @@ internal sealed class PlaceholderOperations
             {
                 return StatusResult(false, false, null, null, null, null, "ファイルがありません。");
             }
-            return StatusResult(true, false, null, null, null, null, "状態を読めません：" + HResultText.Describe(openResult));
+            return StatusResult(true, null, null, null, null, null, "状態を読めません：" + HResultText.Describe(openResult));
         }
 
         HANDLE handle = (HANDLE)file.DangerousGetHandle();
         FileSnapshot? snapshot = FileSnapshot.TryRead(handle, out int snapshotResult);
         if (snapshot is null)
         {
-            return StatusResult(true, false, null, null, null, null, "状態を読めません：" + HResultText.Describe(snapshotResult));
+            return StatusResult(true, null, null, null, null, null, "状態を読めません：" + HResultText.Describe(snapshotResult));
         }
         int infoResult = PlaceholderInfo.TryRead(handle, out PlaceholderInfo info);
         if (infoResult < 0)
         {
-            return StatusResult(true, false, null, null, null, null, "プレースホルダーの状態を読めません：" + HResultText.Describe(infoResult));
+            return StatusResult(true, null, null, null, null, null, "プレースホルダーの状態を読めません：" + HResultText.Describe(infoResult));
         }
 
         bool pinnedAttribute = (snapshot.Attributes & (uint)FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_PINNED) != 0;
@@ -94,7 +109,11 @@ internal sealed class PlaceholderOperations
         bool dehydrated = snapshot.Size > 0 && info.OnDiskDataSize == 0;
         bool pinned = info.PinState == CF_PIN_STATE.CF_PIN_STATE_PINNED || pinnedAttribute;
         string? root = provider.RootPath ?? state.Configuration?.Pip0Root;
-        bool ours = info.ItemId is not null && root is not null && PathText.IsInside(path, root);
+        if (info.ItemId is not null && root is null)
+        {
+            return StatusResult(true, null, null, dehydrated, info.InSync, pinned, "pip0 専用フォルダーの場所が分からないため、pip0 のゴーストかを確かめられません。");
+        }
+        bool ours = info.ItemId is not null && PathText.IsInside(path, root!);
         return StatusResult(
             true,
             ours,
@@ -128,9 +147,14 @@ internal sealed class PlaceholderOperations
             return Outcome("error", "保管庫の場所が設定されていません。");
         }
 
-        if (!DirectoryEntry.TryRead(path, out EntryInfo entry))
+        EntryLookup found = DirectoryEntry.Find(path, out EntryInfo entry, out int findResult);
+        if (found == EntryLookup.NotFound)
         {
             return Outcome("changed", "ファイルが見つかりません。");
+        }
+        if (found == EntryLookup.Unknown)
+        {
+            return Outcome("error", "ファイルがあるかを確かめられません：" + HResultText.Describe(findResult));
         }
         if (entry.IsDirectory)
         {
@@ -139,6 +163,12 @@ internal sealed class PlaceholderOperations
         if (entry.IsLink)
         {
             return Outcome("error", "リンク（シンボリックリンク等）はゴーストにしません。");
+        }
+        if (entry.IsReadOnly)
+        {
+            // CfConvertToPlaceholder には、書き込み（WRITE_DATA）の権利のあるハンドルが要る。
+            // 読み取り専用のファイルは書き込みの権利で開けないので、何度試しても失敗する
+            return Outcome("error", "読み取り専用のファイルのため、ゴーストにしません（何度試しても同じです）。");
         }
 
         // 1. 保管庫の内容が expected（大きさとハッシュ）に一致するか。
@@ -208,7 +238,12 @@ internal sealed class PlaceholderOperations
             {
                 return AlreadyPlaceholder(existing, itemId, before.Size);
             }
-            DisableLastAccessUpdate(handle);
+            if (!DisableLastAccessUpdate(handle))
+            {
+                // CfOpenFileWithOplock のハンドルには FILE_WRITE_ATTRIBUTES がないため、Windows が断ることがある。
+                // そのときは、この後の確認の読み取りで、最終アクセス日時が更新されうる（README の「制約」を参照）
+                Log.Info("ゴーストにする前の確認の読み取りで、最終アクセス日時の更新を止められませんでした。");
+            }
         }
         finally
         {
@@ -390,13 +425,19 @@ internal sealed class PlaceholderOperations
     ///    CfHydratePlaceholder で戻す（Windows がこのシェルの FETCH_DATA を呼び、シェルが保管庫のハッシュを確かめてから渡す）。
     ///    ここで排他的なハンドルを持たないのは、中身を戻す Windows の処理と、こちらのハンドルがぶつからないようにするため。
     /// 2. 排他的に開き直し、この項目のゴーストで、中身がすべてディスクにあることをもう一度確かめてから、
-    ///    CfRevertPlaceholder で通常のファイルに戻す（中身のないまま戻すと、0 で埋まったファイルになるため）。
+    ///    CfRevertPlaceholder で通常のファイルに戻す。
     /// </summary>
     public JsonObject Restore(string path, string itemId)
     {
-        if (!DirectoryEntry.TryRead(path, out EntryInfo entry))
+        EntryLookup found = DirectoryEntry.Find(path, out EntryInfo entry, out int findResult);
+        if (found == EntryLookup.NotFound)
         {
             return Outcome("missing", "元の場所にファイルがありません。");
+        }
+        if (found == EntryLookup.Unknown)
+        {
+            // 「確かめられない」を「ない」（missing）として返すと、本体がゴーストを見失ったと記録してしまう
+            return Outcome("error", "ファイルがあるかを確かめられません：" + HResultText.Describe(findResult));
         }
         if (entry.IsDirectory)
         {
@@ -405,6 +446,14 @@ internal sealed class PlaceholderOperations
         if (entry.IsLink)
         {
             return Outcome("error", "リンク（シンボリックリンク等）です。");
+        }
+        if (entry.IsReadOnly)
+        {
+            // CfRevertPlaceholder には、書き込み（WRITE_DATA）か WRITE_DAC の権利のあるハンドルが要る。
+            // 読み取り専用のファイルは書き込みの権利で開けず、CfOpenFileWithOplock では WRITE_DAC を求められない。
+            // 属性を勝手に変えることはしないので、ユーザーに外してもらう
+            return Outcome("error", "読み取り専用のゴーストのため、通常のファイルに戻せません。エクスプローラーでファイルのプロパティを開き、"
+                + "「読み取り専用」を外してから、もう一度試してください（中身は保管庫に残っています）。");
         }
 
         // 1. 確かめて、必要なら中身を戻す
@@ -539,6 +588,65 @@ internal sealed class PlaceholderOperations
     }
 
     // ------------------------------------------------------------------
+    // cf.locate
+    // ------------------------------------------------------------------
+
+    /// <summary>cf.locate でたどる項目数の上限</summary>
+    private const int LocateMaxEntries = 200_000;
+
+    /// <summary>cf.locate にかける時間の上限</summary>
+    private static readonly TimeSpan LocateTimeLimit = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// {"result": "found"/"not_found"/"error", "paths", "reason"} を返す（<see cref="LocateAnswer"/>）。
+    /// pip0 専用フォルダー（同期ルート）の中から、この項目のゴースト（FileIdentity が項目ID のプレースホルダー）を探す。
+    /// フォルダーの名前の変更や、シェルが止まっている間の移動で、ゴーストの場所が記録と違ってしまったときに、本体が使う。
+    /// リンクとジャンクションはたどらず、プレースホルダーは属性だけを読む開き方で開く（中身を取りに行かせない）。
+    /// </summary>
+    public JsonObject Locate(string itemId, CancellationToken shutdown)
+    {
+        string? root = provider.RootPath ?? state.Configuration?.Pip0Root;
+        if (root is null)
+        {
+            return LocateAnswer.Build(Array.Empty<string>(), false, "pip0 専用フォルダーの場所が分かりません");
+        }
+
+        Stopwatch clock = Stopwatch.StartNew();
+        List<string> candidates = DirectoryEntry.ListPlaceholderFiles(
+            root, LocateMaxEntries, LocateTimeLimit, shutdown, out bool complete);
+        string problem = complete ? "" : "項目が多すぎる、時間がかかりすぎる、または読めないフォルダーがあります";
+
+        var matches = new List<string>();
+        foreach (string candidate in candidates)
+        {
+            if (shutdown.IsCancellationRequested || clock.Elapsed > LocateTimeLimit)
+            {
+                complete = false;
+                problem = "時間がかかりすぎました";
+                break;
+            }
+            using SafeFileHandle file = OpenForAttributes(candidate);
+            if (file.IsInvalid)
+            {
+                complete = false;
+                problem = "開けないプレースホルダーがあります";
+                continue;
+            }
+            if (PlaceholderInfo.TryRead((HANDLE)file.DangerousGetHandle(), out PlaceholderInfo info) < 0)
+            {
+                complete = false;
+                problem = "状態を読めないプレースホルダーがあります";
+                continue;
+            }
+            if (info.IsPlaceholder && ItemId.Same(info.ItemId, itemId))
+            {
+                matches.Add(candidate);
+            }
+        }
+        return LocateAnswer.Build(matches, complete, problem);
+    }
+
+    // ------------------------------------------------------------------
     // 小さな道具
     // ------------------------------------------------------------------
 
@@ -572,11 +680,16 @@ internal sealed class PlaceholderOperations
         return null;
     }
 
-    /// <summary>この後の読み取りで、最終アクセス日時を変えないようにする（失敗しても続ける）</summary>
-    private static unsafe void DisableLastAccessUpdate(HANDLE handle)
+    /// <summary>
+    /// この後の読み取りで、最終アクセス日時を変えないようにする。止められたら真（失敗しても続ける）。
+    /// SetFileTime に 0xFFFFFFFF を渡すと、そのハンドルでの操作が最終アクセス日時を変えなくなるが、
+    /// それには FILE_WRITE_ATTRIBUTES の権利が要る。別のハンドルで止めても、このハンドルの読み取りには効かず、
+    /// ゴーストにした後に日時を書き戻すと、プレースホルダーの同期済みの印に影響しうるため、ここでは試すだけにする。
+    /// </summary>
+    private static unsafe bool DisableLastAccessUpdate(HANDLE handle)
     {
         var keep = new ComTypes.FILETIME { dwLowDateTime = -1, dwHighDateTime = -1 };
-        PInvoke.SetFileTime(handle, null, &keep, null);
+        return PInvoke.SetFileTime(handle, null, &keep, null);
     }
 
     private static bool IsNotFound(int hresult)
@@ -622,7 +735,7 @@ internal sealed class PlaceholderOperations
     }
 
     private static JsonObject StatusResult(
-        bool exists, bool isGhost, string? itemId, bool? dehydrated, bool? inSync, bool? pinned, string reason)
+        bool? exists, bool? isGhost, string? itemId, bool? dehydrated, bool? inSync, bool? pinned, string reason)
     {
         return new JsonObject
         {

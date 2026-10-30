@@ -13,9 +13,11 @@ import secrets
 SERVICE_NAME = "pip0"
 KEY_NAME = "database-key-v1"
 
+WINDOWS_BACKEND = "keyring.backends.Windows.WinVaultKeyring"
+
 # 鍵を預けてよい keyring の保存先（平文のファイルに保存する種類は使わない）
 ALLOWED_BACKENDS = [
-    "keyring.backends.Windows.WinVaultKeyring",      # Windows の資格情報マネージャー（本番）
+    WINDOWS_BACKEND,                                 # Windows の資格情報マネージャー（本番）
     "keyring.backends.SecretService.Keyring",        # Linux の開発用（GNOME キーリング等）
     "keyring.backends.macOS.Keyring",                # macOS の開発用（キーチェーン）
 ]
@@ -78,22 +80,50 @@ class OsKeystore:
                 f"鍵の保存先（{backend_name}）は pip0 では使いません。"
                 "Windows の資格情報マネージャーなど、OS の鍵保管機構が必要です。"
             )
+        if backend_name == WINDOWS_BACKEND:
+            # 鍵は、この PC の中だけに保存する（既定の「エンタープライズ」は、移動プロファイルで
+            # ほかの PC へ持ち出されることがある。DB はこの PC にしかないので、鍵も持ち出さない）
+            backend.persist = "local machine"
         self._keyring = keyring
+        self.backend = backend
         self.service = service
         self.username = username
         self.name = backend_name
 
     def get_key(self):
-        return self._keyring.get_password(self.service, self.username)
+        try:
+            return self.backend.get_password(self.service, self.username)
+        except Exception as error:
+            raise unavailable(error) from error
 
     def set_key(self, key_hex):
-        self._keyring.set_password(self.service, self.username, key_hex)
+        try:
+            self.backend.set_password(self.service, self.username, key_hex)
+        except Exception as error:
+            raise unavailable(error) from error
 
     def delete_key(self):
         try:
-            self._keyring.delete_password(self.service, self.username)
+            self.backend.delete_password(self.service, self.username)
         except self._keyring.errors.PasswordDeleteError:
-            pass
+            pass  # もともと鍵がない
+        except Exception as error:
+            raise unavailable(error) from error
+
+
+def unavailable(error):
+    """資格情報マネージャー等の失敗（ログオンの種類で使えない等）を、KeystoreUnavailable にする
+
+    keyring が Windows で出すエラー（pywin32-ctypes の error）は、OSError の仲間ではないため、
+    ここでまとめて言い換えます。エラーの文には鍵を含みません。
+    """
+    number = getattr(error, "winerror", None)
+    detail = f"Windows のエラー番号 {number}" if number is not None else type(error).__name__
+    return KeystoreUnavailable(
+        f"OS の鍵保管機構（資格情報マネージャー）を使えません（{detail}）。"
+        "サインインした本人のデスクトップから実行してください（リモートのコマンド、"
+        "「ログオンしていなくても実行する」タスク等では使えないことがあります）。"
+    )
 
 
 def get_or_create_key(keystore, db_exists):

@@ -18,6 +18,8 @@ internal static unsafe class WindowInfo
 
     private const int MaxClassNameLength = 256;
     private const int MaxParentDepth = 64;
+    private const string UwpFrameClassName = "ApplicationFrameWindow";
+    private const string UwpCoreWindowClassName = "Windows.UI.Core.CoreWindow";
 
     /// <summary>ウィンドウのタイトル。読めなければ空</summary>
     public static string GetTitle(HWND hwnd)
@@ -59,6 +61,35 @@ internal static unsafe class WindowInfo
         uint processId = 0;
         PInvoke.GetWindowThreadProcessId(hwnd, &processId);
         return processId;
+    }
+
+    /// <summary>
+    /// アプリのプロセスの番号。pointed は点の下のいちばん内側のウィンドウ、root はそのトップレベルのウィンドウ。分からなければ 0。
+    /// ストアのアプリ（UWP）は、トップレベルのウィンドウ（ApplicationFrameWindow）を ApplicationFrameHost.exe が作り、
+    /// アプリ本体のウィンドウ（Windows.UI.Core.CoreWindow）はその中にあるため、トップレベルのプロセスでは
+    /// どのアプリも ApplicationFrameHost.exe になってしまう。そのときは中のウィンドウのプロセスを使う。
+    /// </summary>
+    public static uint GetAppProcessId(HWND pointed, HWND root)
+    {
+        if (root.IsNull)
+        {
+            return 0;
+        }
+        uint rootProcess = GetProcessId(root);
+        if (!string.Equals(GetClassName(root), UwpFrameClassName, StringComparison.Ordinal))
+        {
+            return rootProcess;
+        }
+        // 点の下のウィンドウがアプリ本体のもの（枠のプロセスと違う）なら、それを使う
+        uint pointedProcess = pointed.IsNull ? 0 : GetProcessId(pointed);
+        if (pointedProcess != 0 && pointedProcess != rootProcess)
+        {
+            return pointedProcess;
+        }
+        // タイトルバーの上などでは、枠の中のアプリ本体のウィンドウを探す
+        HWND core = PInvoke.FindWindowEx(root, HWND.Null, UwpCoreWindowClassName, null);
+        uint coreProcess = core.IsNull ? 0 : GetProcessId(core);
+        return coreProcess != 0 ? coreProcess : rootProcess;
     }
 
     /// <summary>いちばん外側（トップレベル）のウィンドウ</summary>

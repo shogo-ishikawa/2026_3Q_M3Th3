@@ -16,7 +16,8 @@ namespace Pip0Shell.Ui;
 /// どちらも本体が決めて頼むもので、シェルは頼まれたファイルを開くだけです。答えは {"ok", "reason"}。
 ///
 /// - 開く：ShellExecuteEx（Process.Start の UseShellExecute）。ゴーストなら、開いたアプリが読むときに Windows が
-///   pip0 シェルを呼び、保管庫から中身が戻ります。開くとプログラムが動く種類（<see cref="OpenableFile"/>）は開きません。
+///   pip0 シェルを呼び、保管庫から中身が戻ります。開くのは、文書・画像・音声・動画など決まった種類
+///   （<see cref="OpenableFile"/>）だけです。
 /// - 場所を開く：SHParseDisplayName と SHOpenFolderAndSelectItems（ファイルの中身は読みません）。
 /// どちらも COM を使うので、STA の専用のスレッドで実行します。
 /// </summary>
@@ -37,9 +38,10 @@ internal static class FileActions
         {
             return Answer(false, "フォルダーは開きません（場所を開いてください）。");
         }
-        if (OpenableFile.IsRunnable(path))
+        if (!OpenableFile.IsOpenable(path))
         {
-            return Answer(false, "開くとプログラムが動く種類のファイルのため、pip0 からは開きません。場所を開いて確かめてください。");
+            return Answer(false, "pip0 から開くのは、文書・画像・音声・動画など決まった種類のファイルだけです"
+                + "（開くとプログラムが動く種類を、ボタン1つで開かないため）。場所を開いて確かめてください。");
         }
 
         return RunOnSta(() =>

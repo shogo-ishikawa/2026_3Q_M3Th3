@@ -18,6 +18,9 @@ namespace Pip0Shell.Ui;
 ///   WPF が WS_EX_LAYERED を付けるため、この2つがそろうとクリックが通る）。
 /// - 位置は物理ピクセル（GetCursorPos と同じ座標）で SetWindowPos する。WPF の Left/Top は拡大率の違う画面で
 ///   ずれることがあるため使わない。
+/// - 画面の共有・録画・スクリーンショットに写さない（SetWindowDisplayAffinity の WDA_EXCLUDEFROMCAPTURE）。
+///   警告の枠やミニドックには、ファイル名や作業中の会話名が出るため、画面の共有中に、ほかの人へ見せないようにする。
+///   Windows の説明どおり、これは画面を写されないための「保護の仕組み」ではありません（カメラで撮るなどは防げない）。
 /// </summary>
 internal static class WindowPlacement
 {
@@ -54,6 +57,12 @@ internal static class WindowPlacement
         style = clickThrough ? style | (int)WINDOW_EX_STYLE.WS_EX_TRANSPARENT : style & ~(int)WINDOW_EX_STYLE.WS_EX_TRANSPARENT;
         PInvoke.SetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, style);
         HwndSource.FromHwnd((IntPtr)hwnd)?.AddHook(NoActivateHook);
+        if (!PInvoke.SetWindowDisplayAffinity(hwnd, WINDOW_DISPLAY_AFFINITY.WDA_EXCLUDEFROMCAPTURE))
+        {
+            // 失敗しても表示は続ける（ウィンドウの種類の名前だけを記録する。パスやタイトルは書かない）
+            Core.Log.Warning("画面の共有に写さない設定ができませんでした（" + window.GetType().Name + "、エラー "
+                + System.Runtime.InteropServices.Marshal.GetLastPInvokeError() + "）。");
+        }
     }
 
     /// <summary>クリックを下へ通すか（WS_EX_TRANSPARENT）を切り替える</summary>

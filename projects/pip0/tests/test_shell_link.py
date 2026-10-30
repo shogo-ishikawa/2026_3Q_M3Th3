@@ -234,7 +234,7 @@ def test_stderr_goes_to_the_debug_log_truncated_and_is_never_parsed(make_link, c
         return [record for record in caplog.records
                 if record.name == "pip0.shell_link" and record.getMessage().startswith(prefix)]
 
-    wait_until(lambda: len(shell_records()) >= 3)
+    wait_until(lambda: len(shell_records()) >= 2)
     assert all(record.levelno == logging.DEBUG for record in shell_records())
     messages = [record.getMessage() for record in shell_records()]
     assert any("短い記録です" in message for message in messages)
@@ -242,6 +242,10 @@ def test_stderr_goes_to_the_debug_log_truncated_and_is_never_parsed(make_link, c
     assert len(long_message) == len(prefix) + shell_link.STDERR_MAX_CHARS
     # 標準エラー出力に JSON の知らせの形の行があっても、知らせとしては扱わない
     assert "from.stderr" not in recorder.types()
+    # シェルの記録の形でない行（パスを含むかもしれない）は、内容を残さない
+    wait_until(lambda: link.counters().get("stderr_other_lines", 0) >= 2)
+    assert not any("給与明細" in record.getMessage() or "from.stderr" in record.getMessage()
+                   for record in caplog.records)
 
 
 # ----------------------------------------------------------------------

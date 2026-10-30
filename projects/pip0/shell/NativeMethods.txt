@@ -76,6 +76,8 @@ DwmGetWindowAttribute
 GetCursorPos
 WM_MOUSEACTIVATE
 MA_NOACTIVATE
+SetWindowDisplayAffinity
+WINDOW_DISPLAY_AFFINITY
 
 // --- メッセージループを持つスレッド（Core/MessageLoopThread.cs） ---
 GetMessage
@@ -108,6 +110,7 @@ GetClassName
 IsWindow
 IsChild
 GetAncestor
+FindWindowEx
 EnumChildWindows
 GetDlgCtrlID
 OpenProcess

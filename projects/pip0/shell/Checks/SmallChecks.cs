@@ -18,6 +18,7 @@ internal static class SmallChecks
         TransferRangeChecks();
         HydrationTrackerChecks();
         ItemIdChecks();
+        LocateAnswerChecks();
         HResultTextChecks();
         PathTextChecks();
         SettingsChecks();
@@ -94,6 +95,21 @@ internal static class SmallChecks
         Program.Check(ItemId.FromIdentity(Encoding.UTF8.GetBytes("あいうえおかきくけこ01")) is null, "ASCII でない FileIdentity は項目ID ではない");
         Program.Check(ItemId.ToIdentity(id).Length == 32, "FileIdentity は 32 バイト");
         Program.Check(ItemId.Same(id, id.ToUpperInvariant()) && !ItemId.Same(id, null), "比べるときは大文字小文字を区別しない");
+    }
+
+    private static void LocateAnswerChecks()
+    {
+        System.Text.Json.Nodes.JsonObject found = LocateAnswer.Build(new[] { @"C:\Users\u\pip0\2026予算\a.pdf" }, true, "");
+        Program.Check((string?)found["result"] == "found" && found["paths"]!.AsArray().Count == 1 && (string?)found["reason"] == "", "見つかった場所を返す");
+        System.Text.Json.Nodes.JsonObject partial = LocateAnswer.Build(new[] { @"C:\a.pdf" }, false, "時間がかかりすぎました");
+        Program.Check((string?)partial["result"] == "found" && ((string?)partial["reason"])!.Contains("すべては探せません", StringComparison.Ordinal), "探しきれなくても、見つかった分は返し、そう書く");
+        System.Text.Json.Nodes.JsonObject none = LocateAnswer.Build(Array.Empty<string>(), true, "");
+        Program.Check((string?)none["result"] == "not_found" && none["paths"]!.AsArray().Count == 0, "すべて探して見つからなければ not_found");
+        System.Text.Json.Nodes.JsonObject unknown = LocateAnswer.Build(Array.Empty<string>(), false, "読めないフォルダーがあります");
+        Program.Check((string?)unknown["result"] == "error" && ((string?)unknown["reason"])!.Contains("ないとは言えません", StringComparison.Ordinal), "探しきれず見つからなければ error（「ない」とは言わない）");
+        string[] many = Enumerable.Range(0, 30).Select(i => @"C:\p\" + i + ".pdf").ToArray();
+        System.Text.Json.Nodes.JsonObject capped = LocateAnswer.Build(many, true, "");
+        Program.Check(capped["paths"]!.AsArray().Count == LocateAnswer.MaxPaths && ((string?)capped["reason"])!.Contains("30 か所", StringComparison.Ordinal), "場所は上限まで。何か所あったかは理由に書く");
     }
 
     private static void HResultTextChecks()

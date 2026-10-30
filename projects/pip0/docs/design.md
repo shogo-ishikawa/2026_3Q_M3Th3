@@ -73,7 +73,7 @@ pip0 は、次の3つのプログラムで動きます。
 | 場所（既定） | 中身 | 暗号化 |
 | --- | --- | --- |
 | `%LOCALAPPDATA%\pip0\pip0.db`（と `-wal`） | 索引、解析結果（本文の抜粋、色、グラフらしさ、機密の判定）、ファイルの由来、操作履歴、保管庫の項目 | SQLCipher（AES-256） |
-| Windows の資格情報マネージャー（`pip0` / `database-key-v1`） | DB の鍵（64文字の16進数） | Windows が DPAPI で保護 |
+| Windows の資格情報マネージャー（`pip0` / `database-key-v1`） | DB の鍵（64文字の16進数）。「この PC だけ」（`CRED_PERSIST_LOCAL_MACHINE`）で保存し、移動プロファイルでほかの PC へ持ち出さない | Windows が DPAPI で保護 |
 | `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\content` | 退避したファイルの本体 | **しない**（下の注を参照） |
 | `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\manifest.json` | 復元に必要な最小限の情報（元のパス、サイズ、更新日時、ハッシュ、状態） | **しない**（下の注を参照） |
 | `%LOCALAPPDATA%\pip0\control\` | 自動処理の停止の印、全復元の依頼と進み具合（件数だけ）、常駐処理の状態（`service.status.json`。件数と機能の状態だけで、パスは書かない）、終了の依頼（`shutdown.request.json`） | しない（解析内容を含まない） |
@@ -146,7 +146,8 @@ pip0 は、次の3つのプログラムで動きます。
 - **開いたとき**：アプリがゴーストを開くと、Windows（cldflt.sys）が pip0 シェルを呼び、シェルが保管庫の内容のハッシュを確かめてから中身を渡します。アプリには、中身が戻った後のファイルが見えます。pip0 が起動していないときは、Windows が「クラウド ファイル プロバイダーが実行されていません」というエラーを出し、空の内容は渡しません。中身が戻ってから `RESTORE_AFTER_OPEN_SECONDS`（10秒）後に、通常のファイルへ戻します（項目は「復元済み」）。
 - **長期間未読の判定**（`usage.judge_long_unread`）
   - 利用の記録：①ファイルの更新（最終更新日時）、②Windows の「最近使ったファイル」（Recent フォルダーのショートカット。シェルが読み取る）、③ゴーストが開かれた記録、④最終アクセス日時（その NTFS で更新が有効な場合だけ、弱い手掛かりとして）。
-  - pip0 自身の読み取り（解析、ハッシュ、コピー）は、最終アクセス日時を更新しない開き方（`SetFileTime` に 0xFFFFFFFF を渡す）で行い、利用として記録しません。
+  - pip0 自身の読み取り（解析、ハッシュ、コピー）は、最終アクセス日時を更新しない開き方（`SetFileTime` に 0xFFFFFFFF を渡す）で行い、利用として記録しません。ただし、ゴースト化の直前に pip0 シェルが原本を確かめ直す読み取り（`CfOpenFileWithOplock` の取っ手では `SetFileTime` が使えない）は、最終アクセス日時を更新することがあります（[shell/README.md](../shell/README.md) の制約）。その日時は、ゴーストを戻した後の判定で「利用」と数えられ、次の退避を遅らせる方向にだけ働きます。
+  - 観測期間の始まり：pip0 がそのファイルを見つけた時刻と、ファイルの作成日時の遅いほう。同じパスでも、前のファイルが消えた後に置かれたもの、ファイル番号が変わったもの（別のファイルで置き換えた）、更新日時が前より古くなったもの（古いコピーで上書きした）は、観測を始め直します（`scanner.is_different_file`）。コピーしたファイルが、前のファイルの観測期間を受け継いで、すぐに「長期間未読」とされないためです。
   - 判定：pip0 の観測期間が `MIN_OBSERVED_DAYS`（90日）未満なら「判定不能」。②も④も使えない（Recent の記録が無効で、最終アクセス日時の更新も無効）なら「判定不能」。最後の利用から `UNREAD_DAYS`（90日）以上たっていれば「長期間未読」。「判定不能」のファイルは退避しません。
   - ほかに、`EVACUATE_MIN_SIZE_BYTES`（1MB）未満、ユーザーが「常にこのデバイス上に保持する」にしたもの、ほかのプロセスが使用中のもの、一時ファイルは退避しません。
 - **空き容量**：保管庫が同じドライブにある場合、退避（保管庫へコピーしてからゴーストにする）しても、ドライブ全体の空き容量はほとんど変わりません。pip0 は容量が減ったとは表示しません。
@@ -161,7 +162,7 @@ pip0 は、次の3つのプログラムで動きます。
 - **ドラッグの検知**：シェルが低レベルのマウスフック（`WH_MOUSE_LL`）で、左ボタンを押したまま一定距離動いたことを検知します。押した位置がエクスプローラー（デスクトップを含む）のウィンドウなら、シェルのオートメーション（`Shell.Application`）で、そのウィンドウで選ばれている項目をドラッグ中のファイルとします。pip0 のデスク・ミニドックからのドラッグは、シェル自身が知っています。それ以外のアプリ（メールの添付など）からのドラッグは、ファイルを特定できないため対象外です。
 - **警告**：機密（赤い枠）または未判定（橙色の枠と「機密か未判定」の表示）のファイルを含むドラッグを検知した時点で、すべての画面の枠を光らせます。ただし、そのドラッグのファイルがすべて「消音中」の場合は、開始時には表示せず、消音されていない送り先アプリの上に来た時点で表示します。送り先が消音中のアプリの上にある間は表示しません。
 - **続行の確認**：警告が `HAZARD_MIN_VISIBLE_SECONDS`（0.5秒）以上表示された後に、ドラッグ元と別のアプリ（pip0 以外）のウィンドウの上でボタンが離されたとき、「続行した」とみなします。送り先のアプリがドロップを受け入れたかどうかは、Windows から取得できないため確かめていません。
-- **消音**：続行したファイル × そのアプリ（プロセス名）の組だけを、同じセッションの間は警告しません。別のファイルや別のアプリへの操作では警告します。
+- **消音**：続行したファイル × そのアプリ（プロセス名）の組だけを、同じセッションの間は警告しません。別のファイルや別のアプリへの操作では警告します。ストアアプリ（UWP）は、枠のウィンドウ（`ApplicationFrameHost.exe`）ではなく、中で動くアプリ自身のプロセス名で区別します（作業文脈 `context.foreground` のプロセス名は、枠のウィンドウのままです）。
 - **セッション**：pip0 の起動、または Windows のロック解除・スリープからの復帰で始まり、画面のロック、サインアウト、スリープ、pip0 の終了で終わります。消音の記録はメモリーだけに持ち、セッションの終わりで消えます（無期限にはしません）。
 - 送信を止める機能（DLP）はありません。警告だけです。
 
@@ -213,7 +214,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - `config.load_config(overrides=None, read_user_file=True)` → 設定の辞書。パスは `Path`（未設定は `None`）。`DB_PATH`、`CONTROL_DIR`、`LOCK_DIR`、`LOG_DIR`、`VAULT_DIR` を含む。`CONFIG_ERRORS`（危険な場所の組み合わせの説明）、`CONFIG_WARNINGS`。
 - `config.index_folders(config)` → `[(Path, location_kind), ...]`（`'downloads'`、`'pip0_root'`、`'extra'`）。`config.is_inside(child, parent)` → bool。
 - `timeutil.now()`、`to_local(ts)`、`local_date_str(ts)`、`local_datetime_str(ts)`、`find_period(text, now_ts, week_starts_on=0, recent_days=14)` → `{"word", "start", "end", "label", "span"}` または `None`（`end` は含まない）。
-- `keystore.MemoryKeystore`、`keystore.OsKeystore`、`keystore.get_or_create_key(keystore, db_exists)`、例外 `KeystoreUnavailable`、`KeyMissing`。
+- `keystore.MemoryKeystore`、`keystore.OsKeystore`、`keystore.get_or_create_key(keystore, db_exists)`、例外 `KeystoreUnavailable`、`KeyMissing`。資格情報マネージャーの失敗（ログオンの種類で使えない等）は、`OsKeystore` が `KeystoreUnavailable` に言い換える。
 - `database.open_database(config, keystore=None)`、`open_encrypted(db_path, key_hex)` → 接続（`row["name"]` で列を読める、自動コミット）。`transaction(conn)`（まとめて書く）、`query_one`、`query_all`、`execute`（→ lastrowid）、`get_setting`、`set_setting`、`log_operation(conn, kind, *, actor, status, file_id=None, item_id=None, before_path=None, after_path=None, reasons=None, detail=None, at=None)`、`check_encryption(conn)`。例外 `EncryptionUnavailable`、`DatabaseKeyError`。テーブルは `database.SCHEMA` を参照。
 - `ui.RecordingUi` / `ui.ShellUi(link)`：`show_mini_dock(dock)`、`close_mini_dock(dock_id, reason)`、`show_desk(desk)`、`hide_desk(reason)`、`show_hazard(hazard)`、`hide_hazard()`、`notify(title, message, level)`、`update_status(status)`、`set_cursor_stream(enabled)`。
 - `safe_names.check_name(name)` → `(ok, 理由)`、`make_safe(name, max_len=200)`、`unique_name(folder, name, exists=os.path.exists)`、`split_ext(name)`、`clean_part(text)`。
@@ -340,7 +341,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - **platform**：`WindowsPlatform(link, pip0_root=None)`、`set_pip0_root(path)`、`unregister_sync_root(path)` → `{"ok", "reason"}`。`register_sync_root` は `cf.register_root` と `cf.connect` を続けて送り、両方成功したときだけ `ok`（何度呼んでもよい。`init` の後と、シェルを起動し直すたびに呼ぶ）。`is_sync_root_registered` はシェルを通さず `CfGetSyncRootInfoByPath` で調べる。`open_for_copy`／`open_for_analysis` は `SetFileTime` のために `FILE_WRITE_ATTRIBUTES` も求め、断られたら読み取りだけで開き直す（その場合は最終アクセス日時が更新されうる）。`make_ghost`／`restore_ghost` が時間切れになった後は、シェルが動いている間、その場所の `ghost_status` が `is_ghost: None`（不明）になる。シェルにつながらないときの `confirm_and_recycle` は `answer: "unavailable"` で、何も削除しない。
 - **shell_link**：`ShellUnavailable` と `ShellTimeout` は `ShellError` の一種。`start()` は失敗しても例外を出さず `{"ok", "reason"}` を返す。`stop()` は `{"stopped", "returncode", "method"}`。`counters()`。シェルが終わると、本体の中で `{"type": "shell.exited", "payload": {"returncode", "requested_stop"}}` が届く（読み取りのスレッドから。`on_event` の中では順番待ちに入れるだけにする）。`netguard.install([SHELL_EXE])` の後でないと起動できない。
 - **netguard**：`self_check()` → `{"ok", "reason", "checks": [{"name", "blocked", "detail"}]}`。許可した実行ファイルは絶対パスで、リストで渡す。
-- **provenance**：`determine_source`、`record_provenance` は download_events の行（平らな辞書）を受け取る。`parse_zone_identifier(None)` も辞書を返す。`expire_old_events` は期限切れにした件数を返す。
+- **provenance**：`determine_source`、`record_provenance` は download_events の行（平らな辞書）を受け取る。`parse_zone_identifier(None)` も辞書を返す。`expire_old_events` は、24時間結び付かなかった記録を行ごと消し、その件数を返す。`mark_event_matched` は、結び付けた記録からタブの URL と題名を消す。`record_provenance` は、タブの URL と題名を残さない（列は常に NULL）。受け口は、ダウンロードフォルダーの外への保存を記録しない（`{"ok": true, "stored": false}` と答える）。
 - **scanner／watcher**：`scan_folder` は `{"ok", "reason", "seen", "new", "changed", "skipped", "missing", "errors"}`、`scan_all` はそれに `folders` を加える。改名の追跡は、ファイル番号に加えて大きさと更新日時が同じときだけ。pip0 のゴーストの行は `missing` ではなく `ghost`。`FolderWatcher.start()` は `{"ok", "reason", "watching"}`。`DownloadTracker` はダウンロードフォルダーの中だけを見て、拡張機能の記録を最大 `DOWNLOAD_BROWSER_WAIT_SECONDS`（30秒）待つ。
 - **usage**：`last_use(conn, file_row, kinds=None)`。`record_usage` は追加した行の id、pip0 自身の読み取りなら `None`。
 - **analysis**：`sensitivity.overall` は、解析済みでも本文・タイトル・ラベルを読めなかったもの（画像、スキャンした PDF など）を `unknown` にする（中身を調べていないものを非機密としない）。`throttle.check` は `checked_at` も返す。`HeavyGate` には `history`、`refresh()`、`stop_requested()` もある。`analyse_file` は、途中でファイルが変わったときなども `skipped` を返す。`store_result` は機密の判定 `{"level", "reasons"}` を返す。

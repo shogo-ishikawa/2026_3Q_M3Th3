@@ -10,7 +10,7 @@ namespace Pip0Shell.CloudFiles;
 /// <summary>
 /// ゴースト（M4）のための Cloud Files API の要求を受け付ける入口。
 ///
-/// cf.register_root、cf.connect、cf.status、cf.make_ghost、cf.restore、cf.unregister_root を処理します。
+/// cf.register_root、cf.connect、cf.status、cf.make_ghost、cf.restore、cf.locate、cf.unregister_root を処理します。
 /// 何をゴーストにするか・いつ戻すかは pip0 本体が決めます。シェルは指示を確かめて実行し、結果を返すだけです。
 /// </summary>
 internal sealed class CloudFilesModule
@@ -43,6 +43,7 @@ internal sealed class CloudFilesModule
         router.AddRequest("cf.status", HandleStatus);
         router.AddRequest("cf.make_ghost", HandleMakeGhost);
         router.AddRequest("cf.restore", HandleRestore);
+        router.AddRequest("cf.locate", HandleLocate);
         router.AddRequest("cf.unregister_root", HandleUnregisterRoot);
     }
 
@@ -216,6 +217,19 @@ internal sealed class CloudFilesModule
 
         JsonObject answer = placeholders.Restore(path, itemId!);
         Log.Info("ゴーストの復元：" + ResultOf(answer) + "（項目 " + itemId + "）。");
+        return RequestResult.Success(answer);
+    }
+
+    private RequestResult HandleLocate(Payload payload, CancellationToken shutdown)
+    {
+        string? itemId = payload.GetString("item_id");
+        if (!ItemId.IsValid(itemId))
+        {
+            return RequestResult.BadRequest("item_id には 32桁の16進数が必要です。");
+        }
+
+        JsonObject answer = placeholders.Locate(itemId!, shutdown);
+        Log.Info("ゴーストの場所の検索：" + ResultOf(answer) + "（項目 " + itemId + "）。");
         return RequestResult.Success(answer);
     }
 

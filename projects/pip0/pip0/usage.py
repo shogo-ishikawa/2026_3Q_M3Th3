@@ -190,6 +190,19 @@ def availability_word(value):
     return "有効か分からない状態"
 
 
+def observation_start(file_row):
+    """観測を始めた時刻：pip0 が見つけた時刻（first_seen_at）と、ファイルの作成日時（ctime）の遅いほう
+
+    コピーしたファイルや圧縮ファイルから取り出したファイルは、作成日時がその時刻になります。
+    作成される前の利用は観測できないので、作成日時より前から観測していたことにはしません。
+    """
+    start = file_row["first_seen_at"]
+    created = file_row.get("ctime")
+    if isinstance(created, (int, float)) and created > start:
+        return created
+    return start
+
+
 def judge_long_unread(conn, file_row, now, config, sources):
     """長期間未読かどうかを判定する（docs/design.md 4-6）
 
@@ -202,7 +215,7 @@ def judge_long_unread(conn, file_row, now, config, sources):
     """
     unread_days = config["UNREAD_DAYS"]
     min_observed_days = config["MIN_OBSERVED_DAYS"]
-    observed_days = max(0.0, (now - file_row["first_seen_at"]) / SECONDS_PER_DAY)
+    observed_days = max(0.0, (now - observation_start(file_row)) / SECONDS_PER_DAY)
     result = {"unread": None, "reason": "", "observed_days": round(observed_days, 1), "idle_days": None}
 
     # 1. 観測期間が短いファイルは、観測を始める前の利用が分からないので判定しない

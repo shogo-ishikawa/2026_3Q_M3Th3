@@ -51,10 +51,21 @@ internal sealed class ExplorerSelection
     private static readonly Guid ShellBrowserService = new("000214E2-0000-0000-C000-000000000046");
 
     private readonly BlockingCollection<Job> jobs = new();
+    private readonly Action? recovered;
     private Thread? thread;
     private volatile bool busy;
+    private volatile bool working;
 
-    /// <summary>STA のスレッドを始め、ShellWindows を作れるかを確かめる</summary>
+    /// <param name="recovered">
+    /// 準備の確認（Start）に失敗した後、問い合わせに初めて答えられたときに呼ぶ（機能の状態を「使える」に戻すため）。
+    /// 問い合わせのたびに ShellWindows を作り直すので、エクスプローラーが再起動中だっただけなら、後で読めるようになる。
+    /// </param>
+    public ExplorerSelection(Action? recovered = null)
+    {
+        this.recovered = recovered;
+    }
+
+    /// <summary>STA のスレッドを始め、ShellWindows を作れるかを確かめる（失敗しても、スレッドは止めない）</summary>
     public bool Start(out string reason)
     {
         thread = new Thread(Run)
@@ -72,6 +83,7 @@ internal sealed class ExplorerSelection
             return false;
         }
         reason = probe.Result.Reason;
+        working = probe.Result.Ok;
         return probe.Result.Ok;
     }
 
@@ -104,7 +116,13 @@ internal sealed class ExplorerSelection
         {
             return SelectionResult.Unavailable("エクスプローラーが時間内に答えませんでした。");
         }
-        return task.Result;
+        SelectionResult result = task.Result;
+        if (result.Ok && !working)
+        {
+            working = true;
+            recovered?.Invoke();
+        }
+        return result;
     }
 
     private Task<SelectionResult> Enqueue(Func<SelectionResult> work)

@@ -381,22 +381,31 @@ def find_download_event(conn, path, size, now, window_seconds=600):
 
 
 def mark_event_matched(conn, event_id, file_id):
-    """記録を、ファイル（files テーブルの行）に結び付けた（matched）ことにする"""
+    """記録を、ファイル（files テーブルの行）に結び付けた（matched）ことにする
+
+    ダウンロード開始時に前面だったタブの URL と題名（画面の文脈）は、提案を作るときに使い終わっているので、
+    ここで消します（画面の文脈は、その時点でだけ使い、残さない）。
+    """
     conn.execute(
-        "UPDATE download_events SET state = 'matched', matched_file_id = ? WHERE id = ?",
+        "UPDATE download_events SET state = 'matched', matched_file_id = ?, tab_url = NULL, tab_title = NULL "
+        "WHERE id = ?",
         (file_id, event_id),
     )
 
 
 def expire_old_events(conn, now, max_age_seconds=86400):
-    """受け取ってから max_age_seconds 秒たっても結び付かなかった記録を、期限切れ（expired）にする。件数を返す"""
+    """受け取ってから max_age_seconds 秒たっても結び付かなかった記録を消す。件数を返す
+
+    pip0 が扱わなかったダウンロード（ダウンロードフォルダーから動かされた等）の URL やタブの題名を、
+    いつまでも残さないためです。
+    """
     cursor = conn.execute(
-        "UPDATE download_events SET state = 'expired' WHERE state = 'pending' AND received_at < ?",
+        "DELETE FROM download_events WHERE state = 'pending' AND received_at < ?",
         (now - max_age_seconds,),
     )
     count = cursor.rowcount
     if count:
-        logger.info("ダウンロードの記録を %d 件、期限切れにしました", count)
+        logger.info("結び付かなかったダウンロードの記録を %d 件、消しました", count)
     return count
 
 
@@ -414,21 +423,17 @@ def record_provenance(conn, file_id, source, event=None, zone=None, now=None):
 
     ダウンロード日時（downloaded_at）は、拡張機能の記録の終了時刻、なければ受け口が受け取った時刻。
     拡張機能の記録がない（Zone.Identifier だけの）ときは None（日時を推測しない）。
-    tab_url と tab_title は記録として残すだけで、送信元には使わない。
+    ダウンロード開始時に前面だったタブの URL と題名は、画面の文脈なので残さない（列は NULL のまま）。
     """
     now = time.time() if now is None else now
     downloaded_at = None
     event_id = None
-    tab_url = None
-    tab_title = None
     if event is not None:
         check_event_row(event)
         downloaded_at = event.get("ended_at")
         if downloaded_at is None:
             downloaded_at = event.get("received_at")
         event_id = event.get("id")
-        tab_url = sanitise_url(event.get("tab_url"))
-        tab_title = event.get("tab_title")
 
     download_url = source.get("download_url")
     referrer_url = source.get("referrer_url")
@@ -454,8 +459,8 @@ def record_provenance(conn, file_id, source, event=None, zone=None, now=None):
             sanitise_url(download_url),
             sanitise_url(referrer_url),
             source.get("host"),
-            tab_url,
-            tab_title,
+            None,  # tab_url（残さない）
+            None,  # tab_title（残さない）
             downloaded_at,
             event_id,
             now,

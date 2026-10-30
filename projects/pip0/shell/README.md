@@ -31,7 +31,7 @@ dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:P
 
 - 同じ Windows のセッションでは1つしか動きません（名前付きミューテックス `Local\pip0.shell.<SID>`）。
 - 標準入力が閉じられる（本体が終わる）か、`shell.quit` を受けると、片付けて終わります。自分でダブルクリックして起動した場合は、標準入力がないので、すぐに終わります。
-- 終了コード：`0` 正常、`1` 起動できなかった、`3` 同じセッションでシェルがすでに動いている。
+- 終了コード：`0` 正常、`1` 起動できなかった、`3` 同じセッションでシェルがすでに動いている（管理者として動くシェルがあり、ミューテックスを開けないときも同じ）、`70` 処理されない例外で止まった（例外の種類だけを記録して、すぐに終わる。.NET が例外の内容と呼び出し履歴を標準エラー出力へ書くと、パスが記録に入りうるため）。
 
 ## ファイルの構成（入口）
 
@@ -57,7 +57,7 @@ dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:P
 | 要求 | `init` | 保管庫・pip0 専用フォルダーの場所、表示の有無、画面の設定、`watched_roots` を受け取る。これより前は `init` と `shell.ping` 以外を `not_initialised` で断る |
 | 要求 | `shell.ping` | `{"time"}` |
 | 要求 | `cf.register_root` / `cf.connect` / `cf.unregister_root` | 同期ルートの登録・接続・解除 |
-| 要求 | `cf.status` / `cf.make_ghost` / `cf.restore` | ゴーストの状態・作成・復元 |
+| 要求 | `cf.status` / `cf.make_ghost` / `cf.restore` / `cf.locate` | ゴーストの状態・作成・復元・場所の検索 |
 | 要求 | `trash.confirm_and_recycle` | 確認画面を出し、承認されたものだけをごみ箱へ |
 | 要求 | `shell.fill_file_dialog` | UI Automation でファイルダイアログのファイル名欄に入力する → `{"ok", "reason"}` |
 | 要求 | `shell.open_file` / `shell.reveal_file` | 既定のアプリで開く／エクスプローラーで場所を開いて選ぶ → `{"ok", "reason"}` |
@@ -168,8 +168,11 @@ dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:P
 - 同期ルートの登録：ID は `pip0!<ユーザーの SID>!default`。取得の方式 Full、一覧の方式 AlwaysFull、ハードリンク不可、同期済みの判定は既定、「常にこのデバイス上に保持する」を許可、アイコンは `%SystemRoot%\system32\imageres.dll,-1043`。NTFS 以外のドライブは登録しません。
 - 接続：`CfConnectSyncRoot` で FETCH_DATA、CANCEL_FETCH_DATA、NOTIFY_DELETE、NOTIFY_RENAME を受けます（開いたプロセスと完全なパスを受け取る設定）。コールバックの委譲は静的フィールドで持ち続け、GC に回収されないようにしています。
 - **ゴーストが開かれたとき（FETCH_DATA）**：FileIdentity の項目ID から `VAULT_DIR\items\<項目ID>\manifest.json` を読み、`content` の大きさと SHA-256 が一致することを **渡す前に** 確かめます。確かめた `content` は、ほかのプロセスが書き換えられない開き方のまま、同じハンドルから 1 MiB ずつ渡します（長さは 4 KiB の倍数。ファイルの終わりで終わる最後の1回だけ半端）。一致しない・ないときはエラーで返し、違う内容や空の内容は渡しません。毎回 `cf.fetch` を送り、ファイル全体を渡し終えたら `cf.hydrated` を送ります。
-- **ゴーストにする（cf.make_ghost）**：保管庫の内容と manifest.json が `expected` の大きさとハッシュに一致することを確かめてから、原本を `CfOpenFileWithOplock`（排他、書き込み可）で開き、大きさ・最終更新日時（1970年からのナノ秒）・ファイル番号を比べ、原本をそのハンドルから読み直してハッシュを比べます。もう一度確かめてから `CfConvertToPlaceholder(MARK_IN_SYNC | DEHYDRATE)` を呼び、実際の状態を読み直して `ghosted` かを決めます。1つでも違えば `changed` で、何も変えません。中身を外せなかったときは、中身がディスクにあることを確かめてから通常のファイルに戻します。
-- **戻す（cf.restore）**：属性だけを読む開き方で自分の項目のゴーストかを確かめ、中身がディスクにない部分があれば `CfHydratePlaceholder` で戻させます（Windows がこのシェルの FETCH_DATA を呼び、上の確認をしてから渡します）。そのあと排他的に開き直し、中身がすべてディスクにあることをもう一度確かめてから `CfRevertPlaceholder` を呼びます。中身がすべてあると判断するのは、`OnDiskDataSize` がファイルの大きさ以上で、**かつ** 属性に `RECALL_ON_DATA_ACCESS`（データの一部がローカルにない印）がないときだけです。
+- **ゴーストにする（cf.make_ghost）**：保管庫の内容と manifest.json が `expected` の大きさとハッシュに一致することを確かめてから、原本を `CfOpenFileWithOplock`（排他、書き込み可）で開き、大きさ・最終更新日時（1970年からのナノ秒）・ファイル番号を比べ、原本をそのハンドルから読み直してハッシュを比べます。もう一度確かめてから `CfConvertToPlaceholder(MARK_IN_SYNC | DEHYDRATE)` を呼び、実際の状態を読み直して `ghosted` かを決めます。1つでも違えば `changed` で、何も変えません。中身を外せなかったときは、中身がディスクにあることを確かめてから通常のファイルに戻します。読み取り専用のファイルは、`CfConvertToPlaceholder` に要る書き込みの権利で開けないため、開く前に `error`（「読み取り専用」で始まる理由）を返します。
+- **状態（cf.status）**：読めなかった値は `null` で返します（開けない・プレースホルダーの状態を読めないときは `is_ghost: null`、アクセスの拒否などで有無も分からないときは `exists: null`）。「分からない」を「ゴーストではない」「ない」として返すと、本体が保管庫の扱いを誤るためです。
+- **戻す（cf.restore）**：属性だけを読む開き方で自分の項目のゴーストかを確かめ、中身がディスクにない部分があれば `CfHydratePlaceholder` で戻させます（Windows がこのシェルの FETCH_DATA を呼び、上の確認をしてから渡します）。そのあと排他的に開き直し、中身がすべてディスクにあることをもう一度確かめてから `CfRevertPlaceholder` を呼びます。中身がすべてあると判断するのは、`OnDiskDataSize` がファイルの大きさ以上で、**かつ** 属性に `RECALL_ON_DATA_ACCESS`（データの一部がローカルにない印）がないときだけです。`CfRevertPlaceholder` には書き込み（`WRITE_DATA`）か `WRITE_DAC` の権利が要るため、読み取り専用のゴーストは戻さず、「読み取り専用」を外してから試すよう理由を返します（属性は変えません）。ファイルがあるかを確かめられないとき（アクセスの拒否など）は、`missing` ではなく `error` を返します。
+- **場所を探す（cf.locate）**：pip0 専用フォルダーの中をたどり（リンク・ジャンクションはたどらない、200,000 項目・20 秒まで）、属性と再解析ポイントの種類でプレースホルダーを見分け、属性だけを読む開き方で開いて `FileIdentity` が項目ID のものを探します。フォルダーの名前の変更や、シェルが止まっている間の移動で、記録の場所にゴーストがないときに、本体が使います。
+- **名前の変更・削除の知らせ**：NOTIFY_RENAME・NOTIFY_DELETE（操作の前）には「認める」と返して覚えておくだけで、本体へは NOTIFY_RENAME_COMPLETION・NOTIFY_DELETE_COMPLETION（操作が終わった後）で `cf.notify_rename`・`cf.notify_delete` を送ります（前の知らせの後に操作が失敗することがあるため）。同期ルートの外への移動は、終わりの知らせが届かないことがあるため、約3秒後に元の場所にファイルがなく移動先にあることを確かめてから送ります。削除の取り消し（`IS_UNDELETE`）では、覚えた削除を忘れます。
 - **解除（cf.unregister_root）**：本体が確かめた後に呼ばれますが、シェルも念のため同期ルートの中にプレースホルダーが残っていないかを数え、残っていれば解除しません。
 
 ## ごみ箱（trash.confirm_and_recycle）
@@ -187,9 +190,9 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
 
 ### Linux の開発環境で実際に確かめたこと
 
-- `dotnet build Pip0Shell.csproj -c Release`：エラー 0、警告 0（常駐UI・入力・作業文脈を加えた後も）。
+- `dotnet build Pip0Shell.csproj -c Release`：エラー 0、警告 0（常駐UI・入力・作業文脈を加えた後も、レビューの指摘を直した後も）。
 - `dotnet publish … -r win-x64 --self-contained true -p:PublishSingleFile=true`：Windows 用の実行ファイル（PE32+、GUI、x86-64、約 73 MB）が1つできること。
-- `Checks/`（`cd Checks && dotnet run -c Release`）：Windows の機能を使わない部分の 283 件の確認がすべて成功。
+- `Checks/`（`cd Checks && dotnet run -c Release`）：Windows の機能を使わない部分の 293 件の確認がすべて成功。
   - 1行ずつの読み書き：1 MiB ちょうどは読める、超えた行は読み捨てて次の行を正しく読む、`\r\n`、改行なしで終わる行、BOM を付けない、1 MiB を超える答えは送らない。
   - 振り分け：init の前は `not_initialised`（`shell.ping` と `shell.quit` は受け付ける）、知らない type は `unknown_type`、type なしは `bad_request`、処理の例外は `internal_error`（例外のメッセージを答えにも記録にも入れない）、要求ごとに答えがちょうど1つ、終了中は `shutting_down`。
   - 保管庫の確認：一致すれば開ける、1バイト違う・大きさが違う・manifest が壊れている・`sha256` がない・`item_id` が違う・ファイルがない場合は開かない、項目ID でない文字列ではファイルに触れない、取り消し、進み具合の知らせ。
@@ -201,13 +204,16 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
   - ドラッグの判定：`SM_CXDRAG` までは動かしてもクリック、超えたら始まり、離したら終わり、離したことを取りこぼした場合とフックの付け直しの場合。デスクからのドラッグの記録（位置と時間の範囲）。
   - マウスの位置のまとめ方（`[ミリ秒, x, y]`、間隔、たまりすぎたときに古いものから捨てる）、前面ウィンドウの知らせのまとめ方（最後から 300ms、止まらなければ最初から 1 秒）。
   - 最近使ったファイル：対象のフォルダーの中だけ（大文字小文字、名前の先頭が同じだけの別のフォルダー）、`Start_TrackDocs` とポリシーの解釈、件数が多いときに分けて送る、当てにできないときの `tracking_enabled: null`、init の `watched_roots` の読み取り。
-  - 開かない種類のファイル（`.exe`、二重の拡張子、末尾の点・空白で隠したもの等）。
+  - 開くファイルの種類（許可の一覧）：`.exe`・二重の拡張子・末尾の点・空白で隠したもの・`.py`・`.pyw`・`.msc`・`.chm`・マクロ付きの `.docm` などは開かない、`.pdf`（大文字でも）・`.xlsx`・`.png` は開ける。
+  - `cf.locate` の答えの作り方（見つかった・すべて探して見つからない・探しきれず見つからない＝`error`、場所の数の上限）。
   - Windows 以外では `Path` の決まりが違うため、パスを整える確認（`Path.GetFullPath`）は、その OS の絶対パスで確かめています。「..」を含むパスの確認は Windows で実行したときだけ行います。
 
 ### コンパイルだけで確かめたこと（Windows 11 の実機で確かめる必要があるもの）
 
 - 同期ルートの登録・接続・解除（`StorageProviderSyncRootManager`、`CfConnectSyncRoot`）。
-- FETCH_DATA で中身を渡すこと（`CfExecute`）、取り消し、NOTIFY_DELETE と NOTIFY_RENAME への返事。
+- FETCH_DATA で中身を渡すこと（`CfExecute`）、取り消し、NOTIFY_DELETE と NOTIFY_RENAME への返事、NOTIFY_DELETE_COMPLETION と NOTIFY_RENAME_COMPLETION が届き、`SourcePath`（元の場所）と `NormalizedPath`（新しい場所）の値がこの README の想定どおりか。同期ルートの外（ごみ箱を含む）へ移したときに、終わりの知らせが届くか、約3秒後の確認で送られるか。
+- `cf.locate` が、フォルダーの名前を変えた後のゴーストを見つけること。
+- 読み取り専用のファイル・ゴーストで、`cf.make_ghost`・`cf.restore` が「読み取り専用」の理由を返すこと。
 - ゴーストの作成（`CfOpenFileWithOplock`、`CfConvertToPlaceholder`）、状態の読み取り（`CfGetPlaceholderInfo`）、復元（`CfHydratePlaceholder`、`CfRevertPlaceholder`）。特に、`OnDiskDataSize` と属性の値が、この README に書いた判断のとおりになるか。
 - ファイル番号（`file_key`）の書き方が、本体の Python の `os.stat` と一致するか（Python 3.11 と 3.12 以降の両方の書き方を受け付けています）。
 - 確認画面、ごみ箱へ移す処理（`IFileOperation` と進み具合の知らせ）、ごみ箱が使えないドライブで `refused` になること。
@@ -244,7 +250,7 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
 - ごみ箱へ移す印に `FOF_NO_CONNECTED_ELEMENTS` を加えています（`page.html` と一緒に `page_files` まで消さないため）。
 - `cf.restore` は、`CfRevertPlaceholder` が中身を戻すことに頼らず、先に `CfHydratePlaceholder` で中身を戻させ、すべてあることを確かめてから戻します。
 - `cf.make_ghost` の `file_key` は、Python 3.12 以降（64ビットのボリューム番号:128ビットのファイル番号）と 3.11 まで（32ビット:64ビット）のどちらの書き方でも照合します。
-- `cf.notify_delete` と `cf.notify_rename` は、項目ID を持つファイルについてだけ送ります（フォルダーには送りません）。
+- `cf.notify_delete` と `cf.notify_rename` は、項目ID を持つファイルについてだけ、操作が終わった後に送ります（フォルダーには送りません）。
 - 失敗の答えの `code`：`unknown_type`、`bad_request`、`not_initialised`、`already_initialised`、`unsupported_protocol`、`shutting_down`、`too_large`、`internal_error`。
 - `init` に、約束にない `watched_roots`（絶対パスの配列。「最近使ったファイル」を知らせる対象のフォルダー）を加えています。ない場合は `pip0_root` だけを対象にします。本体は `config.index_folders(config)` のフォルダーを渡すと、ダウンロード等のフォルダーの利用も届きます。
 - `context.foreground`：`dialog_rect` の形は `{"left", "top", "right", "bottom"}`（物理ピクセル）。`hwnd` は整数。`inaccessible: true` のときは約束にない `reason` を付けます。pip0 自身のウィンドウが前面のときと、前と同じ内容のときは送りません。
@@ -254,8 +260,15 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
 - `tray.command` の `resume` は、確認画面で「再開する」が押されたときだけ送り、約束にない `confirmed: true` を付けます（`killswitch.resume` の `confirmed` に使える）。
 - `input.cursor_batch` の時刻は 1970年1月1日からのミリ秒（整数）です。
 - `usage.recent_items` の `tracking_enabled` は、Recent フォルダーを読めない・対象のフォルダーがないときも `null` にします（当てにできないため）。
-- `shell.open_file` は、開くとプログラムが動く種類（`.exe`、`.bat`、`.ps1`、`.lnk` など。`Ui/OpenableFile.cs`）を開かず、`ok: false` と理由を返します（ボタン1つで実行させないため）。`shell.fill_file_dialog`・`shell.open_file`・`shell.reveal_file` は、`* ? " < > |` を含むパスを `bad_request` で断り、表示なしのときは `ok: false` を返します。
+- `shell.open_file` は、文書・画像・音声・動画・ZIP の決まった拡張子（`Ui/OpenableFile.cs` の許可の一覧）だけを開き、それ以外（`.exe`、`.py`、`.msc`、マクロ付きの `.docm` など）は開かずに `ok: false` と理由を返します（ボタン1つでプログラムを動かさないため。禁止の一覧では、`.py` のように既定のアプリがプログラムを動かす種類を数え漏らすため、許可の一覧にしています）。`shell.fill_file_dialog`・`shell.open_file`・`shell.reveal_file` は、`* ? " < > |` を含むパスを `bad_request` で断り、表示なしのときは `ok: false` を返します。
 - ミニドックの行は 20 件まで、デスクの候補は 10 件まで並べます（本体の上限より大きい、画面のための上限）。
+- `drag.target_changed`・`drag.ended` の `target_process` は、ストアのアプリ（UWP）では、枠（`ApplicationFrameHost.exe`）ではなく、中のアプリ本体のウィンドウ（`Windows.UI.Core.CoreWindow`）のプロセス名です（M5 の消音を「同じアプリ」ごとにするため）。`context.foreground` の `process_name` は、今も枠のプロセスのままです。
+- ミニドック・デスク・つまみ・警告の枠は、`SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` で、画面の共有・録画・スクリーンショットに写さないようにしています（ファイル名や会話名を、共有中の画面でほかの人に見せないため。Windows の説明どおり、保護の仕組みではありません）。
+- エクスプローラーの選択項目は、起動時の確認に失敗しても（エクスプローラーの再起動中など）、ドラッグのたびに読み直し、読めたら `feature.status` の `explorer_selection` を `true` に戻します。
+
+## 制約（分かっていて直していないこと）
+
+- ゴーストにする前の確認の読み取り（原本のハッシュ）は、`CfOpenFileWithOplock` のハンドルで行います。このハンドルには `FILE_WRITE_ATTRIBUTES` の権利がないため、`SetFileTime` で最終アクセス日時の更新を止められないことがあり（止められなかったときは記録に残します）、最終アクセス日時の更新が有効なドライブでは、この読み取りで日時が更新されえます。ゴーストにした後に日時を書き戻すことは、プレースホルダーの同期済みの印に影響しうるため、していません。この読み取りは退避の直前に1回だけで、復元後に「最近使った」と数えられる（退避が遅れる）側に働きます。
 
 ## 変更しやすい箇所
 

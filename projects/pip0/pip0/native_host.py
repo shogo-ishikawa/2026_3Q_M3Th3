@@ -324,8 +324,19 @@ def handle_one_message(argv, stdin, config, keystore):
     if clean["type"] == "ping":
         return {"ok": True, "pong": True}  # 接続の確認だけ。何も記録しない
 
-    # 5. 暗号化DB に記録する
+    # 5. pip0 が扱うのは、ダウンロードフォルダーの中のファイルだけ。それ以外の保存先の記録は残さない
+    if not inside_downloads(clean["download"]["filename"], config):
+        logger.info("ダウンロードフォルダーの外への保存なので、記録しませんでした")
+        return {"ok": True, "stored": False, "reason": "ダウンロードフォルダーの外への保存は、pip0 の対象外です"}
+
+    # 6. 暗号化DB に記録する
     return store_message(clean, origin, config, keystore)
+
+
+def inside_downloads(filename, config):
+    """保存先が、ダウンロードフォルダー（DOWNLOADS_DIR）の中なら True（フォルダーが分からなければ False）"""
+    downloads = config.get("DOWNLOADS_DIR")
+    return downloads is not None and config_module.is_inside(filename, downloads)
 
 
 def is_allowed_origin(origin, config):

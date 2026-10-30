@@ -66,6 +66,40 @@ def test_atomic_write_json_replaces_whole_file(tmp_path):
     assert not os.path.exists(str(path) + ".tmp")
 
 
+def test_replace_is_retried_while_another_process_reads_the_file_on_windows(tmp_path, monkeypatch):
+    # Windows では、ほかのプロセスが開いている間の os.replace が PermissionError になる（2回失敗してから成功する場合）
+    monkeypatch.setattr(fsutil.sys, "platform", "win32")
+    monkeypatch.setattr(fsutil, "IN_USE_RETRY_SECONDS", 0)
+    real_replace = os.replace
+    failures = []
+
+    def busy_replace(src, dst):
+        if len(failures) < 2:
+            failures.append(dst)
+            raise PermissionError(13, "別のプロセスが使用中です")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(fsutil.os, "replace", busy_replace)
+    target = tmp_path / "restore_all.progress.json"
+    fsutil.atomic_write_json(target, {"finished": True})
+    assert fsutil.read_json(target) == {"finished": True}
+    assert len(failures) == 2
+
+
+def test_permission_error_is_not_retried_outside_windows(tmp_path, monkeypatch):
+    monkeypatch.setattr(fsutil.sys, "platform", "linux")
+    calls = []
+
+    def denied(src, dst):
+        calls.append(dst)
+        raise PermissionError(13, "権限がありません")
+
+    monkeypatch.setattr(fsutil.os, "replace", denied)
+    with pytest.raises(PermissionError):
+        fsutil.atomic_write_json(tmp_path / "a.json", {})
+    assert len(calls) == 1
+
+
 def test_sha256_stream_stops_at_a_safe_point(tmp_path):
     path = tmp_path / "big.bin"
     path.write_bytes(b"x" * (3 * 1024))

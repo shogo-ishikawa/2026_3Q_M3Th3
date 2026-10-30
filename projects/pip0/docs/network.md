@@ -40,7 +40,7 @@
 
 リポジトリーのフォルダーで、次を実行します。
 
-1. Python のコードに、通信のライブラリの読み込みがないこと（`netguard.py` が止めるために名前を書いている場合を除き、何も表示されないこと）
+1. Python のコードに、通信のライブラリの読み込みがないこと。表示されてよいのは次の2つだけです：`netguard.py` が止めるために名前を書いている行（自己確認用）と、`provenance.py` の `from urllib.parse import urlsplit`（URL を文字列として分解するだけで、通信はしません。自動テスト `tests/test_safety_static.py` も、同じ決まりで確かめています）
 
    ```bash
    git grep -n -E "^\s*(import|from)\s+(socket|ssl|http|urllib|ftplib|smtplib|xmlrpc|requests|httpx|aiohttp|websocket)" -- projects/pip0/pip0

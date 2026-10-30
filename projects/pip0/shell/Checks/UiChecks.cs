@@ -271,10 +271,13 @@ internal static class UiChecks
 
     private static void OpenableChecks()
     {
-        Program.Check(OpenableFile.IsRunnable(@"C:\Users\u\Downloads\請求書.pdf.exe"), "二重の拡張子の .exe は開かない");
-        Program.Check(OpenableFile.IsRunnable(@"C:\a\setup.MSI") && OpenableFile.IsRunnable(@"C:\a\run.ps1") && OpenableFile.IsRunnable(@"C:\a\link.lnk"), "大文字小文字によらず、実行される種類は開かない");
-        Program.Check(OpenableFile.IsRunnable(@"C:\a\trick.exe. ."), "末尾の点・空白で隠した .exe も開かない");
-        Program.Check(!OpenableFile.IsRunnable(@"C:\a\予算.xlsx") && !OpenableFile.IsRunnable(@"C:\a\report.pdf") && !OpenableFile.IsRunnable(@"C:\a\noext"), "文書・画像・拡張子なしは開ける");
+        Program.Check(!OpenableFile.IsOpenable(@"C:\Users\u\Downloads\請求書.pdf.exe"), "二重の拡張子の .exe は開かない");
+        Program.Check(!OpenableFile.IsOpenable(@"C:\a\setup.MSI") && !OpenableFile.IsOpenable(@"C:\a\run.ps1") && !OpenableFile.IsOpenable(@"C:\a\link.lnk"), "実行される種類は開かない");
+        Program.Check(!OpenableFile.IsOpenable(@"C:\a\trick.exe. .") && OpenableFile.IsOpenable(@"C:\a\report.pdf. "), "末尾の点・空白は外してから種類を見る");
+        Program.Check(!OpenableFile.IsOpenable(@"C:\a\x.py") && !OpenableFile.IsOpenable(@"C:\a\x.pyw") && !OpenableFile.IsOpenable(@"C:\a\x.msc") && !OpenableFile.IsOpenable(@"C:\a\x.chm"), "許可の一覧にない種類（Python のスクリプト、.msc、.chm）は開かない");
+        Program.Check(!OpenableFile.IsOpenable(@"C:\a\x.docm") && !OpenableFile.IsOpenable(@"C:\a\x.xlsm") && !OpenableFile.IsOpenable(@"C:\a\x.pptm"), "マクロ付きの Office 文書は開かない");
+        Program.Check(!OpenableFile.IsOpenable(@"C:\a\noext") && !OpenableFile.IsOpenable(@"C:\a\a.exe:b.pdf"), "拡張子なし・代替データストリームの指定は開かない");
+        Program.Check(OpenableFile.IsOpenable(@"C:\a\予算.xlsx") && OpenableFile.IsOpenable(@"C:\a\x.pdf") && OpenableFile.IsOpenable(@"C:\a\X.PDF") && OpenableFile.IsOpenable(@"C:\a\青いグラフ.png"), "文書・画像は、大文字小文字によらず開ける");
     }
 
     private static void EchoIdChecks()

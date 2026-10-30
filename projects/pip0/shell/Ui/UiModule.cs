@@ -149,22 +149,18 @@ internal sealed class UiModule
             features.Report(FeatureReporter.ForegroundHook, false, foregroundReason);
         }
 
-        // 3. エクスプローラーの選択項目（ドラッグのファイルを知るため）
-        var selection = new ExplorerSelection();
+        // 3. エクスプローラーの選択項目（ドラッグのファイルを知るため）。
+        //    準備の確認に失敗しても（エクスプローラーの再起動中など）、部品は止めずにドラッグのたびに読み直し、
+        //    読めたら「使える」に戻す
+        const string explorerWorking = "ドラッグの始まりに、エクスプローラー（デスクトップを含む）で選ばれている項目を読みます。";
+        var selection = new ExplorerSelection(() => features.Report(FeatureReporter.ExplorerSelection, true, explorerWorking));
         bool explorerOk = selection.Start(out string explorerReason);
-        if (explorerOk)
+        explorer = selection;
+        if (!explorerOk)
         {
-            explorer = selection;
+            explorerReason = "エクスプローラーの選択項目を読めません：" + explorerReason + "（ドラッグのたびに読み直します）";
         }
-        else
-        {
-            selection.Stop();
-            explorerReason = "エクスプローラーの選択項目を読めません：" + explorerReason;
-        }
-        features.Report(
-            FeatureReporter.ExplorerSelection,
-            explorerOk,
-            explorerOk ? "ドラッグの始まりに、エクスプローラー（デスクトップを含む）で選ばれている項目を読みます。" : explorerReason);
+        features.Report(FeatureReporter.ExplorerSelection, explorerOk, explorerOk ? explorerWorking : explorerReason);
 
         // 4. マウスのフックとドラッグの判定
         var monitor = new DragMonitor(output, explorer, explorerReason, deskPresses);

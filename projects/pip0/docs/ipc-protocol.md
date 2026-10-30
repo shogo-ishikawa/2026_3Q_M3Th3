@@ -20,7 +20,8 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 - 知らない `type` の要求には `ok: false`、`code: "unknown_type"` を返します。知らない `type` の知らせは無視します。
 - シェルが返す失敗の `code` は、ほかに `bad_request`（形の誤り）、`not_initialised`（`init` の前）、`already_initialised`（場所の違う2回目の `init`）、`unsupported_protocol`、`shutting_down`、`too_large`、`internal_error` があります。
 - シェルは起動するとすぐに `shell.ready` を送ります（`init` の前）。`capabilities` の最終的な値は `init` の返事にあります。
-- 同じセッションでシェルがすでに動いているとき、2つ目のシェルは終了コード 3 で終わります。
+- 同じセッションでシェルがすでに動いているとき、2つ目のシェルは終了コード 3 で終わります（管理者として動くシェルがあり、ミューテックスを開けないときも同じ）。
+- シェルの終了コード：0 正常、1 起動できなかった、3 すでに動いている、70 処理されない例外で止まった（例外の種類だけを記録して終わり、.NET の詳しい出力（パスが入りうる）を標準エラー出力へ書かせない）。
 - パスは Windows の絶対パスの文字列、時刻は 1970年1月1日からの秒数（小数）です。
 
 ## 2. 本体 → シェルの要求（request）
@@ -30,19 +31,20 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 | `init` | `{"protocol": 1, "vault_dir", "pip0_root", "watched_roots": [絶対パス], "sync_root_display_name": "pip0", "headless": bool, "settings": {"desk_approach_px", "desk_transparent_opacity", "cursor_sample_ms", "cursor_batch_ms", "hazard_border_px", "mini_dock_max_rows"}}`（`watched_roots` は「最近使ったファイル」を知らせる範囲。最大64件。ないときは `pip0_root` だけ） | `{"shell_version", "capabilities": {"cloud_files", "trash", "ui", "hooks"}}`（`hooks` は前面ウィンドウとマウスのフックが両方入ったときだけ真） |
 | `cf.register_root` | `{"path", "display_name"}` | `{"registered": bool, "already": bool, "reason"}` |
 | `cf.connect` | `{"path"}` | `{"connected": bool, "reason"}`（FETCH_DATA 等の呼び出しを受け付ける） |
-| `cf.status` | `{"path"}` | `{"exists", "is_ghost", "item_id", "dehydrated", "in_sync", "pinned", "reason"}` |
+| `cf.status` | `{"path"}` | `{"exists", "is_ghost", "item_id", "dehydrated", "in_sync", "pinned", "reason"}`（確かめられなかった値は `null`。たとえば、開けない・状態を読めないときは `is_ghost: null`、アクセスの拒否などで有無も分からないときは `exists: null`。「分からない」を `false` として返さない） |
 | `cf.make_ghost` | `{"path", "item_id", "expected": {"size", "mtime_ns", "file_key", "sha256"}}` | `{"result": "ghosted"/"changed"/"locked"/"not_in_root"/"error", "reason"}` |
 | `cf.restore` | `{"path", "item_id"}` | `{"result": "restored"/"already_regular"/"not_our_placeholder"/"missing"/"error", "reason"}` |
+| `cf.locate` | `{"item_id"}` | `{"result": "found"/"not_found"/"error", "paths": [絶対パス], "reason"}`（pip0 専用フォルダーの中から、`FileIdentity` がこの項目IDのプレースホルダーを探す。リンク・ジャンクションはたどらず、プレースホルダーは属性だけで開く。たどるのは 200,000 項目・20 秒まで。すべては探せず1つも見つからなければ `error`（「ない」とは言わない）。`paths` は最大 20 件） |
 | `cf.unregister_root` | `{"path"}` | `{"unregistered": bool, "reason"}`（アンインストールのときだけ。ゴーストが残っていないことを本体が確かめてから呼ぶ） |
 | `trash.confirm_and_recycle` | `{"request_id", "title", "message", "items": [{"path", "name", "size"}]}`（名前と件数は、確認画面が `items` から一覧にする。`message` は言い回しだけ） | `{"approved": bool, "answer": "approve"/"cancel"/"closed"/"unavailable", "results": [{"path", "status": "recycled"/"refused"/"failed"/"not_attempted", "reason"}]}`（UI のない `--headless` では `unavailable` で、何も削除しない） |
 | `shell.fill_file_dialog` | `{"dialog_hwnd", "path"}` | `{"ok": bool, "reason"}` |
-| `shell.open_file` | `{"path"}` | `{"ok": bool, "reason"}`（既定のアプリで開く。`.exe`、`.bat`、`.ps1`、`.lnk`、`.url` など、プログラムを動かす種類は開かない） |
+| `shell.open_file` | `{"path"}` | `{"ok": bool, "reason"}`（既定のアプリで開く。開くのは、文書・画像・音声・動画・ZIP の決まった拡張子（`shell/Ui/OpenableFile.cs` の許可の一覧）だけで、それ以外（`.exe`、`.py`、`.msc`、マクロ付きの `.docm` など）は開かずに理由を返す） |
 | `shell.reveal_file` | `{"path"}` | `{"ok": bool, "reason"}`（エクスプローラーで場所を開く） |
 | `shell.ping` | `{}` | `{"time"}` |
 
 - `cf.make_ghost`：シェルは、`CfOpenFileWithOplock`（排他）で原本を開き、サイズ、最終更新日時（`mtime_ns` は Windows の FILETIME を 1970年起点のナノ秒に直した値）、ファイル番号（`ボリュームのシリアル番号:ファイル番号`）が `expected` と一致し、保管庫の `content` のハッシュが `expected.sha256` と一致することを確かめてから、`CfConvertToPlaceholder(MARK_IN_SYNC | DEHYDRATE)` を呼びます。1つでも違えば `"changed"` を返し、何も変えません。`FileIdentity` には項目ID（32桁の16進数の ASCII）を入れます。
-- `cf.make_ghost` の追加の確認：保管庫の `manifest.json` の `item_id`・`size`・`sha256` が `expected` と一致すること、ファイルの本当の場所（`GetFinalPathNameByHandle`）が同期ルートの中にあること、リンクやフォルダーでないこと。変換の後に中身がまだディスクにあれば通常のファイルへ戻して `error`／`locked` とし、すでに同じ項目のゴーストなら `ghosted` を返します（やり直しても同じ結果）。`expected.file_key` は Python 3.11 と 3.12 以降の `os.stat` のどちらの形でも受け付けます。
-- `cf.restore`：自分の項目のゴーストなら、まず属性だけで開いて、中身がなければ `CfHydratePlaceholder`（シェルの FETCH_DATA が保管庫から渡す）で戻し、中身がすべてディスクにあることを確かめてから `CfRevertPlaceholder` で通常のファイルに戻します（中身のないまま戻すと、0で埋まったファイルになるため）。
+- `cf.make_ghost` の追加の確認：保管庫の `manifest.json` の `item_id`・`size`・`sha256` が `expected` と一致すること、ファイルの本当の場所（`GetFinalPathNameByHandle`）が同期ルートの中にあること、リンクやフォルダーでないこと。変換の後に中身がまだディスクにあれば通常のファイルへ戻して `error`／`locked` とし、すでに同じ項目のゴーストなら `ghosted` を返します（やり直しても同じ結果）。読み取り専用のファイルは、`CfConvertToPlaceholder` に要る書き込みの権利で開けないため、開く前に `error`（理由は「読み取り専用」で始まる）を返します。`expected.file_key` は Python 3.11 と 3.12 以降の `os.stat` のどちらの形でも受け付けます。
+- `cf.restore`：自分の項目のゴーストなら、まず属性だけで開いて、中身がなければ `CfHydratePlaceholder`（シェルの FETCH_DATA が保管庫から渡す）で戻し、排他的に開き直して中身がすべてディスクにあることを確かめてから `CfRevertPlaceholder` で通常のファイルに戻します。`CfRevertPlaceholder` は、中身がそろっていなければ自分で FETCH_DATA を呼んで戻し、戻せなければ失敗します（`STATUS_CLOUD_FILE_ACCESS_DENIED`）。先に自分で戻すのは、保管庫のハッシュの確認と「すべてディスクにある」ことの確認を戻す直前に行い、失敗の理由をはっきり返すためです。`CfRevertPlaceholder` には書き込み（`WRITE_DATA`）か `WRITE_DAC` の権利が要るため、読み取り専用のゴーストは戻さず、`error`（「読み取り専用」を外してから試す案内）を返します（属性は変えません）。ファイルがあるかを確かめられないとき（アクセスの拒否など）は、`missing` ではなく `error` を返します（`missing` は、ないことが確かなときだけ）。
 - `cf.unregister_root`：同期ルートの下にプレースホルダーが残っている間（または数え終わらないとき）は解除しません。
 - `trash.confirm_and_recycle`：シェルは必ず確認画面を出します（対象のファイル名と件数を表示）。承認されたときだけ、1件ずつ `IFileOperation` でごみ箱へ移します。`IFileOperationProgressSink::PreDeleteItem` に `TSF_DELETE_RECYCLE_IF_POSSIBLE` が付いていない（ごみ箱に入らず完全に削除される）場合は、その削除を中止して `"refused"` を返します。`PostDeleteItem` で、ごみ箱の中の項目が作られなかった場合も `"failed"` とします。
 
@@ -80,8 +82,8 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 | `session.event` | `{"kind": "lock"/"unlock"/"logoff"/"suspend"/"resume"/"shutdown"}` |
 | `cf.fetch` | `{"item_id", "path", "process_name", "process_id", "by_pip0": bool, "result": "served"/"failed", "reason", "elapsed_ms"}`（ゴーストが開かれて中身を渡したとき。利用の記録と応答時間の実測に使う。`by_pip0` は、開いたのが pip0 本体・シェル自身のときに真で、そのときは利用として数えない） |
 | `cf.hydrated` | `{"item_id", "path", "by_pip0": bool}`（ゴーストの中身がすべて戻ったとき。本体は `RESTORE_AFTER_OPEN_SECONDS` 後に通常のファイルへ戻す。`by_pip0` が真（`cf.restore` の中で戻した）ときは何もしない） |
-| `cf.notify_delete` | `{"item_id", "path"}` |
-| `cf.notify_rename` | `{"item_id", "old_path", "new_path", "inside_root": bool}` |
+| `cf.notify_delete` | `{"item_id", "path"}`（ゴーストの削除が**終わった**とき。Windows の NOTIFY_DELETE_COMPLETION） |
+| `cf.notify_rename` | `{"item_id", "old_path", "new_path", "inside_root": bool}`（ゴーストの名前の変更・移動が**終わった**とき。Windows の NOTIFY_RENAME_COMPLETION。同期ルートの外への移動は、終わりの知らせが届かないことがあるため、約3秒後に元の場所にファイルがなく移動先にあることを確かめてから送る） |
 | `usage.recent_items` | `{"tracking_enabled": bool/null, "items": [{"target_path", "opened_at"}]}`（`watched_roots` の中のものだけ。500件ずつに分け、最初の一覧の後は変わったものだけ送る。Recent を読めないときは `tracking_enabled` が null） |
 
 ## 5. ブラウザー拡張 → 受け口（Native Messaging）

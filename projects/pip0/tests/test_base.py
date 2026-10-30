@@ -45,6 +45,25 @@ def test_config_reads_user_file_and_ignores_unknown_keys(tmp_path):
     assert config["DB_PATH"] == data_dir.resolve() / "pip0.db"
 
 
+@pytest.mark.parametrize("encoding", ["utf-8-sig", "utf-16"])  # メモ帳・PowerShell 5.1 が作る BOM 付きのファイル
+def test_config_reads_user_file_with_a_bom(tmp_path, encoding):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "config.json").write_text('{"AUTO_EVACUATE_ENABLED": false}', encoding=encoding)
+    config = config_module.load_config(overrides={"DATA_DIR": data_dir})
+    assert config["AUTO_EVACUATE_ENABLED"] is False
+    assert config["CONFIG_WARNINGS"] == []
+
+
+def test_broken_config_file_is_reported_and_defaults_are_kept(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "config.json").write_bytes(b'{"AUTO_EVACUATE_ENABLED": fa')
+    config = config_module.load_config(overrides={"DATA_DIR": data_dir})
+    assert config["AUTO_EVACUATE_ENABLED"] is True
+    assert any("config.json を読めませんでした" in message for message in config["CONFIG_WARNINGS"])
+
+
 # ---------------------------------------------------------------------- 時刻
 
 
@@ -85,6 +104,39 @@ def test_period_follows_daylight_saving_time(monkeypatch):
     finally:
         monkeypatch.undo()
         time.tzset()
+
+
+class WindowsLikeDatetime(datetime):
+    """Windows の Python のように、1970年より前の時刻を変換できない datetime（OSError を出す）"""
+
+    @classmethod
+    def fromtimestamp(cls, ts, tz=None):
+        if ts < 0:
+            raise OSError(22, "Invalid argument")
+        return super().fromtimestamp(ts, tz)
+
+    def timestamp(self):
+        if self.year < 1970:
+            raise OSError(22, "Invalid argument")
+        return super().timestamp()
+
+
+def test_dates_before_1970_work_even_where_the_os_cannot_convert_them(tokyo, monkeypatch):
+    monkeypatch.setattr(timeutil, "datetime", WindowsLikeDatetime)
+    # 最終更新日時が 1601年（FILETIME の 0）や 1969年のファイルも、日付の文字にできる（長期間未読の判定を止めない）
+    assert timeutil.local_date_str(-11_644_473_600) == "1601-01-01"
+    assert timeutil.local_date_str(-24 * 3600) == "1969-12-31"
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    period = timeutil.find_period("700か月前の資料", now_ts)
+    assert period["start"] < 0 and period["end"] > period["start"]
+    assert "1968-06-01" in period["label"]
+
+
+def test_impossibly_old_relative_dates_are_not_periods(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    assert timeutil.find_period("999999日前の資料", now_ts) is None
+    assert timeutil.find_period("99999999か月前", now_ts) is None
+    assert timeutil.local_date_str(10 ** 20) == "9999-12-31"
 
 
 # ---------------------------------------------------------------------- 暗号化DB
@@ -155,6 +207,37 @@ def test_os_keystore_refuses_plaintext_backends(monkeypatch):
     monkeypatch.setattr(keyring, "get_keyring", lambda: fail.Keyring())
     with pytest.raises(keystore.KeystoreUnavailable):
         keystore.OsKeystore()
+
+
+class CredentialError(Exception):
+    """pywin32-ctypes の error の代わり（OSError の仲間ではない）"""
+
+    def __init__(self, winerror):
+        super().__init__(winerror, "CredRead", "ログオン セッションが存在しません")
+        self.winerror = winerror
+
+
+def test_credential_manager_errors_become_keystore_unavailable(monkeypatch):
+    import keyring
+
+    # Windows の資格情報マネージャー（WinVaultKeyring）の代わり。名前は本物と同じにする
+    fake_backend_class = type("WinVaultKeyring", (), {
+        "__module__": "keyring.backends.Windows",
+        "persist": None,
+        "get_password": lambda self, service, username: (_ for _ in ()).throw(CredentialError(1312)),
+        "set_password": lambda self, service, username, value: (_ for _ in ()).throw(CredentialError(1312)),
+        "delete_password": lambda self, service, username: (_ for _ in ()).throw(
+            keyring.errors.PasswordDeleteError("ありません")),
+    })
+    backend = fake_backend_class()
+    monkeypatch.setattr(keyring, "get_keyring", lambda: backend)
+    store = keystore.OsKeystore()
+    assert backend.persist == "local machine"  # 鍵をこの PC の外へ持ち出さない
+    with pytest.raises(keystore.KeystoreUnavailable, match="1312"):
+        store.get_key()
+    with pytest.raises(keystore.KeystoreUnavailable):
+        store.set_key("0" * 64)
+    store.delete_key()  # もともと鍵がないときは、何もしない
 
 
 def test_transaction_rolls_back_on_error(db):

@@ -20,14 +20,37 @@ def now():
     return time.time()
 
 
+EPOCH = datetime(1970, 1, 1)  # 秒数の起点（UTC）
+
+
 def to_local(ts):
-    """秒数 → 現地時刻の datetime（タイムゾーンなし）"""
-    return datetime.fromtimestamp(ts)
+    """秒数 → 現地時刻の datetime（タイムゾーンなし）
+
+    Windows は 1970年より前の時刻を OS の機能で変換できない（OSError になる）ため、
+    そのときは今の時差で計算します（夏時間の違いは考えません）。
+    暦で表せないほど大きな値は、表せる最小・最大の日時にそろえます。
+    """
+    try:
+        return datetime.fromtimestamp(ts)
+    except (OSError, OverflowError, ValueError):
+        pass
+    try:
+        return EPOCH + timedelta(seconds=ts) + utc_offset_now()
+    except OverflowError:
+        return datetime.min if ts < 0 else datetime.max
 
 
 def from_local(dt):
-    """現地時刻の datetime（タイムゾーンなし）→ 秒数"""
-    return dt.timestamp()
+    """現地時刻の datetime（タイムゾーンなし）→ 秒数（1970年より前は、to_local と同じく今の時差で計算する）"""
+    try:
+        return dt.timestamp()
+    except (OSError, OverflowError, ValueError):
+        return (dt - EPOCH - utc_offset_now()).total_seconds()
+
+
+def utc_offset_now():
+    """今の現地時刻と UTC の差（日本なら +9 時間）"""
+    return datetime.now().astimezone().utcoffset()
 
 
 def local_date_str(ts):
@@ -104,6 +127,18 @@ RELATIVE_PATTERNS = [
 FIXED_WORDS = ["先々週", "一昨日", "おととい", "今日", "本日", "昨日", "今週", "先週", "今月", "先月", "今年", "去年", "昨年", "最近"]
 
 
+def relative_period(word, unit, amount, today, week_starts_on, span):
+    """「3日前」「2週間前」「1か月前」の範囲（unit は days、weeks、months のどれか）"""
+    if unit == "days":
+        start = today - timedelta(days=amount)
+        return make_period(word, start, start + timedelta(days=1), span)
+    if unit == "weeks":
+        start = start_of_week(today, week_starts_on) - timedelta(weeks=amount)
+        return make_period(word, start, start + timedelta(weeks=1), span)
+    start = add_months(start_of_month(today), -amount)
+    return make_period(word, start, add_months(start, 1), span)
+
+
 def find_period(text, now_ts, week_starts_on=0, recent_days=14):
     """文の中の「先週」などを探して、現地時刻の範囲を返す。見つからなければ None
 
@@ -117,16 +152,10 @@ def find_period(text, now_ts, week_starts_on=0, recent_days=14):
             amount = parse_number(match.group(1))
             if amount is None:
                 continue
-            word = match.group(0)
-            if unit == "days":
-                start = today - timedelta(days=amount)
-                return make_period(word, start, start + timedelta(days=1), match.span())
-            if unit == "weeks":
-                this_week = start_of_week(today, week_starts_on)
-                start = this_week - timedelta(weeks=amount)
-                return make_period(word, start, start + timedelta(weeks=1), match.span())
-            start = add_months(start_of_month(today), -amount)
-            return make_period(word, start, add_months(start, 1), match.span())
+            try:
+                return relative_period(match.group(0), unit, amount, today, week_starts_on, match.span())
+            except (OverflowError, ValueError):
+                continue  # 「999999日前」など、暦で表せないほど前の日付は、時期として扱わない
 
     for word in FIXED_WORDS:
         index = text.find(word)

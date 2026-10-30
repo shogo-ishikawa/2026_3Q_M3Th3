@@ -112,6 +112,15 @@ def test_valid_message_is_stored_without_query_strings(env, db, key_store, downl
         assert text.encode("utf-8") not in raw
 
 
+
+def test_downloads_saved_outside_the_downloads_folder_are_not_stored(env, db, key_store):
+    # 「名前を付けて保存」で別のフォルダーへ保存したものは、pip0 の対象外。URL もタブの題名も残さない
+    message = download_message(env["PIP0_ROOT"] / "給与明細.pdf")
+    code, reply, _raw, _ = run_host(env, key_store, frame(message))
+    assert code == 0
+    assert reply["ok"] is True and reply["stored"] is False
+    assert stored(db) == []
+
 def test_parent_window_argument_is_ignored(env, db, key_store, downloaded):
     argv = ["pip0.native_host", ORIGIN, "--parent-window=1234"]
     code, reply, _, _ = run_host(env, key_store, frame(download_message(downloaded)), argv=argv)

@@ -160,7 +160,7 @@ internal sealed class DragMonitor
     {
         HWND pointed = WindowInfo.FromPoint(point);
         HWND root = WindowInfo.GetRoot(pointed);
-        uint processId = root.IsNull ? 0 : WindowInfo.GetProcessId(root);
+        uint processId = WindowInfo.GetAppProcessId(pointed, root);
         return new PressInfo(point, pointed, root, processId, Environment.TickCount64);
     }
 
@@ -291,10 +291,11 @@ internal sealed class DragMonitor
         });
     }
 
+    /// <summary>点の下のアプリのプロセス（ストアのアプリも、アプリごとに見分ける。WindowInfo.GetAppProcessId）</summary>
     private static uint ProcessUnder(PixelPoint point)
     {
-        HWND root = WindowInfo.GetRoot(WindowInfo.FromPoint(point));
-        return root.IsNull ? 0 : WindowInfo.GetProcessId(root);
+        HWND pointed = WindowInfo.FromPoint(point);
+        return WindowInfo.GetAppProcessId(pointed, WindowInfo.GetRoot(pointed));
     }
 
     private static double Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
