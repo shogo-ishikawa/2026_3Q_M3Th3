@@ -16,7 +16,8 @@ context.foreground の知らせ（プロセス名、ウィンドウタイトル�
 ウィンドウタイトルは、その場で使うだけです。DB にもログにも書きません（このモジュールは DB を使いません）。
 画面の画像は取得しません。
 
-語の分け方（split_words）と、語を探す関数（find_word、take_words）は、検索（search.py）でも使います。
+語の分け方（split_words）と、語を探す関数（find_word、take_words、contains_word）は、検索（search.py）でも使います。
+長い本文を速く調べる部品（prepare_text、search_forms、contains_prepared）は、浮上式デスク（desk.py）でも使います。
 """
 
 import os
@@ -312,17 +313,54 @@ def to_fullwidth(text):
     return "".join(converted)
 
 
+def has_case(text):
+    """英字のように、大文字・小文字の区別がある文字を含めば True（「予算」「2026」は False）"""
+    return text.upper() != text.lower()
+
+
+def prepare_text(text, fold_case=True):
+    """何度も語を探す文（本文など）を、先に1回だけ直しておく
+
+    fold_case が True なら、英字の大文字・小文字をそろえる（casefold）。探す語がすべて「予算」「2026」のように
+    大文字・小文字のない語なら、そろえなくても結果は同じなので、False にして手間を省けます。
+    """
+    text = str(text or "")
+    return text.casefold() if fold_case else text
+
+
+def search_forms(word):
+    """語を探すときの形のリスト：比べるための形（fold）と、その英数字を全角にした形（「2026」→「２０２６」）
+
+    日本語だけの語（「予算」）は、全角にしても同じなので、1つだけにします（同じ本文を2回探さないため）。
+    """
+    needle = fold(word)
+    if not needle:
+        return []
+    full = to_fullwidth(needle)
+    return [needle] if full == needle else [needle, full]
+
+
+def contains_prepared(prepared_text, forms):
+    """prepare_text で直した文の中に、search_forms で作った形のどれかがあれば True"""
+    if not prepared_text:
+        return False
+    for form in forms:
+        if form in prepared_text:
+            return True
+    return False
+
+
 def contains_word(text, word):
     """text の中に word があれば True（英字の大文字・小文字と、英数字の全角・半角の違いは無視する）
 
-    長い本文（解析した本文は最大2万文字）でも速く調べられるように、本文の側は NFKC で直さず、
-    探す語を半角と全角の2つの形にして探します。
+    長い本文（解析した本文は最大2万文字）でも速く調べられるように、
+    - 本文の側は NFKC で直さず、探す語を半角と全角の2つの形にして探す（search_forms）
+    - 本文の大文字・小文字をそろえるのは、探す語に英字などがあるときだけ（prepare_text）
+    同じ本文で多くの語を探すときは、prepare_text と search_forms を先に1回ずつ作り、contains_prepared で調べます。
     """
     if not text or not word:
         return False
-    haystack = str(text).casefold()
-    needle = fold(word)
-    return needle in haystack or to_fullwidth(needle) in haystack
+    return contains_prepared(prepare_text(text, has_case(fold(word))), search_forms(word))
 
 
 def ascii_lower(text):

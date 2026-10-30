@@ -341,6 +341,27 @@ def test_refuses_non_empty_folders_and_files(tmp_path):
     assert demo_data.create_demo_dataset(a_file, tokyo_now())["reason"] == "指定した場所はフォルダーではありません"
 
 
+def test_write_failures_are_reported_not_raised(tmp_path, monkeypatch):
+    def disk_full(entry, path):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(demo_data, "write_demo_file", disk_full)
+    result = demo_data.create_demo_dataset(tmp_path / "demo", tokyo_now())
+    assert result["ok"] is False
+    assert result["reason"].startswith("ダミーのファイルを作れませんでした（OSError）")
+
+
+def test_missing_dummy_file_stops_loading(tmp_path, env):
+    manifest = demo_data.create_demo_dataset(tmp_path / "demo", tokyo_now())
+    os.remove(manifest["files"][0]["path"])  # 作った後に、誰かが消した
+    conn = database.open_encrypted(":memory:", keystore.new_key_hex())
+    try:
+        loaded = demo_data.load_demo(conn, FakePlatform(), env, rules, manifest, tokyo_now())
+        assert loaded == {"ok": False, "reason": "ダミーのファイルの日時を設定できませんでした（FileNotFoundError）"}
+    finally:
+        conn.close()
+
+
 def test_refuses_extra_protected_folders(tmp_path, env):
     result = demo_data.create_demo_dataset(env["DOWNLOADS_DIR"] / "demo", tokyo_now(),
                                            protected=[env["DOWNLOADS_DIR"]])

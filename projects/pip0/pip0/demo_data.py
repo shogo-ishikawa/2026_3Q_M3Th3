@@ -212,23 +212,27 @@ def create_demo_dataset(target_dir, now, week_starts_on=0, protected=None):
     target = checked["path"]
     entries = demo_files(demo_times(now, week_starts_on))
 
-    target.mkdir(parents=True, exist_ok=True)
     folders = []
-    for folder in DEMO_FOLDERS:
-        path = target / folder["name"]
-        path.mkdir(exist_ok=True)
-        folders.append({"path": str(path), "location_kind": folder["location_kind"]})
-    for entry in entries:
-        folder = target / entry["folder"]
-        folder.mkdir(parents=True, exist_ok=True)
-        path = folder / entry["name"]
-        write_demo_file(entry, path)
-        entry["path"] = str(path)
-
-    manifest = {"ok": True, "reason": "", "format": 1, "target_dir": str(target), "now": now,
-                "week_starts_on": week_starts_on, "conditions": SIMULATED_CONDITIONS,
-                "folders": folders, "files": entries}
-    fsutil.atomic_write_json(target / MANIFEST_NAME, manifest)
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        for folder in DEMO_FOLDERS:
+            path = target / folder["name"]
+            path.mkdir(exist_ok=True)
+            folders.append({"path": str(path), "location_kind": folder["location_kind"]})
+        for entry in entries:
+            folder = target / entry["folder"]
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / entry["name"]
+            write_demo_file(entry, path)
+            entry["path"] = str(path)
+        manifest = {"ok": True, "reason": "", "format": 1, "target_dir": str(target), "now": now,
+                    "week_starts_on": week_starts_on, "conditions": SIMULATED_CONDITIONS,
+                    "folders": folders, "files": entries}
+        fsutil.atomic_write_json(target / MANIFEST_NAME, manifest)
+    except OSError as error:
+        # 書き込みの権限がない、空き容量がない など（作りかけのファイルは、指定したフォルダーの中にだけある）
+        return {"ok": False, "reason": f"ダミーのファイルを作れませんでした（{type(error).__name__}）。"
+                                       "作りかけのファイルがあれば、指定したフォルダーごと削除してください"}
     return manifest
 
 
@@ -300,7 +304,11 @@ def write_demo_file(entry, path):
 
 
 def draw_bar_chart(colour, values, size=(640, 480)):
-    """白い背景に、黒い軸と、colour の色の棒（values の高さ）がある棒グラフ"""
+    """白い背景に、黒い軸と目盛り、colour の色の棒（values の高さ）がある棒グラフ
+
+    文字（軸の数字など）は描きません。文字を描くと Pillow に入っているフォントを使うことになり、
+    環境によって画像が変わり、フォントの利用条件も関わるためです。目盛りは短い線で描きます。
+    """
     width, height = size
     image = Image.new("RGB", size, (255, 255, 255))
     draw = ImageDraw.Draw(image)
@@ -310,11 +318,13 @@ def draw_bar_chart(colour, values, size=(640, 480)):
         x0 = left + index * slot + slot * 0.2
         x1 = left + (index + 1) * slot - slot * 0.2
         draw.rectangle([x0, bottom - value * (bottom - top), x1, bottom - 1], fill=colour)
-        draw.text((x0 + 5, bottom + 10), f"Q{index + 1}", fill=(0, 0, 0))
-    draw.line([(left, top - 10), (left, bottom)], fill=(0, 0, 0), width=2)
-    draw.line([(left, bottom), (right, bottom)], fill=(0, 0, 0), width=2)
+        middle = (x0 + x1) / 2
+        draw.line([(middle, bottom), (middle, bottom + 8)], fill=(0, 0, 0), width=2)  # 横軸の目盛り
+    draw.line([(left, top - 10), (left, bottom)], fill=(0, 0, 0), width=2)    # 縦軸
+    draw.line([(left, bottom), (right, bottom)], fill=(0, 0, 0), width=2)     # 横軸
     for step in range(5):
-        draw.text((20, bottom - step * (bottom - top) / 4 - 6), str(step * 25), fill=(0, 0, 0))
+        y = bottom - step * (bottom - top) / 4
+        draw.line([(left - 8, y), (left, y)], fill=(0, 0, 0), width=2)        # 縦軸の目盛り
     return image
 
 
@@ -446,7 +456,10 @@ def load_demo(conn, platform, config, rules, manifest, now):
 
     # 2. 最終更新日時と、Zone.Identifier（だけ）の記録
     for entry in manifest["files"]:
-        os.utime(entry["path"], (entry["modified_at"], entry["modified_at"]))
+        try:
+            os.utime(entry["path"], (entry["modified_at"], entry["modified_at"]))
+        except OSError as error:
+            return {"ok": False, "reason": f"ダミーのファイルの日時を設定できませんでした（{type(error).__name__}）"}
         record = entry.get("provenance")
         if record and record["kind"] == "zone_identifier":
             platform.zone_identifiers[str(Path(entry["path"]))] = record["zone_identifier"]

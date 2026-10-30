@@ -227,18 +227,20 @@ def search(conn, text, now, config, rules, limit=None):
         return {"query": query, "status": "empty_query", "results": [], "partial_results": [], "notes": notes}
 
     candidates = load_candidates(conn)
+    entries = []
     results = []
     partial = []
     insufficient = False
     for candidate in candidates:
         entry = evaluate(candidate, query["cues"], config, rules)
+        entries.append(entry)
         if not entry["unmatched"]:
             results.append(entry)
             continue
         if entry["matched_count"] > 0:
             partial.append(entry)
         if all(item["missing_info"] for item in entry["unmatched"]):
-            insufficient = True  # 未解析・記録なしでなければ、一致したかもしれない
+            insufficient = True  # 情報が足りないだけ：情報がそろえば、一致するかもしれない
 
     if results:
         status = "found"
@@ -252,7 +254,7 @@ def search(conn, text, now, config, rules, limit=None):
                                    item["file_id"]))
     results = [drop_sort_time(item) for item in results[:limit]]
     partial = [] if results else [drop_sort_time(item) for item in partial[:limit]]
-    notes = make_notes(query, candidates, status, config, rules)
+    notes = make_notes(query, candidates, entries, status, rules)
     logger.info("検索：手掛かり %d 個、一致 %d 件、一部一致 %d 件（%s）",
                 len(query["cues"]), len(results), len(partial), status)
     return {"query": query, "status": status, "results": results, "partial_results": partial, "notes": notes}
@@ -306,7 +308,7 @@ def matched(text):
 
 
 def unmatched(text, missing_info=False):
-    """一致しなかった。missing_info：未解析・記録なしのため分からない（情報不足）なら True"""
+    """一致しなかった。missing_info：情報が足りないため分からない（未解析、解析に失敗、入手経路の記録なし など）なら True"""
     return {"matched": False, "text": text, "missing_info": missing_info}
 
 
@@ -518,8 +520,11 @@ def ext_label(ext):
 # ----------------------------------------------------------------------
 
 
-def make_notes(query, candidates, status, config, rules):
-    """検索の結果に添える補足の文のリスト"""
+def make_notes(query, candidates, entries, status, rules):
+    """検索の結果に添える補足の文のリスト
+
+    candidates：load_candidates の結果、entries：candidates と同じ順の evaluate の結果
+    """
     notes = []
     cues = query["cues"]
     types = [cue["type"] for cue in cues]
@@ -531,7 +536,7 @@ def make_notes(query, candidates, status, config, rules):
     needs_image_analysis = "colour" in types or any(
         cue["type"] == "visual" and cue["kind"] in ("chart", "photo") for cue in cues)
     if needs_image_analysis:
-        waiting, unreadable = count_analysis_states(candidates, lambda ext: ext in images)
+        waiting, unreadable = count_analysis_states(candidates, images)
         if waiting:
             notes.append(f"色・形をまだ調べていない画像が {waiting} 件あります"
                          "（電源接続中かつ3分間無操作のときに解析します）")
@@ -547,37 +552,37 @@ def make_notes(query, candidates, status, config, rules):
             notes.append(f"入手経路の記録がないファイルが {count} 件あります"
                          "（記録がないファイルを、Slack 等から入手したとは扱いません）")
     if "keyword" in types:
-        waiting, unreadable = count_analysis_states(
-            candidates, lambda ext: rules.FILE_KINDS.get(ext, "other") in TEXT_KINDS)
+        documents = [ext for ext, kind in rules.FILE_KINDS.items() if kind in TEXT_KINDS]
+        waiting, unreadable = count_analysis_states(candidates, documents)
         if waiting:
             notes.append(f"本文をまだ解析していない文書が {waiting} 件あります"
                          "（電源接続中かつ3分間無操作のときに解析します）")
         if unreadable:
             notes.append(f"本文を読めなかった文書が {unreadable} 件あります（解析の失敗、対象外の形式・大きさなど）")
         for cue in cues:
-            if cue["type"] == "keyword" and not any(mentions(candidate, cue["word"]) for candidate in candidates):
+            if cue["type"] == "keyword" and not matched_somewhere(cue, entries):
                 notes.append(f"「{cue['word']}」は、ファイル名と、解析済みのタイトル・本文のどれにもありません")
     if query["ignored"]:
         notes.append("読み飛ばした言葉：" + "、".join(query["ignored"]))
     if not candidates:
         notes.append("索引にファイルがありません（対象のフォルダーを見直した後に、もう一度試してください）")
     if status == "insufficient_info":
-        notes.append("一致しなかった理由が「未解析」や「入手経路の記録なし」だけのファイルがあります。"
+        notes.append("一致しなかった理由が、未解析や入手経路の記録なしなど、情報が足りないことだけのファイルがあります。"
                      "情報がそろえば一致する可能性があります（情報不足）")
     elif status == "no_match":
         notes.append("手掛かりのすべてに一致するファイルはありません（該当なし）")
     return notes
 
 
-def count_analysis_states(candidates, wanted):
-    """wanted(拡張子) が True のファイルのうち、(解析待ちの件数, 解析できなかった件数) を数える
+def count_analysis_states(candidates, extensions):
+    """拡張子が extensions のどれかのファイルのうち、(解析待ちの件数, 解析できなかった件数) を数える
 
     解析待ち：まだ解析していない（行がない、pending）。解析できなかった：解析に失敗した、対象外の形式・大きさ
     """
     waiting = 0
     unreadable = 0
     for candidate in candidates:
-        if not wanted(candidate["file"]["ext"]):
+        if candidate["file"]["ext"] not in extensions:
             continue
         analysis = candidate["analysis"]
         status = analysis.get("status") if analysis else None
@@ -588,12 +593,9 @@ def count_analysis_states(candidates, wanted):
     return waiting, unreadable
 
 
-def mentions(candidate, word):
-    """名前、または解析済みのタイトル・本文のどこかに word があれば True（check_keyword と同じ決まり）"""
-    if context_module.contains_word(candidate["file"]["name"], word):
-        return True
-    analysis = candidate["analysis"]
-    if analysis is None or analysis.get("status") != "done":
-        return False
-    return (context_module.contains_word(analysis.get("title"), word)
-            or context_module.contains_word(analysis.get("text_excerpt"), word))
+def matched_somewhere(cue, entries):
+    """どれか1つのファイルでも、その手掛かりに一致していれば True（一致しなかった手掛かりの一覧にないもの）"""
+    for entry in entries:
+        if all(item["cue"] != cue["label"] for item in entry["unmatched"]):
+            return True
+    return False

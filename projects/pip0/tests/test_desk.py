@@ -123,6 +123,37 @@ def test_recent_use_records_count_as_well_as_modification(db, env):
     assert ranked[0]["reasons"] == ["7日以内に使用・変更（2026-10-26、「最近使ったファイル」の記録）（+1）"]
 
 
+def test_recency_follows_the_same_rule_as_usage_last_use(db, env):
+    # desk は利用の記録をまとめて1回で読むが、決まりは usage.last_use（更新日時と利用の記録の新しいほう）と同じ
+    from pip0 import usage
+
+    ids = [add_file(db, env, f"f{number}.txt", mtime=NOW - number * 9 * DAY) for number in range(4)]
+    db.execute("INSERT INTO usage_events (file_id, kind, at) VALUES (?, 'recent_item', ?)", (ids[2], NOW - 40 * DAY))
+    db.execute("INSERT INTO usage_events (file_id, kind, at) VALUES (?, 'ghost_open', ?)", (ids[3], NOW - 2 * DAY))
+    config = dict(env, DESK_MAX_ITEMS=10, DESK_MIN_SCORE=0.5)
+    ranked = {item["file_id"]: item for item in desk.rank_files(db, None, NOW, config, rules, limit=10)}
+    assert set(ranked) == set(ids)
+    for file_id in ids:
+        row = database.query_one(db, "SELECT * FROM files WHERE id = ?", (file_id,))
+        last = usage.last_use(db, row)
+        days = (NOW - last["at"]) / DAY
+        points = 1 if days <= 7 else 0.5
+        assert ranked[file_id]["score"] == points
+        label = usage.USAGE_KIND_LABELS[last["kind"]]
+        assert f"（{time.strftime('%Y-%m-%d', time.localtime(last['at']))}、{label}）" in ranked[file_id]["reasons"][0]
+    assert ranked[ids[3]]["reasons"] == ["7日以内に使用・変更（2026-10-27、ゴーストを開いた記録）（+1）"]
+
+
+def test_english_keywords_ignore_case_in_names_and_text(db, env):
+    add_file(db, env, "budget_plan.xlsx", text="Quarterly BUDGET review")
+    add_file(db, env, "予算.txt", text="BUDGET")
+    chrome = context.parse_foreground({"process_name": "chrome.exe", "window_title": "Budget - Google Chrome"}, rules)
+    ranked = desk.rank_files(db, chrome, NOW, env, rules)
+    assert [item["name"] for item in ranked] == ["budget_plan.xlsx", "予算.txt"]
+    assert ranked[0]["reasons"] == ["ファイル名に「Budget」（+3）", "本文に「Budget」（+2）"]
+    assert ranked[1]["reasons"] == ["本文に「Budget」（+2）"]
+
+
 def test_source_points_only_when_the_app_is_the_same(ranked_db, db, env):
     chrome = context.parse_foreground({"process_name": "chrome.exe", "window_title": "予算2026 - Google Chrome"},
                                       rules)
@@ -229,6 +260,14 @@ def test_tray_request_without_items_reports_no_items(env):
     assert controller.on_show_request(NOW) == [{"do": "hide", "reason": "no_items"}]
     controller.on_context(slack_context(), [], NOW)
     assert controller.on_show_request(NOW + 1) == [{"do": "hide", "reason": "no_items"}]
+
+
+def test_tray_request_can_use_a_fresh_ranking(env):
+    controller = desk.DeskController(env)
+    controller.on_context(slack_context(), [], NOW)  # 文脈が変わったときには、候補がなかった
+    actions = controller.on_show_request(NOW + 5, ranked=ITEMS)  # その後に索引が増えた
+    assert [action["do"] for action in actions] == ["show"]
+    assert actions[0]["desk"]["items"][0]["name"] == "予算.xlsx"
 
 
 def test_file_dialog_puts_the_desk_on_the_dialog(env):

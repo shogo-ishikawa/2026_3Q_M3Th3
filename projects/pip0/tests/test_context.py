@@ -222,6 +222,24 @@ def test_contains_word_ignores_case_and_full_width_digits():
     assert not context.contains_word(None, "予算")
 
 
+def test_prepared_search_gives_the_same_answers_as_contains_word():
+    texts = ["２０２６年度 予算案", "BUDGET plan", "ＢＵＤＧＥＴ", "予算案", "Straße", "", None]
+    words = ["2026", "budget", "Budget", "予算", "決算", "STRASSE", "案"]
+    for text in texts:
+        for word in words:
+            prepared = context.prepare_text(text, context.has_case(context.fold(word)))
+            found = context.contains_prepared(prepared, context.search_forms(word))
+            assert found == context.contains_word(text, word), (text, word)
+    assert context.contains_word("ＡＢＣ２０２６", "2026")  # 大文字・小文字のない語は、そろえずに探しても見つかる
+    assert context.contains_word("Straße", "STRASSE")
+    assert context.search_forms("予算") == ["予算"]  # 全角にしても同じ語は、1回だけ探す
+    assert context.search_forms("Budget") == ["budget", "ｂｕｄｇｅｔ"]
+    assert context.search_forms("") == []
+    assert context.has_case("Budget") and not context.has_case("予算2026")
+    assert context.prepare_text("ABC予算", fold_case=False) == "ABC予算"
+    assert context.prepare_text("ABC予算") == "abc予算"
+
+
 def test_find_word_does_not_match_inside_longer_words():
     assert context.find_word("グラフィック", "グラフ") == -1
     assert context.find_word("Online", "line") == -1

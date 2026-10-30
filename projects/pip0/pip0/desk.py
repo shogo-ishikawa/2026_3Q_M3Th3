@@ -69,10 +69,14 @@ def rank_files(conn, context, now, config, rules, limit=3):
     if count <= 0:
         return []
 
+    # 語を探す形は、語ごとに1回だけ作る。英字の語（大文字・小文字のある語）があるときだけ、
+    # ファイル名・本文の大文字・小文字をそろえる（日本語の語だけなら、そろえる手間を省く）
+    keyword_forms = [(word, context_module.search_forms(word)) for word in keywords]
+    fold_case = any(context_module.has_case(context_module.fold(word)) for word in keywords)
     recent = recent_uses(conn, now)
     ranked = []
     for row in database.query_all(conn, FILES_SQL):
-        score, reasons, last_at = score_file(row, keywords, app_label, recent.get(row["id"]), now)
+        score, reasons, last_at = score_file(row, keyword_forms, fold_case, app_label, recent.get(row["id"]), now)
         if score < config["DESK_MIN_SCORE"]:
             continue
         ranked.append({"file_id": row["id"], "path": row["path"], "name": row["name"], "status": row["status"],
@@ -88,24 +92,30 @@ def rank_files(conn, context, now, config, rules, limit=3):
     return result
 
 
-def score_file(row, keywords, app_label, recent_use, now):
-    """1つのファイルの点数と理由を計算する。(点数, 理由のリスト, 最後に使った時刻) を返す"""
+def score_file(row, keyword_forms, fold_case, app_label, recent_use, now):
+    """1つのファイルの点数と理由を計算する。(点数, 理由のリスト, 最後に使った時刻) を返す
+
+    keyword_forms：[(文脈の語, context.search_forms の形), ...]
+    fold_case：英字の語があるときは True（名前・タイトル・本文の大文字・小文字をそろえてから探す）
+    """
     score = 0.0
     reasons = []
     analysed = row["analysis_status"] == "done"
-    title = row["title"] if analysed else None
-    text = row["text_excerpt"] if analysed else None
+    # 名前・タイトル・本文は、語ごとにではなく、ファイルごとに1回だけ直す（本文は最大2万文字あるため）
+    name = context_module.prepare_text(row["name"], fold_case)
+    title = context_module.prepare_text(row["title"] if analysed else None, fold_case)
+    text = context_module.prepare_text(row["text_excerpt"] if analysed else None, fold_case)
 
-    for keyword in keywords:
+    for keyword, forms in keyword_forms:
         places = []
-        if context_module.contains_word(row["name"], keyword):
+        if context_module.contains_prepared(name, forms):
             places.append("ファイル名")
-        if context_module.contains_word(title, keyword):
+        if context_module.contains_prepared(title, forms):
             places.append("タイトル")
         if places:
             score += NAME_OR_TITLE_POINTS
             reasons.append(f"{'・'.join(places)}に「{keyword}」（+{NAME_OR_TITLE_POINTS}）")
-        if context_module.contains_word(text, keyword):
+        if context_module.contains_prepared(text, forms):
             score += TEXT_POINTS
             reasons.append(f"本文に「{keyword}」（+{TEXT_POINTS}）")
 
@@ -130,8 +140,9 @@ def score_file(row, keywords, app_label, recent_use, now):
 def recent_uses(conn, now):
     """MONTH_DAYS 日以内の利用の記録のうち、ファイルごとに最も新しいもの {file_id: {"at", "kind"}}
 
-    usage.last_use と同じ決まり（usage_events と、files の最終更新日時）を、ファイルごとに問い合わせると
-    遅くなるため、ここでまとめて1回で読みます。最終更新日時は latest_use で比べます。
+    usage.last_use と同じ決まり（usage_events と、files の最終更新日時の新しいほう）を、ファイルごとに
+    問い合わせると遅くなるため、ここでまとめて1回で読みます。最終更新日時は latest_use で比べます。
+    MONTH_DAYS 日より前の利用は点数に関係しないので読みません（同じ点数の並び順だけは、最終更新日時で決まります）。
     """
     since = now - MONTH_DAYS * SECONDS_PER_DAY
     latest = {}
@@ -206,12 +217,15 @@ class DeskController:
         self.shaken_at = now
         return self.hide("shake")
 
-    def on_show_request(self, now):
+    def on_show_request(self, now, ranked=None):
         """通知領域アイコンの「デスクを表示」：シェイクの後でも、すぐに出す
 
+        ranked：今の rank_files の結果（渡さなければ、最後の on_context の候補を使う）
         候補がないときは、すでに隠れていても {"do": "hide", "reason": "no_items"} を1つ返します
         （常駐処理が「候補がありません」と知らせられるように）。
         """
+        if ranked is not None:
+            self.ranked = list(ranked)
         self.forget_shake()
         if not self.ranked:
             self.visible = False
