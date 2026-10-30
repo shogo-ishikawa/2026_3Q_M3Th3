@@ -48,7 +48,14 @@ internal static class FileActions
         {
             try
             {
-                using Process? started = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                // 作業フォルダーは、開くファイルのあるフォルダーにする（エクスプローラーで開くときと同じ）。
+                // 指定しないと、開いたアプリが pip0 の作業フォルダーを受け継ぎ、アプリが終わるまで、そのフォルダーが使用中になる
+                var start = new ProcessStartInfo(path)
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = System.IO.Path.GetDirectoryName(path) ?? "",
+                };
+                using Process? started = Process.Start(start);
                 Log.Info("ファイルを既定のアプリで開きました。");
                 return Answer(true, "");
             }

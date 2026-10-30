@@ -14,7 +14,9 @@
          runtime\Lib\site-packages に入れる（版とハッシュを固定し、ビルド済みの wheel だけを使う）
       5. pip0 本体（pip0\）を app\pip0\ に、pip0 シェル（scripts\build-shell.ps1 の出力）を shell\ に写す
       6. 受け口のファイルを native-host\ に、全復元・起動・遮断・自動起動・削除のスクリプトを scripts\ に写す
-      7. 写した pip0 専用の Python で、ライブラリと pip0 本体を読み込めること、SQLCipher が使えることを確かめる
+      7. 写した pip0 専用の Python で、pip0 本体のすべてのモジュールとライブラリを読み込めること、
+         「python -m pip0 --help」が動くこと、SQLCipher の版を読めることを確かめる
+         （読み込むだけで、pip0 の処理は動かさない。1つでも失敗すれば、前の導入を変えずに止まる）
       8. 前の導入があれば新しいものと入れ替え、受け口を Chrome と Edge に登録する（scripts\register-native-host.ps1）
 
     準備は、導入先の隣の作業用フォルダー（例：pip0.new-20261030-090000）で行い、確かめた後で入れ替えます。
@@ -605,23 +607,42 @@ function Write-InstallMarker([string]$Dir, [string]$Pip0Version) {
     Write-Utf8NoBom (Join-Path $Dir $MarkerFileName) (($marker | ConvertTo-Json) + "`r`n")
 }
 
-# 7. 準備した pip0 専用の Python で、ライブラリと pip0 本体を読み込めるかを確かめ、pip0 の設定の場所を読みます
+# 7. 準備した pip0 専用の Python で、次のことを確かめ、pip0 の設定の場所を読みます。1つでも失敗したら止まります
+#    - pip0 本体のすべてのモジュール（app\pip0 の .py）を読み込めること。platform_windows は、読めなくても
+#      設定の読み込みが先へ進むため、名前を挙げて確かめます。読み込めなかったときは、モジュールの名前と
+#      エラーの種類だけを表示します（コードの中身やパスは表示しません）
+#    - 「python -m pip0 --help」が終了コード 0 で終わること（全復元・起動・アンインストールが使うコマンドの入口）
+#    - ライブラリを読み込めること、SQLCipher の版を読めること
+#    読み込むだけで、pip0 の処理が正しく動くかまでは確かめません（コードを変えたときは python -m pytest で確かめます）
 function Test-StagedRuntime([string]$RuntimeDir) {
     $python = Join-Path $RuntimeDir 'python.exe'
     $code = @(
-        'import json, sys',
-        'result = {''python'': sys.version.split()[0], ''errors'': []}',
+        'import importlib, json, pkgutil, sys',
+        'result = {''python'': sys.version.split()[0], ''errors'': [], ''modules'': 0}',
         'try:',
         '    import pip0',
-        '    from pip0 import config',
-        '    loaded = config.load_config()',
-        '    for key in (''DATA_DIR'', ''VAULT_DIR'', ''PIP0_ROOT'', ''DOWNLOADS_DIR'', ''SHELL_EXE''):',
-        '        value = loaded.get(key)',
-        '        result[key] = None if value is None else str(value)',
-        '    result[''config_errors''] = [str(text) for text in (loaded.get(''CONFIG_ERRORS'') or [])]',
-        '    result[''pip0_version''] = getattr(pip0, ''__version__'', None)',
+        '    names = {module.name for module in pkgutil.iter_modules(pip0.__path__)}',
+        '    names.add(''platform_windows'')',
         'except Exception as error:',
-        '    result[''errors''].append(''pip0: '' + type(error).__name__ + '': '' + str(error))',
+        '    names = set()',
+        '    result[''errors''].append(''pip0 ('' + type(error).__name__ + '')'')',
+        'for name in sorted(names):',
+        '    try:',
+        '        importlib.import_module(''pip0.'' + name)',
+        '        result[''modules''] += 1',
+        '    except Exception as error:',
+        '        result[''errors''].append(''pip0.'' + name + '' ('' + type(error).__name__ + '')'')',
+        'if not result[''errors'']:',
+        '    try:',
+        '        from pip0 import config',
+        '        loaded = config.load_config()',
+        '        for key in (''DATA_DIR'', ''VAULT_DIR'', ''PIP0_ROOT'', ''DOWNLOADS_DIR'', ''SHELL_EXE''):',
+        '            value = loaded.get(key)',
+        '            result[key] = None if value is None else str(value)',
+        '        result[''config_errors''] = [str(text) for text in (loaded.get(''CONFIG_ERRORS'') or [])]',
+        '        result[''pip0_version''] = getattr(pip0, ''__version__'', None)',
+        '    except Exception as error:',
+        '        result[''errors''].append(''pip0: '' + type(error).__name__ + '': '' + str(error))',
         'for name in (''sqlcipher3.dbapi2'', ''keyring'', ''win32ctypes.pywin32.win32cred'', ''watchdog.observers'', ''PIL.Image'', ''pypdf''):',
         '    try:',
         '        __import__(name)',
@@ -649,10 +670,17 @@ function Test-StagedRuntime([string]$RuntimeDir) {
     $info = $result.StdOut | ConvertFrom-Json
     $errors = @(Get-JsonField $info 'errors')
     if ($errors.Count -gt 0) {
-        throw ('pip0 専用の Python で、次のものを読み込めませんでした：' + ($errors -join '、'))
+        throw ('pip0 専用の Python で、次のものを読み込めませんでした：' + ($errors -join '、') +
+            '。pip0 本体のコードを変えた場合は、リポジトリーの projects\pip0 で python -m pytest を実行すると、詳しい理由が分かります。')
     }
-    Write-Step ('pip0 専用の Python ' + (Get-JsonField $info 'python') + ' で、pip0 ' + (Get-JsonField $info 'pip0_version') +
-        ' とライブラリを読み込めました（SQLCipher ' + (Get-JsonField $info 'cipher_version') + '）。')
+    $helpResult = Invoke-Captured $python @('-I', '-X', 'utf8', '-m', 'pip0', '--help') 120
+    if ($helpResult.ExitCode -ne 0) {
+        throw ('pip0 専用の Python で「python -m pip0 --help」が失敗しました（終了コード ' + $helpResult.ExitCode + '）。' +
+            'リポジトリーの projects\pip0 で python -m pytest を実行すると、詳しい理由が分かります。')
+    }
+    Write-Step ('pip0 専用の Python ' + (Get-JsonField $info 'python') + ' で確かめました：pip0 ' + (Get-JsonField $info 'pip0_version') +
+        ' のモジュール ' + (Get-JsonField $info 'modules') + ' 個とライブラリの読み込み、「python -m pip0 --help」、' +
+        'SQLCipher の版（' + (Get-JsonField $info 'cipher_version') + '）。')
     $backend = Get-JsonField $info 'keyring_backend'
     if ($backend -ne 'keyring.backends.Windows.WinVaultKeyring') {
         Write-Caution ('鍵の保存先が Windows の資格情報マネージャーではありません（' + $backend + '）。pip0 は、この保存先には DB の鍵を保存しません。' +
@@ -688,8 +716,8 @@ function Switch-Installation([string]$Stage, [string]$Target, [string]$Stamp) {
             Move-DirectoryWithRetry $Target $old
         }
         catch {
-            throw ('前の導入（' + $Target + '）の名前を変えられませんでした。pip0、ブラウザー、導入先を開いているエクスプローラーや' +
-                'コマンド プロンプトを閉じてから、もう一度実行してください。前の導入はそのままです。詳しい理由：' + $_.Exception.Message)
+            throw ('前の導入（' + $Target + '）の名前を変えられませんでした。pip0、pip0 から開いたアプリ、ブラウザー、導入先を開いている' +
+                'エクスプローラーやコマンド プロンプトを閉じてから、もう一度実行してください。前の導入はそのままです。詳しい理由：' + $_.Exception.Message)
         }
     }
     try {

@@ -95,7 +95,9 @@ function Enable-Autostart([string]$Root, [string]$Path) {
     $link = $shell.CreateShortcut($Path)
     $link.TargetPath = $pythonw
     $link.Arguments = $ServeArguments
-    $link.WorkingDirectory = $Root
+    # 作業フォルダーは導入先にしない（pip0 から起動したプログラムが pip0 の終了後も導入先を使い続けることがあり、
+    # 導入し直し・アンインストールのときに、導入先の名前を変えられなくなるため）
+    $link.WorkingDirectory = $env:USERPROFILE
     $link.Description = 'pip0（ファイル整理アシスタント）を起動します。scripts\autostart.ps1 -Enable が作成しました。'
     $shellExe = Join-Path $Root 'shell\Pip0Shell.exe'
     if (Test-Path -LiteralPath $shellExe -PathType Leaf) {

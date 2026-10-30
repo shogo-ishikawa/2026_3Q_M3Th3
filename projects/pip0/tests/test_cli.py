@@ -411,6 +411,30 @@ def test_unregister_root_is_refused_while_a_ghost_remains(env, db, key_store, sm
     assert platform.is_sync_root_registered(env["PIP0_ROOT"]) is False
 
 
+def test_unregister_root_skips_folders_without_a_record_or_content(env, key_store):
+    """項目ではないフォルダーと、manifest.json も中身もない項目のフォルダーでは止めない（uninstall.ps1 と同じ決まり）
+
+    中身（content、content.partial）があって manifest.json がない項目では、中身を失わないように止める。
+    """
+    platform = UnregisteringPlatform(vault_dir=env["VAULT_DIR"])
+    platform.register_sync_root(env["PIP0_ROOT"], "pip0")
+    items = Path(env["VAULT_DIR"]) / "items"
+    (items / ("a" * 32)).mkdir(parents=True)  # 最初の manifest.json を書く前に止まった項目
+    (items / ("b" * 32)).mkdir()
+    (items / ("b" * 32) / "manifest.json.tmp").write_text("{", encoding="utf-8")
+    (items / "not-an-item").mkdir()
+    code, text = run(places(env) + ["unregister-root"], keystore=key_store, platform=platform)
+    assert code == 0, text
+    assert platform.is_sync_root_registered(env["PIP0_ROOT"]) is False
+
+    platform.register_sync_root(env["PIP0_ROOT"], "pip0")
+    (items / ("c" * 32)).mkdir()
+    (items / ("c" * 32) / "content").write_bytes(b"the only copy")
+    code, text = run(places(env) + ["unregister-root"], keystore=key_store, platform=platform)
+    assert code == 1 and "読めない manifest.json が 1 件" in text
+    assert platform.is_sync_root_registered(env["PIP0_ROOT"]) is True
+
+
 # ---------------------------------------------------------------------- check-encryption、check-network、使い方
 
 

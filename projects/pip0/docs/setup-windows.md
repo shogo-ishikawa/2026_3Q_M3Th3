@@ -72,13 +72,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 3. `runtime\python313._pth` に `Lib\site-packages` と `..\app` を加え、`import site` を有効にする（埋め込み用の Python が、ライブラリと pip0 本体を見つけられるようにするため）
 4. PC の Python 3.13 の pip で、[requirements-windows-cp313.txt](../requirements-windows-cp313.txt) のライブラリ（版とハッシュを固定した10個）を `runtime\Lib\site-packages` に入れる。依存ライブラリを自動では足さず（`--no-deps`）、ハッシュが1つでも違えば止まります（`--require-hashes`）
 5. pip0 本体（`pip0\`）、pip0 シェル、受け口のファイル、スクリプトを写す
-6. 写した pip0 専用の Python で、pip0 本体とライブラリを読み込めること、SQLCipher が使えることを確かめる
+6. 写した pip0 専用の Python で、pip0 本体のすべてのモジュール（`app\pip0` の `.py`）とライブラリを読み込めること、`python -m pip0 --help` が終了コード 0 で終わること、SQLCipher の版を読めることを確かめる。1つでも失敗すれば、前の導入を変えずに止まります（読めなかったモジュールの名前とエラーの種類を表示します）。読み込むだけなので、pip0 の処理が正しく動くかまでは確かめません
 7. 前の導入があれば新しいものと入れ替え、ブラウザー拡張の受け口を Chrome と Edge に登録する（`scripts\register-native-host.ps1`。今のユーザーのレジストリー HKCU だけ）
 8. 次の手順を表示する
 
 準備は、導入先の隣の作業用フォルダーで行い、確かめた後で入れ替えます。途中で失敗したときは、前の導入をそのまま残します。**データ（`%LOCALAPPDATA%\pip0`）と pip0 専用フォルダー（`%USERPROFILE%\pip0`）は、変更も削除もしません。** ファイアウォールの設定も変えません。
 
-何度実行しても同じ配置になります。pip0 の更新（リポジトリーのコードを変えた後）も、同じコマンドで導入し直します。pip0 が動いている間は入れ替えられないため、先に pip0 を終了してください（[4節](#4-起動と停止)）。
+何度実行しても同じ配置になります。pip0 の更新（リポジトリーのコードを変えた後）も、同じコマンドで導入し直します。pip0 が動いている間は入れ替えられないため、先に pip0 を終了してください（[4節](#4-起動と停止)）。コードを変えたときは、導入し直す前に、リポジトリーで `python -m pytest` を実行して確かめてください（[README.md](../README.md) の 3-1）。`pip0\` に置いた `.py` は、導入のときにすべて読み込まれるため、モジュールの一番外側には処理を書かず、関数の中か `if __name__ == "__main__":` の中に書きます。
 
 **インターネットにつながらない PC では**：別の PC で `python-3.13.17-embed-amd64.zip` を python.org からダウンロードしておき、次のように渡します（SHA-256 は必ず確かめます）。ライブラリの wheel は pip がダウンロードするため、この場合もインターネット接続は必要です。
 
@@ -153,7 +153,13 @@ pip0 専用フォルダー（`%USERPROFILE%\pip0`）を、Windows の Cloud File
 & "$env:LOCALAPPDATA\Programs\pip0\runtime\python.exe" -I -m pip0 register-root
 ```
 
-（コマンド プロンプトでは、先頭の `& ` を付けずに実行します。）登録すると、エクスプローラーで、このフォルダーのファイルに状態のアイコン（雲など）が付くことがあります。解除は `unregister-root` です（ゴーストが残っていないときだけ解除できます。アンインストールのときは `uninstall.ps1` が行います）。
+コマンド プロンプトでは、環境変数の書き方が違うため、次のように実行します。
+
+```bat
+"%LOCALAPPDATA%\Programs\pip0\runtime\python.exe" -I -m pip0 register-root
+```
+
+登録すると、エクスプローラーで、このフォルダーのファイルに状態のアイコン（雲など）が付くことがあります。解除は `unregister-root` です（ゴーストが残っていないときだけ解除できます。アンインストールのときは `uninstall.ps1` が行います）。
 
 ## 4. 起動と停止
 
@@ -306,7 +312,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\
 5. ブラウザー拡張の受け口の登録を解除する（`register-native-host.ps1 -Unregister`）
 6. 自動起動のショートカットを消す
 7. ファイアウォールの規則が残っていれば、消し方を表示する（管理者が必要なため、ここでは消しません。[network.md](network.md) の `-Remove`）
-8. プログラムのフォルダー（`%LOCALAPPDATA%\Programs\pip0`）だけを消す
+8. プログラムのフォルダー（`%LOCALAPPDATA%\Programs\pip0`）だけを消す（pip0 が置いたもの以外が一番上にあれば、消さずに止まります。自分のファイルなら別の場所へ移してから、もう一度実行します）
 
 「ゴーストが見つからない」項目（元の場所のゴーストが消された・移動された。中身は保管庫だけにある）があると止まります。中身を保管庫の `content` から取り出した後で続ける場合は、`-AcceptMissingGhosts` を付けて実行します（保管庫は消しません）。
 
@@ -329,7 +335,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\
 | `install.ps1`：「SHA-256 が … 一致しない」 | ダウンロードが壊れた、別の版のファイル | もう一度実行する。`-PythonEmbedZip` には `python-3.13.17-embed-amd64.zip` だけを渡す |
 | `install.ps1`：pip が「DO NOT MATCH THE HASHES」で止まる | 途中の機器・社内の配布元が、別のファイルを返している | 別のネットワークで実行する。一覧（requirements-windows-cp313.txt）のハッシュは書き換えない |
 | `install.ps1`：「pip0 シェル（Pip0Shell.exe）が見つかりません」 | シェルをビルドしていない | `build-shell.ps1` を実行するか、`-ShellPublishDir` でビルド済みのフォルダーを指定する |
-| `install.ps1`：「pip0 が動いています」「前の導入の名前を変えられません」 | pip0、ブラウザー（受け口）、導入先を開いているエクスプローラー・コマンド プロンプトが、ファイルを使っている | pip0 を終了し、ブラウザーとそれらのウィンドウを閉じてから、もう一度実行する |
+| `install.ps1`：「pip0 が動いています」「前の導入の名前を変えられません」 | pip0、pip0 から開いたアプリ、ブラウザー（受け口）、導入先を開いているエクスプローラー・コマンド プロンプトが、ファイルを使っている | pip0 を終了し、それらのアプリとウィンドウを閉じてから、もう一度実行する |
 | Pip0Shell.exe が止められる、「Windows によって PC が保護されました」 | 自分でビルドした exe にコード署名がない。スマート アプリ コントロールが有効な PC では、署名のないアプリが止められることがある | 設定を変えるかどうかは、PC の持ち主が判断する（pip0 は変えない）。教員がビルドした同じものを使う場合も同じ |
 | 起動しても通知領域にアイコンが出ない | 起動時のエラー（画面のない Python なので、表示されない） | コマンド プロンプトで `"%LOCALAPPDATA%\Programs\pip0\runtime\python.exe" -I -m pip0 serve` を実行し、エラーを読む。`status` も見る |
 | 拡張機能のアイコンに「!」 | 受け口の未登録、ID の違い、導入先の不足、ポリシー | [native-host/README.md](../native-host/README.md) の「よくあるエラー」。管理下のブラウザーは 5-4 |
@@ -377,8 +383,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Shell
 - すべての `.ps1` の構文（PowerShell の構文解析器）と、Windows PowerShell 5.1 で使えない書き方・BOM のないファイルがないこと
 - 埋め込み用配布物（3.13.17）の SHA-256、Sigstore の署名の検証、SBOM の値との一致。`python313._pth` の書き換えの結果
 - [requirements-windows-cp313.txt](../requirements-windows-cp313.txt)：`pip download --require-hashes` でのダウンロードし直し、Windows の条件での依存の確認、ハッシュを1文字変えると止まること。`install.ps1` と同じ引数の `pip install --target` で10個が入ること
-- `install.ps1` の関数：展開、`._pth`、ライブラリ、写す処理（`__pycache__` を除く、リンクがあれば止まる）、入れ替えと失敗したときの戻し、前の導入の片付け、導入先とデータの重なりの確認
-- `uninstall.ps1` の関数：保管庫の状態の分け方（戻っていない項目・読めない manifest.json・知らない状態で止まる）、プログラムのフォルダーを消す前の確認（印、データの場所、リンク）
+- `install.ps1` の関数：展開、`._pth`、ライブラリ、写す処理（`__pycache__` を除く、リンクがあれば止まる）、入れ替えと失敗したときの戻し、前の導入の片付け、導入先とデータの重なりの確認。準備した pip0 の確認（Linux の Python 3.13 を代役にして、構文の誤り・読み込みの失敗・`--help` の失敗を入れた pip0 で止まり、前の導入がそのまま残ること）
+- `uninstall.ps1` の関数：保管庫の状態の分け方（戻っていない項目・読めない manifest.json・知らない状態・manifest.json のない中身で止まる。項目ID の名前でないフォルダーと、記録も中身もないフォルダーでは止まらない）、プログラムのフォルダーを消す前の確認（印、データの場所、pip0 が置いたもの以外、リンク）
 - `network-policy.ps1`、`autostart.ps1` の関数（Windows のコマンドは代役。[network.md](network.md) の7節）
 - `build-shell.ps1` で、Linux から `Pip0Shell.exe`（PE32+、GUI、x86-64）を実際にビルドできること、古い出力を消すこと、ビルドの失敗を知らせること
 - `restore-all.cmd`、`start-pip0.cmd` の形（UTF-8・BOM なし・CRLF、`chcp 65001` より前は ASCII、表示の文に特殊文字がない）。cmd.exe では動かしていません

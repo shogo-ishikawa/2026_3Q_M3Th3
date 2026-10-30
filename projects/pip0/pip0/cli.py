@@ -272,7 +272,11 @@ def hold_lock(cli):
 
 
 def read_vault_manifests(config):
-    """保管庫の manifest.json を1件ずつ読む（DB の鍵がなくても読める）。(manifest のリスト, 読めなかった件数)"""
+    """保管庫の manifest.json を1件ずつ読む（DB の鍵がなくても読める）。(manifest のリスト, 読めなかった件数)
+
+    manifest.json も中身（content、content.partial）もない項目のフォルダーは数えない
+    （最初の manifest.json を書く前に止まったもので、戻すものがない。scripts/uninstall.ps1 と同じ決まり）。
+    """
     vault_dir = config.get("VAULT_DIR")
     if vault_dir is None:
         return [], 0
@@ -286,6 +290,8 @@ def read_vault_manifests(config):
     for entry in entries:
         if entry.is_symlink() or not entry.is_dir() or not vault.is_valid_item_id(entry.name):
             continue  # 項目ではないもの（触れない）
+        if not any(os.path.lexists(entry / name) for name in ("manifest.json", "content", "content.partial")):
+            continue  # 記録も中身もない項目のフォルダー（戻すものがない）
         manifest = vault.read_manifest(config, entry.name)
         if manifest is None:
             unreadable += 1

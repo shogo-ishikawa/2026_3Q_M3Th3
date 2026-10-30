@@ -21,8 +21,10 @@ if exist "%~dp0..\pip0-install.json" for %%I in ("%~dp0..") do set "PIP0_HOME=%%
 set "PIP0_PYTHONW=%PIP0_HOME%\runtime\pythonw.exe"
 set "PIP0_EXIT=0"
 
-rem 本体：作業フォルダーを導入先にして、pythonw.exe を起動します（このウィンドウは待たずに閉じます）
-if exist "%PIP0_PYTHONW%" start "" /D "%PIP0_HOME%" "%PIP0_PYTHONW%" -I -m pip0 serve
+rem 本体：作業フォルダーをユーザーのフォルダーにして、pythonw.exe を起動します（このウィンドウは待たずに閉じます）
+rem 導入先を作業フォルダーにすると、pip0 から起動したプログラムが pip0 の終了後も導入先を使い続けることがあり、
+rem 導入し直し・アンインストールのときに、導入先の名前を変えられなくなるためです
+if exist "%PIP0_PYTHONW%" start "" /D "%USERPROFILE%" "%PIP0_PYTHONW%" -I -m pip0 serve
 if exist "%PIP0_PYTHONW%" echo pip0 を起動しました。通知領域に pip0 のアイコンが出ます。
 if exist "%PIP0_PYTHONW%" echo アイコンが出ないときは、docs\setup-windows.md の「困ったとき」を見てください。
 

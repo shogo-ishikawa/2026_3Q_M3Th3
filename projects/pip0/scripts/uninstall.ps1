@@ -13,7 +13,7 @@
       5. ブラウザー拡張の受け口の登録を解除する（register-native-host.ps1 -Unregister）
       6. 自動起動のショートカットを消す（autostart.ps1 -Disable）
       7. ファイアウォールの規則（グループ「pip0」）が残っていれば、消し方を表示する（管理者が必要なため、ここでは消しません）
-      8. プログラムのフォルダー（-InstallDir）だけを消す
+      8. プログラムのフォルダー（-InstallDir）だけを消す（pip0 が置いたもの以外が一番上にあれば、消さずに止まる）
 
     次のものは消しません。場所と、手で消す手順を最後に表示します。
       - データのフォルダー（DATA_DIR。既定は %LOCALAPPDATA%\pip0）：暗号化DB、保管庫、制御ファイル、ログ
@@ -49,6 +49,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $MarkerFileName = 'pip0-install.json'
+# 導入先の一番上にあってよいもの（install.ps1 と同じ）。ほかのものがあれば、プログラムのフォルダーを消さずに止まる
+$KnownTopLevelNames = @('runtime', 'app', 'shell', 'native-host', 'scripts', $MarkerFileName)
 
 # 保管庫の項目の状態（docs\design.md の 6-5 と 7 節）
 # 元の場所に戻っている
@@ -327,13 +329,24 @@ function Get-Pip0Locations([string]$Python) {
     return $info
 }
 
-# 保管庫の manifest.json を1件ずつ読みます（DB の鍵がなくても読めます）
+# 保管庫の manifest.json を1件ずつ読みます（DB の鍵がなくても読めます）。
+# pip0 本体（vault.py の is_valid_item_id と sync_from_manifests、cli.py の read_vault_manifests）と同じく、
+# 名前が項目ID（32桁の16進数の小文字）のフォルダーだけを項目として扱います。
+# manifest.json も中身（content、content.partial）もないフォルダーは、最初の manifest.json を書く前に
+# 止まった項目で、戻すものがないため数えません
 function Get-VaultItems([string]$VaultDir) {
     $itemsDir = Join-Path $VaultDir 'items'
     if (-not (Test-Path -LiteralPath $itemsDir -PathType Container)) {
         return
     }
     foreach ($directory in @(Get-ChildItem -LiteralPath $itemsDir -Directory -Force)) {
+        if ($directory.Name -cnotmatch '^[0-9a-f]{32}$') {
+            continue  # 項目ではないもの（pip0 本体も触れない）
+        }
+        $names = @(Get-ChildItem -LiteralPath $directory.FullName -Force | ForEach-Object { $_.Name })
+        if (($names -notcontains 'manifest.json') -and ($names -notcontains 'content') -and ($names -notcontains 'content.partial')) {
+            continue  # 記録も中身もない項目のフォルダー（戻すものがない）
+        }
         $manifest = Join-Path $directory.FullName 'manifest.json'
         $state = $null
         $originalPath = $null
@@ -450,7 +463,8 @@ function Show-FirewallAdvice([string]$Root) {
     Write-Step '  または（この PC のすべての pip0 の規則を消します）：Remove-NetFirewallRule -Group pip0'
 }
 
-# プログラムのフォルダーを消します。データ・保管庫・pip0 専用フォルダーが中にないこと、リンクがないことを確かめてから
+# プログラムのフォルダーを消します。データ・保管庫・pip0 専用フォルダーが中にないこと、
+# pip0 が置いたもの以外が一番上にないこと、リンクがないことを確かめてから
 function Remove-ProgramFolder([string]$Root, $Locations, [string]$Stamp) {
     if (-not (Test-Path -LiteralPath (Join-Path $Root $MarkerFileName) -PathType Leaf)) {
         throw ('pip0 の導入先の印（' + $MarkerFileName + '）がないため、消しません：' + $Root)
@@ -471,6 +485,12 @@ function Remove-ProgramFolder([string]$Root, $Locations, [string]$Stamp) {
         if (Test-PathInside $path $Root) {
             throw ('導入先の中に、消してはいけない場所（' + $path + '）が含まれているため、消しません：' + $Root)
         }
+    }
+    # 自分で置いたファイル等があれば、消さずに止まる（install.ps1 が前の導入を消すときと同じ決まり）
+    $unknown = @(Get-ChildItem -LiteralPath $Root -Force | Where-Object { $KnownTopLevelNames -notcontains $_.Name })
+    if ($unknown.Count -gt 0) {
+        throw ('導入先に、pip0 が置いたもの以外（' + (($unknown | ForEach-Object { $_.Name }) -join '、') + '）があるため、消しません：' + $Root +
+            '。自分のファイルなら別の場所へ移してから、もう一度実行してください。ここまでの手順（全復元、登録の解除）は終わっています。')
     }
     $links = @(Find-ReparsePoints $Root)
     if ($links.Count -gt 0) {
@@ -496,7 +516,7 @@ function Remove-ProgramFolder([string]$Root, $Locations, [string]$Stamp) {
         catch {
             if ($attempt -eq 5) {
                 throw ('プログラムのフォルダーを消せませんでした（使用中のファイルがあります）：' + $Root +
-                    '。ブラウザー、導入先を開いているエクスプローラーやコマンド プロンプトを閉じてから、もう一度実行してください。' +
+                    '。pip0 から開いたアプリ、ブラウザー、導入先を開いているエクスプローラーやコマンド プロンプトを閉じてから、もう一度実行してください。' +
                     'ここまでの手順（全復元、登録の解除）は終わっています。')
             }
             Start-Sleep -Seconds 1
