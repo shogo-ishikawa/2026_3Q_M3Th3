@@ -9,6 +9,7 @@ SQLCipher が読み込めないときは、通常の sqlite3 に切り替えず�
 """
 
 import json
+import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -246,9 +247,44 @@ def open_database(config, keystore=None):
         raise EncryptionUnavailable("データフォルダー（DATA_DIR）が設定されていません。")
     if keystore is None:
         keystore = keystore_module.default_keystore()
-    db_exists = Path(config["DB_PATH"]).exists()
-    key_hex = keystore_module.get_or_create_key(keystore, db_exists)
-    return open_encrypted(config["DB_PATH"], key_hex)
+    db_path = Path(config["DB_PATH"])
+    if db_path.exists() and keystore.get_key() is not None:
+        return open_encrypted(db_path, keystore_module.get_or_create_key(keystore, True))
+    # 初めて鍵と DB を作るときは、ほかの pip0 のプロセス（ブラウザーが起動する受け口など）と同時に
+    # 作らないように、ロックの中で確かめ直してから作る（2つの鍵ができて DB を読めなくなるのを防ぐ）
+    with creation_lock(db_path.parent):
+        key_hex = keystore_module.get_or_create_key(keystore, db_path.exists())
+        return open_encrypted(db_path, key_hex)
+
+
+@contextmanager
+def creation_lock(folder, attempts=120):
+    """folder の中のロック用ファイルを、ほかのプロセスと取り合わずに使う（Windows と、テスト用の Linux 等）"""
+    Path(folder).mkdir(parents=True, exist_ok=True)
+    with open(Path(folder) / "pip0.db.create-lock", "a+b") as f:
+        if sys.platform == "win32":
+            import msvcrt
+            for _ in range(attempts):
+                try:
+                    f.seek(0)
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    time.sleep(0.25)
+            else:
+                raise EncryptionUnavailable("ほかの pip0 のプロセスが DB を作っている途中のため、開けませんでした。")
+            try:
+                yield
+            finally:
+                f.seek(0)
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 def ensure_schema(conn):

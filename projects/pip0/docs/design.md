@@ -191,7 +191,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - 予想される失敗（ファイルがない、使用中、権限がない等）は例外にせず、`{"ok": False, "reason": "日本語の理由"}` のような辞書で返します。プログラムの誤りは例外のままにします。
 - ほかのモジュールは `settings` を直接 import せず、`config`（`config.load_config()` の辞書）を引数で受け取ります。規則は `rules` モジュールを引数（`rules`）で受け取ります（テストで差し替えられるようにするため）。
 - OS の機能は、引数の `platform`（`WindowsPlatform` または `FakePlatform`）を通して使います。Windows 専用の API を直接呼ぶのは `platform_windows.py` だけです。
-- DB への書き込みは、常駐処理ではメインのスレッドだけが行います。重い処理（解析、コピー）はワーカーのスレッドで、DB を使わない関数（引数でパスを受け取り、結果の辞書を返す）として書きます。
+- DB への書き込みは、常駐処理ではメインのスレッドだけが行います。重い処理（解析、コピー）はワーカーのスレッドで、DB を使わない関数（引数でパスを受け取り、結果の辞書を返す）として書きます。例外は `vault.evacuate` で、状態が変わるたびに manifest.json と DB を書く（7-2）ため、ワーカーのスレッドで、そのスレッド専用の DB 接続（`database.open_database`）を使って動かします。
 - 時刻は `time.time()` の秒数（REAL）で保存し、表示と期間の計算は `timeutil` で現地時刻に直します。関数は `now` を引数で受け取り、テストで時刻を決められるようにします。
 - ログ（`logging`）には、ファイル名、パス、本文、URL、ウィンドウタイトルを書きません。書くのは処理の種類、件数、エラーの種類、項目 ID だけです。
 
@@ -324,6 +324,21 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 | `check-encryption` | DB の暗号化の状態を確かめる |
 | `check-network` | pip0 のプロセスの中で、外部通信の禁止（監査フック）が働くかを確かめる（OS のファイアウォールの確認は `scripts\network-policy.ps1 -Check`） |
 | `shutdown` | 常駐処理に終了を依頼する |
+
+### 6-10. 実装で決まった細部（各担当の報告から）
+
+6-1〜6-6 の約束に加えて、実装のときに次のことを決めました。呼ぶ側はこれに合わせてください。
+
+- **platform**：`WindowsPlatform(link, pip0_root=None)`、`set_pip0_root(path)`、`unregister_sync_root(path)` → `{"ok", "reason"}`。`register_sync_root` は `cf.register_root` と `cf.connect` を続けて送り、両方成功したときだけ `ok`（何度呼んでもよい。`init` の後と、シェルを起動し直すたびに呼ぶ）。`is_sync_root_registered` はシェルを通さず `CfGetSyncRootInfoByPath` で調べる。`open_for_copy`／`open_for_analysis` は `SetFileTime` のために `FILE_WRITE_ATTRIBUTES` も求め、断られたら読み取りだけで開き直す（その場合は最終アクセス日時が更新されうる）。`make_ghost`／`restore_ghost` が時間切れになった後は、シェルが動いている間、その場所の `ghost_status` が `is_ghost: None`（不明）になる。シェルにつながらないときの `confirm_and_recycle` は `answer: "unavailable"` で、何も削除しない。
+- **shell_link**：`ShellUnavailable` と `ShellTimeout` は `ShellError` の一種。`start()` は失敗しても例外を出さず `{"ok", "reason"}` を返す。`stop()` は `{"stopped", "returncode", "method"}`。`counters()`。シェルが終わると、本体の中で `{"type": "shell.exited", "payload": {"returncode", "requested_stop"}}` が届く（読み取りのスレッドから。`on_event` の中では順番待ちに入れるだけにする）。`netguard.install([SHELL_EXE])` の後でないと起動できない。
+- **netguard**：`self_check()` → `{"ok", "reason", "checks": [{"name", "blocked", "detail"}]}`。許可した実行ファイルは絶対パスで、リストで渡す。
+- **provenance**：`determine_source`、`record_provenance` は download_events の行（平らな辞書）を受け取る。`parse_zone_identifier(None)` も辞書を返す。`expire_old_events` は期限切れにした件数を返す。
+- **scanner／watcher**：`scan_folder` は `{"ok", "reason", "seen", "new", "changed", "skipped", "missing", "errors"}`、`scan_all` はそれに `folders` を加える。改名の追跡は、ファイル番号に加えて大きさと更新日時が同じときだけ。pip0 のゴーストの行は `missing` ではなく `ghost`。`FolderWatcher.start()` は `{"ok", "reason", "watching"}`。`DownloadTracker` はダウンロードフォルダーの中だけを見て、拡張機能の記録を最大 `DOWNLOAD_BROWSER_WAIT_SECONDS`（30秒）待つ。
+- **usage**：`last_use(conn, file_row, kinds=None)`。`record_usage` は追加した行の id、pip0 自身の読み取りなら `None`。
+- **analysis**：`sensitivity.overall` は、解析済みでも本文・タイトル・ラベルを読めなかったもの（画像、スキャンした PDF など）を `unknown` にする（中身を調べていないものを非機密としない）。`throttle.check` は `checked_at` も返す。`HeavyGate` には `history`、`refresh()`、`stop_requested()` もある。`analyse_file` は、途中でファイルが変わったときなども `skipped` を返す。`store_result` は機密の判定 `{"level", "reasons"}` を返す。
+- **fileops／trash**：`move_and_rename` は `new_name=None`（名前は変えずに移動）を受け付け、`actor="auto"` は停止の印があるときは断る。`prepare_deletion` の `problems` は、問題のある項目（辞書）のリスト。削除できるものがなく確認画面を出さなかったときの `answer` は `None`。確認画面の文には、ファイル名を書かない（名前と件数は画面が `items` から一覧にする）。
+- **vault／evacuation／killswitch**：`evacuate(..., rules=None)` と `check_location(platform, path, config, rules=None)`（大きさ0、ハードリンクが複数あるもの、使用中のものも断る）。`restore` の結果に `already`。`vault.cancel`、`vault.record_moved`（`cf.notify_rename` のとき）、`claim_path`／`release_path`／`is_busy`（同じパスを同時に扱わない）。`engage` → `{"ok", "marker", "database", "reason"}`。`request_restore_all` は停止の印もすぐに書く。全復元が終わっていない間は `resume` を断る。
+- **inflow／naming**：提案の状態に `needs_analysis`（名前が解析待ち。仕分け先があれば先に移動する）。`MiniDock` の動作に `{"do": "open", "proposal_id", "path"}` があり、`payload(now)` で今の表示内容を返す。`execute_proposal` → `{"ok", "status", "path", "state", "reason"}`。`load_proposal(conn, proposal_id)` で DB から提案を読み直せる。`apply_deferred_renames` は件数の辞書を返す。
 
 ### 6-9. 導入後の配置（`scripts\install.ps1`）
 

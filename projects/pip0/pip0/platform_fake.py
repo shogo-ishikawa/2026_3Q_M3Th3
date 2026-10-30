@@ -191,6 +191,15 @@ class FakePlatform:
             return {"result": "changed", "reason": "保管庫へのコピーの後に、ファイルが変わりました"}
         if expected.get("sha256") and file_sha256(path) != expected["sha256"]:
             return {"result": "changed", "reason": "内容のハッシュが一致しません"}
+        # 本物のシェルと同じく、保管庫の内容と manifest.json も、期待どおりかを確かめてから中身を外す。
+        # manifest.json がない（テストが保管庫を使わずに直接ゴーストを作る）ときは、この確認を省く
+        # （本物のシェルは、保管庫の内容がないと "error" を返す）
+        if self.vault_dir is not None and (self.vault_dir / "items" / item_id / "manifest.json").exists():
+            content, manifest = self._vault_content(item_id)
+            if (manifest.get("item_id") != item_id or manifest.get("size") != expected["size"]
+                    or manifest.get("sha256") != expected.get("sha256")
+                    or not content.exists() or file_sha256(content) != expected.get("sha256")):
+                return {"result": "changed", "reason": "保管庫の内容が、期待した内容と一致しません"}
         # 中身を捨てて、元のサイズのスパースファイルにする（Windows の「ディスク上 0 バイト」のまね）
         with open(path, "r+b") as f:
             f.truncate(0)

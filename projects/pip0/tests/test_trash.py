@@ -141,9 +141,10 @@ def test_every_call_shows_one_new_dialog_with_names_and_count(env, platform, db)
         assert set(dialog) == {"request_id", "title", "message", "items"}
         assert dialog["request_id"] == request["request_id"]
         assert "3 件" in dialog["title"]
-        assert "3 件のファイルをごみ箱へ移動しますか？" in dialog["message"]
+        assert "何も削除しません" in dialog["message"]
+        # 名前と件数は、確認画面が items から一覧にする（文には書かない＝二重に表示しない）
         for path in paths:
-            assert path.name in dialog["message"]
+            assert path.name not in dialog["message"]
         assert dialog["items"] == [{"path": str(p), "name": p.name, "size": 5} for p in paths]
 
 
@@ -191,7 +192,7 @@ def test_only_deletable_items_are_shown_and_others_are_reported(env, platform, d
 
     [dialog] = platform.dialog_requests
     assert [item["name"] for item in dialog["items"]] == ["good.txt"]
-    assert "1 件のファイルをごみ箱へ移動しますか？" in dialog["message"]
+    assert "1 件" in dialog["title"]
     assert "folder" not in dialog["message"]
     assert [r["status"] for r in result["results"]] == ["not_attempted", "recycled"]
     assert "フォルダー" in result["results"][0]["reason"]
@@ -342,18 +343,16 @@ def test_unknown_or_missing_answers_are_not_treated_as_recycled(env, platform, d
     assert result["summary"]["recycled"] == 0
 
 
-def test_long_lists_are_summarised_in_the_message(env, platform, db):
+def test_long_lists_pass_every_item_to_the_dialog(env, platform, db):
     paths = [make_file(env["DOWNLOADS_DIR"] / f"file{number:02d}.txt") for number in range(25)]
     request = trash.prepare_deletion(db, paths, env, platform)
 
     trash.delete_with_confirmation(db, platform, request, now=NOW)
 
     [dialog] = platform.dialog_requests
-    assert "25 件のファイルをごみ箱へ移動しますか？" in dialog["message"]
-    assert "file19.txt" in dialog["message"]
-    assert "file20.txt" not in dialog["message"]
-    assert "ほか 5 件" in dialog["message"]
-    assert len(dialog["items"]) == 25  # 画面の一覧には全件を渡す
+    assert "25 件" in dialog["title"]
+    assert [item["name"] for item in dialog["items"]] == [p.name for p in paths]  # 画面の一覧には全件を渡す
+    assert "file00.txt" not in dialog["message"]
 
 
 def test_empty_request_does_nothing(env, platform, db):

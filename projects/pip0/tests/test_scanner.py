@@ -58,10 +58,11 @@ def upsert(db, platform, path, location_kind="downloads", now=NOW):
     return scanner.upsert_file(db, platform, path, location_kind, now)
 
 
-def make_ghost(platform, path):
+def make_ghost(platform, path, sha256=None):
     """代役の OS 連携で、path を pip0 のゴースト（中身は保管庫）にする"""
     st = os.stat(path)
-    expected = {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "file_key": platform.get_file_key(path)}
+    expected = {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "file_key": platform.get_file_key(path),
+                "sha256": sha256}
     assert platform.make_ghost(path, ITEM_ID, expected)["result"] == "ghosted"
 
 
@@ -70,7 +71,7 @@ def put_in_vault(env, data):
     item_dir = env["VAULT_DIR"] / "items" / ITEM_ID
     item_dir.mkdir(parents=True)
     (item_dir / "content").write_bytes(data)
-    manifest = {"format": 1, "item_id": ITEM_ID, "sha256": hashlib.sha256(data).hexdigest()}
+    manifest = {"format": 1, "item_id": ITEM_ID, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     (item_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
@@ -305,7 +306,7 @@ def test_opened_ghost_stays_ghost_until_vault_restores_it(db, platform, env):
     file_id = upsert(db, platform, path, location_kind="pip0_root")["file_id"]
     db.execute("UPDATE tasks SET state = 'done'")
     put_in_vault(env, data)
-    make_ghost(platform, path)
+    make_ghost(platform, path, sha256=hashlib.sha256(data).hexdigest())
     upsert(db, platform, path, location_kind="pip0_root", now=NOW + 1)
     assert platform.simulate_app_open(path) == data  # アプリが開いて、中身が戻った（まだプレースホルダー）
 

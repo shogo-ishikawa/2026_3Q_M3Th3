@@ -6,6 +6,8 @@ using Pip0Shell.CloudFiles;
 using Pip0Shell.Core;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.Storage.CloudFilters;
+using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.UI.Shell;
 
 namespace Pip0Shell.Trash;
@@ -118,6 +120,19 @@ internal static class RecycleBin
         {
             return Failed("フォルダーは対象外です（ファイルだけを移します）。");
         }
+        if (entry.IsLink)
+        {
+            return Failed("リンクやジャンクションは対象外です。");
+        }
+        // 確認画面を出している間に、自動の退避でゴーストになったファイルや、中身がこの PC にないファイルは移さない。
+        // 移す直前にもう一度確かめる（pip0 本体の trash.py が確認画面の前に確かめるのと同じ決まり）。
+        // 属性だけで判断し、ファイルは開かない（開くとゴーストの中身を取りに行ってしまうため）。
+        if (IsPlaceholderOrNotLocal(entry))
+        {
+            return new RecycleResult(
+                "refused",
+                "退避中（ゴースト）のファイル、または中身がこの PC にないファイルになっていたため、削除しませんでした。復元してから、もう一度操作してください。");
+        }
 
         IShellItem? item = null;
         IFileOperation? operation = null;
@@ -218,4 +233,19 @@ internal static class RecycleBin
     }
 
     private static RecycleResult Failed(string reason) => new("failed", reason);
+
+    /// <summary>Cloud Files のプレースホルダー（pip0 のゴーストを含む）か、中身を取りに行く必要があるファイルなら真</summary>
+    private static bool IsPlaceholderOrNotLocal(in EntryInfo entry)
+    {
+        const uint notLocal = (uint)(FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS
+            | FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_RECALL_ON_OPEN
+            | FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_OFFLINE);
+        if ((entry.Attributes & notLocal) != 0)
+        {
+            return true;
+        }
+        CF_PLACEHOLDER_STATE state = PInvoke.CfGetPlaceholderStateFromAttributeTag(entry.Attributes, entry.ReparseTag);
+        return state != CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_INVALID
+            && (state & CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_PLACEHOLDER) != 0;
+    }
 }

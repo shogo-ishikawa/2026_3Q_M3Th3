@@ -17,11 +17,11 @@ pip0 シェルは、pip0 のうち **Windows の機能を使う部分** です�
 # 確認用（コンパイルだけ）
 dotnet build Pip0Shell.csproj -c Release
 
-# 配布用（1つの exe にまとめる。Windows 11 の x64 向け）
-dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+# 配布用（1つの exe にまとめる。Windows 11 の x64 向け）。通常はリポジトリの scripts\build-shell.ps1 を使う
+dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o bin\publish\win-x64
 ```
 
-- 配布用の出力は `publish\Pip0Shell.exe`（約 73 MB。.NET と WPF を含み、圧縮しています）と、問題を調べるための `Pip0Shell.pdb` です（`-o` を付けないときは `bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\` に出ます）。導入するときは `Pip0Shell.exe` を `%LOCALAPPDATA%\Programs\pip0\shell\Pip0Shell.exe` に置きます（[docs/design.md](../docs/design.md) 6-9）。
+- 配布用の出力は `bin\publish\win-x64\Pip0Shell.exe`（約 73 MB。.NET と WPF を含み、圧縮しています）と、問題を調べるための `Pip0Shell.pdb` です。`scripts\build-shell.ps1` も同じ場所に出力し、`scripts\install.ps1` はそこから導入します。`bin\` は Git に登録しません（`.gitignore`）。導入するときは `Pip0Shell.exe` を `%LOCALAPPDATA%\Programs\pip0\shell\Pip0Shell.exe` に置きます（[docs/design.md](../docs/design.md) 6-9）。
 - 初めて起動したとき、.NET が WPF の部品（ネイティブの DLL）を `%TEMP%\.net\Pip0Shell\` に展開します（.NET の1つの exe の仕組みです）。
 - ビルドに使う外部のパッケージは CsWin32（Win32 API の宣言を生成する道具、Microsoft、MIT ライセンス）だけで、実行時には含まれません。UI Automation（`System.Windows.Automation`）と `Microsoft.Win32.SystemEvents` は .NET の Windows デスクトップの部品に含まれています。
 

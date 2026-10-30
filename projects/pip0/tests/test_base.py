@@ -165,6 +165,37 @@ def test_transaction_rolls_back_on_error(db):
     assert database.get_setting(db, "a") is None
 
 
+def test_first_creation_by_two_processes_makes_only_one_key(env):
+    # 受け口（ブラウザーが起動）と常駐処理が、初めて同時に DB を作る場面をまねる
+    import threading
+
+    class SlowKeystore(keystore.MemoryKeystore):
+        def get_key(self):
+            value = super().get_key()
+            time.sleep(0.05)  # 確かめてから作るまでの間に、もう一方が割り込めるようにする
+            return value
+
+    shared = SlowKeystore()
+    results = []
+
+    def open_once():
+        conn = database.open_database(env, keystore=shared)
+        database.set_setting(conn, "opened", "1")
+        results.append(conn)
+
+    threads = [threading.Thread(target=open_once) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len(results) == 2
+    for conn in results:
+        conn.close()
+    conn = database.open_encrypted(env["DB_PATH"], shared.get_key())  # 保管された鍵で読める
+    assert database.get_setting(conn, "opened") == "1"
+    conn.close()
+
+
 def test_wal_and_journal_files_stay_in_data_dir(env, key_store):
     conn = database.open_database(env, keystore=key_store)
     database.set_setting(conn, "x", "1")

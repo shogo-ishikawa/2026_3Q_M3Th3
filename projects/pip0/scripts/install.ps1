@@ -435,7 +435,7 @@ function Get-InstallDirState([string]$Dir) {
 }
 
 # pip0 シェル（build-shell.ps1 の出力）の場所。
-# 指定がなければ、build-shell.ps1 の出力先、次に shell\README.md の手作業のコマンド（-o publish）の出力先を探します
+# 指定がなければ、build-shell.ps1 の出力先（shell\bin\publish\win-x64）、次に以前の手順（-o publish）の出力先を探します
 function Find-ShellPublish([string]$Given, [string]$Root) {
     if ($Given) {
         $candidates = @(Resolve-FullPath $Given)

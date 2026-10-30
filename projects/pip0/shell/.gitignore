@@ -1,3 +1,5 @@
 # ビルドの出力（dotnet build / dotnet publish が作る）
 bin/
 obj/
+# 配布用の出力を別の場所に作ったときも、大きな exe を登録しないため
+publish/

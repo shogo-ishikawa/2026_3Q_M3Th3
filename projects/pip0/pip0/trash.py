@@ -31,9 +31,6 @@ from pip0 import database
 
 logger = logging.getLogger(__name__)
 
-# ★確認画面の文に並べるファイル名の数。超えた分は「ほか N 件」と書く（画面の一覧には、全件が並びます）
-MESSAGE_MAX_NAMES = 20
-
 GHOST_PROBLEM = "退避中のファイルは、先に復元してから削除してください"
 
 # OS 連携の答え（results の status）→ 操作履歴（operations）の状態
@@ -234,17 +231,15 @@ def file_size(path):
 
 
 def build_dialog_text(items):
-    """確認画面の題名と文を作る（★言い回しは、ここで変えられます）"""
+    """確認画面の題名と文を作る（★言い回しは、ここで変えられます）
+
+    対象のファイル名と件数は、確認画面（pip0 シェル）が items から一覧にして表示します。
+    名前を文にも書くと二重に表示され、文と一覧が食い違うおそれもあるため、文には書きません。
+    """
     count = len(items)
     title = f"ごみ箱へ移動の確認（{count} 件）"
-    lines = [f"{count} 件のファイルをごみ箱へ移動しますか？", ""]
-    for item in items[:MESSAGE_MAX_NAMES]:
-        lines.append("・" + item["name"])
-    if count > MESSAGE_MAX_NAMES:
-        lines.append(f"ほか {count - MESSAGE_MAX_NAMES} 件")
-    lines.append("")
-    lines.append("キャンセルしたとき・この画面を閉じたときは、何も削除しません。")
-    return title, "\n".join(lines)
+    message = "キャンセルしたとき・この画面を閉じたときは、何も削除しません。"
+    return title, message
 
 
 def read_reply(result, path, approved):
