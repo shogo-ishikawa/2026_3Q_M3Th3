@@ -3,7 +3,8 @@
 指示書6節：pip0 には、ごみ箱を空にする機能やユーザーのファイルを完全に削除する機能を作りません。
 指示書3-1節：pip0 本体は外部と通信しません。
 
-このテストは pip0/ の Python のコードを読み、ファイルを消す・中身を捨てる呼び出しと、
+このテストは pip0/ の Python のコードを読み、ファイルを消す・中身を捨てる呼び出し、
+すでにあるファイルの中身を置き換えうる呼び出し（os.replace、書き込みの open など）と、
 通信やコマンドの実行に使うモジュールが、下の「許可の一覧」の場所にしかないことを確かめます。
 新しく加えたいときは、なぜユーザーのファイルを失わないのか（または通信しないのか）を一覧に書いて、
 グループで確かめてから加えてください。
@@ -31,6 +32,29 @@ ALLOWED_DELETING_CALLS = {
     ("platform_fake", "make_ghost"): "テスト用の代役：Windows の「中身をディスクから外す」動きをまねる",
     ("platform_fake", "simulate_user_delete"): "テスト用の代役：ユーザーの操作をまねる",
     ("platform_fake", "confirm_and_recycle"): "テスト用の代役：ごみ箱への移動をまねる",
+}
+
+# すでにあるファイルの中身を置き換えうる呼び出し（置き換え先がユーザーのファイルや、確かめ済みの保管庫の
+# 内容だと、黙って上書きしてしまう）。open() は、書き込み（"w"）か読み書き（"+"）の形で開くときだけ数える
+OVERWRITING_CALLS = {
+    "os.replace", "os.rename", "shutil.copy", "shutil.copy2", "shutil.copyfile", "write_bytes", "write_text",
+    "open:write",
+}
+
+# （モジュール, 関数）→ 置き換え先が、ユーザーのファイルや確かめ済みの保管庫の内容にならない理由
+ALLOWED_OVERWRITING_CALLS = {
+    ("fsutil", "no_overwrite_rename"):
+        "Windows の os.rename は移動先があると失敗する。Windows 以外は、移動先がないことを確かめてから改名する",
+    ("fsutil", "atomic_write_bytes"):
+        "pip0 自身の記録用ファイル（manifest.json、制御用ファイル、状態のファイル、保管庫の README）だけに使う",
+    ("database", "creation_lock"): "DB を作るときのロック用の空のファイル（追記の形で開き、中身は書かない）",
+    ("service", "acquire"): "常駐処理のロック用の空のファイル（追記の形で開き、中身は書かない）",
+    ("vault", "copy_original"): "保管庫の新しい項目のフォルダーの中の、未完成のコピー（content.partial）を作る",
+    ("demo_data", "write_demo_file"): "デモ用の空のフォルダーの中に、ダミーのファイルを作る（本物のフォルダーには書かない）",
+    ("platform_fake", "make_ghost"): "テスト用の代役：Windows の「中身をディスクから外す」動きをまねる",
+    ("platform_fake", "_hydrate"): "テスト用の代役：Windows がゴーストの中身を保管庫から戻す動きをまねる",
+    ("platform_fake", "simulate_app_modify"): "テスト用の代役：アプリがファイルを書き換える操作をまねる",
+    ("platform_fake", "simulate_user_rename"): "テスト用の代役：ユーザーの改名をまねる",
 }
 
 # 通信やコマンドの実行に使うモジュールと、使ってよい場所（モジュール名）
@@ -61,7 +85,31 @@ def call_name(node):
     return None
 
 
-def deleting_calls(path):
+def open_mode(node):
+    """open(...) の呼び出しの mode の文字列（分からなければ None）"""
+    mode = None
+    if len(node.args) >= 2:
+        mode = node.args[1]
+    for keyword in node.keywords:
+        if keyword.arg == "mode":
+            mode = keyword.value
+    if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
+        return mode.value
+    return None if mode is not None else "r"
+
+
+def classify_call(node):
+    """呼び出しの名前。書き込みの open は "open:write"、形の分からない mode の open も "open:write" にする"""
+    name = call_name(node)
+    if name == "open":
+        mode = open_mode(node)
+        if mode is None or "w" in mode or "+" in mode:
+            return "open:write"
+    return name
+
+
+def calls_in(path, names):
+    """path の中で、names のどれかに当たる呼び出しの一覧 [(モジュール, 関数, 名前, 行)]"""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found = []
 
@@ -70,12 +118,20 @@ def deleting_calls(path):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 visit(child, child.name)
                 continue
-            if isinstance(child, ast.Call) and call_name(child) in DELETING_CALLS:
-                found.append((path.stem, function_name, call_name(child), child.lineno))
+            if isinstance(child, ast.Call) and classify_call(child) in names:
+                found.append((path.stem, function_name, classify_call(child), child.lineno))
             visit(child, function_name)
 
     visit(tree, "<module>")
     return found
+
+
+def deleting_calls(path):
+    return calls_in(path, DELETING_CALLS)
+
+
+def overwriting_calls(path):
+    return calls_in(path, OVERWRITING_CALLS)
 
 
 def imported_modules(path):
@@ -109,6 +165,27 @@ def test_allowed_deleting_calls_still_exist():
         for module, function, _name, _line in deleting_calls(path):
             present.add((module, function))
     assert set(ALLOWED_DELETING_CALLS) - present == set()
+
+
+def test_contents_are_only_replaced_in_the_allowed_places():
+    problems = []
+    for path in module_files():
+        for module, function, name, line in overwriting_calls(path):
+            if (module, function) not in ALLOWED_OVERWRITING_CALLS:
+                problems.append(f"pip0/{module}.py:{line} の {function}() が {name} を呼んでいます")
+    assert problems == [], (
+        "すでにあるファイルの中身を置き換えうる呼び出しが、許可の一覧にない場所にあります。"
+        "pip0 は、ユーザーのファイルと確かめ済みの保管庫の内容を、黙って上書きしません：\n"
+        + "\n".join(problems)
+    )
+
+
+def test_allowed_overwriting_calls_still_exist():
+    present = set()
+    for path in module_files():
+        for module, function, _name, _line in overwriting_calls(path):
+            present.add((module, function))
+    assert set(ALLOWED_OVERWRITING_CALLS) - present == set()
 
 
 def test_trash_module_never_deletes_by_itself():

@@ -93,6 +93,7 @@ def test_structures_have_the_windows_sizes():
     assert ctypes.sizeof(platform_windows.SYSTEM_POWER_STATUS) == 12
     assert ctypes.sizeof(platform_windows.FILETIME) == 8
     assert ctypes.sizeof(platform_windows.GUID) == 16
+    assert ctypes.sizeof(platform_windows.WIN32_FIND_DATAW) == 592  # 名前の欄を含む、Windows の大きさ
     downloads = platform_windows.FOLDERID_DOWNLOADS
     assert (downloads.Data1, downloads.Data2, downloads.Data3) == (0x374DE290, 0x123F, 0x4565)
     assert bytes(downloads.Data4) == bytes.fromhex("916439C4925E467B")
@@ -111,6 +112,8 @@ def test_without_windows_nothing_pretends_to_succeed(tmp_path):
     assert platform.access_time_reliable(target) is None
     assert platform.can_open_exclusively(target) is False
     assert platform.read_zone_identifier(target) is None
+    assert platform.write_zone_identifier(target, "[ZoneTransfer]\r\nZoneId=3\r\n") is False
+    assert platform_windows.read_directory_entry(target) is None
     assert platform.known_downloads_dir() is None
     assert platform_windows.known_downloads_dir() is None
     state = platform.get_local_state(target)
@@ -172,6 +175,10 @@ def test_power_source_names(value, expected):
     (0x10 | 0x400, 0xA0000003, {"local": False, "placeholder": False, "pinned": False, "reparse": True}),
     # 重複除去などの再解析ポイント：中身はこの PC にあるが、再解析ポイントとして知らせる
     (0x20 | 0x400, 0x80000013, {"local": True, "placeholder": False, "pinned": False, "reparse": True}),
+    # 中身が戻った後のクラウドのプレースホルダー（開いた後の pip0 のゴースト）。固定の印（PINNED 等）はない
+    (0x20 | 0x400, 0x9000001A, {"local": True, "placeholder": True, "pinned": False, "reparse": True}),
+    # ほかの「名前の代わり」（WSL のリンク）も、リンクとして扱う
+    (0x20 | 0x400, 0xA000001D, {"local": False, "placeholder": False, "pinned": False, "reparse": True}),
 ])
 def test_local_state_from_attributes(attributes, tag, expected):
     state = platform_windows.describe_local_state(attributes, tag)
@@ -179,6 +186,25 @@ def test_local_state_from_attributes(attributes, tag, expected):
     assert state["attributes"] == attributes
     if not expected["local"]:
         assert state["reason"]
+
+
+def test_local_state_reads_the_tag_without_following_the_reparse_point(monkeypatch, tmp_path):
+    class LstatOfAPlaceholder:
+        # os.lstat は、リンク以外の再解析ポイントでは、たどった先の情報を返し、タグが 0 になる
+        st_file_attributes = 0x20 | 0x400
+        st_reparse_tag = 0
+
+    seen = []
+    monkeypatch.setattr(platform_windows, "stat_without_following", lambda path: LstatOfAPlaceholder())
+    monkeypatch.setattr(platform_windows, "read_directory_entry",
+                        lambda path: seen.append(path) or {"attributes": 0x20 | 0x400, "reparse_tag": 0x9000001A})
+    state = WindowsPlatform(FakeLink()).get_local_state(tmp_path / "opened-ghost.pdf")
+    assert (state["local"], state["placeholder"], state["reparse"]) == (True, True, True)
+    assert seen == [tmp_path / "opened-ghost.pdf"]
+
+    # タグを読めないときは、読まない側に倒す
+    monkeypatch.setattr(platform_windows, "read_directory_entry", lambda path: None)
+    assert WindowsPlatform(FakeLink()).get_local_state(tmp_path / "opened-ghost.pdf")["local"] is False
 
 
 def test_cloud_reparse_tags():
@@ -508,6 +534,55 @@ def test_a_late_make_ghost_answer_makes_the_status_unknown_until_the_shell_resta
     # シェルが終わった後は、遅れていた処理も終わっているので、また聞ける
     link.alive = False
     assert platform.ghost_status(target)["is_ghost"] is False
+
+
+def test_a_restarted_shell_drops_the_marks_of_the_old_shell(tmp_path):
+    target = tmp_path / "a.pdf"
+    target.write_bytes(b"x")
+    status_reply = {"exists": True, "is_ghost": False, "item_id": None, "dehydrated": False,
+                    "in_sync": None, "pinned": False, "reason": ""}
+    link = FakeLink({"cf.make_ghost": ShellTimeout("時間切れ"), "cf.status": status_reply})
+
+    def set_shell(pid):
+        link.process_id = lambda: pid  # ShellLink.process_id() と同じ形
+
+    set_shell(100)
+    platform = WindowsPlatform(link)
+    assert platform.make_ghost(target, ITEM_ID, EXPECTED)["result"] == "unavailable"
+    assert platform.ghost_status(target)["is_ghost"] is None  # 同じシェル：まだ分からない
+    # シェルが落ちて、起動し直された（その間に状態を聞かなかったので、止まったところを見ていない）
+    set_shell(200)
+    assert platform.ghost_status(target)["is_ghost"] is False
+    assert link.types() == ["cf.make_ghost", "cf.status"]
+
+
+FOUND_PATH = os.path.join(os.path.abspath(os.sep), "Users", "u", "pip0", "2026予算", "a.pdf")
+
+
+@pytest.mark.parametrize("reply, expected", [
+    ({"result": "found", "paths": [FOUND_PATH], "reason": ""}, "found"),
+    ({"result": "not_found", "paths": [], "reason": ""}, "not_found"),
+    ({"result": "error", "paths": [], "reason": "20 秒で打ち切りました"}, "unknown"),
+    ({"result": "found", "paths": ["相対パス.pdf", 3], "reason": ""}, "unknown"),
+    ({"result": "maybe"}, "unknown"),
+])
+def test_locate_ghost_answers(reply, expected):
+    link = FakeLink({"cf.locate": reply})
+    found = WindowsPlatform(link).locate_ghost(ITEM_ID)
+    assert found["result"] == expected
+    assert link.calls[0]["payload"] == {"item_id": ITEM_ID}
+    assert link.calls[0]["timeout"] >= 30  # シェルは探すのに最大 20 秒かける
+    if expected == "found":
+        assert found["paths"] == [FOUND_PATH]
+    else:
+        assert found["paths"] == []
+
+
+@pytest.mark.parametrize("error", [ShellUnavailable("動いていません"), ShellTimeout("時間切れ"),
+                                   ShellError("internal_error", "失敗")])
+def test_locate_ghost_without_an_answer_is_unknown(error):
+    found = WindowsPlatform(FakeLink({"cf.locate": error})).locate_ghost(ITEM_ID)
+    assert found["result"] == "unknown" and found["paths"] == [] and found["reason"]
 
 
 @pytest.mark.parametrize("reply, expected_result", [

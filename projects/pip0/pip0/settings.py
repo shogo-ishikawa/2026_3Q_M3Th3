@@ -32,7 +32,8 @@ SENSITIVE_DIRS = []
 DATA_DIR = None
 
 # 保管庫（M4 で退避したファイルの本体）。None なら DATA_DIR の下の vault
-# 同期フォルダー（OneDrive 等）や PIP0_ROOT の中には置けません
+# PIP0_ROOT やダウンロードの中を指定すると、設定の誤りとして起動時に知らせます。
+# 同期フォルダー（OneDrive 等）の中や、NTFS の内蔵ドライブ以外にあるときは、退避をしません（evacuation.py）
 VAULT_DIR = None
 
 # pip0 シェル（C# の常駐UI・OS 連携）の実行ファイル。None なら、導入先の shell\Pip0Shell.exe

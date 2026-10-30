@@ -75,7 +75,7 @@ pip0 は、次の3つのプログラムで動きます。
 | `%LOCALAPPDATA%\pip0\pip0.db`（と `-wal`） | 索引、解析結果（本文の抜粋、色、グラフらしさ、機密の判定）、ファイルの由来、操作履歴、保管庫の項目 | SQLCipher（AES-256） |
 | Windows の資格情報マネージャー（`pip0` / `database-key-v1`） | DB の鍵（64文字の16進数）。「この PC だけ」（`CRED_PERSIST_LOCAL_MACHINE`）で保存し、移動プロファイルでほかの PC へ持ち出さない | Windows が DPAPI で保護 |
 | `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\content` | 退避したファイルの本体 | **しない**（下の注を参照） |
-| `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\manifest.json` | 復元に必要な最小限の情報（元のパス、サイズ、更新日時、ハッシュ、状態） | **しない**（下の注を参照） |
+| `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\manifest.json` | 復元に必要な最小限の情報（元のパス、サイズ、更新日時、ハッシュ、状態、ダウンロード元の印の種類 `ZoneId`）。URL は書かない | **しない**（下の注を参照） |
 | `%LOCALAPPDATA%\pip0\control\` | 自動処理の停止の印、全復元の依頼と進み具合（件数だけ）、常駐処理の状態（`service.status.json`。件数と機能の状態だけで、パスは書かない）、終了の依頼（`shutdown.request.json`） | しない（解析内容を含まない） |
 | `%LOCALAPPDATA%\pip0\locks\service.lock` | 常駐処理と、保管庫・シェルを使うコマンドが、同時に2つ動かないための印（中身なし） | しない |
 | `%LOCALAPPDATA%\pip0\logs\` | 動作の記録（エラーの種類と件数のみ。ファイル名・本文・URL は書かない） | しない（解析内容を含まない） |
@@ -149,7 +149,8 @@ pip0 は、次の3つのプログラムで動きます。
   - pip0 自身の読み取り（解析、ハッシュ、コピー）は、最終アクセス日時を更新しない開き方（`SetFileTime` に 0xFFFFFFFF を渡す）で行い、利用として記録しません。ただし、ゴースト化の直前に pip0 シェルが原本を確かめ直す読み取り（`CfOpenFileWithOplock` の取っ手では `SetFileTime` が使えない）は、最終アクセス日時を更新することがあります（[shell/README.md](../shell/README.md) の制約）。その日時は、ゴーストを戻した後の判定で「利用」と数えられ、次の退避を遅らせる方向にだけ働きます。
   - 観測期間の始まり：pip0 がそのファイルを見つけた時刻と、ファイルの作成日時の遅いほう。同じパスでも、前のファイルが消えた後に置かれたもの、ファイル番号が変わったもの（別のファイルで置き換えた）、更新日時が前より古くなったもの（古いコピーで上書きした）は、観測を始め直します（`scanner.is_different_file`）。コピーしたファイルが、前のファイルの観測期間を受け継いで、すぐに「長期間未読」とされないためです。
   - 判定：pip0 の観測期間が `MIN_OBSERVED_DAYS`（90日）未満なら「判定不能」。②も④も使えない（Recent の記録が無効で、最終アクセス日時の更新も無効）なら「判定不能」。最後の利用から `UNREAD_DAYS`（90日）以上たっていれば「長期間未読」。「判定不能」のファイルは退避しません。
-  - ほかに、`EVACUATE_MIN_SIZE_BYTES`（1MB）未満、ユーザーが「常にこのデバイス上に保持する」にしたもの、ほかのプロセスが使用中のもの、一時ファイルは退避しません。
+  - ほかに、`EVACUATE_MIN_SIZE_BYTES`（1MB）未満、ユーザーが「常にこのデバイス上に保持する」にしたもの、ほかのプロセスが使用中のもの、一時ファイル、読み取り専用のもの（Cloud Files がゴーストにできない）、EFS で暗号化されたもの（暗号化していない保管庫へ平文で写さないため）は退避しません。
+- **保管庫の場所**：保管庫（`VAULT_DIR`）とデータフォルダー（`DATA_DIR`）が、クラウドの同期フォルダーの中にあるとき、判定できないとき、NTFS の内蔵ドライブにないときは、退避しません（`evacuation.vault_location_problem`）。ゴーストにした後は、保管庫のコピーが中身の唯一の置き場所になるためです。
 - **空き容量**：保管庫が同じドライブにある場合、退避（保管庫へコピーしてからゴーストにする）しても、ドライブ全体の空き容量はほとんど変わりません。pip0 は容量が減ったとは表示しません。
 - **応答時間**：ゴーストを開いてから使えるまでの時間は、ファイルの大きさ、ドライブ、ハッシュの確認によって変わります。実機で測っていないため、目標値（「ミリ秒で」）は保証値として扱いません。
 
@@ -181,7 +182,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 1. 通知領域アイコンの「全復元（自動処理を止める）」、または `scripts\restore-all.cmd`（UI が動かないとき）で始めます。
 2. すぐに停止の印（`control\automation.stopped` と DB の設定）を書き、新しい自動仕分け・自動改名・自動退避を始めないようにします。
 3. 実行中の処理は、次の区切りで止めます（保管庫へのコピーは 1MB ごと）。ゴーストにする前のものは中止し、原本はそのままです。
-4. 退避中（ゴースト）のすべての項目を、1件ずつ復元します。進み具合（全体、成功、衝突、失敗、残り）を表示し、`control\restore_all.progress.json` に件数を書きます。中断や再起動の後に実行し直すと、残りから続けます。
+4. 退避中（ゴースト）のすべての項目を、1件ずつ復元します。最初に「終わっていない」（`finished: false`）と進み具合のファイル（`control\restore_all.progress.json`）に書き、1件ごとに件数（全体、成功、衝突、失敗、残り）を表示して書きます。全復元の依頼のファイルは、全復元が終わるまで消しません（途中で pip0 が止まっても、依頼と「終わっていない」が残る）。中断や再起動の後に実行し直すと、残りから続けます。
 5. 元の場所に別のファイルがある場合は上書きせず、横に「（pip0復元）」を付けた名前で戻して「衝突」とします。失敗した項目も、保管庫の内容と manifest.json は残します。
 6. 自動処理は、ユーザーが「自動処理を再開」（確認あり）を選ぶまで止まったままです。
 7. 戻すのは、pip0 が退避したファイルだけです。自動仕分け・自動改名は戻しません（操作履歴に残っています）。pip0 以外の変更や、バックアップ全体の復旧はしません。
@@ -230,18 +231,20 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 | `get_idle_seconds()` | セッション全体の無操作の秒数。取得できなければ `None` |
 | `get_power_source()` | `"ac"`、`"battery"`、`"unknown"` |
 | `get_file_key(path)` | `"ボリューム番号:ファイル番号"`（`os.stat` の `st_dev:st_ino`）。なければ `None` |
-| `get_local_state(path)` | `{"local", "placeholder", "pinned", "reparse", "attributes", "reason"}`。`local=False` はクラウドの未取得のプレースホルダーや pip0 のゴーストで、読んではいけない |
+| `get_local_state(path)` | `{"local", "placeholder", "pinned", "reparse", "attributes", "reason"}`。`local=False` はクラウドの未取得のプレースホルダーや pip0 のゴーストで、読んではいけない。中身が戻ったプレースホルダーは `local=True`、`placeholder=True`、`reparse=True`。再解析ポイントの種類は、リンクをたどらずに読み、名前の代わり（リンク）の種類はすべてリンクとして扱う |
 | `get_volume_info(path)` | `{"filesystem": "NTFS" 等, "drive_type": "fixed"/"removable"/"network"/"unknown", "reason"}` |
 | `check_sync_folder(path)` | `{"inside": True/False/None, "provider", "reason"}`（`None` は判定できない）。pip0 自身の同期ルートの中は `provider="pip0"` |
 | `access_time_reliable(path)` | 最終アクセス日時の更新が有効なら `True`、無効なら `False`、不明なら `None` |
 | `read_zone_identifier(path)` | `Zone.Identifier` の文字列、なければ `None` |
+| `write_zone_identifier(path, text)` | ダウンロード元の印（`Zone.Identifier`）を付ける。すでにあるものは書き換えない。付けたら `True` |
 | `open_for_copy(path)` | 他のプロセスの書き込み・削除を拒否し、最終アクセス日時を更新しない読み取り用のファイル（使用中なら `PermissionError`） |
 | `open_for_analysis(path)` | 最終アクセス日時を更新しない読み取り用のファイル |
 | `can_open_exclusively(path)` | ほかのプロセスが開いていなければ `True` |
 | `known_downloads_dir()` | Windows の「ダウンロード」の場所（`Path`）、なければ `None` |
 | `register_sync_root(path, display_name)` | `{"ok", "reason"}` |
 | `is_sync_root_registered(path)` | `True`/`False`/`None` |
-| `ghost_status(path)` | `{"exists", "is_ghost", "item_id", "dehydrated", "in_sync", "pinned", "reason"}` |
+| `ghost_status(path)` | `{"exists", "is_ghost", "item_id", "dehydrated", "in_sync", "pinned", "reason"}`。読めないときは `None`（分からない）で、「通常のファイル」とは答えない |
+| `locate_ghost(item_id)` | 同期ルートの中で、その項目のゴーストを探す。`{"result": "found"/"not_found"/"unknown", "paths", "reason"}` |
 | `make_ghost(path, item_id, expected)` | `{"result": "ghosted"/"changed"/"locked"/"not_in_root"/"unavailable"/"error", "reason"}`。`expected` は `{"size", "mtime_ns", "file_key", "sha256"}` で、1つでも違えば `"changed"` |
 | `restore_ghost(path, item_id)` | `{"result": "restored"/"already_regular"/"not_our_placeholder"/"missing"/"unavailable"/"error", "reason"}` |
 | `confirm_and_recycle(request)` | 確認画面を出し、承認されたときだけごみ箱へ移す。`{"approved", "answer": "approve"/"cancel"/"closed"/"unavailable", "results": [{"path", "status": "recycled"/"refused"/"failed"/"not_attempted", "reason"}]}`。ごみ箱を使えない場合は `"refused"` で、削除しない |
@@ -385,7 +388,7 @@ vault\
       manifest.json             ← 復元に必要な情報
 ```
 
-`manifest.json` の項目：`format`（1）、`item_id`、`state`、`original_path`、`current_path`、`file_key`、`size`、`mtime_ns`、`sha256`、`created_at`、`updated_at`、`restored_path`、`history`（`{"state", "at", "note"}` のリスト）。書き込みは、一時ファイルに書いて `fsync` してから `os.replace` で置き換えます。pip0 シェルは、ゴーストが開かれたとき、`content` と `manifest.json` の `sha256` を照合してから中身を渡します。
+`manifest.json` の項目：`format`（1）、`item_id`、`state`、`original_path`、`current_path`、`file_key`、`size`、`mtime_ns`、`sha256`、`created_at`、`updated_at`、`restored_path`、`zone_identifier`（ダウンロード元の印。`[ZoneTransfer]` と `ZoneId=N` だけで、URL は書かない。なければ `null`）、`restore_from`（復元を始める前の状態。復元に失敗したときに戻す先）、`history`（`{"state", "at", "note"}` のリスト）。書き込みは、一時ファイルに書いて `fsync` してから `os.replace` で置き換えます。パスが絶対パスでない、または pip0 専用フォルダー（`PIP0_ROOT`）の外を指す manifest.json は、読み込まずに問題として知らせます（保管庫はそのまま）。`content` は、どの処理でも置き換え・再利用しません（新しい退避には、必ず新しい項目ID を使う）。pip0 シェルは、ゴーストが開かれたとき、`content` と `manifest.json` の `sha256` を照合してから中身を渡します。
 
 ### 7-2. 退避の手順（`vault.evacuate`）
 
@@ -393,7 +396,7 @@ vault\
 2. 原本を `open_for_copy`（他プロセスの書き込みを拒否）で開き、`content.partial` へ 1MB ずつコピーしながら SHA-256 を計算する。区切りごとに `should_continue()` を確かめ、偽なら中止する（状態は `failed`、理由「一時停止」、原本はそのまま）。
 3. コピー後に原本のサイズと更新日時が変わっていないことを確かめ、`content.partial` を読み直してハッシュが一致することを確かめてから `content` に名前を変える。→ `copied`（ハッシュを manifest.json と DB に書く）。容量不足などの失敗は `failed`（原本はそのまま）。
 4. `ghosting`：manifest.json と DB に書いてから、`platform.make_ghost(パス, 項目ID, {"size", "mtime_ns", "file_key", "sha256"})` を呼ぶ。シェルは、原本を排他的に開き、サイズ・更新日時・ファイル番号（必要ならハッシュも）が一致することを確かめてから、プレースホルダーに変換して中身を外す。
-5. `"ghosted"` で、`ghost_status` が自分の項目のゴーストだと確かめられたら `evacuated`。`"changed"`・`"locked"` などは `failed`（原本はそのまま、後でやり直せる）。
+5. `"ghosted"` で、`ghost_status` が自分の項目のゴーストだと確かめられたら `evacuated`。`"ghosted"` の後に状態を確かめられない（分からない）ときは、`ghosting` のまま残し、後で確かめ直す（「原本はそのまま」とは記録しない）。`"changed"`・`"locked"` などは `failed`（原本はそのまま、後でやり直せる。読み取り専用のときは、やり直せないと書く）。
 
 ### 7-3. 復元の手順（`vault.restore`）
 
@@ -402,7 +405,8 @@ vault\
 | 自分の項目のゴースト | `restore_ghost`（中身がなければ保管庫から戻す）→ ハッシュを確かめる | 一致：`restored`、不一致（開いた後に編集された）：`restored_local_newer` |
 | 通常のファイルで、ハッシュが一致 | 何もしない（すでに戻っている） | `restored` |
 | 通常の別のファイル | 横に「元の名前 (pip0復元).拡張子」で保管庫からコピーし、ハッシュと更新日時を確かめる | `restored_conflict` |
-| ファイルがない（ゴーストが消された・移動された） | 勝手に作り直さない。保管庫に残す | `ghost_missing` |
+| ファイルがない、または別のファイルがある（ゴーストが移動された・消された） | `locate_ghost` で同期ルートの中を探す。ちょうど1か所で見つかり、自分の項目のゴーストだと確かめられたら、その場所へ記録を移して復元する。見つからない・複数ある・分からないときは、勝手に作り直さない | 見つかった：上の行と同じ、それ以外：`ghost_missing`（保管庫に残す。後で復元できる） |
+| ゴーストが pip0 専用フォルダーの外へ移された | 外の場所は追わない | `ghost_missing` |
 | シェルが動いていない等 | 何もしない（状態を戻す） | `evacuated` のまま（失敗として記録） |
 
 どの場合も、保管庫の `content` と `manifest.json` は消しません。同じ復元を何度実行しても、結果は同じです。
@@ -410,6 +414,6 @@ vault\
 ### 7-4. 起動時の点検（`vault.recover_incomplete`）
 
 - `copying` → 中断されたので `failed`（原本はそのまま）。
-- `ghosting` → `ghost_status` を見て、ゴーストになっていれば `evacuated`、通常のファイルなら `copied`、なければ `ghost_missing`。
+- `ghosting` → `ghost_status` を見て、ゴーストになっていれば `evacuated`、同じ通常のファイル（ファイル番号が同じ）なら `copied`、なければ、または別のファイルなら `locate_ghost` で探してから決める（見つからなければ `ghost_missing`）。分からないときは `ghosting` のまま。
 - `restoring` → 復元をやり直す。
 - DB にない manifest.json があれば、DB に読み込む（`sync_from_manifests`）。

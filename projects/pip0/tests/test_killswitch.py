@@ -175,6 +175,33 @@ def test_restore_all_restores_every_ghost_and_reports_progress(config, platform,
     assert [row["status"] for row in operations(db, "restore_all")] == ["done"]
 
 
+def test_restore_all_marks_itself_unfinished_before_anything_else(config, platform, db, monkeypatch):
+    evacuated_files(db, platform, config, ["a.pdf"])
+    killswitch.write_progress(config, ALL_RESTORED_3, NOW)  # 前回の全復元の記録は「終わり」
+
+    def killed(*args, **kwargs):
+        raise KeyboardInterrupt  # 点検の途中で、プロセスが止められた（強制終了のまね）
+
+    monkeypatch.setattr(vault, "recover_incomplete", killed)
+    with pytest.raises(KeyboardInterrupt):
+        killswitch.restore_all(db, platform, config, now=NOW + 10)
+    progress = killswitch.read_progress(config)
+    assert (progress["finished"], progress["total"], progress["remaining"]) == (False, 1, 1)
+    assert killswitch.restore_unfinished(config) is True
+    assert killswitch.resume(db, config, confirmed=True)["ok"] is False  # ゴーストが残ったまま再開しない
+
+
+def test_restore_request_is_removed_only_by_a_finished_restore(config, platform, db):
+    evacuated_files(db, platform, config, ["a.pdf"])
+    killswitch.request_restore_all(config, now=NOW)
+    assert killswitch.read_restore_request(config) == {"at": NOW}
+    assert killswitch.read_restore_request(config) == {"at": NOW}  # 読むだけでは外さない
+    assert killswitch.restore_unfinished(config) is True
+    killswitch.restore_all(db, platform, config, now=NOW + 10)
+    assert killswitch.read_restore_request(config) is None  # 全復元が終わったので外した
+    assert killswitch.restore_unfinished(config) is False
+
+
 def test_restore_all_can_be_interrupted_and_continued(config, platform, db):
     files = evacuated_files(db, platform, config, ["a.pdf", "b.pdf", "c.pdf"])
     killswitch.engage(db, config, "全復元", now=NOW)

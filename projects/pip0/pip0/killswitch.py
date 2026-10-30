@@ -5,7 +5,8 @@
    新しい自動仕分け・自動改名・自動退避を止める。DB が開けないときも、印のファイルだけは書ける（conn=None）
 2. 実行中の自動処理を、次の区切りで止める（常駐処理 service.py の役目。restore_all の説明を参照）
 3. restore_all：退避したファイルを 1 件ずつ元の場所へ戻し、進み具合（件数だけ）を
-   CONTROL_DIR/restore_all.progress.json に書く。途中で止めても、もう一度実行すると残りから続ける
+   CONTROL_DIR/restore_all.progress.json に書く。最初に「途中」（finished: False）を書き、終わったら「終わり」を書く。
+   途中で止まっても（強制終了を含む）、resume は断られ、もう一度実行すると残りから続ける
 4. 自動処理は、ユーザーが確認のうえで resume を選ぶまで止まったまま
 
 戻すのは pip0 が退避したファイルだけです。自動仕分け・自動改名は戻しません（操作履歴に残っています）。
@@ -182,6 +183,13 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
     """
     now_value = time.time() if now is None else now
 
+    # 0. 最初に「全復元が途中」の印（finished: False）を書く。この後のどこで止まっても（強制終了を含む）、
+    #    前回の「終わり」の記録が残ったままにならず、resume は断られ、次の起動で続きから行う
+    started = {key: 0 for key in COUNT_KEYS}
+    started["total"] = started["remaining"] = len(vault.list_items(conn, vault.RESTORE_TARGET_STATES))
+    started["finished"] = False
+    write_progress(config, started, now_value)
+
     # 1. 自動処理を止める。停止の印と DB の設定の両方をそろえる
     #    （片方だけだと、印のファイルが消されたときに、確認なしで自動処理が動き出すため）
     if database.get_setting(conn, AUTOMATION_SETTING) != "0":
@@ -221,6 +229,8 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
 
     counts["finished"] = counts["remaining"] == 0
     write_progress(config, counts, time.time() if now is None else now)
+    # 全復元の依頼に応えたので、依頼のファイルを外す（途中で止まったときは、進み具合の「途中」が残り、続きから行う）
+    take_restore_request(config)
     database.log_operation(
         conn, "restore_all", actor="kill_switch", status="done" if counts["finished"] else "cancelled",
         detail=json.dumps(counts, ensure_ascii=False), at=time.time() if now is None else now,
@@ -280,6 +290,24 @@ def request_restore_all(config, now=None):
     except OSError as error:
         return {"ok": False, "reason": f"全復元の依頼を書けませんでした（{type(error).__name__}）"}
     return {"ok": True, "reason": stopped["reason"]}
+
+
+def read_restore_request(config):
+    """全復元の依頼があれば、その辞書を返す（依頼のファイルは外さない）。なければ None
+
+    常駐処理はこれで依頼に気付き、依頼のファイルは、全復元が終わった後に restore_all が外します
+    （依頼を受け付けた直後に止まっても、依頼が残り、resume は断られ、次の起動で全復元するため）。
+    """
+    request = control_file(config, REQUEST_FILE_NAME)
+    if request is None:
+        return None
+    try:
+        value = fsutil.read_json(request)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError):
+        return {}  # 読めなくても、依頼があったことは確か
+    return value if isinstance(value, dict) else {}
 
 
 def take_restore_request(config):

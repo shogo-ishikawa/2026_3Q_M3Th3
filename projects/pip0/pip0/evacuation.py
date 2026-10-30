@@ -6,10 +6,12 @@ vault.evacuate も、原本に触れる前に、ここの check_location で確�
 
 退避するのは、次のすべてを満たすファイルだけです（★条件を変えるときは、このファイルを直します）。
 1. 場所（location_problem）：pip0 専用フォルダー（同期ルートとして登録済み）の中、NTFS の内蔵ドライブ、
-   ほかのクラウドの同期フォルダーの外。同期フォルダーかどうか判定できないときも退避しない
+   ほかのクラウドの同期フォルダーの外。同期フォルダーかどうか判定できないときも退避しない。
+   保管庫（VAULT_DIR）とデータフォルダー（DATA_DIR）も、同期フォルダーの外の NTFS の内蔵ドライブにあること
+   （ゴーストにした後は、保管庫のコピーが中身の唯一の置き場所になるため）
 2. ファイルの状態（file_problem）：中身がこの PC にある通常のファイル（リンク、ハードリンクで別の名前があるもの、
-   プレースホルダー、「常にこのデバイス上に保持する」は除く）、一時ファイルではない、
-   EVACUATE_MIN_SIZE_BYTES 以上、使用中ではない
+   プレースホルダー、「常にこのデバイス上に保持する」、読み取り専用、Windows の暗号化（EFS）は除く）、
+   一時ファイルではない、EVACUATE_MIN_SIZE_BYTES 以上、使用中ではない
 3. 利用（find_candidates）：usage.judge_long_unread で「長期間未読」。「判定不能」のファイルは退避しない
 
 ここにある関数は、ファイルの情報を読んで確かめるだけで、何も変更しません。
@@ -75,6 +77,9 @@ def location_problem(platform, path, config):
 
     if platform.is_sync_root_registered(root) is not True:
         return "pip0 専用フォルダーが同期ルートとして登録されていない（または確かめられない）ため、退避しません"
+    problem = vault_location_problem(platform, config)
+    if problem is not None:
+        return problem
 
     volume = platform.get_volume_info(path)
     filesystem = volume.get("filesystem")
@@ -95,6 +100,32 @@ def location_problem(platform, path, config):
     if sync.get("inside") is True and sync.get("provider") != "pip0":
         provider = sync.get("provider") or "ほかのクラウド"
         return f"{provider} の同期フォルダーの中にあるため、退避しません（同期されたデータを損なわないため）"
+    return None
+
+
+def vault_location_problem(platform, config):
+    """保管庫（VAULT_DIR）とデータフォルダー（DATA_DIR）の場所の確認。よければ None、だめなら理由（日本語）
+
+    ゴーストにした後は、保管庫のコピーが中身の唯一の置き場所になります。保管庫は暗号化しないので、
+    クラウドの同期フォルダーの中（外へ送られたり、同期で消えたりする）や、取り外しできるドライブ・
+    ネットワークドライブ（切断や紛失で失われる）には置けません。判定できないときも退避しません。
+    """
+    for key, label in (("VAULT_DIR", "保管庫（VAULT_DIR）"), ("DATA_DIR", "データフォルダー（DATA_DIR）")):
+        folder = config.get(key)
+        if folder is None:
+            continue
+        sync = platform.check_sync_folder(folder)
+        if sync.get("inside") is None:
+            return f"{label}がクラウドの同期フォルダーの中かどうかを判定できないため、退避しません"
+        if sync.get("inside") is True:
+            provider = sync.get("provider") or "クラウド"
+            return (f"{label}が {provider} の同期フォルダーの中にあるため、退避しません"
+                    "（保管庫のコピーが外へ送られたり、同期で消えたりしないため）")
+        # 保管庫のフォルダーは、最初の退避のときに作る。まだなければ、実際にあるいちばん近い上のフォルダーで調べる
+        volume = platform.get_volume_info(existing_part(folder))
+        if volume.get("filesystem") != "NTFS" or volume.get("drive_type") != "fixed":
+            return (f"{label}が NTFS の内蔵ドライブにないため、退避しません"
+                    "（取り外しや切断で、保管庫のコピーを失わないため）")
     return None
 
 
@@ -130,6 +161,12 @@ def file_problem(platform, path, config, rules):
         return "リンクや再解析ポイント（ジャンクション等）は退避しません"
     if state.get("pinned"):
         return "「常にこのデバイス上に保持する」が設定されているため、退避しません"
+    attributes = state.get("attributes") or 0
+    if attributes & stat.FILE_ATTRIBUTE_ENCRYPTED:
+        return ("Windows の暗号化（EFS）がかかったファイルは退避しません"
+                "（保管庫には暗号化せずに置くため、暗号化が外れてしまう）")
+    if attributes & stat.FILE_ATTRIBUTE_READONLY:
+        return "読み取り専用のファイルは退避しません（ゴーストにできないため）"
 
     ghost = platform.ghost_status(path)
     if ghost.get("is_ghost") is not False:
@@ -241,6 +278,18 @@ def explain(conn, platform, path, now, config, rules, recent_items_enabled):
 # ----------------------------------------------------------------------
 # 小さな部品
 # ----------------------------------------------------------------------
+
+
+def existing_part(folder):
+    """folder か、その上のフォルダーのうち、実際にあるいちばん近いもの（どれもなければ folder のまま）"""
+    folder = os.path.abspath(folder)
+    current = folder
+    while not os.path.isdir(current):
+        parent = os.path.dirname(current)
+        if parent == current:
+            return folder
+        current = parent
+    return current
 
 
 def active_vault_paths(conn):

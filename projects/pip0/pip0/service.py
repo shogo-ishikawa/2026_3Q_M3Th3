@@ -472,6 +472,7 @@ class Service:
 
         # 全復元
         self.restore_requested = False
+        self.accepted_restore_request = None  # 受け付けた全復元の依頼（同じ依頼を二度受け付けないため）
         self.restoring = False
         self.restore_counts = None
         self.restore_retry_at = 0.0
@@ -613,7 +614,7 @@ class Service:
         if progress is not None and progress.get("finished") is False:
             self.restore_requested = True
             self.restore_counts = progress
-        if killswitch.take_restore_request(self.config) is not None:
+        if self.new_restore_request():
             self.engage_kill_switch(now, "コマンド（restore-all）からの全復元の依頼", actor="user")
 
         # 7. フォルダーの監視とワーカーのスレッド
@@ -856,6 +857,8 @@ class Service:
         if code == 3:
             reason = ("同じサインインの中で、ほかの pip0 シェルが動いています（終了コード 3）。"
                       "しばらく後に起動し直します")
+        elif code == 70:
+            reason = "pip0 シェルが予想外のエラーで終了しました（終了コード 70）。しばらく後に起動し直します"
         else:
             reason = f"pip0 シェルが終了しました（終了コード {code}）。しばらく後に起動し直します"
         logger.warning("pip0 シェルが終了しました（終了コード %s）", code)
@@ -1249,7 +1252,7 @@ class Service:
     def poll_control_files(self, now):
         """全復元の依頼、終了の依頼、停止の印（python -m pip0 restore-all／shutdown／stop／resume）を確かめる"""
         self.next_control_poll = now + CONTROL_POLL_SECONDS
-        if killswitch.take_restore_request(self.config) is not None:
+        if self.new_restore_request():
             self.engage_kill_switch(now, "コマンド（restore-all）からの全復元の依頼", actor="user")
         if self.shutdown_requested():
             self.request_stop("コマンド（shutdown）からの終了の依頼")
@@ -1268,6 +1271,18 @@ class Service:
             self.kill_event.clear()
             self.ui.notify("自動処理を再開しました", "自動仕分け・自動改名・自動退避を再開しました。", "info")
         self.update_status(now, force=True)
+
+    def new_restore_request(self):
+        """まだ受け付けていない全復元の依頼があれば True
+
+        依頼のファイルは、ここでは外さず、全復元が終わった後に killswitch.restore_all が外します
+        （受け付けた直後に止まっても、依頼が残り、次の起動で全復元するため）。同じ依頼は二度受け付けません。
+        """
+        request = killswitch.read_restore_request(self.config)
+        if request is None or request == self.accepted_restore_request:
+            return False
+        self.accepted_restore_request = request
+        return True
 
     def shutdown_requested(self):
         """終了の依頼のファイルが、この常駐処理あてなら True（起動より前の古い依頼は受け付けない）"""

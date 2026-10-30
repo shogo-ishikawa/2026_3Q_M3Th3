@@ -645,6 +645,36 @@ def test_restore_request_file_from_the_command_line_is_handled(resident, config,
     assert killswitch.is_engaged(db, config)
 
 
+def test_restore_request_survives_a_stop_before_the_restore_runs(config, platform, db, ui, clock):
+    path = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
+    digest = sha256_of(path)
+    evacuated(db, platform, config, path)
+    finished = {key: 0 for key in killswitch.COUNT_KEYS}
+    finished["finished"] = True
+    killswitch.write_progress(config, finished, T0)  # 前回の全復元の記録は「終わり」
+    assert killswitch.request_restore_all(config)["ok"]
+
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]  # 起動のときに依頼を受け付けた（全復元は、次の step で行う）
+    svc.shutdown()  # 全復元の前に止まった
+    assert killswitch.restore_unfinished(config) is True  # 依頼は残っている
+    assert killswitch.resume(db, config, confirmed=True)["ok"] is False
+
+    svc = make_service(config, platform, db, RecordingUi(), clock)
+    assert svc.start()["ok"]
+    try:
+        svc.step()
+        assert platform.ghosts == {} and sha256_of(path) == digest
+        assert killswitch.read_restore_request(config) is None
+        assert killswitch.read_progress(config)["finished"] is True
+        clock.advance(service.CONTROL_POLL_SECONDS + 0.1)
+        svc.step()  # 同じ依頼を二度受け付けない（依頼のファイルは、もうない）
+        assert [name for name, payload in svc.ui.calls if name == "ui.notify"
+                and payload["title"] == "全復元を始めます"] == ["ui.notify"]
+    finally:
+        svc.shutdown()
+
+
 def test_unfinished_restore_continues_at_start(config, platform, db, ui, clock):
     path = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
     evacuated(db, platform, config, path)

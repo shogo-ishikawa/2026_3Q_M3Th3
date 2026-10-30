@@ -5,10 +5,12 @@ OS 連携は代役（FakePlatform）です。ファイルシステムの種類�
 """
 
 import os
+import stat
 from pathlib import Path
 
 import pytest
 
+from pip0 import config as config_module
 from pip0 import database, evacuation, rules
 
 DAY = 24 * 60 * 60
@@ -119,6 +121,31 @@ def refusal_cases():
         os.link(path, env["PIP0_ROOT"] / "別名.xlsx")
         return path
 
+    def read_only(env, platform, path):
+        platform.file_attributes[str(path)] = stat.FILE_ATTRIBUTE_READONLY | stat.FILE_ATTRIBUTE_ARCHIVE
+        return path
+
+    def encrypted(env, platform, path):
+        platform.file_attributes[str(path)] = stat.FILE_ATTRIBUTE_ENCRYPTED | stat.FILE_ATTRIBUTE_ARCHIVE
+        return path
+
+    def vault_in_onedrive(env, platform, path):
+        platform.other_sync_roots[str(env["DATA_DIR"])] = "OneDrive"  # 保管庫は DATA_DIR の下
+        return path
+
+    def vault_sync_unknown(env, platform, path):
+        platform.sync_check_unknown.add(str(env["VAULT_DIR"]))
+        return path
+
+    def vault_on_usb(env, platform, path):
+        # 保管庫のフォルダーは、まだない（最初の退避で作る）。あるいちばん近い上のフォルダーのドライブで判断する
+        platform.drive_types[str(env["DATA_DIR"])] = "removable"
+        return path
+
+    def vault_on_exfat(env, platform, path):
+        platform.filesystems[str(env["DATA_DIR"])] = "exFAT"
+        return path
+
     return [
         ("non_ntfs", non_ntfs, "exFAT"),
         ("other_sync_root", other_sync_root, "OneDrive"),
@@ -137,6 +164,12 @@ def refusal_cases():
         ("symlink", symlink, "シンボリックリンク"),
         ("missing", missing, "見つかりません"),
         ("hard_link", hard_link, "ハードリンク"),
+        ("read_only", read_only, "読み取り専用"),
+        ("encrypted", encrypted, "暗号化（EFS）"),
+        ("vault_in_onedrive", vault_in_onedrive, "OneDrive の同期フォルダーの中"),
+        ("vault_sync_unknown", vault_sync_unknown, "保管庫（VAULT_DIR）がクラウドの同期フォルダーの中かどうか"),
+        ("vault_on_usb", vault_on_usb, "保管庫（VAULT_DIR）が NTFS の内蔵ドライブにない"),
+        ("vault_on_exfat", vault_on_exfat, "NTFS の内蔵ドライブにない"),
     ]
 
 
@@ -164,9 +197,22 @@ def test_non_ntfs_reason_names_the_file_system(env, platform, good_file):
 
 def test_pip0_own_sync_root_reported_by_windows_is_allowed(env, platform, good_file, monkeypatch):
     # Windows の実装は、pip0 自身の同期ルートの中を provider="pip0" と答える。それは退避してよい
+    # （保管庫とデータフォルダーは、同期ルートの外なので「外」と答える）
+    def answer(path):
+        if config_module.is_inside(path, env["PIP0_ROOT"]):
+            return {"inside": True, "provider": "pip0", "reason": ""}
+        return {"inside": False, "provider": None, "reason": ""}
+
+    monkeypatch.setattr(platform, "check_sync_folder", answer)
+    assert evacuation.check_location(platform, good_file, env)["ok"] is True
+
+
+def test_vault_inside_any_sync_root_is_refused_even_pip0s_own(env, platform, good_file, monkeypatch):
+    # 保管庫は、ゴーストの唯一の中身の置き場所。どの同期ルートの中（pip0 自身のものも）にも置かない
     monkeypatch.setattr(platform, "check_sync_folder",
                         lambda path: {"inside": True, "provider": "pip0", "reason": ""})
-    assert evacuation.check_location(platform, good_file, env)["ok"] is True
+    reason = evacuation.check_location(platform, good_file, env)["reason"]
+    assert "保管庫（VAULT_DIR）が pip0 の同期フォルダーの中" in reason
 
 
 def test_rules_can_be_replaced(env, platform, good_file):

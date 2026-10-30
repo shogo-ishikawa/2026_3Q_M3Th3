@@ -35,6 +35,7 @@ class FakePlatform:
         self.pinned = set()            # 「常にこのデバイス上に保持する」
         self.locked = set()            # ほかのプロセスが開いている（排他的に開けない）
         self.zone_identifiers = {}     # パス → Zone.Identifier の中身
+        self.file_attributes = {}      # パス → Windows のファイルの属性（例 stat.FILE_ATTRIBUTE_READONLY）
         self.access_time_reliable_value = False
         # --- ゴースト（Cloud Files API のまね） ---
         self.vault_dir = Path(vault_dir) if vault_dir else None
@@ -46,7 +47,7 @@ class FakePlatform:
         self.recycle_bin_available = True  # False にすると、ごみ箱のない場所をまねる
         self.dialog_answer = "cancel"      # "approve" | "cancel" | "closed"
         self.dialog_requests = []
-        # --- 障害の注入：操作名 → 次の1回だけ起こすこと ---
+        # --- 障害の注入：操作名 → 次の1回だけ起こすこと（リストなら、呼ばれるたびに先頭から1つずつ。None は「いつもどおり」）---
         self.fail_next = {}
         self.calls = []
 
@@ -84,16 +85,21 @@ class FakePlatform:
         return f"{st.st_dev}:{st.st_ino}"
 
     def get_local_state(self, path):
+        """Windows と同じ形。プレースホルダー（ゴースト）は、中身が戻った後も再解析ポイント（reparse=True）"""
         path = str(Path(path))
+        attributes = self.file_attributes.get(path)
         if path in self.ghosts and self.ghosts[path]["dehydrated"]:
             return {"local": False, "placeholder": True, "pinned": False, "reparse": True,
-                    "attributes": None, "reason": "pip0 のゴースト（中身は保管庫）"}
+                    "attributes": attributes, "reason": "pip0 のゴースト（中身は保管庫）"}
         if path in self.not_local:
             return {"local": False, "placeholder": True, "pinned": False, "reparse": True,
-                    "attributes": None, "reason": "クラウドの未取得のプレースホルダー"}
+                    "attributes": attributes, "reason": "クラウドの未取得のプレースホルダー"}
+        if path in self.ghosts:
+            return {"local": True, "placeholder": True, "pinned": False, "reparse": True,
+                    "attributes": attributes, "reason": "クラウドのプレースホルダーです（中身はこの PC にあります）"}
         is_link = os.path.islink(path)
-        return {"local": not is_link, "placeholder": path in self.ghosts, "pinned": path in self.pinned,
-                "reparse": is_link, "attributes": None,
+        return {"local": not is_link, "placeholder": False, "pinned": path in self.pinned,
+                "reparse": is_link, "attributes": attributes,
                 "reason": "リンク（たどらない）" if is_link else ""}
 
     def get_volume_info(self, path):
@@ -116,6 +122,18 @@ class FakePlatform:
 
     def read_zone_identifier(self, path):
         return self.zone_identifiers.get(str(Path(path)))
+
+    def write_zone_identifier(self, path, text):
+        """ダウンロード元の印を付ける（Windows では、ファイルの Zone.Identifier の代替データストリームに書く）"""
+        self.calls.append(("write_zone_identifier", str(path)))
+        result = self._maybe_fail("write_zone_identifier")
+        if result is not None:
+            return result
+        path = str(Path(path))
+        if not os.path.exists(path) or path in self.zone_identifiers:
+            return False
+        self.zone_identifiers[path] = text
+        return True
 
     def open_for_copy(self, path):
         self._maybe_fail("open_for_copy")
@@ -158,6 +176,9 @@ class FakePlatform:
         return self._match_prefix({r: True for r in self.registered_roots}, path, False)
 
     def ghost_status(self, path):
+        result = self._maybe_fail("ghost_status")
+        if result is not None:
+            return result
         path = str(Path(path))
         if not os.path.exists(path):
             return {"exists": False, "is_ghost": False, "item_id": None, "dehydrated": None,
@@ -208,6 +229,20 @@ class FakePlatform:
         self.ghosts[path] = {"item_id": item_id, "size": expected["size"], "mtime_ns": st.st_mtime_ns,
                              "dehydrated": True, "modified": False}
         return {"result": "ghosted", "reason": ""}
+
+    def locate_ghost(self, item_id):
+        """pip0 専用フォルダー（同期ルート）の中で、この項目のゴーストの場所を探す（Windows では cf.locate）"""
+        self.calls.append(("locate_ghost", item_id))
+        result = self._maybe_fail("locate_ghost")
+        if result is not None:
+            return result
+        if not self.provider_running:
+            return {"result": "unknown", "paths": [], "reason": "OS 連携（pip0 シェル）が動いていません"}
+        paths = sorted(path for path, ghost in self.ghosts.items()
+                       if ghost["item_id"] == item_id and os.path.exists(path) and self._inside_registered_root(path))
+        if paths:
+            return {"result": "found", "paths": paths, "reason": ""}
+        return {"result": "not_found", "paths": [], "reason": ""}
 
     def _vault_content(self, item_id):
         item_dir = self.vault_dir / "items" / item_id
@@ -273,13 +308,19 @@ class FakePlatform:
     def simulate_user_delete(self, path):
         path = str(Path(path))
         self.ghosts.pop(path, None)
+        self.zone_identifiers.pop(path, None)  # 代替データストリームも、ファイルと一緒に消える
         os.remove(path)
 
     def simulate_user_rename(self, old_path, new_path):
+        """ユーザーがファイルかフォルダーの名前を変える（フォルダーなら、中のゴーストも一緒に動く）"""
         old_path, new_path = str(Path(old_path)), str(Path(new_path))
         os.rename(old_path, new_path)
-        if old_path in self.ghosts:
-            self.ghosts[new_path] = self.ghosts.pop(old_path)
+        for table in (self.ghosts, self.zone_identifiers):  # 代替データストリームも、ファイルと一緒に動く
+            for path in list(table):
+                if path == old_path:
+                    table[new_path] = table.pop(path)
+                elif path.startswith(old_path + os.sep):
+                    table[new_path + path[len(old_path):]] = table.pop(path)
 
     # ------------------------------------------------------------------
     # 削除の確認とごみ箱
@@ -317,8 +358,15 @@ class FakePlatform:
     # ------------------------------------------------------------------
 
     def _maybe_fail(self, operation):
-        """fail_next に登録された障害を1回だけ起こす（例外なら投げ、辞書なら結果として返す）"""
+        """fail_next に登録された障害を1回だけ起こす（例外なら投げ、辞書なら結果として返す）
+
+        リストなら、呼ばれるたびに先頭から1つずつ使う（None は「この回はいつもどおり」）。
+        """
         action = self.fail_next.pop(operation, None)
+        if isinstance(action, list):
+            if len(action) > 1:
+                self.fail_next[operation] = action[1:]
+            action = action[0] if action else None
         if action is None:
             return None
         if isinstance(action, BaseException):

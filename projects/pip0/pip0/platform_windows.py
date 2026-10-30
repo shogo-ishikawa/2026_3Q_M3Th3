@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 
 STATUS_TIMEOUT_SECONDS = 30                 # ゴーストの状態の読み取り（cf.status）
+LOCATE_TIMEOUT_SECONDS = 60                 # pip0 専用フォルダーの中でゴーストを探す（cf.locate。シェルは 20 秒で打ち切る）
 REGISTER_TIMEOUT_SECONDS = 60               # 同期ルートの登録・接続・解除
 GHOST_BASE_TIMEOUT_SECONDS = 60             # ゴーストの作成・復元の基本の待ち時間
 GHOST_SECONDS_PER_GIB = 600                 # 1 GiB ごとに加える待ち時間（遅いドライブでの2回のハッシュ計算を見込む）
@@ -86,11 +87,16 @@ NOT_LOCAL_ATTRIBUTES = FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS | FILE_ATTRIBUTE_REC
 CLOUD_ATTRIBUTES = (FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS | FILE_ATTRIBUTE_RECALL_ON_OPEN
                     | FILE_ATTRIBUTE_PINNED | FILE_ATTRIBUTE_UNPINNED)
 
-# 再解析ポイントの種類（os.stat の st_reparse_tag）
+# 再解析ポイントの種類（タグ）
 IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003   # ジャンクション
 IO_REPARSE_TAG_SYMLINK = 0xA000000C       # シンボリックリンク
 IO_REPARSE_TAG_CLOUD = 0x9000001A         # クラウドのプレースホルダー（CLOUD_1〜CLOUD_F も同じ仲間）
 IO_REPARSE_TAG_CLOUD_MASK = 0x0000F000
+REPARSE_TAG_NAME_SURROGATE = 0x20000000   # この印のあるタグは、別の場所を指す「名前の代わり」（リンクの仲間）
+
+# FindFirstFileExW
+FIND_EX_INFO_BASIC = 1                    # 短い名前（8.3 形式）を読まない
+FIND_EX_SEARCH_NAME_MATCH = 0
 
 # CreateFileW
 GENERIC_READ = 0x80000000
@@ -161,6 +167,22 @@ class SYSTEM_POWER_STATUS(ctypes.Structure):
 
 class FILETIME(ctypes.Structure):
     _fields_ = [("dwLowDateTime", ctypes.c_uint32), ("dwHighDateTime", ctypes.c_uint32)]
+
+
+class WIN32_FIND_DATAW(ctypes.Structure):
+    """FindFirstFileExW が返すフォルダーの中の項目の情報（名前の欄は使わないので、2 バイトの数の並びで持つ）"""
+    _fields_ = [
+        ("dwFileAttributes", ctypes.c_uint32),
+        ("ftCreationTime", FILETIME),
+        ("ftLastAccessTime", FILETIME),
+        ("ftLastWriteTime", FILETIME),
+        ("nFileSizeHigh", ctypes.c_uint32),
+        ("nFileSizeLow", ctypes.c_uint32),
+        ("dwReserved0", ctypes.c_uint32),     # 再解析ポイントのとき、そのタグ
+        ("dwReserved1", ctypes.c_uint32),
+        ("cFileName", ctypes.c_uint16 * 260),
+        ("cAlternateFileName", ctypes.c_uint16 * 14),
+    ]
 
 
 class GUID(ctypes.Structure):
@@ -234,7 +256,7 @@ class WindowsPlatform:
         self.link = link
         self.pip0_root = None
         self._lock = threading.Lock()
-        self._unsettled = set()   # 答えが遅れた（シェルがまだ処理しているかもしれない）ゴーストの場所
+        self._unsettled = {}      # 答えが遅れた（シェルがまだ処理しているかもしれない）ゴーストの場所 → そのときのシェル
         self.set_pip0_root(pip0_root)
 
     def set_pip0_root(self, path):
@@ -293,7 +315,7 @@ class WindowsPlatform:
         リンクはたどらず、リンクそのものの属性を見ます。
         """
         try:
-            info = os.stat(path, follow_symlinks=False)
+            info = stat_without_following(path)
         except FileNotFoundError:
             return unknown_local_state("ファイルが見つかりません")
         except (OSError, ValueError) as error:
@@ -301,7 +323,14 @@ class WindowsPlatform:
         attributes = getattr(info, "st_file_attributes", None)
         if attributes is None:
             return unknown_local_state("Windows のファイルの属性を読めないため、中身がこの PC にあるか確かめられません")
-        return describe_local_state(attributes, getattr(info, "st_reparse_tag", 0))
+        if not attributes & FILE_ATTRIBUTE_REPARSE_POINT:
+            return describe_local_state(attributes, 0)
+        # 再解析ポイント：os.lstat は、リンク以外（クラウドのプレースホルダー等）では、たどった先の情報を返し、
+        # タグ（st_reparse_tag）が 0 になる（CPython の決まり）。そのため、たどらずにフォルダーの項目から読む
+        entry = read_directory_entry(path)
+        if entry is None:
+            return unknown_local_state("再解析ポイントの種類を読めないため、中身がこの PC にあるか確かめられません")
+        return describe_local_state(entry["attributes"], entry["reparse_tag"])
 
     def get_volume_info(self, path):
         """ファイルシステムの名前とドライブの種類。{"filesystem", "drive_type", "reason"}"""
@@ -338,6 +367,21 @@ class WindowsPlatform:
         if self.get_volume_info(path)["filesystem"] != "NTFS":
             return None
         return last_access_updates_enabled()
+
+    def write_zone_identifier(self, path, text):
+        """ファイルにダウンロード元の印（Zone.Identifier の代替データストリーム）を付ける。付けたら True
+
+        すでに印があるときは書き換えません（False）。中身がこの PC にないファイルやリンクには書きません。
+        """
+        if not self.get_local_state(path)["local"]:
+            return False
+        stream_path = long_path(absolute_path(path) + ":Zone.Identifier")
+        try:
+            with open(stream_path, "xb") as stream:   # "x"：印がすでにあれば失敗する（書き換えない）
+                stream.write(text.encode("utf-8"))
+        except (OSError, ValueError):
+            return False
+        return True
 
     def read_zone_identifier(self, path):
         """ダウンロードしたファイルに Windows が付ける Zone.Identifier（代替データストリーム）の中身。なければ None
@@ -514,10 +558,26 @@ class WindowsPlatform:
             return {"result": kind, "reason": reason}
         return read_result(reply, RESTORE_RESULTS)
 
+    def locate_ghost(self, item_id):
+        """pip0 専用フォルダー（同期ルート）の中で、この項目のゴーストの場所を探す（シェルの cf.locate）
+
+        フォルダーごと名前を変えたときなど、場所の知らせ（cf.notify_rename）が届かなかったゴーストを見つけるためです。
+        返す辞書：{"result": "found"/"not_found"/"unknown", "paths": [見つかった場所], "reason"}
+        シェルに聞けない・探し切れなかったときは "unknown"（見つからなかったとは言わない）。
+        """
+        try:
+            reply = self.link.request("cf.locate", {"item_id": item_id}, timeout=LOCATE_TIMEOUT_SECONDS)
+        except ShellError as error:
+            return {"result": "unknown", "paths": [], "reason": link_failure(error, "ゴーストの場所の確認")[1]}
+        return read_locate_reply(reply)
+
     def _mark_unsettled(self, path):
-        """答えが遅れた場所を覚える。シェルがまだ処理しているかもしれないので、状態を「分からない」として扱う"""
+        """答えが遅れた場所を覚える。シェルがまだ処理しているかもしれないので、状態を「分からない」として扱う
+
+        そのときのシェル（プロセス番号）も覚え、シェルが起動し直されたら、印を外す（遅れていた処理も終わっている）。
+        """
         with self._lock:
-            self._unsettled.add(path_key(path))
+            self._unsettled[path_key(path)] = shell_process_id(self.link)
 
     def _is_unsettled(self, path):
         with self._lock:
@@ -527,6 +587,10 @@ class WindowsPlatform:
                 # シェルが終わったので、遅れていた処理も終わっている（次からはシェルに聞ける）
                 self._unsettled.clear()
                 return False
+            current = shell_process_id(self.link)
+            if current is not None:
+                # 別のシェル（起動し直した後）で付けた印ではないものは外す
+                self._unsettled = {key: shell for key, shell in self._unsettled.items() if shell == current}
             return path_key(path) in self._unsettled
 
     # ------------------------------------------------------------------
@@ -604,8 +668,16 @@ def is_cloud_reparse_tag(tag):
     return isinstance(tag, int) and (tag & ~IO_REPARSE_TAG_CLOUD_MASK) == IO_REPARSE_TAG_CLOUD
 
 
+def is_link_reparse_tag(tag):
+    """別の場所を指す再解析ポイント（「名前の代わり」の印のあるタグ）なら True
+
+    IO_REPARSE_TAG_SYMLINK（シンボリックリンク）、IO_REPARSE_TAG_MOUNT_POINT（ジャンクション）、WSL のリンク等。
+    """
+    return isinstance(tag, int) and bool(tag & REPARSE_TAG_NAME_SURROGATE)
+
+
 def describe_local_state(attributes, reparse_tag=0):
-    """ファイルの属性（数値）と再解析ポイントの種類から、get_local_state の辞書を作る"""
+    """ファイルの属性（数値）と再解析ポイントの種類（タグ。たどらずに読んだもの）から、get_local_state の辞書を作る"""
     reparse = bool(attributes & FILE_ATTRIBUTE_REPARSE_POINT)
     placeholder = is_cloud_reparse_tag(reparse_tag) or bool(attributes & CLOUD_ATTRIBUTES)
     state = {
@@ -616,9 +688,9 @@ def describe_local_state(attributes, reparse_tag=0):
         "attributes": attributes,
         "reason": "",
     }
-    if reparse and reparse_tag in (IO_REPARSE_TAG_SYMLINK, IO_REPARSE_TAG_MOUNT_POINT):
+    if reparse and is_link_reparse_tag(reparse_tag):
         state["local"] = False
-        state["reason"] = "リンク（シンボリックリンク・ジャンクション）です。たどりません"
+        state["reason"] = "リンク（シンボリックリンク・ジャンクション等）です。たどりません"
     elif attributes & NOT_LOCAL_ATTRIBUTES:
         state["local"] = False
         state["reason"] = ("中身がこの PC にありません（クラウドの未取得のプレースホルダー、pip0 のゴースト等）。"
@@ -781,6 +853,32 @@ def read_ghost_status(reply):
     return status
 
 
+def read_locate_reply(reply):
+    """cf.locate の答えを {"result": "found"/"not_found"/"unknown", "paths", "reason"} にそろえる
+
+    "error"（探し切れなかった等）や、約束にない答えは "unknown"（見つからなかったとは扱わない）。
+    場所は、絶対パスの文字列だけを使う。
+    """
+    reason = text_or(reply.get("reason"), "")
+    raw_paths = reply.get("paths")
+    paths = [path for path in raw_paths if isinstance(path, str) and os.path.isabs(path)] \
+        if isinstance(raw_paths, list) else []
+    result = reply.get("result")
+    if result == "found" and paths:
+        return {"result": "found", "paths": paths, "reason": reason}
+    if result == "not_found":
+        return {"result": "not_found", "paths": [], "reason": reason}
+    return {"result": "unknown", "paths": [], "reason": reason or "ゴーストの場所を確かめられませんでした"}
+
+
+def shell_process_id(link):
+    """今つながっている pip0 シェルのプロセス番号（ShellLink.process_id()）。分からなければ None"""
+    process_id = getattr(link, "process_id", None)
+    if callable(process_id):
+        process_id = process_id()
+    return process_id if isinstance(process_id, int) and not isinstance(process_id, bool) else None
+
+
 def unknown_ghost_status(path, reason):
     """シェルに聞けないときの ghost_status（ゴーストかどうかは「分からない」）"""
     return {"exists": local_exists(path), "is_ghost": None, "item_id": None, "dehydrated": None,
@@ -863,6 +961,35 @@ def open_without_access_update(path, share_mode, flags):
     except BaseException:
         os.close(descriptor)
         raise
+
+
+def stat_without_following(path):
+    """リンクをたどらずに、ファイルの情報（属性）を読む（os.lstat と同じ。テストで差し替えるため、関数にしています）"""
+    return os.stat(path, follow_symlinks=False)
+
+
+def read_directory_entry(path):
+    """フォルダーの項目としての属性と、再解析ポイントのタグを、たどらずに読む（FindFirstFileExW）
+
+    返す辞書：{"attributes", "reparse_tag"}（再解析ポイントでなければタグは 0）。読めなければ None。
+    フォルダーの一覧を読むだけなので、クラウドのプレースホルダーの中身の取得は始まりません。
+    """
+    try:
+        find_first = win_function("kernel32.dll", "FindFirstFileExW", HANDLE,
+                                  [ctypes.c_wchar_p, ctypes.c_int, ctypes.POINTER(WIN32_FIND_DATAW), ctypes.c_int,
+                                   ctypes.c_void_p, ctypes.c_uint32])
+        find_close = win_function("kernel32.dll", "FindClose", ctypes.c_int, [HANDLE])
+    except (OSError, AttributeError):
+        return None
+    data = WIN32_FIND_DATAW()
+    handle = find_first(long_path(absolute_path(path)), FIND_EX_INFO_BASIC, ctypes.byref(data),
+                        FIND_EX_SEARCH_NAME_MATCH, None, 0)
+    if not valid_handle(handle):
+        return None
+    find_close(handle)   # FindFirstFileExW のハンドルは、CloseHandle ではなく FindClose で閉じる
+    attributes = data.dwFileAttributes
+    reparse_tag = data.dwReserved0 if attributes & FILE_ATTRIBUTE_REPARSE_POINT else 0
+    return {"attributes": attributes, "reparse_tag": reparse_tag}
 
 
 def preserve_access_time(handle):

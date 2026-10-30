@@ -273,17 +273,25 @@ def test_crash_during_evacuation_is_recovered(config, platform, key_store, monke
     assert summary["unresolved"] == 0
 
     # 原本は失われていない：通常のファイルのままか、ゴーストで中身が保管庫にある
+    target_id = item["item_id"]
     if state_after_check == "evacuated":
         assert is_ghost(platform, report)
         assert sha256_of(item_folder(config, item["item_id"]) / "content") == before[0]
     else:
         assert not is_ghost(platform, report)
         assert fingerprint(report) == before
-        # やり直すと退避できる（同じ項目を使う）
+        # やり直すと退避できる。前回の項目に中身（content）があれば使い直さず、新しい項目で退避する
+        # （前回の content は上書きせずに残す。どこかにその項目のゴーストがあるかもしれないため）
+        old_content = item_folder(config, item["item_id"]) / "content"
+        had_content = old_content.exists()
         again = evacuate(conn, platform, report, config)
-        assert again["ok"] is True and again["item_id"] == item["item_id"]
+        assert again["ok"] is True
+        assert (again["item_id"] != item["item_id"]) is had_content
+        if had_content:
+            assert sha256_of(old_content) == before[0]
+        target_id = again["item_id"]
 
-    restored = restore(conn, platform, item["item_id"], config)
+    restored = restore(conn, platform, target_id, config)
     assert restored["ok"] is True and restored["state"] == "restored"
     assert fingerprint(report) == before
     conn.close()
@@ -522,8 +530,10 @@ def test_make_ghost_refusal_leaves_original(config, platform, db, report, answer
     assert f"代役の答え：{answer}" in result["reason"]
     assert fingerprint(report) == before
     assert not is_ghost(platform, report)
+    # やり直すと、新しい項目で退避する（前回の項目の content は、上書きせずに残す）
     again = evacuate(db, platform, report, config)
-    assert again["ok"] is True and again["item_id"] == result["item_id"]
+    assert again["ok"] is True and again["item_id"] != result["item_id"]
+    assert sha256_of(item_folder(config, result["item_id"]) / "content") == before[0]
 
 
 def test_ghost_status_unknown_keeps_ghosting_for_the_check(config, platform, db, monkeypatch, report):
@@ -811,3 +821,187 @@ def test_logs_do_not_contain_names_or_paths(config, platform, db, report, caplog
         assert "最終報告" not in message
         assert str(config["PIP0_ROOT"]) not in message
         assert str(config["VAULT_DIR"]) not in message
+
+
+# ---------------------------------------------------------------------- R1 の見直しで加えた確認
+
+
+MISREPORTED_REGULAR = {"exists": True, "is_ghost": False, "item_id": None, "dehydrated": False,
+                       "in_sync": None, "pinned": False, "reason": ""}
+UNKNOWN_STATUS = {"exists": None, "is_ghost": None, "item_id": None, "dehydrated": None,
+                  "in_sync": None, "pinned": None, "reason": "OS 連携が答えません"}
+SLACK_ZONE = ("[ZoneTransfer]\r\nZoneId=3\r\nReferrerUrl=https://app.slack.com/\r\n"
+              "HostUrl=https://files.slack.com/files-pri/T0-F0/report.docx\r\n")
+MINIMAL_ZONE = "[ZoneTransfer]\r\nZoneId=3\r\n"
+
+
+def test_wrong_regular_answer_after_ghosting_never_loses_the_only_copy(config, platform, db, report):
+    before = fingerprint(report)
+    # 退避の前の確認はいつもどおり。ゴーストにした直後の確認だけ、OS 連携が「通常のファイル」と誤って答える
+    platform.fail_next["ghost_status"] = [None, MISREPORTED_REGULAR]
+    result = evacuate(db, platform, report, config)
+    assert result["ok"] is False and result["state"] == "ghosting"  # 「原本はそのまま」とは記録しない
+    assert "原本はそのまま" not in result["reason"]
+    assert is_ghost(platform, report)  # 本当はゴーストになっている
+    item_id = result["item_id"]
+
+    # pip0 シェルが動いていない間に、ユーザーがゴーストの名前を変え、元の名前で別のファイルを保存した
+    renamed = report.parent / "最終報告_旧.docx"
+    platform.simulate_user_rename(report, renamed)
+    make_file(report, size=30_000, mtime_ns=MTIME_NS + 10**12)
+    newer = fingerprint(report)
+
+    # 同じ場所の新しいファイルの退避は断る（古い項目の中身を上書きしない）
+    refused = evacuate(db, platform, report, config)
+    assert refused["ok"] is False and refused["item_id"] == item_id
+
+    # 全復元：点検で、名前を変えたゴーストを見つけて戻す。新しいファイルには触れない
+    counts = killswitch.restore_all(db, platform, config, now=NOW + 60)
+    assert (counts["restored"], counts["failed"], counts["missing"]) == (1, 0, 0)
+    assert fingerprint(renamed) == before
+    assert fingerprint(report) == newer
+    assert platform.ghosts == {}
+
+
+def test_unclear_search_after_ghosting_keeps_the_item_for_the_kill_switch(config, platform, db, report):
+    before = fingerprint(report)
+    platform.fail_next["ghost_status"] = [None, MISREPORTED_REGULAR]
+    item_id = evacuate(db, platform, report, config)["item_id"]  # ghosting のまま（本当はゴーストになっている）
+    renamed = report.parent / "最終報告_旧.docx"
+    platform.simulate_user_rename(report, renamed)
+    make_file(report, size=30_000, mtime_ns=MTIME_NS + 10**12)
+    newer = fingerprint(report)
+
+    # 全復元の点検で、ゴーストを探し切れなかった（シェルが答えない等）。copied にして対象から外さない
+    platform.fail_next["locate_ghost"] = {"result": "unknown", "paths": [], "reason": "時間内に探し終わりませんでした"}
+    counts = killswitch.restore_all(db, platform, config, now=NOW + 60)
+    assert (counts["restored"], counts["failed"], counts["missing"]) == (1, 0, 0)  # 2回目の探索で見つけて戻す
+    assert fingerprint(renamed) == before
+    assert fingerprint(report) == newer
+    assert vault.read_manifest(config, item_id)["state"] == "restored"
+
+
+def test_existing_vault_content_is_never_replaced(config, platform, db, report, env):
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    content = item_folder(config, item_id) / "content"
+    kept = sha256_of(content)
+    other = make_file(env["PIP0_ROOT"] / "別の資料.docx", size=5_000)
+    result = vault.copy_into_vault(platform, str(other), config, item_id, vault.path_snapshot(platform, str(other)),
+                                   None)
+    assert result["ok"] is False and "上書きしませんでした" in result["reason"]
+    assert sha256_of(content) == kept
+    assert not (item_folder(config, item_id) / "content.partial").exists()
+
+
+def test_interrupted_conflict_restore_of_a_missing_ghost_goes_back_to_missing(config, platform, db, monkeypatch,
+                                                                              report):
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    platform.simulate_user_delete(report)
+    assert restore(db, platform, item_id, config)["state"] == "ghost_missing"
+    report.write_bytes(b"a different file saved later by the user")
+    crash_once(monkeypatch, fsutil, "no_overwrite_rename")  # 横に戻す名前の変更の直前で止まった
+    with pytest.raises(RuntimeError):
+        restore(db, platform, item_id, config)
+    manifest = vault.read_manifest(config, item_id)
+    assert (manifest["state"], manifest["restore_from"]) == ("restoring", "ghost_missing")
+
+    platform.fail_next["ghost_status"] = UNKNOWN_STATUS  # 次の試しでは、OS 連携が答えない
+    result = restore(db, platform, item_id, config)
+    assert result["ok"] is False and result["state"] == "ghost_missing"  # 「ゴーストがある」（evacuated）にしない
+
+
+def test_download_mark_is_kept_without_urls_and_put_back_on_a_conflict_copy(config, platform, db, report):
+    platform.zone_identifiers[str(report)] = SLACK_ZONE
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    assert vault.read_manifest(config, item_id)["zone_identifier"] == MINIMAL_ZONE
+    assert "slack" not in (item_folder(config, item_id) / "manifest.json").read_text(encoding="utf-8")
+
+    platform.simulate_user_delete(report)
+    report.write_bytes(b"another file")
+    result = restore(db, platform, item_id, config)
+    copy = Path(result["path"])
+    assert result["state"] == "restored_conflict" and copy != report
+    assert platform.read_zone_identifier(copy) == MINIMAL_ZONE
+    assert "Zone.Identifier を付け直しました" in result["reason"]
+    assert os.stat(copy).st_mtime_ns == MTIME_NS
+
+
+def test_download_mark_lost_with_the_ghost_is_put_back_in_place(config, platform, db, report):
+    platform.zone_identifiers[str(report)] = SLACK_ZONE
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    platform.zone_identifiers.pop(str(report))  # ゴーストの間に、印がなくなった場合
+    result = restore(db, platform, item_id, config)
+    assert result["state"] == "restored"
+    assert platform.read_zone_identifier(report) == MINIMAL_ZONE
+    assert os.stat(report).st_mtime_ns == MTIME_NS
+
+
+def test_file_without_a_download_mark_gets_none(config, platform, db, report):
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    assert vault.read_manifest(config, item_id)["zone_identifier"] is None
+    platform.simulate_user_delete(report)
+    report.write_bytes(b"another file")
+    assert restore(db, platform, item_id, config)["state"] == "restored_conflict"
+    assert not [call for call in platform.calls if call[0] == "write_zone_identifier"]
+
+
+def test_manifest_pointing_outside_the_pip0_folder_is_not_used(config, platform, db, report, tmp_path):
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    # 誰かが、pip0 専用フォルダーの外のファイルを指す manifest.json を、保管庫に置いた
+    victim = make_file(tmp_path / "Documents" / "report.docm")
+    planted_id = "f" * 32
+    planted_dir = Path(config["VAULT_DIR"]) / "items" / planted_id
+    planted_dir.mkdir()
+    (planted_dir / "content").write_bytes((item_folder(config, item_id) / "content").read_bytes())
+    planted = dict(vault.read_manifest(config, item_id), item_id=planted_id, state="evacuated",
+                   original_path=str(victim), current_path=str(victim))
+    fsutil.atomic_write_json(planted_dir / "manifest.json", planted)
+
+    summary = vault.sync_from_manifests(db, config)
+    assert [problem["item_id"] for problem in summary["problems"]] == [planted_id]
+    assert "pip0 専用フォルダー" in summary["problems"][0]["reason"]
+    assert row_of(db, planted_id) is None
+    assert vault.restore(db, platform, planted_id, config, actor="user")["ok"] is False
+    killswitch.restore_all(db, platform, config, now=NOW + 60)
+    assert sorted(p.name for p in victim.parent.iterdir()) == ["report.docm"]  # 横にコピーを作らない
+
+
+def test_ghost_moved_out_of_the_pip0_folder_becomes_missing(config, platform, db, report, tmp_path):
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    result = vault.record_moved(db, config, item_id, tmp_path / "Desktop" / "最終報告.docx", now=NOW + 10)
+    assert result["ok"] is True and "外へ移されました" in result["reason"]
+    manifest = vault.read_manifest(config, item_id)
+    assert manifest["state"] == "ghost_missing" and manifest["current_path"] == str(report)
+
+
+def test_ghosts_in_a_renamed_folder_are_found_and_restored(config, platform, db, env):
+    folder = env["PIP0_ROOT"] / "予算・会計"
+    path = make_file(folder / "予算案.xlsx")
+    before = fingerprint(path)
+    item_id = evacuate(db, platform, path, config)["item_id"]
+    renamed_folder = env["PIP0_ROOT"] / "2026予算"
+    platform.simulate_user_rename(folder, renamed_folder)  # フォルダーの名前の変更は、ゴーストごとの知らせがない
+
+    counts = killswitch.restore_all(db, platform, config, now=NOW + 60)
+    assert (counts["restored"], counts["missing"]) == (1, 0)
+    new_path = renamed_folder / "予算案.xlsx"
+    assert fingerprint(new_path) == before
+    assert vault.read_manifest(config, item_id)["current_path"] == str(new_path)
+    assert platform.ghosts == {}
+
+
+@pytest.mark.parametrize("answer, phrase", [
+    ({"result": "unknown", "paths": [], "reason": "シェルが動いていません"}, "探せませんでした"),
+    ({"result": "found", "paths": ["A", "B"], "reason": ""}, "複数ある"),
+], ids=["unknown", "several"])
+def test_unclear_search_does_not_guess_and_tries_again_later(config, platform, db, report, answer, phrase):
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    renamed = report.parent / "名前を変えた報告.docx"
+    platform.simulate_user_rename(report, renamed)
+    if answer["paths"]:
+        answer = dict(answer, paths=[str(renamed), str(report.parent / "もう一つ.docx")])
+    platform.fail_next["locate_ghost"] = answer
+    first = restore(db, platform, item_id, config)
+    assert first["ok"] is False and first["state"] == "ghost_missing" and phrase in first["reason"]
+    second = restore(db, platform, item_id, config)  # 次の試しでは、1 か所だけ見つかる
+    assert second["ok"] is True and second["state"] == "restored" and second["path"] == str(renamed)

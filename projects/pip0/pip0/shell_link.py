@@ -177,6 +177,18 @@ class ShellLink:
             receiving = self._receiving
         return process is not None and receiving and process.poll() is None
 
+    def process_id(self):
+        """今つながっているシェルのプロセス番号（PID）。動いていなければ None
+
+        シェルを起動し直すと番号が変わるので、「前のシェルへの問い合わせの答え」を見分けるのに使えます
+        （platform_windows の「答えが遅れたゴースト」の印）。
+        """
+        with self._lock:
+            process = self._process
+        if process is None or process.poll() is not None:
+            return None
+        return process.pid
+
     def counters(self):
         """読み捨てた行・送れなかった知らせなどの回数（確認と表示用）"""
         with self._lock:

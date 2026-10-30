@@ -255,6 +255,7 @@ def test_stderr_goes_to_the_debug_log_truncated_and_is_never_parsed(make_link, c
 
 def test_crash_fails_pending_requests_and_reports_the_exit(make_link):
     link, recorder = started(make_link)
+    assert isinstance(link.process_id(), int)  # 動いているシェルのプロセス番号
     outcome = {}
 
     def wait_for_slow_answer():
@@ -276,6 +277,7 @@ def test_crash_fails_pending_requests_and_reports_the_exit(make_link):
     exited = recorder.wait_for("shell.exited")
     assert exited["payload"] == {"returncode": 1, "requested_stop": False}
     assert not link.is_alive()
+    assert link.process_id() is None  # 終わったシェルの番号は返さない
     with pytest.raises(ShellUnavailable):
         link.request("shell.ping")
     assert link.send_event("ui.notify", {"title": "t", "message": "m", "level": "info"}) is False

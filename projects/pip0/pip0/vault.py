@@ -10,7 +10,8 @@ M4 の「退避」は、長い間使われていないファイルの中身を�
 - 保管庫の形：VAULT_DIR/items/<項目ID>/ の content（中身）、content.partial（コピーの途中）、manifest.json（復元情報）
 - 状態が変わるたびに、先に manifest.json を書き、その後で DB（vault_items）を書く（set_state）。
   manifest.json が正本で、DB の鍵をなくしても、manifest.json から項目を読み直して復元できる（sync_from_manifests）
-- content と manifest.json は、どの処理でも消さない（復元した後も残す）
+- content と manifest.json は、どの処理でも消さない（復元した後も残す）。中身（content）のある項目は使い直さず、
+  content を上書きしない（どこかに、その項目のゴーストが残っているかもしれないため）
 - 原本をゴーストに置き換えるのは、保管庫のコピーを読み直してハッシュを確かめ、manifest.json に書いた後だけ
 - 途中で失敗・中断したら、原本はそのまま残し、後でやり直せる状態にする
 - 復元で既存のファイルを上書きしない（別のファイルがあれば、横に「 (pip0復元)」を付けた名前で戻す）
@@ -37,7 +38,8 @@ import time
 import uuid
 from pathlib import Path
 
-from pip0 import database, evacuation, fsutil, killswitch, safe_names
+from pip0 import config as config_module
+from pip0 import database, evacuation, fsutil, killswitch, provenance, safe_names
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +121,7 @@ manifest.json の主な項目
   "current_path"   ゴーストの今の場所と名前（"original_path" は退避したときの場所と名前）
   "size"           大きさ（バイト）
   "sha256"         中身のハッシュ（SHA-256）
+  "zone_identifier"  ダウンロード元の印（Zone.Identifier のゾーンの番号だけ。URL は残しません）
   "state"          状態
       evacuated                 退避中（元の場所にゴーストがあります）
       restored、restored_conflict、restored_local_newer
@@ -136,7 +139,11 @@ manifest.json の主な項目
 4. 内容が正しいかを確かめるには、PowerShell で次を実行し、表示された値が manifest.json の "sha256" と
    同じかを比べます（大文字と小文字の違いは気にしなくて構いません）。
        Get-FileHash -Algorithm SHA256 -LiteralPath "コピーしたファイルのパス"
-5. 元の場所のゴーストは、pip0 が動いていないと開けません。コピーを取り出して確かめた後で、
+5. manifest.json の "zone_identifier" に「ZoneId=3」などがあれば、インターネットなどから入手したファイルです。
+   取り出したコピーには、この「ダウンロード元の印」が付いていません。開く前に、PowerShell で次を実行して
+   同じ印を付けてください（ZoneId の数字は manifest.json に合わせます）。Office などが、安全のための確認を続けます。
+       Set-Content -LiteralPath "コピーしたファイルのパス" -Stream Zone.Identifier -Value "[ZoneTransfer]","ZoneId=3"
+6. 元の場所のゴーストは、pip0 が動いていないと開けません。コピーを取り出して確かめた後で、
    ゴーストをどうするかを決めてください。取り出した後も、この保管庫の content は残しておくと安全です。
 """
 
@@ -234,7 +241,7 @@ def load_manifest(config, item_id):
         return None, "保管庫に、この項目の manifest.json がありません"
     except (OSError, ValueError):
         return None, "この項目の manifest.json を読めません"
-    problem = check_manifest(manifest, item_id)
+    problem = check_manifest(manifest, item_id) or check_manifest_paths(manifest, config)
     if problem is not None:
         return None, problem
     manifest.setdefault("history", [])
@@ -269,6 +276,26 @@ def check_manifest(manifest, item_id):
     return None
 
 
+def check_manifest_paths(manifest, config):
+    """manifest.json の場所が、pip0 専用フォルダー（PIP0_ROOT）の中の絶対パスかを確かめる。よければ None
+
+    ゴーストを作るのは pip0 専用フォルダーの中だけなので、ほかの場所を指す manifest.json は、
+    書き換えられたか壊れたものとして使いません（保管庫の中身には触れず、問題として知らせるだけです）。
+    PIP0_ROOT を変えた後なら、元に戻してから全復元してください。
+    """
+    root = config.get("PIP0_ROOT")
+    keys = ["original_path", "current_path"]
+    if manifest.get("restored_path") is not None:
+        keys.append("restored_path")
+    for key in keys:
+        value = manifest.get(key)
+        if (root is None or not isinstance(value, str) or not os.path.isabs(value)
+                or not config_module.is_inside(value, root)):
+            return (f"manifest.json の {key} が、今の pip0 専用フォルダー（PIP0_ROOT）の中を指していないため、"
+                    "この項目は使いません（保管庫の中身には触れていません。PIP0_ROOT を変えた場合は、元に戻してください）")
+    return None
+
+
 def write_manifest(config, manifest):
     """manifest.json を書く（一時ファイルに書いて fsync してから置き換える。途中で止まっても壊れない）"""
     fsutil.atomic_write_json(manifest_path(config, manifest["item_id"]), manifest)
@@ -285,6 +312,7 @@ def new_manifest(item_id, path, snapshot, at):
         "size": snapshot["size"],
         "mtime_ns": snapshot["mtime_ns"],
         "sha256": None,
+        "zone_identifier": None,
         "created_at": at,
         "updated_at": at,
         "restored_path": None,
@@ -466,9 +494,11 @@ def run_evacuation(conn, platform, path, config, reasons, should_continue, actor
     if snapshot is None:
         return refuse_evacuation(conn, path, existing, "ファイルが見つかりません", actor, reasons, now)
 
-    # 3. 項目を copying で記録する（前回の失敗・中止の項目があれば、同じ項目ID でコピーし直す）
+    # 3. 項目を copying で記録する（前回の失敗・中止の項目で、中身のコピーがないものだけ、同じ項目ID を使い直す）。
+    #    ダウンロード元の印（Zone.Identifier）は、ゾーンの番号だけを manifest.json に残す（横に戻すときに付け直す）
     ensure_vault(config)
-    manifest = start_item(conn, config, path, snapshot, existing, now)
+    zone_text = minimal_zone_text(platform.read_zone_identifier(path))
+    manifest = start_item(conn, config, path, snapshot, existing, now, zone_text)
 
     # 4. 保管庫へコピーし、読み直してハッシュを確かめる → copied
     copy = copy_into_vault(platform, path, config, manifest["item_id"], snapshot, should_continue)
@@ -490,9 +520,15 @@ def run_evacuation(conn, platform, path, config, reasons, should_continue, actor
     return ghost_step(conn, platform, config, manifest, actor, reasons, now)
 
 
-def start_item(conn, config, path, snapshot, existing, now):
-    """copying の状態で項目を記録する（manifest.json → DB の順）"""
-    if existing is not None and existing["state"] in NOT_GHOSTED_STATES:
+def start_item(conn, config, path, snapshot, existing, now, zone_text=None):
+    """copying の状態で項目を記録する（manifest.json → DB の順）
+
+    前回の項目（失敗・中止）を使い直すのは、保管庫に中身（content）がないときだけです。
+    content のある項目は、どこかにその項目のゴーストが残っているかもしれないので、使い直さず、
+    新しい項目ID でコピーします（古い項目の content と manifest.json は、そのまま残ります）。
+    """
+    if (existing is not None and existing["state"] in NOT_GHOSTED_STATES
+            and not os.path.lexists(content_path(config, existing["item_id"]))):
         manifest = existing
         item_dir(config, manifest["item_id"]).mkdir(parents=True, exist_ok=True)
         note = f"もう一度退避します（前回：{STATE_LABELS[existing['state']]}）。新しくコピーし直します"
@@ -504,6 +540,7 @@ def start_item(conn, config, path, snapshot, existing, now):
     changes = {
         "original_path": path, "current_path": path, "file_key": snapshot["file_key"],
         "size": snapshot["size"], "mtime_ns": snapshot["mtime_ns"], "sha256": None, "restored_path": None,
+        "zone_identifier": zone_text,
     }
     return set_state(conn, config, manifest, "copying", note, now, changes=changes, add_attempt=True)
 
@@ -522,9 +559,13 @@ def copy_into_vault(platform, path, config, item_id, expected, should_continue):
         if outcome["ok"]:
             outcome = verify_copy(partial, outcome["sha256"], chunk_size, should_continue)
         if outcome["ok"]:
-            # 確かめたコピーだけを content にする（同じフォルダーの中の置き換えなので、半端な content はできない）
-            os.replace(partial, content_path(config, item_id))
+            # 確かめたコピーだけを content にする（同じフォルダーの中の名前の変更なので、半端な content はできない）。
+            # content がすでにあれば上書きしない（FileExistsError）。その content は、ゴーストの唯一の中身かもしれない
+            fsutil.no_overwrite_rename(partial, content_path(config, item_id))
             fsutil.fsync_dir(item_dir(config, item_id))
+    except FileExistsError:
+        outcome = {"ok": False, "sha256": None,
+                   "reason": "保管庫に、この項目の中身がすでにあるため、上書きしませんでした（原本はそのままです）"}
     except OSError as error:
         outcome = {"ok": False, "sha256": None, "reason": copy_error_reason(error)}
     if not outcome["ok"]:
@@ -626,7 +667,10 @@ def ghost_step(conn, platform, config, manifest, actor, reasons, now):
                   operation=evacuate_operation(actor, "done", reasons, note))
         return {"ok": True, "item_id": item_id, "state": "evacuated", "reason": ""}
 
-    if place == "unknown":
+    if place == "unknown" or (place == "regular" and result == "ghosted"):
+        # 確かめられない、または「ゴーストにした」という答えと、通常のファイルという状態が食い違う：
+        # 原本がもうゴーストかもしれないので「原本はそのまま」とは記録せず、ghosting のまま点検で確かめ直す
+        # （ghosting の項目は、全復元の対象にもなる）
         reason = ("ゴーストになったかどうかを確かめられませんでした。起動時の点検で確かめ直します"
                   "（保管庫のコピーは確かめ済みです）")
         record_problem(conn, manifest, reason, evacuate_operation(actor, "failed", reasons, reason), now)
@@ -651,6 +695,8 @@ def ghost_failure_reason(answer, place):
         return f"元の場所にファイルが見つからないため、退避しませんでした（{detail}）"
     if place == "other_ghost":
         return f"元の場所が別の項目のゴーストだったため、退避しませんでした（{detail}）"
+    if str(detail).startswith("読み取り専用"):
+        return f"ゴーストにできませんでした（{detail}）。原本はそのままです"
     return f"ゴーストにできませんでした（{detail}）。原本はそのままです（後でやり直せます）"
 
 
@@ -759,8 +805,11 @@ def restore(conn, platform, item_id, config, *, actor, now=None):
         release_path(path)
 
 
-def run_restore(conn, platform, config, manifest, actor, now):
-    """restore の本体（同じファイルを扱う印を付けた後に呼ぶ）"""
+def run_restore(conn, platform, config, manifest, actor, now, follow_moves=True):
+    """restore の本体（同じファイルを扱う印を付けた後に呼ぶ）
+
+    follow_moves：元の場所にゴーストがないとき、pip0 専用フォルダーの中を探すか（探すのは 1 回だけ）
+    """
     state = manifest["state"]
     if state in RESTORED_STATES:
         return restore_result(manifest, True, "すでに復元しています（何もしていません）", already=True)
@@ -783,24 +832,86 @@ def run_restore(conn, platform, config, manifest, actor, now):
             and holds_vault_content(platform, planned, manifest, config)):
         return finish_restore(conn, config, manifest, "restored_conflict", planned, conflict_note(planned), actor, now)
 
-    # うまくいかなかったときに戻す状態
-    back_to = "ghost_missing" if manifest["state"] == "ghost_missing" else "evacuated"
+    # うまくいかなかったときに戻す状態（復元を始める前の状態）
+    back_to = state_before_restore(manifest)
     place = where_is(platform.ghost_status(manifest["current_path"]), manifest["item_id"])
     if place == "ours":
         return restore_from_ghost(conn, platform, config, manifest, actor, now)
+    search = {"path": None, "note": ""}
+    if follow_moves and (place == "missing" or (place == "regular" and is_other_file(platform, manifest))):
+        # 元の場所にゴーストがない（別のファイルに置き換わっていた）：pip0 シェルが動いていない間に
+        # 名前を変えた・フォルダーごと移した、などで場所の知らせが届かなかったかもしれないので、探す
+        search = search_moved_ghost(platform, config, manifest)
+    if search["path"] is not None:
+        note = "元の場所にゴーストがなかったため、pip0 専用フォルダーの中を探し、見つかった場所を記録し直しました"
+        manifest = set_state(conn, config, manifest, manifest["state"], note, now,
+                             changes={"current_path": search["path"]})
+        return restore_at_new_place(conn, platform, config, manifest, actor, now)
     if place == "regular":
         return restore_onto_regular_file(conn, platform, config, manifest, actor, now, back_to)
     if place == "other_ghost":
         return restore_beside(conn, platform, config, manifest, actor, now, back_to)
     if place == "missing":
-        return mark_missing(conn, config, manifest, actor, now)
+        return mark_missing(conn, config, manifest, actor, now, search["note"])
     reason = "元の場所の状態を確かめられませんでした（OS 連携が動いていない等）。後でもう一度試してください"
     return restore_failed(conn, config, manifest, reason, actor, now, back_to)
 
 
+def state_before_restore(manifest):
+    """復元がうまくいかなかったときに戻す状態（"evacuated" か "ghost_missing"）
+
+    restoring（前回の復元が途中で止まった）のときは、復元を始める前の状態（manifest.json の restore_from）に戻す。
+    """
+    state = manifest["state"]
+    if state == "restoring":
+        state = manifest.get("restore_from")
+    return "ghost_missing" if state == "ghost_missing" else "evacuated"
+
+
+def restore_at_new_place(conn, platform, config, manifest, actor, now):
+    """場所を記録し直したゴーストを、新しい場所で戻す（その場所にも「処理中」の印を付けてから）"""
+    path = manifest["current_path"]
+    if not claim_path(path):
+        return restore_result(manifest, False, BUSY_REASON)
+    try:
+        return run_restore(conn, platform, config, manifest, actor, now, follow_moves=False)
+    finally:
+        release_path(path)
+
+
+def search_moved_ghost(platform, config, manifest):
+    """元の場所にゴーストがないとき、pip0 専用フォルダーの中で、この項目のゴーストを探す。{"path", "note"}
+
+    フォルダーごと名前を変えた、pip0 が動いていない間に移した、などで場所の知らせが届かなかった場合のためです。
+    見つかった場所が 1 か所だけで、pip0 専用フォルダーの中なら、その場所を "path" に入れます。
+    見つからない・複数ある・確かめられないときは "path" が None で、"note" に理由を書きます（勝手に選びません）。
+    "unclear" は、探し切れなかった・複数あった・確かめられなかったときに True（「ない」とは言い切れない）。
+    """
+    found = platform.locate_ghost(manifest["item_id"])
+    result = found.get("result")
+    paths = found.get("paths") if isinstance(found.get("paths"), list) else []
+    root = config.get("PIP0_ROOT")
+    inside = [str(Path(os.path.abspath(path))) for path in paths
+              if isinstance(path, str) and os.path.isabs(path) and root is not None
+              and config_module.is_inside(path, root)]
+    if result == "found" and len(inside) == 1 and inside[0] != manifest["current_path"]:
+        if where_is(platform.ghost_status(inside[0]), manifest["item_id"]) == "ours":
+            return {"path": inside[0], "note": "", "unclear": False}
+        return {"path": None, "note": "（見つかった場所が、この項目のゴーストかどうかを確かめられませんでした）",
+                "unclear": True}
+    if result == "found" and len(inside) > 1:
+        return {"path": None, "note": "（pip0 専用フォルダーの中に、この項目のゴーストが複数あるため、どれも選びませんでした）",
+                "unclear": True}
+    if result == "not_found" or (result == "found" and not inside):
+        return {"path": None, "note": "（pip0 専用フォルダーの中にも、見つかりませんでした）", "unclear": False}
+    return {"path": None, "note": "（pip0 専用フォルダーの中を探せませんでした。次の全復元で、もう一度探します）",
+            "unclear": True}
+
+
 def restore_from_ghost(conn, platform, config, manifest, actor, now):
     """元の場所が、この項目のゴーストのとき：通常のファイルに戻し、ハッシュを確かめる"""
-    manifest = set_state(conn, config, manifest, "restoring", "元の場所のゴーストを、通常のファイルに戻します", now)
+    manifest = set_state(conn, config, manifest, "restoring", "元の場所のゴーストを、通常のファイルに戻します", now,
+                         changes={"restore_from": "evacuated"})
     # ここで例外が起きても、状態は restoring のまま残り、起動時の点検でやり直せる
     answer = platform.restore_ghost(manifest["current_path"], manifest["item_id"])
     result = answer.get("result")
@@ -826,7 +937,7 @@ def check_restored_file(conn, platform, config, manifest, actor, now):
     if actual != manifest["sha256"]:
         note = "開いた後に編集された内容があるため、その内容を残しました（保管庫の内容はそのままです）"
         return finish_restore(conn, config, manifest, "restored_local_newer", path, note, actor, now)
-    note = "元の場所に戻し、内容のハッシュを確かめました"
+    note = "元の場所に戻し、内容のハッシュを確かめました" + put_back_zone(platform, path, manifest)
     if put_back_mtime(path, manifest["mtime_ns"]):
         note += "（更新日時を元に戻しました）"
     return finish_restore(conn, config, manifest, "restored", path, note, actor, now)
@@ -869,7 +980,7 @@ def restore_beside(conn, platform, config, manifest, actor, now, back_to):
         dest = os.path.join(folder, conflict_name(path))
         manifest = set_state(conn, config, manifest, "restoring",
                              "元の場所に別のファイルがあるため、上書きせずに横へ戻します", now,
-                             changes={"restored_path": dest})
+                             changes={"restored_path": dest, "restore_from": back_to})
         try:
             fsutil.no_overwrite_rename(temp, dest)
         except FileExistsError:
@@ -878,8 +989,9 @@ def restore_beside(conn, platform, config, manifest, actor, now, back_to):
             remove_own_temp(temp)
             reason = f"横に戻せませんでした（{describe_error(error)}）"
             return restore_failed(conn, config, manifest, reason, actor, now, back_to)
+        note = conflict_note(dest) + put_back_zone(platform, dest, manifest)
         put_back_mtime(dest, manifest["mtime_ns"])
-        return finish_restore(conn, config, manifest, "restored_conflict", dest, conflict_note(dest), actor, now)
+        return finish_restore(conn, config, manifest, "restored_conflict", dest, note, actor, now)
     remove_own_temp(temp)
     reason = f"横に戻す名前を決められませんでした（{MAX_RENAME_ATTEMPTS} 回試しました）"
     return restore_failed(conn, config, manifest, reason, actor, now, back_to)
@@ -958,10 +1070,10 @@ def finish_restore(conn, config, manifest, state, restored_path, note, actor, no
     return restore_result(manifest, True, note, already=already)
 
 
-def mark_missing(conn, config, manifest, actor, now):
+def mark_missing(conn, config, manifest, actor, now, detail=""):
     """元の場所にゴーストがないとき：作り直さず ghost_missing にする（中身は保管庫に残る）"""
     reason = ("元の場所にゴーストがありません（移動・削除された可能性があります）。"
-              "中身は保管庫に残しています（勝手に作り直しません）")
+              "中身は保管庫に残しています（勝手に作り直しません）" + (detail or ""))
     operation = restore_operation(actor, "failed", reason)
     if manifest["state"] == "ghost_missing":
         record_problem(conn, manifest, reason, operation, now)
@@ -1054,11 +1166,29 @@ def settle_ghosting(conn, platform, config, manifest, now):
         note = "点検：ゴーストになっていることを確かめました（中身は保管庫にあります）"
         return set_state(conn, config, manifest, "evacuated", note, now, file_status="ghost",
                          operation=evacuate_operation("system", "done", None, note))
+    search = {"path": None, "note": "", "unclear": False}
+    if place == "missing" or (place == "regular" and is_other_file(platform, manifest)):
+        # ゴーストが、名前を変えて移されたかもしれない（元の場所にない・別のファイルに置き換わっていた）
+        search = search_moved_ghost(platform, config, manifest)
+    if search["path"] is not None:
+        note = "点検：ゴーストが別の場所へ移されていたのを見つけ、その場所を記録しました（中身は保管庫にあります）"
+        return set_state(conn, config, manifest, "evacuated", note, now, file_status="ghost",
+                         changes={"current_path": search["path"]},
+                         operation=evacuate_operation("system", "done", None, note))
     if place == "regular":
-        note = "点検：元の場所は通常のファイルのままでした（原本はそのままです）"
+        if is_other_file(platform, manifest):
+            if search["unclear"]:
+                # ゴーストがどこかに移されたかもしれないのに、探し切れなかった。copied にすると全復元の対象から
+                # 外れてしまう（ゴーストが戻らない）ので、ghosting のまま残し、次の点検・全復元で探し直す
+                return manifest
+            note = ("点検：元の場所は、ゴーストではない別のファイルに置き換わっていました"
+                    "（この項目の中身は保管庫に残しています）" + search["note"])
+        else:
+            note = "点検：元の場所は通常のファイルのままでした（原本はそのままです）"
         return set_state(conn, config, manifest, "copied", note, now)
     if place == "missing":
-        reason = "点検：元の場所にファイルがありません。中身は保管庫に残しています（勝手に作り直しません）"
+        reason = ("点検：元の場所にファイルがありません。中身は保管庫に残しています（勝手に作り直しません）"
+                  + search["note"])
         return set_state(conn, config, manifest, "ghost_missing", reason, now, last_error=reason,
                          file_status="missing")
     if place == "other_ghost":
@@ -1131,7 +1261,11 @@ def cancel(conn, config, item_id, reason, *, actor="kill_switch", now=None):
 
 
 def record_moved(conn, config, item_id, new_path, now=None):
-    """ゴーストが改名・移動されたことを記録する（pip0 シェルの cf.notify_rename を受けたとき）。{"ok", "reason"}"""
+    """ゴーストが改名・移動されたことを記録する（pip0 シェルの cf.notify_rename を受けたとき）。{"ok", "reason"}
+
+    pip0 専用フォルダーの外へ移されたときは、場所を記録し直さず、ghost_missing にします
+    （ゴーストを扱えるのは pip0 専用フォルダーの中だけです。中身は保管庫に残します）。
+    """
     manifest = read_manifest(config, item_id)
     if manifest is None:
         return {"ok": False, "reason": "保管庫に、この項目がありません"}
@@ -1139,6 +1273,13 @@ def record_moved(conn, config, item_id, new_path, now=None):
         label = STATE_LABELS[manifest["state"]]
         return {"ok": False, "reason": f"この項目は、場所を記録し直す状態ではありません（{label}）"}
     new_path = str(Path(os.path.abspath(new_path)))
+    root = config.get("PIP0_ROOT")
+    if root is None or not config_module.is_inside(new_path, root):
+        reason = ("ゴーストが pip0 専用フォルダーの外へ移されました。移した先のファイルは pip0 では扱いません"
+                  "（中身は保管庫にも残しています）")
+        if manifest["state"] != "ghost_missing":
+            set_state(conn, config, manifest, "ghost_missing", reason, now, last_error=reason, file_status="missing")
+        return {"ok": True, "reason": reason}
     if new_path != manifest["current_path"]:
         set_state(conn, config, manifest, manifest["state"], "ゴーストの場所（名前）が変わりました", now,
                   changes={"current_path": new_path})
@@ -1173,6 +1314,12 @@ def where_is(status, item_id):
     if status.get("is_ghost") is False:
         return "regular"
     return "unknown"
+
+
+def is_other_file(platform, manifest):
+    """元の場所（current_path）のファイルが、退避したファイルとは別のもの（ファイル番号が違う）なら True"""
+    snapshot = path_snapshot(platform, manifest["current_path"])
+    return snapshot is None or snapshot["file_key"] != manifest["file_key"]
 
 
 def path_snapshot(platform, path):
@@ -1213,6 +1360,29 @@ def put_back_mtime(path, mtime_ns):
         return True
     except OSError:
         return False
+
+
+def minimal_zone_text(text):
+    """Zone.Identifier の中身から、ゾーンの番号（ZoneId）だけの文を作る。印がなければ None
+
+    ダウンロード元の URL（HostUrl など）は、暗号化しない manifest.json に残さないため、ここで捨てます。
+    「ZoneId=3」（インターネット）などの印が残れば、Office などは、安全のための確認を続けられます。
+    """
+    zone_id = provenance.parse_zone_identifier(text)["zone_id"]
+    if not isinstance(zone_id, int) or isinstance(zone_id, bool) or not 0 <= zone_id <= 4:
+        return None
+    return f"[ZoneTransfer]\r\nZoneId={zone_id}\r\n"
+
+
+def put_back_zone(platform, path, manifest):
+    """manifest.json にダウンロード元の印があり、path に印がなければ付け直す。説明の文（なければ ""）を返す"""
+    zone_text = minimal_zone_text(manifest.get("zone_identifier"))
+    if zone_text is None or platform.read_zone_identifier(path) is not None:
+        return ""
+    if platform.write_zone_identifier(path, zone_text):
+        return "（ダウンロード元の印 Zone.Identifier を付け直しました）"
+    logger.warning("ダウンロード元の印を付け直せませんでした")
+    return "（ダウンロード元の印 Zone.Identifier を付け直せませんでした。インターネットから入手したファイルとして扱ってください）"
 
 
 def remove_own_temp(temp):
