@@ -10,7 +10,7 @@ using Windows.Win32.Foundation;
 
 namespace Pip0Shell.Checks;
 
-/// <summary>範囲の計算、渡し終えた範囲の記録、項目ID、HRESULT の説明、パスの文字列、設定の読み取り</summary>
+/// <summary>範囲の計算、渡し終えた範囲の記録、項目ID、通常のファイルに戻せなかった理由、HRESULT の説明、パスの文字列、設定の読み取り</summary>
 internal static class SmallChecks
 {
     public static void Run()
@@ -19,6 +19,7 @@ internal static class SmallChecks
         HydrationTrackerChecks();
         ItemIdChecks();
         LocateAnswerChecks();
+        RestoreReasonChecks();
         HResultTextChecks();
         PathTextChecks();
         SettingsChecks();
@@ -110,6 +111,24 @@ internal static class SmallChecks
         string[] many = Enumerable.Range(0, 30).Select(i => @"C:\p\" + i + ".pdf").ToArray();
         System.Text.Json.Nodes.JsonObject capped = LocateAnswer.Build(many, true, "");
         Program.Check(capped["paths"]!.AsArray().Count == LocateAnswer.MaxPaths && ((string?)capped["reason"])!.Contains("30 か所", StringComparison.Ordinal), "場所は上限まで。何か所あったかは理由に書く");
+    }
+
+    private static void RestoreReasonChecks()
+    {
+        const string hint = "「読み取り専用」を外してから、もう一度試してください";
+        int accessDenied = HResultText.FromWin32(WIN32_ERROR.ERROR_ACCESS_DENIED);
+        int cloudAccessDenied = HResultText.FromWin32(WIN32_ERROR.ERROR_CLOUD_FILE_ACCESS_DENIED);
+        int sharing = HResultText.FromWin32(WIN32_ERROR.ERROR_SHARING_VIOLATION);
+
+        string readOnlyDenied = RestoreReason.RevertFailed(accessDenied, isReadOnly: true);
+        Program.Check(readOnlyDenied.StartsWith("通常のファイルに戻せませんでした：", StringComparison.Ordinal)
+            && readOnlyDenied.Contains("0x80070005", StringComparison.Ordinal)
+            && readOnlyDenied.Contains(hint, StringComparison.Ordinal), "読み取り専用のゴーストでアクセスが拒否されたら、番号と「読み取り専用」を外す案内を付ける");
+        Program.Check(RestoreReason.RevertFailed(cloudAccessDenied, isReadOnly: true).Contains(hint, StringComparison.Ordinal), "Cloud Files のアクセスの拒否（ERROR_CLOUD_FILE_ACCESS_DENIED）でも案内する");
+
+        string notReadOnly = RestoreReason.RevertFailed(accessDenied, isReadOnly: false);
+        Program.Check(notReadOnly == "通常のファイルに戻せませんでした：" + HResultText.Describe(accessDenied), "読み取り専用でなければ、これまでどおりの理由だけ（案内は付けない）");
+        Program.Check(!RestoreReason.RevertFailed(sharing, isReadOnly: true).Contains(hint, StringComparison.Ordinal), "アクセスの拒否でない失敗（使用中など）には、読み取り専用の案内を付けない");
     }
 
     private static void HResultTextChecks()

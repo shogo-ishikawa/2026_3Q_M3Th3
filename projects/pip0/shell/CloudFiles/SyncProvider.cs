@@ -16,14 +16,16 @@ namespace Pip0Shell.CloudFiles;
 /// 受け付けるコールバック：
 /// - FETCH_DATA：ゴーストが開かれた。保管庫から中身を渡す（<see cref="FetchDataService"/>）。
 /// - CANCEL_FETCH_DATA：上の要求が取り消された。
-/// - NOTIFY_DELETE：ゴーストが削除されようとしている（まだ削除されていない）。認める返事をして、覚えておく。
+/// - NOTIFY_DELETE：ゴーストが削除されようとしている（まだ削除されていない）。覚えてから、認める返事をする。
 /// - NOTIFY_DELETE_COMPLETION：削除が終わった。本体へ cf.notify_delete を送る。
-/// - NOTIFY_RENAME：ゴーストの名前が変わる・移動されようとしている（まだ変わっていない）。認める返事をして、覚えておく。
+/// - NOTIFY_RENAME：ゴーストの名前が変わる・移動されようとしている（まだ変わっていない）。覚えてから、認める返事をする。
 /// - NOTIFY_RENAME_COMPLETION：名前の変更・移動が終わった。本体へ cf.notify_rename を送る。
 ///
 /// 本体へ知らせるのは、操作が終わった後だけです。前の知らせ（NOTIFY_DELETE・NOTIFY_RENAME）の時点では、
 /// 操作がまだ失敗しうるため（例：同じ名前のファイルがあって、名前の変更が断られる）、そこで知らせると、
 /// 保管庫の記録（ゴーストの今の場所）が実際と食い違います。
+/// 前の知らせの内容は、認める返事の「前に」覚えます。返事をすると操作が進み、終わりの知らせが別のスレッドから
+/// すぐに届くことがあるためです（Windows は、コールバックを複数のスレッドから同時に呼びます）。
 /// 同期ルートの外への移動は、終わりの知らせが届かないことがあるため、少し待ってから、元の場所にファイルがなく
 /// 移動先にあることを確かめて知らせます。
 ///
@@ -229,43 +231,50 @@ internal sealed unsafe class SyncProvider
     {
         try
         {
-            string? itemId = null;
-            string? path = null;
-            CF_CALLBACK_DELETE_FLAGS flags = CF_CALLBACK_DELETE_FLAGS.CF_CALLBACK_DELETE_FLAG_NONE;
-            long fileId = info->FileId;
             try
             {
-                itemId = CallbackInfoReader.ItemId(info);
-                path = CallbackInfoReader.FullPath(info);
-                flags = parameters->Anonymous.Delete.Flags;
+                // 「認める」と返す前に覚える（理由は RememberDelete の説明）
+                RememberDelete(info, parameters);
             }
             finally
             {
-                // 削除を止めることはしない。必ず「認める」と返す（返さないと、削除したアプリが待たされる）
+                // 削除を止めることはしない。覚えるのに失敗しても、必ず「認める」と返す（返さないと、削除したアプリが待たされる）
                 int result = CloudOperations.AcknowledgeDelete(CallbackInfoReader.Keys(info));
                 if (result < 0)
                 {
                     Log.Warning("ゴーストの削除の通知に返事ができませんでした（" + Log.Hex(result) + "）。");
                 }
             }
-
-            SyncProvider? provider = current;
-            if (provider is null || itemId is null || (flags & CF_CALLBACK_DELETE_FLAGS.CF_CALLBACK_DELETE_FLAG_IS_DIRECTORY) != 0)
-            {
-                return;
-            }
-            if ((flags & CF_CALLBACK_DELETE_FLAGS.CF_CALLBACK_DELETE_FLAG_IS_UNDELETE) != 0)
-            {
-                // 「削除の取り消し」（削除の予約が外された）：前に覚えた削除は起きないので忘れる。本体へは何も送らない
-                provider.pendingDeletes.TryRemove(fileId, out _);
-                return;
-            }
-            provider.Remember(provider.pendingDeletes, fileId, new PendingChange(itemId, path, null, true, Environment.TickCount64));
         }
         catch (Exception error)
         {
             Log.Error("NOTIFY_DELETE の処理で予期しないエラーが起きました：" + Log.Describe(error));
         }
+    }
+
+    /// <summary>
+    /// NOTIFY_DELETE の内容を、終わりの知らせ（NOTIFY_DELETE_COMPLETION）が来るまで覚えておく。
+    /// 必ず「認める」と返す前に呼ぶ。返事をすると削除が進み、終わりの知らせが別のスレッドからすぐに届くことがあるため、
+    /// 返事の後に覚えると、終わりの知らせが覚えた内容を見つけられないことがある（項目ID を読めないと、知らせを落とす）。
+    /// </summary>
+    private static void RememberDelete(CF_CALLBACK_INFO* info, CF_CALLBACK_PARAMETERS* parameters)
+    {
+        SyncProvider? provider = current;
+        string? itemId = CallbackInfoReader.ItemId(info);
+        CF_CALLBACK_DELETE_FLAGS flags = parameters->Anonymous.Delete.Flags;
+        if (provider is null || itemId is null || (flags & CF_CALLBACK_DELETE_FLAGS.CF_CALLBACK_DELETE_FLAG_IS_DIRECTORY) != 0)
+        {
+            return;
+        }
+        long fileId = info->FileId;
+        if ((flags & CF_CALLBACK_DELETE_FLAGS.CF_CALLBACK_DELETE_FLAG_IS_UNDELETE) != 0)
+        {
+            // 「削除の取り消し」（削除の予約が外された）：前に覚えた削除は起きないので忘れる。本体へは何も送らない
+            provider.pendingDeletes.TryRemove(fileId, out _);
+            return;
+        }
+        string? path = CallbackInfoReader.FullPath(info);
+        provider.Remember(provider.pendingDeletes, fileId, new PendingChange(itemId, path, null, true, Environment.TickCount64));
     }
 
     private static void OnNotifyDeleteCompletion(CF_CALLBACK_INFO* info, CF_CALLBACK_PARAMETERS* parameters)
@@ -302,49 +311,52 @@ internal sealed unsafe class SyncProvider
     {
         try
         {
-            string? itemId = null;
-            string? oldPath = null;
-            string? newPath = null;
-            bool insideRoot = false;
-            bool isDirectory = false;
-            long fileId = info->FileId;
             try
             {
-                itemId = CallbackInfoReader.ItemId(info);
-                oldPath = CallbackInfoReader.FullPath(info);
-                CF_CALLBACK_RENAME_FLAGS flags = parameters->Anonymous.Rename.Flags;
-                newPath = CallbackInfoReader.WithVolume(info, parameters->Anonymous.Rename.TargetPath.ToString());
-                insideRoot = (flags & CF_CALLBACK_RENAME_FLAGS.CF_CALLBACK_RENAME_FLAG_TARGET_IN_SCOPE) != 0;
-                isDirectory = (flags & CF_CALLBACK_RENAME_FLAGS.CF_CALLBACK_RENAME_FLAG_IS_DIRECTORY) != 0;
+                // 「認める」と返す前に覚える（理由は RememberDelete の説明と同じ）
+                RememberRename(info, parameters);
             }
             finally
             {
-                // 名前の変更・移動を止めることはしない。必ず「認める」と返す
+                // 名前の変更・移動を止めることはしない。覚えるのに失敗しても、必ず「認める」と返す
                 int result = CloudOperations.AcknowledgeRename(CallbackInfoReader.Keys(info));
                 if (result < 0)
                 {
                     Log.Warning("ゴーストの名前の変更の通知に返事ができませんでした（" + Log.Hex(result) + "）。");
                 }
             }
-
-            SyncProvider? provider = current;
-            if (provider is null || itemId is null || isDirectory)
-            {
-                return;
-            }
-            var pending = new PendingChange(itemId, oldPath, newPath, insideRoot, Environment.TickCount64);
-            provider.Remember(provider.pendingRenames, fileId, pending);
-            if (!insideRoot)
-            {
-                // 同期ルートの外への移動は、終わりの知らせが届かないことがあるので、少し待ってから確かめる。
-                // Timer は覚えておかないと GC に回収されて動かないので、覚えた変更に持たせる
-                pending.Check = new Timer(_ => provider.ConfirmOutOfScopeMove(fileId), null, OutOfScopeCheckDelayMs, Timeout.Infinite);
-            }
         }
         catch (Exception error)
         {
             Log.Error("NOTIFY_RENAME の処理で予期しないエラーが起きました：" + Log.Describe(error));
         }
+    }
+
+    /// <summary>
+    /// NOTIFY_RENAME の内容を、終わりの知らせ（NOTIFY_RENAME_COMPLETION）が来るまで覚えておく。
+    /// 必ず「認める」と返す前に呼ぶ（理由は <see cref="RememberDelete"/> と同じ）。
+    /// </summary>
+    private static void RememberRename(CF_CALLBACK_INFO* info, CF_CALLBACK_PARAMETERS* parameters)
+    {
+        SyncProvider? provider = current;
+        string? itemId = CallbackInfoReader.ItemId(info);
+        CF_CALLBACK_RENAME_FLAGS flags = parameters->Anonymous.Rename.Flags;
+        if (provider is null || itemId is null || (flags & CF_CALLBACK_RENAME_FLAGS.CF_CALLBACK_RENAME_FLAG_IS_DIRECTORY) != 0)
+        {
+            return;
+        }
+        long fileId = info->FileId;
+        string? oldPath = CallbackInfoReader.FullPath(info);
+        string? newPath = CallbackInfoReader.WithVolume(info, parameters->Anonymous.Rename.TargetPath.ToString());
+        bool insideRoot = (flags & CF_CALLBACK_RENAME_FLAGS.CF_CALLBACK_RENAME_FLAG_TARGET_IN_SCOPE) != 0;
+        var pending = new PendingChange(itemId, oldPath, newPath, insideRoot, Environment.TickCount64);
+        if (!insideRoot)
+        {
+            // 同期ルートの外への移動は、終わりの知らせが届かないことがあるので、少し待ってから確かめる。
+            // Timer は覚えておかないと GC に回収されて動かないので、覚える変更に持たせる（持たせてから覚える）
+            pending.Check = new Timer(_ => provider.ConfirmOutOfScopeMove(fileId), null, OutOfScopeCheckDelayMs, Timeout.Infinite);
+        }
+        provider.Remember(provider.pendingRenames, fileId, pending);
     }
 
     private static void OnNotifyRenameCompletion(CF_CALLBACK_INFO* info, CF_CALLBACK_PARAMETERS* parameters)

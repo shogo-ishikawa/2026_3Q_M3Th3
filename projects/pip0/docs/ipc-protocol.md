@@ -23,12 +23,14 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 - 同じセッションでシェルがすでに動いているとき、2つ目のシェルは終了コード 3 で終わります（管理者として動くシェルがあり、ミューテックスを開けないときも同じ）。
 - シェルの終了コード：0 正常、1 起動できなかった、3 すでに動いている、70 処理されない例外で止まった（例外の種類だけを記録して終わり、.NET の詳しい出力（パスが入りうる）を標準エラー出力へ書かせない）。
 - パスは Windows の絶対パスの文字列、時刻は 1970年1月1日からの秒数（小数）です。
+- 本体は、シェルの知らせを順番待ちに入れ、メインループの1回に `SHELL_EVENTS_PER_STEP`（20件）まで処理します（残りは次の回）。急ぐ知らせ（`tray.command`、`session.event`、`shell.exited`、`drag.started`・`drag.target_changed`・`drag.ended`、`ui.mini_dock.interaction`・`ui.mini_dock.action`）は、ほかの知らせより先に処理します。`context.foreground` は順番待ちに入れず、4節のとおり最後の知らせだけを使います。
+- 本体は、知らせの中の数を、有限の数のときだけ使います（4節の `hwnd`、`dialog_rect`、`samples`、`elapsed_ms`、`opened_at`）。無限大・NaN・範囲外の値や、形の違う値は、捨てるか、その知らせを無視します（例外にしない）。本体が送る知らせに JSON にできない値（NaN、無限大）が入ったときは、送らずに数えます（`shell_link` の `dropped_events`）。
 
 ## 2. 本体 → シェルの要求（request）
 
 | type | payload | 返す payload |
 | --- | --- | --- |
-| `init` | `{"protocol": 1, "vault_dir", "pip0_root", "watched_roots": [絶対パス], "sync_root_display_name": "pip0", "headless": bool, "settings": {"desk_approach_px", "desk_transparent_opacity", "cursor_sample_ms", "cursor_batch_ms", "hazard_border_px", "mini_dock_max_rows"}}`（`watched_roots` は「最近使ったファイル」を知らせる範囲。最大64件。ないときは `pip0_root` だけ） | `{"shell_version", "capabilities": {"cloud_files", "trash", "ui", "hooks"}}`（`hooks` は前面ウィンドウとマウスのフックが両方入ったときだけ真） |
+| `init` | `{"protocol": 1, "vault_dir", "pip0_root", "watched_roots": [絶対パス], "sync_root_display_name": "pip0", "headless": bool, "settings": {"desk_approach_px", "desk_transparent_opacity", "cursor_sample_ms", "cursor_batch_ms", "hazard_border_px", "mini_dock_max_rows"}}`（`watched_roots` は「最近使ったファイル」を知らせる範囲。最大64件。ないときは `pip0_root` だけ） | `{"shell_version", "capabilities": {"cloud_files", "trash", "ui", "hooks"}}`（`hooks` は前面ウィンドウとマウスのフックが両方入ったときだけ真）。本体は、この4つの名前の true／false だけを使い、ほかの名前と真偽値でない値は捨てます。`capabilities` が辞書でなければ「分からない」とします。`ui` が true でないシェルは「画面がない」とみなし、ダウンロードの提案を待たせ、ミニドックの時間を止め、機能 `ui` を×として状態に出します（[design.md](design.md) 4-3） |
 | `cf.register_root` | `{"path", "display_name"}` | `{"registered": bool, "already": bool, "reason"}` |
 | `cf.connect` | `{"path"}` | `{"connected": bool, "reason"}`（FETCH_DATA 等の呼び出しを受け付ける） |
 | `cf.status` | `{"path"}` | `{"exists", "is_ghost", "item_id", "dehydrated", "in_sync", "pinned", "reason"}`（確かめられなかった値は `null`。たとえば、開けない・状態を読めないときは `is_ghost: null`、アクセスの拒否などで有無も分からないときは `exists: null`。「分からない」を `false` として返さない） |
@@ -59,7 +61,7 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 | `ui.hazard.show` | `{"level": "sensitive"/"unknown", "message", "items": [{"name", "level", "reasons"}]}`（赤：sensitive、橙：unknown） |
 | `ui.hazard.hide` | `{}` |
 | `ui.notify` | `{"title", "message", "level": "info"/"warning"/"error"}` |
-| `ui.status` | `{"automation": "running"/"stopped", "throttle": {"allowed", "power", "idle_seconds", "reason", "history"}, "restore": {全復元の件数}, "restoring": bool, "features": [{"feature", "ok", "reason", "label", "source": "core"/"shell"}], "shell": {"connected", "version", "capabilities"}, "analysis": {"pending"}, "vault": {状態: 件数}, "evacuation_waiting": 件数, "ghost_open": {"count", "last_ms", "median_ms", "max_ms", "failed"}}`（パス・ファイル名・ウィンドウタイトルは入れない。シェルは知らないキーを無視する） |
+| `ui.status` | `{"automation": "running"/"stopped", "throttle": {"allowed", "power", "idle_seconds", "reason", "history"}, "restore": {全復元の件数（"total"、"restored"、"conflict"、"local_newer"、"missing"、"failed"、"already"、"remaining"）、"finished"。進み具合のファイルから読んだときは "request_id"（応えた依頼の番号）と "updated_at" も}, "restoring": bool, "features": [{"feature", "ok", "reason", "label"}], "shell": {"connected", "version", "capabilities"}, "analysis": {"pending"}, "vault": {状態: 件数}, "evacuation_waiting": 件数, "ghost_open": {"count", "last_ms", "median_ms", "max_ms", "failed"}}`（パス・ファイル名・ウィンドウタイトルは入れない。シェルは知らないキーを無視する）。`features` には、シェルが知らせた機能（4節の `feature.status`）のほかに、本体の機能（`shell`、`ui`（画面）、`screen`（画面のロック中・スリープ中にダウンロードの提案を待たせていること）、`sync_root`、`folder_watcher`、`scan`、`vault_check`、`service_loop`）が入る |
 | `shell.cursor_stream` | `{"enabled": bool}`（デスクの表示中だけ、マウスの位置を送る） |
 | `shell.quit` | `{}` |
 
@@ -69,22 +71,22 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 | --- | --- |
 | `shell.ready` | `{"shell_version", "capabilities"}` |
 | `feature.status` | `{"feature": "foreground_hook"/"mouse_hook"/"cursor_sampler"/"uia"/"explorer_selection"/"cloud_files"/"recycle_bin"/"recent_items"/"session_events", "ok": bool, "reason"}`（権限がない・取り消された・フックが外れた等も、ここで知らせる） |
-| `context.foreground` | `{"hwnd", "process_name", "window_title", "window_class", "is_file_dialog", "dialog_rect": {"left", "top", "right", "bottom"}（物理ピクセル）, "inaccessible": bool, "reason", "at"}`（前面が変わったとき、タイトルが変わったとき。300ms まとめる。pip0 自身のウィンドウと、前回と同じ内容は送らない） |
-| `input.cursor_batch` | `{"samples": [[ミリ秒, x, y], ...]}`（ミリ秒は 1970年起点、x と y は物理ピクセル） |
+| `context.foreground` | `{"hwnd", "process_name", "window_title", "window_class", "is_file_dialog", "dialog_rect": {"left", "top", "right", "bottom"}（物理ピクセル）, "inaccessible": bool, "reason", "at"}`（前面が変わったとき、タイトルが変わったとき。300ms まとめる。pip0 自身のウィンドウと、前回と同じ内容は送らない）。本体は、まだ処理していない古い知らせを捨て、最後の知らせ（と、その1つ前の文脈）だけを使う。`hwnd` は 0 以上の 64 ビットの整数、`dialog_rect` は4つとも有限の数のときだけ使う |
+| `input.cursor_batch` | `{"samples": [[ミリ秒, x, y], ...]}`（ミリ秒は 1970年起点、x と y は物理ピクセル）。本体は、3つとも有限の数の組だけを使う |
 | `drag.started` | `{"drag_id"（32桁の16進数）, "source_process", "source": "explorer"/"pip0", "items": [パス], "items_status": "ok"/"unavailable", "unidentified_count", "reason", "at"}`（エクスプローラーのフォルダー表示（デスクトップを含む）と pip0 のデスクからのドラッグだけ。1000件を超える、2.5秒で選択を読めない等は `unavailable`） |
-| `drag.target_changed` | `{"drag_id", "target_process", "at"}`（ドラッグ中に、マウスの下のアプリが変わったとき） |
+| `drag.target_changed` | `{"drag_id", "target_process", "at"}`（ドラッグ中に、マウスの下のアプリが変わったとき）。最初の送り先はドラッグ元のアプリで、そこから変わったときだけ送る（本体はこれを前提に、ドラッグの始まりではドラッグ元のアプリを送り先とみなす） |
 | `drag.ended` | `{"drag_id", "target_process", "dropped_on_other_process": bool, "reason", "at"}`（ボタンを離したことを確かめられなかったときは `target_process` が null で `reason` が付く。本体は「続行していない」とみなす。Esc で取り消したドラッグや、送り先が受け入れなかったドロップは見分けられない） |
 | `ui.mini_dock.interaction` | `{"dock_id", "state": "enter"/"leave"}` |
 | `ui.mini_dock.action` | `{"dock_id", "entry_id", "action": "accept"/"alternative"/"keep"/"open", "alternative_index"}`（`alternative` 以外では `alternative_index` は null） |
 | `ui.desk.action` | `{"desk_id", "action": "open"/"reveal"/"fill_dialog", "path", "dialog_hwnd"}` |
 | `ui.desk.handle` | `{"state": "engaged"/"released"}`（操作モードの開始・終了） |
 | `tray.command` | `{"command": "kill_switch"/"resume"/"show_desk"/"status"/"quit", "confirmed"}`（`resume` は、シェルの確認画面で承認された後にだけ、`"confirmed": true` を付けて送る） |
-| `session.event` | `{"kind": "lock"/"unlock"/"logoff"/"suspend"/"resume"/"shutdown"}` |
-| `cf.fetch` | `{"item_id", "path", "process_name", "process_id", "by_pip0": bool, "result": "served"/"failed", "reason", "elapsed_ms"}`（ゴーストが開かれて中身を渡したとき。利用の記録と応答時間の実測に使う。`by_pip0` は、開いたのが pip0 本体・シェル自身のときに真で、そのときは利用として数えない） |
+| `session.event` | `{"kind": "lock"/"unlock"/"logoff"/"suspend"/"resume"/"shutdown"}`。`lock`・`unlock`・`logoff` は SessionSwitch、`suspend`・`resume` は PowerModeChanged、`shutdown`（とサインアウトの `logoff`）は SessionEnding（`WM_QUERYENDSESSION`）から送る。SessionEnding の知らせは、終わりが始まったときに送り、ほかのアプリが止めて取り消されることがあるが、取り消しの後には何も送らない。本体は、`lock` から `unlock` まで、`suspend` から `resume` まで（`unlock` でも終わる）、画面を見られないとみなす。`logoff`・`shutdown` では画面の扱いを変えない（M5 の消音は、どの kind でも消す） |
+| `cf.fetch` | `{"item_id", "path", "process_name", "process_id", "by_pip0": bool, "result": "served"/"failed", "reason", "elapsed_ms"}`（ゴーストが開かれて中身を渡したとき。利用の記録と応答時間の実測に使う。`by_pip0` は、開いたのが pip0 本体・シェル自身のときに真で、そのときは利用として数えない。`elapsed_ms` は有限の数のときだけ使う） |
 | `cf.hydrated` | `{"item_id", "path", "by_pip0": bool}`（ゴーストの中身がすべて戻ったとき。本体は `RESTORE_AFTER_OPEN_SECONDS` 後に通常のファイルへ戻す。`by_pip0` が真（`cf.restore` の中で戻した）ときは何もしない） |
 | `cf.notify_delete` | `{"item_id", "path"}`（ゴーストの削除が**終わった**とき。Windows の NOTIFY_DELETE_COMPLETION） |
 | `cf.notify_rename` | `{"item_id", "old_path", "new_path", "inside_root": bool}`（ゴーストの名前の変更・移動が**終わった**とき。Windows の NOTIFY_RENAME_COMPLETION。同期ルートの外への移動は、終わりの知らせが届かないことがあるため、約3秒後に元の場所にファイルがなく移動先にあることを確かめてから送る） |
-| `usage.recent_items` | `{"tracking_enabled": bool/null, "items": [{"target_path", "opened_at"}]}`（`watched_roots` の中のものだけ。500件ずつに分け、最初の一覧の後は変わったものだけ送る。Recent を読めないときは `tracking_enabled` が null） |
+| `usage.recent_items` | `{"tracking_enabled": bool/null, "items": [{"target_path", "opened_at"}]}`（`watched_roots` の中のものだけ。500件ずつに分け、最初の一覧の後は変わったものだけ送る。Recent を読めないときは `tracking_enabled` が null。本体は `opened_at` が有限の数の項目だけを使う） |
 
 ## 5. ブラウザー拡張 → 受け口（Native Messaging）
 
@@ -120,7 +122,7 @@ pip0 本体（Python）と pip0 シェル（C#）は、同じ PC の中の親子
 - 拡張機能は、URL から `?` 以降と `#` 以降を除いてから送ります（Slack 等の URL に含まれることがある一時的な鍵を残さないため）。受け口も同じ処理をもう一度行います。
 - `page` は、ダウンロード開始時（`downloads.onCreated`）に、最後に操作したウィンドウで前面だったタブです。ダウンロードを始めたタブとは限らないため、送信元の判定には使わず、記録だけします。
 - シークレットウィンドウのダウンロード（`incognito: true`）は送りません。受け口も記録しません。
-- 受け口の返事：`{"ok": true, "stored": true}`、または `{"ok": false, "error": "日本語の理由"}`。受け取った内容をそのまま返すことはしません。
+- 受け口の返事：`{"ok": true, "stored": true}`、ダウンロードフォルダーの外への保存なら記録せずに `{"ok": true, "stored": false, "reason"}`、失敗は `{"ok": false, "error": "日本語の理由"}`。受け取った内容をそのまま返すことはしません。
 - 種類 `ping` は接続の確認用で、`{"ok": true, "pong": true}` を返し、何も記録しません。拡張機能のアイコンをクリックすると `{"type": "ping", "protocol": 1}` を送り、結果をアイコンのバッジと説明に表示します。
 - 拡張機能のページには `connect-src 'none'` の CSP を付け、ブラウザーの側でも通信を止めています。
 - 拡張機能は、記録がない値（スナップショットがないときの `page` の4項目、`browser`、`url` 等）を `null` で送り、受け口はそれを受け付けます。

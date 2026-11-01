@@ -1,27 +1,54 @@
-# ダミーデータと期待する結果（M3 検索の3例・M5 機密の判定）
+# ダミーデータと期待する結果（M3 検索・M5 機密の判定・M1 改名の提案）
 
-M3 エピソード記憶検索の3つの例「青いグラフ」「Slackで貰った」「先週の予算資料」と、M5 の機密の判定を、
-自分の PC で試すためのダミーデータです。ファイルは `pip0/demo_data.py` のコードがその場で作ります。
-リポジトリには、画像・文書などのデータを置いていません（外部のデータも使いません）。
+M3 エピソード記憶検索の3つの例「青いグラフ」「Slackで貰った」「先週の予算資料」、M5 の機密の判定、
+M1 の改名の提案を、自分の PC で試すためのダミーデータです。ファイルは `pip0/demo_data.py` のコードがその場で作ります。
+リポジトリーには、画像・文書などのデータを置いていません（外部のデータも使いません）。
+デモは、検索と機密の判定を期待と比べます。M1 の改名の提案は表示するだけで、期待とは比べません（8節）。
 
 ## 1. 動かし方
 
-```text
-python -m pip0 demo                      ← 一時フォルダーの中に、新しい空のフォルダーを作って試す
-python -m pip0 demo --dir C:\pip0-demo   ← 空のフォルダー（なければ作る）を指定して試す
+`projects/pip0` で、仮想環境に入ってから実行します（[README.md](../README.md) の 3-1）。
+
+一時フォルダーの中に、新しい空のフォルダーを作って試すとき：
+
+```bash
+python -m pip0 demo
 ```
 
-`python -m pip0 demo` は、`pip0/cli.py` から `demo_data.run_demo()` を呼びます。Python から直接呼ぶこともできます。
+作ったダミーのファイルを後で見たいときは、空のフォルダー（なければ作ります）を指定します。
+**リポジトリーの外の場所**にしてください（リポジトリーの中に作ると、「社外秘」の名前のダミーのファイルなどを、
+Git に登録してしまうおそれがあります）。
+
+macOS・Linux：
+
+```bash
+python -m pip0 demo --dir ~/pip0-demo
+```
+
+Windows：
+
+```bat
+python -m pip0 demo --dir C:\pip0-demo
+```
+
+macOS・Linux のターミナルで `C:\pip0-demo` と書くと、`\` が消えて、今のフォルダーの中に `C:pip0-demo` という
+フォルダーができます。
+
+`python -m pip0 demo` は、`pip0/cli.py` から `demo_data.run_demo()` を呼び、その後に M1 の改名の提案（8節）を表示します。
+Python から直接呼ぶこともできます（`projects/pip0` で Python を起動します。この方法では、M1 の改名の提案は表示されません）。
 
 ```python
+from pathlib import Path
+
 from pip0 import demo_data
 
-report = demo_data.run_demo("pip0-demo")          # 空のフォルダー（なければ作る）
-print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおりかどうかを表示する
+report = demo_data.run_demo(Path.home() / "pip0-demo")  # 空のフォルダー（なければ作る）。リポジトリーの外にする
+print("\n".join(demo_data.report_lines(report)))        # 結果と、期待どおりかどうかを表示する
 ```
 
 自動テストは `python -m pytest -q tests/test_demo_data.py` です（日本時間の 2026-10-29（木）10:00 に固定して確かめます。
 日時の決め方と「ほかにも試せる検索」は、月の初め・月の終わり・年の初めの日付でも確かめます）。
+このテストは、Windows の Python では、今は動きません（[README.md](../README.md) の 3-1 の注意）。
 
 `run_demo()` がすること：
 
@@ -184,27 +211,59 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
 
 どちらになるかは `other_expected_results()` が動かした日付から計算し、デモの表示に、その日の「先月」の範囲も出します。
 
-## 8. 変え方（★）
+## 8. M1 の改名の提案（表示だけ。期待とは比べない）
+
+`python -m pip0 demo` は、最後に、ダウンロードフォルダーの代わり（Downloads）にある、意味の分からない名前
+（`rules.MEANINGLESS_NAME_PATTERNS` に当たる名前）のファイルについて、M1 の新しい名前の提案を表示します（ファイルは動かしません）。
+**デモは、この表示を期待と比べません**（✓・✗ を付けず、最後の「結果：すべて期待どおりです」にも含まれません）。
+改名に関係する規則や値を変えたときは、次の表と目で比べてください。
+
+| 元の名前 | 提案する名前 | 例：2026-10-29（木）に動かしたとき |
+| --- | --- | --- |
+| `IMG_2041.png` | 先週の水曜の日付_青いグラフ_Slack.png | `2026-10-21_青いグラフ_Slack.png` |
+| `IMG_2042.png` | 先々週の水曜の日付_赤いグラフ_Gmail.png | `2026-10-14_赤いグラフ_Gmail.png` |
+| `IMG_2043.jpg` | 先々週の水曜の日付_青い写真_送信元不明.jpg | `2026-10-14_青い写真_送信元不明.jpg` |
+| `document (1).docx` | 先週の木曜の日付_2026年度 予算案_Gmail.docx | `2026-10-22_2026年度 予算案_Gmail.docx` |
+| `untitled.txt`、`attachment.zip` | 名前はそのまま（内容も送信元も分からないため） | — |
+
+- 日付は、ダウンロード完了日（ブラウザー拡張の記録）で、記録がなければ最終更新日時です。内容は、Office の文書のタイトル、
+  なければ画像の解析の結果です。送信元は、入手経路の記録から決めた名前（`rules.SOURCE_RULES`）で、記録がなければ「送信元不明」です。
+- `F0A1B2C3.pdf`、`社外秘_打ち合わせメモ.txt`、`申請書_下書き.txt` は、意味の分からない名前の規則に当たらないため、表示しません。
+  `document.docx` は、ダウンロードフォルダーの代わりのフォルダーにないため、表示しません。
+- 仕分け先（`rules.SORT_RULES`）は、この表示に出ません（試し方は [README.md](../README.md) の 5-4）。
+
+## 9. 変え方（★）
 
 - ダミーのファイルを足す・変える：`pip0/demo_data.py` の `demo_files()`。期待も `expected_results()`
-  （「ほかにも試せる検索」は `other_expected_results()`）で直し、`python -m pytest -q tests/test_demo_data.py` で確かめます。
-  日時で答えが変わる検索の期待は、決まった日付で書かず、`manifest["now"]` から計算してください。
+  （「ほかにも試せる検索」は `other_expected_results()`）で直します。
+  - `tests/test_demo_data.py` にも、ファイルの一覧と件数が書いてあります（10件のそれぞれの機密の判定、
+    「入手経路の記録がないファイルが 6 件」、索引と解析の 10 件など）。これも合わせて直します。
+  - 検索の結果（一致と一部一致）は、`SEARCH_MAX_RESULTS`（10件）で切られます。ファイルが10件を超えると、日付によっては
+    「先月の予算」の一部一致から予算の文書が外れ、テストが失敗します（デモは動かした日だけを試すため、気づかないことがあります）。
+    ファイルを10件までにするか、`demo_data.py` の `demo_config_overrides()` で `SEARCH_MAX_RESULTS` を増やします。
+  - 確かめるときは、`python -m pytest -q tests/test_demo_data.py` を、ファイル全体で実行します（いくつかの日付で試すテストがあるため）。
+  - 日時で答えが変わる検索の期待は、決まった日付で書かず、`manifest["now"]` から計算してください。
+- 改名の提案に関係する値（`rules.py` の `MEANINGLESS_NAME_PATTERNS`、`settings.py` の `CONTENT_MAX_CHARS` など）を変える：
+  デモは改名の提案を期待と比べないため、デモの最後は「結果：すべて期待どおりです」のままです。8節の表と目で比べ、
+  `python -m pytest -q tests/test_naming.py` も実行します。
 - 一致の決まりを変える：`pip0/settings.py` の `COLOUR_MIN_SHARE`、`COLOUR_MIN_COLOURFUL`、`CHART_MIN_SCORE`、`WEEK_STARTS_ON`、
   言葉の辞書は `pip0/rules.py` の `COLOUR_WORDS`、`VISUAL_KIND_WORDS`、`DOC_KIND_WORDS`、`SOURCE_WORDS`。
 - 一致の理由の文：`pip0/search.py` の `check_time` などの関数。
 
-## 9. 確かめたことと、確かめていないこと
+## 10. 確かめたことと、確かめていないこと
 
 - 確かめたこと（Linux の開発環境、代役の OS 連携）：ファイルの作成、索引、まねた入手経路の記録、解析、
   3つの検索の結果と理由、「ほかにも試せる検索」（月の初め・月の終わり・年の初めの日付と、先月のほかのファイルも
   「先月の予算」の一部一致に並ぶ日付を含む）、機密の判定、
   本物のフォルダーと空でないフォルダーを断ること（`tests/test_demo_data.py`）。
+- 8節の表の例は、2026-11-01（日）にデモを動かした表示と同じであることを、目で確かめました（2026-10-29（木）と同じ週なので、
+  日付も同じになります）。デモ自身は、改名の提案を期待と比べません。
 - 確かめていないこと：Windows の実機での、本物の Chrome／Edge の拡張機能の記録、本物の Zone.Identifier、
-  実機の電源・アイドル状態での解析。これらは実機で別に確かめる必要があります。
+  実機の電源・アイドル状態での解析、Windows の Python でのデモ。これらは実機で別に確かめる必要があります。
 
-## 10. 出典と利用条件
+## 11. 出典と利用条件
 
-- ダミーのファイルは、すべてこのリポジトリの `pip0/demo_data.py` のコードが作ります。外部の画像・文書・フォントは使いません。
+- ダミーのファイルは、すべてこのリポジトリーの `pip0/demo_data.py` のコードが作ります。外部の画像・文書・フォントは使いません。
 - 画像を作るのに Pillow（MIT-CMU（HPND）ライセンス）を使います。URL はデモのために作った架空のものです
   （`files.slack.com` などのホスト名は、送信元の判定の規則 `rules.SOURCE_RULES` を試すために使っています）。
 - 学生の氏名・学籍番号などの個人情報は含みません。個人番号らしい数字は、上で説明した連番のダミーです。

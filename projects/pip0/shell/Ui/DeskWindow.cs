@@ -82,7 +82,8 @@ internal sealed class DeskWindow : Window
         timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TickInterval };
         timer.Tick += (_, _) => Tick();
 
-        SourceInitialized += (_, _) => WindowPlacement.ApplyFloatingStyle(this, clickThrough: false);
+        // ファイル名や作業中の会話名が出るので、画面の共有に写さない（デスクは、自動で何かを動かすことはない）
+        SourceInitialized += (_, _) => WindowPlacement.ApplyFloatingStyle(this, clickThrough: false, excludeFromCapture: true);
         Loaded += (_, _) => Reposition();
         SizeChanged += (_, _) => Reposition();
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(Reposition);

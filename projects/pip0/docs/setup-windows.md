@@ -2,7 +2,7 @@
 
 この文書は、pip0 を Windows 11 の PC に導入して使うための手順です。学生と教員の両方に向けて書いています。教員向けの内容（配布物の版の更新）は [11節](#11-教員向け配布物の版を更新する) にまとめました。
 
-> **実機での確認の状態（2026-10-30）**：この文書の手順は、**Windows 11 の実機ではまだ確かめていません**。確かめたのは、Linux 上でのスクリプトの構文と、Windows の機能を代役に置き換えた試験、pip0 シェルのビルドだけです（[12節](#12-確認の状態)）。スクリプトが呼ぶ pip0 本体のコマンド（`serve`、`restore-all`、`shutdown`、`register-root` 等。[design.md](design.md) 6-8）は作成済みで、Linux 上で代役の OS 連携を使って試験しています（Windows の実機では未確認）。実機で動かしたら、結果を記録してください。
+> **実機での確認の状態（2026-10-30）**：この文書の手順は、**Windows 11 の実機ではまだ確かめていません**。確かめたのは、Linux 上でのスクリプトの構文と、Windows の機能を代役に置き換えた試験（どちらも、スクリプトを最後に直す前の版）、pip0 シェルのビルドだけです（[12節](#12-確認の状態)）。スクリプトが呼ぶ pip0 本体のコマンド（`serve`、`restore-all`、`shutdown`、`register-root` 等。[design.md](design.md) 6-8）は作成済みで、Linux 上で代役の OS 連携を使って試験しています（Windows の実機では未確認）。実機で動かしたら、結果を記録してください。
 
 ## 1. 必要なもの
 
@@ -32,7 +32,7 @@
 4. ブラウザー拡張を読み込む           chrome://extensions / edge://extensions
 5. （任意）通信の遮断を適用する       scripts\network-policy.ps1 -Apply（管理者）
 6. pip0 を起動する                    scripts\start-pip0.cmd
-7. pip0 フォルダーを登録する          python -m pip0 register-root
+7. pip0 フォルダーの登録を確かめる    python -m pip0 status（登録は、起動したときに pip0 が自動で行う）
 ```
 
 PowerShell のスクリプトは、どれも次の形で実行します。`-ExecutionPolicy Bypass` は、この1回の PowerShell にだけ効く指定で、PC の設定は変えません。
@@ -78,7 +78,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 
 準備は、導入先の隣の作業用フォルダーで行い、確かめた後で入れ替えます。途中で失敗したときは、前の導入をそのまま残します。**データ（`%LOCALAPPDATA%\pip0`）と pip0 専用フォルダー（`%USERPROFILE%\pip0`）は、変更も削除もしません。** ファイアウォールの設定も変えません。
 
-何度実行しても同じ配置になります。pip0 の更新（リポジトリーのコードを変えた後）も、同じコマンドで導入し直します。pip0 が動いている間は入れ替えられないため、先に pip0 を終了してください（[4節](#4-起動と停止)）。コードを変えたときは、導入し直す前に、リポジトリーで `python -m pytest` を実行して確かめてください（[README.md](../README.md) の 3-1）。`pip0\` に置いた `.py` は、導入のときにすべて読み込まれるため、モジュールの一番外側には処理を書かず、関数の中か `if __name__ == "__main__":` の中に書きます。
+何度実行しても同じ配置になります。pip0 の更新（リポジトリーのコードを変えた後）も、同じコマンドで導入し直します。pip0 が動いている間は入れ替えられないため、先に pip0 を終了してください（[4節](#4-起動と停止)）。コードを変えたときは、導入し直す前に、自動テスト（`python -m pytest`）で確かめます。ただし、今の自動テストは、Windows の Python では最後まで動きません（Windows にない `time.tzset` を使うテストがあるため。[README.md](../README.md) の 3-1 の注意）。直すまでは、リポジトリーを Linux の PC に置いて実行してください。`pip0\` に置いた `.py` は、導入のときにすべて読み込まれるため、モジュールの一番外側には処理を書かず、関数の中か `if __name__ == "__main__":` の中に書きます。
 
 **インターネットにつながらない PC では**：別の PC で `python-3.13.17-embed-amd64.zip` を python.org からダウンロードしておき、次のように渡します（SHA-256 は必ず確かめます）。ライブラリの wheel は pip がダウンロードするため、この場合もインターネット接続は必要です。
 
@@ -114,7 +114,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Pytho
 2. 「デベロッパー モード」（Edge は「開発者モード」）をオンにします。
 3. 「パッケージ化されていない拡張機能を読み込む」（Edge は「展開して読み込みます」）を押し、リポジトリーの `projects\pip0\browser-extension` フォルダーを選びます（`install.ps1` の最後に、このフォルダーのパスが表示されます）。
 4. ID が `jfaghnlhhcojgeodhjalkchddhphnmhi` であることを確かめます。
-5. ツールバーの「pip0 連携」のアイコンを押し、受け口に接続できることを確かめます。
+5. 「pip0 連携」のアイコンを、ツールバーに出しておきます（読み込んだだけでは、ツールバーに出ないことがあります）。Chrome は、ツールバーのパズルの形のアイコン（拡張機能）から「pip0 連携」の横のピンを押します。Edge は、ツールバーの拡張機能のアイコンから「pip0 連携」を「ツールバーに表示」にします。
+6. ツールバーの「pip0 連携」のアイコンを押し、受け口に接続できるかを確かめます。
+   - 接続できたとき：アイコンにバッジ（「!」）が付かず、アイコンにマウスを置くと「pip0 連携：pip0 の受け口に接続できました（時刻 に確認）」と表示されます。
+   - 接続できないとき：アイコンに赤い「!」が付きます。マウスを置くと理由（ブラウザーの英語のメッセージ）が表示されるので、[native-host/README.md](../native-host/README.md) の「よくあるエラー」を見ます。
 
 詳しくは [browser-extension/README.md](../browser-extension/README.md) を見てください。リポジトリーのフォルダーを移動・削除すると、拡張機能も読み込めなくなります。
 
@@ -145,9 +148,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\
 
 Windows 11 の「設定」→「アプリ」→「スタートアップ」でも、オン／オフを切り替えられます。
 
-### 3-7. pip0 フォルダーを登録する
+### 3-7. pip0 フォルダーの登録を確かめる
 
-pip0 専用フォルダー（`%USERPROFILE%\pip0`）を、Windows の Cloud Files API の「同期ルート」として登録します。M4（シュレディンガー退避ストレージ）で、このフォルダーの中のファイルだけを、元のパスのままゴーストにするためです（[design.md](design.md) 4-6）。
+pip0 を起動すると、pip0 専用フォルダー（`%USERPROFILE%\pip0`）は、Windows の Cloud Files API の「同期ルート」として自動で登録されます（pip0 シェルを起動し直すたびにも確かめます）。M4（シュレディンガー退避ストレージ）で、このフォルダーの中のファイルだけを、元のパスのままゴーストにするためです（[design.md](design.md) 4-6）。
+
+起動してから数十秒待って（pip0 シェルの準備を、最大 30 秒待つため）、状態を見ます。
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\pip0\runtime\python.exe" -I -m pip0 status
+```
+
+「機能の状態」の「pip0 専用フォルダーの同期ルート（ゴーストの置き場所）」に ○ が付いていれば、登録できています。× のときは、その理由を読みます。通知領域の pip0 のアイコンの「状態」でも見られます。
+
+`register-root` は、pip0 を起動せずに、登録だけをするときに使います。pip0 が動いている間に実行すると、pip0 が行った登録の結果を表示するだけです（結果の記録がまだなければ「まだ結果の記録がありません」と表示して終わるので、少し待ってから `status` で確かめます）。
 
 ```powershell
 & "$env:LOCALAPPDATA\Programs\pip0\runtime\python.exe" -I -m pip0 register-root
@@ -215,7 +228,7 @@ pip0 は、そのユーザーが NTFS のアクセス権で読み書きできる
 
 ### 5-3. 画面の情報
 
-- 読むのは、前面のアプリのプロセス名、ウィンドウタイトル、ウィンドウの種類だけです。その時点の文脈に使い、ウィンドウタイトルは DB に保存しません（[design.md](design.md) 4-3、4-4）。ブラウザー拡張が送るタブの題名と URL は、ダウンロードと結び付けるまで（最大24時間）だけ暗号化DB に置き、その後は消します。
+- 読むのは、前面のアプリのプロセス名、ウィンドウタイトル、ウィンドウの種類だけです。その時点の文脈に使い、ウィンドウタイトルは DB に保存しません（[design.md](design.md) 4-3、4-4）。ブラウザー拡張が送るタブの題名と URL は、ダウンロードと結び付けるまでだけ暗号化DB に置き、結び付けたら消します。結び付かなかった記録は、pip0 が動いている間は、受け取ってから約24時間（1時間ごとに見直すため、遅いと約25時間）で行ごと消します。pip0 が止まっている間に受け口が書いた記録は、次に pip0 を起動するまで残ります（起動したときに、24時間を過ぎたものを消します）。
 - **画面の画像（スクリーンショット、録画）は取得しません。** そのため、Windows の画面の取り込みの機能や、その許可は使いません。
 - ミニドック、浮上式デスク、赤い枠は、最前面の透過したウィンドウです。表示に許可は要りません。
 
@@ -242,14 +255,16 @@ pip0 は、そのユーザーが NTFS のアクセス権で読み書きできる
 | `cursor_sampler` | シェイクのためのカーソル位置 | デスクの表示中だけ動く |
 | `uia` | ファイルダイアログへの入力 | 相手が管理者のアプリ（UIPI）。そのダイアログには入力できない |
 | `explorer_selection` | エクスプローラーの選択項目 | エクスプローラーが応答しない |
-| `cloud_files` | ゴーストの作成・復元 | 同期ルートの未登録（[3-7](#3-7-pip0-フォルダーを登録する)）、NTFS 以外のドライブ、コントロールされたフォルダー アクセス |
+| `cloud_files` | ゴーストの作成・復元 | 同期ルートの未登録（[3-7](#3-7-pip0-フォルダーの登録を確かめる)。pip0 を起動し直すと、もう一度登録を試みます）、NTFS 以外のドライブ、コントロールされたフォルダー アクセス |
 | `recycle_bin` | ごみ箱への移動 | ごみ箱を使えない場所（その場合は削除しない） |
 | `recent_items` | 最近使ったファイルの記録 | Windows の設定で「最近使ったファイル」が無効（M4 の判定は「判定不能」になる） |
-| `session_events` | 画面のロック・スリープ等の知らせ | 起動の失敗。pip0 を起動し直す |
+| `session_events` | 画面のロック・スリープ等の知らせ | 起動の失敗。pip0 を起動し直す（この間、M5 の消音はしない） |
+
+状態の画面には、pip0 本体の機能も出ます。「画面（ミニドック、デスク、警告の枠、通知）」（`ui`）が×のときは、pip0 シェルが画面を準備できず、ダウンロードの仕分け・改名を待たせています（pip0 を起動し直すと、もう一度試します）。「ダウンロードの提案（ミニドック）」（`screen`）が×のときは、画面のロック中・スリープ中のため、提案を待たせています（ロックを解除すると出ます。解除しても×のままなら、いったん Windows キー＋L でロックして解除します）。
 
 ## 6. 高負荷の処理の条件（電源接続中 かつ 3分間無操作）
 
-画像の解析、本文の取り出し、ハッシュの計算、保管庫へのコピー（M4 の退避）は、次の**両方**を満たすときだけ動きます（指示書 3-2、[design.md](design.md) 4-2）。
+画像の解析、本文の取り出し、解析と退避のためのハッシュの計算、保管庫へのコピー（M4 の退避）は、次の**両方**を満たすときだけ動きます（指示書 3-2、[design.md](design.md) 4-2）。復元のときのハッシュの確認と、ゴーストを開いたときに pip0 シェルが行う保管庫の確認は、この条件と関係なく、すぐに行います。
 
 - 電源：Windows の電源の状態（`GetSystemPowerStatus`）が「AC（電源接続中）」
 - 無操作：サインイン中のセッション全体で、キーボードとマウスの入力が 180 秒以上ない（`GetLastInputInfo`）。pip0 のウィンドウだけが操作されていない状態とは区別します
@@ -276,6 +291,13 @@ pip0 は、そのユーザーが NTFS のアクセス権で読み書きできる
 5. 自動処理は、ユーザーが「自動処理を再開」を選ぶまで止まったままです。
 
 戻すのは、pip0 が退避したファイルだけです。自動仕分け・自動改名は戻しません（操作履歴に残っています）。pip0 以外が行った変更や、バックアップ全体の復旧はしません。
+
+`restore-all.cmd`（`python -m pip0 restore-all`）の表示：
+
+- pip0 が動いていれば、全復元を依頼して、その依頼の結果だけを表示します。動いていなければ、コマンドが自分で全復元します。
+- 戻せなかった項目は、項目ごとに場所と理由（例：ゴーストが読み取り専用、`PIP0_ROOT` を変えた）を表示します。理由に書かれたことをしてから、もう一度実行します（`python -I -m pip0 vault list` でも見られます）。
+- 進み具合が 120 秒変わらないときは、待つのをやめて、することを表示します（全復元は pip0 の中で続いています）。
+- 終了コードは、すべて戻せたときだけ 0 です。
 
 pip0 が動いていないときにゴーストを開くと、Windows が「クラウド ファイル プロバイダーが実行されていません」というエラーを出します（空の内容は渡しません）。pip0 を起動するか、全復元を実行してください。
 
@@ -370,7 +392,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\
 
 ### 11-3. pip0 シェルをまとめてビルドして配る
 
-`Pip0Shell.csproj` は Windows 以外からもビルドできるため、教員が `build-shell.ps1`（PowerShell 7 なら Linux・macOS でも動きます）でビルドし、`shell\bin\publish\win-x64` フォルダーを配れます。学生は、受け取ったフォルダーを `-ShellPublishDir` で渡して導入します。
+`Pip0Shell.csproj` は Windows 以外からもビルドできるため、教員が `build-shell.ps1`（PowerShell 7 なら Windows 以外でも動くように作っています。確かめたのは Linux だけで、macOS は未確認）でビルドし、`shell\bin\publish\win-x64` フォルダーを配れます。学生は、受け取ったフォルダーを `-ShellPublishDir` で渡して導入します。配る `Pip0Shell.exe` には、MIT ライセンスの .NET のほかに、Windows SDK のライセンスの部品も含まれます（この文書の最後の「出典と利用条件」）。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -ShellPublishDir "D:\配布\pip0-shell"
@@ -378,16 +400,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Shell
 
 ## 12. 確認の状態
 
-**Linux 上で確かめたこと（2026-10-30）**
+**Linux 上で確かめたこと（2026-10-30。スクリプトを最後に直す前の版）**
+
+記録が残っている確認は、スクリプトを最後に直す（コミット fb292b8、2026-10-30）前の版に対するものです。確認に使った道具（Windows のコマンドを代役に置き換える PowerShell のスクリプト）は、リポジトリーに入れていません。
 
 - すべての `.ps1` の構文（PowerShell の構文解析器）と、Windows PowerShell 5.1 で使えない書き方・BOM のないファイルがないこと
 - 埋め込み用配布物（3.13.17）の SHA-256、Sigstore の署名の検証、SBOM の値との一致。`python313._pth` の書き換えの結果
 - [requirements-windows-cp313.txt](../requirements-windows-cp313.txt)：`pip download --require-hashes` でのダウンロードし直し、Windows の条件での依存の確認、ハッシュを1文字変えると止まること。`install.ps1` と同じ引数の `pip install --target` で10個が入ること
-- `install.ps1` の関数：展開、`._pth`、ライブラリ、写す処理（`__pycache__` を除く、リンクがあれば止まる）、入れ替えと失敗したときの戻し、前の導入の片付け、導入先とデータの重なりの確認。準備した pip0 の確認（Linux の Python 3.13 を代役にして、構文の誤り・読み込みの失敗・`--help` の失敗を入れた pip0 で止まり、前の導入がそのまま残ること）
-- `uninstall.ps1` の関数：保管庫の状態の分け方（戻っていない項目・読めない manifest.json・知らない状態・manifest.json のない中身で止まる。項目ID の名前でないフォルダーと、記録も中身もないフォルダーでは止まらない）、プログラムのフォルダーを消す前の確認（印、データの場所、pip0 が置いたもの以外、リンク）
+- `install.ps1` の関数：展開、`._pth`、ライブラリ、写す処理（`__pycache__` を除く、リンクがあれば止まる）、入れ替えと失敗したときの戻し、前の導入の片付け、導入先とデータの重なりの確認
+- `uninstall.ps1` の関数：保管庫の状態の分け方（戻っていない項目・読めない manifest.json・知らない状態で止まる）、プログラムのフォルダーを消す前の確認（印、データの場所、リンク）
 - `network-policy.ps1`、`autostart.ps1` の関数（Windows のコマンドは代役。[network.md](network.md) の7節）
 - `build-shell.ps1` で、Linux から `Pip0Shell.exe`（PE32+、GUI、x86-64）を実際にビルドできること、古い出力を消すこと、ビルドの失敗を知らせること
-- `restore-all.cmd`、`start-pip0.cmd` の形（UTF-8・BOM なし・CRLF、`chcp 65001` より前は ASCII、表示の文に特殊文字がない）。cmd.exe では動かしていません
+- `restore-all.cmd`、`start-pip0.cmd` の形（表示の文に特殊文字がない）。cmd.exe では動かしていません
+
+**Linux 上で確かめたこと（2026-11-01）**
+
+- 今の `restore-all.cmd`、`start-pip0.cmd` が、UTF-8（BOM なし）で、取り出したときの改行が CRLF（リポジトリーの中は LF。`.gitattributes` の `eol=crlf`）で、`chcp.com 65001` の行までが ASCII だけであること。cmd.exe では動かしていません
+
+**直した後に確かめていないこと**
+
+スクリプトを直した後（fb292b8 と、それより後の修正）には、上の 2026-10-30 の確認をやり直していません。直した後の確認の一部が途中で中断し、どこまで行ったかの記録も残っていないためです（[verification.md](verification.md) の 2-5、2-7）。特に、直したときに加えた次の動きは、確認済みではありません。
+
+- `install.ps1`：入れ替えの前に、準備した pip0 専用の Python で、pip0 のすべてのモジュールを読み込み、`python -m pip0 --help` が終了コード 0 で終わるかを確かめる処理（3-3 の手順6）と、失敗したときに前の導入がそのまま残ること
+- `uninstall.ps1`：導入先の一番上に pip0 が置いたもの以外があると止まること。保管庫の `items` のうち、項目ID の名前でないフォルダーと、記録も中身もないフォルダーでは止まらず、manifest.json のない中身があると止まること
+- `start-pip0.cmd`、`autostart.ps1`：作業フォルダーをユーザーのフォルダーにすること
 
 **Windows 11 の実機で確かめていないこと（すべて）**
 
@@ -405,6 +441,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Shell
 | Python 3.13.17 埋め込み用配布物 | https://www.python.org/ftp/python/3.13.17/ | Python Software Foundation License（同梱の `LICENSE.txt`。OpenSSL、SQLite、libffi 等の利用条件も含む） |
 | ライブラリ（sqlcipher3、keyring、watchdog、pillow、pypdf と、その依存） | PyPI | 各ライブラリのライセンス（[requirements-windows-cp313.txt](../requirements-windows-cp313.txt) に記載） |
 | .NET 8 の実行環境、WPF、Windows フォーム（`Pip0Shell.exe` に含まれる） | Microsoft（NuGet） | MIT |
+| Windows SDK の .NET 向けの宣言（Microsoft.Windows.SDK.NET.Ref 10.0.19041.56 の `Microsoft.Windows.SDK.NET.dll`、`WinRT.Runtime.dll`。`Pip0Shell.exe` に含まれる） | Microsoft（NuGet。.NET SDK が自動で使う） | Windows SDK のライセンス（https://aka.ms/WinSDKLicenseURL） |
 | CsWin32（ビルドのときだけ使う） | Microsoft（NuGet） | MIT |
 
 参考にした公式資料：

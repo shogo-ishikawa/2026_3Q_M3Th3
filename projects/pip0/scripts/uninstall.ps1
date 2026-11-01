@@ -3,17 +3,23 @@
     pip0 のプログラムを削除します。退避したファイルがすべて元の場所に戻っていることを確かめてからだけ消します。
 
 .DESCRIPTION
-    次の順に行います。途中で問題があれば、そこで止まり、それまでに消したものはありません（1〜4 は何も消しません）。
+    始める前に、プログラムのフォルダーを消せる状態か（pip0 が置いたもの以外が一番上にないか、リンクや pip0 のデータらしいものが
+    中にないか等）を確かめます。消せないときは、何も変えずに止まります。その後、次の順に行います。
 
       1. pip0 に終了を依頼する（python -m pip0 shutdown）。pip0 のプロセスが終わるのを待つ
       2. 全復元（python -m pip0 restore-all）：自動処理を止め、保管庫に退避したファイルを元の場所に戻す
       3. 保管庫の manifest.json を1件ずつ読み、元の場所に戻っていない項目が1つでもあれば止まる
-         （残っている項目を表示し、何も消しません）
+         （残っている項目を表示し、何も消しません。名前が項目ID ではないフォルダーに、戻ったと分からない退避の記録や中身が
+         あるときも止まります）
       4. pip0 フォルダーの登録（Cloud Files の同期ルート）を解除する（python -m pip0 unregister-root）
       5. ブラウザー拡張の受け口の登録を解除する（register-native-host.ps1 -Unregister）
       6. 自動起動のショートカットを消す（autostart.ps1 -Disable）
       7. ファイアウォールの規則（グループ「pip0」）が残っていれば、消し方を表示する（管理者が必要なため、ここでは消しません）
-      8. プログラムのフォルダー（-InstallDir）だけを消す（pip0 が置いたもの以外が一番上にあれば、消さずに止まる）
+      8. プログラムのフォルダー（-InstallDir）だけを消す（始める前と同じことを、消す直前にもう一度確かめる）
+
+    途中で問題があれば、そこで止まります。1〜4 で止まったときは、登録の解除もファイルの削除もしていません
+    （2 の全復元で、自動処理は止まります）。8 で止まったとき（使用中のファイルがある等）は、4〜6 の解除は終わっています。
+    そのときは、もう一度実行すると続きから進むことと、消さずに pip0 を使い続けるときの戻し方を表示します。
 
     次のものは消しません。場所と、手で消す手順を最後に表示します。
       - データのフォルダー（DATA_DIR。既定は %LOCALAPPDATA%\pip0）：暗号化DB、保管庫、制御ファイル、ログ
@@ -28,7 +34,8 @@
     pip0 の導入先。既定は %LOCALAPPDATA%\Programs\pip0。
 
 .PARAMETER AcceptMissingGhosts
-    「ゴーストが見つからない」項目（元の場所のゴーストが消された・移動された。中身は保管庫だけにある）があっても、
+    「ゴーストが見つからない」項目（元の場所のゴーストが消された・移動された。中身は保管庫だけにある）と、
+    保管庫の items の、名前が項目ID ではないフォルダー（名前を変えた・コピーした項目のフォルダー等。pip0 は戻せません）があっても、
     続けます。保管庫は消さないため、中身は後で手で取り出せます。先に取り出してから使ってください。
     ほかの「戻っていない」項目（元の場所にゴーストがある等）があるときは、この指定があっても止まります。
 
@@ -330,22 +337,24 @@ function Get-Pip0Locations([string]$Python) {
 }
 
 # 保管庫の manifest.json を1件ずつ読みます（DB の鍵がなくても読めます）。
-# pip0 本体（vault.py の is_valid_item_id と sync_from_manifests、cli.py の read_vault_manifests）と同じく、
-# 名前が項目ID（32桁の16進数の小文字）のフォルダーだけを項目として扱います。
 # manifest.json も中身（content、content.partial）もないフォルダーは、最初の manifest.json を書く前に
-# 止まった項目で、戻すものがないため数えません
+# 止まった項目か、項目ではないもので、戻すものがないため数えません。
+# pip0 本体（vault.py の is_valid_item_id と sync_from_manifests、cli.py の read_vault_manifests）と同じく、
+# 名前が項目ID（32桁の16進数の小文字）のフォルダーだけを項目として扱います（IsItem）。ほかの名前で、
+# 記録か中身があるフォルダー（名前を変えた・コピーした項目のフォルダー等）も返します。pip0 は戻せないため、知らせます
 function Get-VaultItems([string]$VaultDir) {
     $itemsDir = Join-Path $VaultDir 'items'
     if (-not (Test-Path -LiteralPath $itemsDir -PathType Container)) {
         return
     }
     foreach ($directory in @(Get-ChildItem -LiteralPath $itemsDir -Directory -Force)) {
-        if ($directory.Name -cnotmatch '^[0-9a-f]{32}$') {
-            continue  # 項目ではないもの（pip0 本体も触れない）
+        $isItem = ($directory.Name -cmatch '^[0-9a-f]{32}$')
+        if ((-not $isItem) -and (($directory.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+            continue  # 項目ではないリンク（リンクの先へは進まない）
         }
         $names = @(Get-ChildItem -LiteralPath $directory.FullName -Force | ForEach-Object { $_.Name })
         if (($names -notcontains 'manifest.json') -and ($names -notcontains 'content') -and ($names -notcontains 'content.partial')) {
-            continue  # 記録も中身もない項目のフォルダー（戻すものがない）
+            continue  # 記録も中身もないフォルダー（戻すものがない）
         }
         $manifest = Join-Path $directory.FullName 'manifest.json'
         $state = $null
@@ -366,6 +375,8 @@ function Get-VaultItems([string]$VaultDir) {
         }
         [pscustomobject]@{
             ItemId = $directory.Name
+            IsItem = $isItem
+            Folder = $directory.FullName
             State = $state
             OriginalPath = $originalPath
             ContentPath = (Join-Path $directory.FullName 'content')
@@ -374,17 +385,27 @@ function Get-VaultItems([string]$VaultDir) {
     }
 }
 
-# 項目を「戻っている／退避していない／止まる理由」に分けます（保管庫の場所は複数でもよい）
+# 項目を「戻っている／退避していない／止まる理由」に分けます（保管庫の場所は複数でもよい）。
+# 名前が項目ID ではないフォルダーは項目として数えず、記録が「戻っている」「退避していない」でなければ Unknown に入れます
 function Get-VaultSummary([string[]]$VaultDirs) {
     $items = @()
     foreach ($vaultDir in $VaultDirs) {
         $items += @(Get-VaultItems $vaultDir)
     }
+    $total = 0
     $blocking = @()
     $missing = @()
+    $unknown = @()
     $restored = 0
     $notEvacuated = 0
     foreach ($item in $items) {
+        if (-not $item.IsItem) {
+            if (($null -ne $item.Problem) -or (($RestoredStates + $NotEvacuatedStates) -notcontains $item.State)) {
+                $unknown += $item
+            }
+            continue
+        }
+        $total++
         if ($null -ne $item.Problem) {
             $blocking += $item
         }
@@ -403,11 +424,12 @@ function Get-VaultSummary([string[]]$VaultDirs) {
         }
     }
     return [pscustomobject]@{
-        Total = $items.Count
+        Total = $total
         Restored = $restored
         NotEvacuated = $notEvacuated
         Blocking = $blocking
         Missing = $missing
+        Unknown = $unknown
     }
 }
 
@@ -423,7 +445,12 @@ function Write-VaultItem($Item) {
     }
     Write-Step ('  - ' + $label)
     Write-Step ('      元の場所：' + $Item.OriginalPath)
-    Write-Step ('      保管庫の中身：' + $Item.ContentPath + '（項目ID ' + $Item.ItemId + '）')
+    if ($Item.IsItem) {
+        Write-Step ('      保管庫の中身：' + $Item.ContentPath + '（項目ID ' + $Item.ItemId + '）')
+    }
+    else {
+        Write-Step ('      フォルダー：' + $Item.Folder + '（名前が項目ID ではありません）')
+    }
 }
 
 # ファイアウォールの規則（グループ「pip0」）が残っているかを調べ、消し方を表示します（消しません）
@@ -463,11 +490,12 @@ function Show-FirewallAdvice([string]$Root) {
     Write-Step '  または（この PC のすべての pip0 の規則を消します）：Remove-NetFirewallRule -Group pip0'
 }
 
-# プログラムのフォルダーを消します。データ・保管庫・pip0 専用フォルダーが中にないこと、
-# pip0 が置いたもの以外が一番上にないこと、リンクがないことを確かめてから
-function Remove-ProgramFolder([string]$Root, $Locations, [string]$Stamp) {
+# プログラムのフォルダーを消してよいかを確かめます（読むだけで、何も変えません）。消せない理由があれば、その理由で止まります。
+# 導入先の印があること、データ・保管庫・pip0 専用フォルダーが中にないこと、pip0 が置いたもの以外が一番上にないこと、
+# リンクと pip0 のデータらしいものがないことを確かめます。1/8 の前（まだ何も変えていないとき）と、8/8 で消す直前に呼びます
+function Assert-ProgramFolderRemovable([string]$Root, $Locations) {
     if (-not (Test-Path -LiteralPath (Join-Path $Root $MarkerFileName) -PathType Leaf)) {
-        throw ('pip0 の導入先の印（' + $MarkerFileName + '）がないため、消しません：' + $Root)
+        throw ('pip0 の導入先の印（' + $MarkerFileName + '）がないため、消しません：' + $Root + '。')
     }
     $protected = @(
         (Get-JsonField $Locations 'DATA_DIR'),
@@ -483,23 +511,29 @@ function Remove-ProgramFolder([string]$Root, $Locations, [string]$Stamp) {
             continue
         }
         if (Test-PathInside $path $Root) {
-            throw ('導入先の中に、消してはいけない場所（' + $path + '）が含まれているため、消しません：' + $Root)
+            throw ('導入先の中に、消してはいけない場所（' + $path + '）が含まれているため、消しません：' + $Root + '。')
         }
     }
     # 自分で置いたファイル等があれば、消さずに止まる（install.ps1 が前の導入を消すときと同じ決まり）
     $unknown = @(Get-ChildItem -LiteralPath $Root -Force | Where-Object { $KnownTopLevelNames -notcontains $_.Name })
     if ($unknown.Count -gt 0) {
         throw ('導入先に、pip0 が置いたもの以外（' + (($unknown | ForEach-Object { $_.Name }) -join '、') + '）があるため、消しません：' + $Root +
-            '。自分のファイルなら別の場所へ移してから、もう一度実行してください。ここまでの手順（全復元、登録の解除）は終わっています。')
+            '。自分のファイルなら、導入先の外へ移してから、もう一度実行してください。')
     }
     $links = @(Find-ReparsePoints $Root)
     if ($links.Count -gt 0) {
-        throw ('導入先の中にリンク（再解析ポイント）があるため、消しません：' + $links[0] + '。中身を確かめてから、手で消してください。')
+        throw ('導入先の中にリンク（再解析ポイント）があるため、消しません：' + $links[0] + '。中身を確かめ、導入先の外へ移してから、もう一度実行してください。')
     }
     $dataLike = @(Find-DataLikeEntries $Root)
     if ($dataLike.Count -gt 0) {
-        throw ('導入先の中に、pip0 のデータらしいもの（' + $dataLike[0] + '）があるため、消しません。中身を確かめてから、手で消してください。')
+        throw ('導入先の中に、pip0 のデータらしいもの（' + $dataLike[0] + '）があるため、消しません。中身を確かめ、導入先の外へ移してから、もう一度実行してください。')
     }
+}
+
+# プログラムのフォルダーを消します。消す直前に、Assert-ProgramFolderRemovable でもう一度確かめます
+# （1/8 の前に確かめた後で、変わっていることがあるため）
+function Remove-ProgramFolder([string]$Root, $Locations, [string]$Stamp) {
+    Assert-ProgramFolderRemovable $Root $Locations
 
     # このスクリプトやコマンドの「今いるフォルダー」が導入先の中だと消せないため、外へ移る
     Set-Location -LiteralPath $env:USERPROFILE
@@ -516,8 +550,7 @@ function Remove-ProgramFolder([string]$Root, $Locations, [string]$Stamp) {
         catch {
             if ($attempt -eq 5) {
                 throw ('プログラムのフォルダーを消せませんでした（使用中のファイルがあります）：' + $Root +
-                    '。pip0 から開いたアプリ、ブラウザー、導入先を開いているエクスプローラーやコマンド プロンプトを閉じてから、もう一度実行してください。' +
-                    'ここまでの手順（全復元、登録の解除）は終わっています。')
+                    '。pip0 から開いたアプリ、ブラウザー、導入先を開いているエクスプローラーやコマンド プロンプトを閉じてから、もう一度実行してください。')
             }
             Start-Sleep -Seconds 1
         }
@@ -546,18 +579,37 @@ function Write-DataLocations($Locations, $Summary) {
     Write-Step ('  保管庫（退避したファイルの本体と manifest.json）  ：' + $vaultDir)
     Write-Step ('    記録 ' + $Summary.Total + ' 件：元の場所に戻ったもの ' + $Summary.Restored + ' 件、退避の前に止まったもの（原本は元の場所） ' +
         $Summary.NotEvacuated + ' 件、ゴーストが見つからないもの ' + @($Summary.Missing).Count + ' 件')
+    if (@($Summary.Unknown).Count -gt 0) {
+        Write-Caution ('保管庫の items の、名前が項目ID ではないフォルダー（3/8 で表示。pip0 は戻せません）：' +
+            ((@($Summary.Unknown) | ForEach-Object { $_.Folder }) -join '、'))
+    }
     Write-Step ('  DB の鍵：Windows の資格情報マネージャー →「Windows 資格情報」→「汎用資格情報」の「' +
         (Get-JsonField $Locations 'KEY_SERVICE') + '」（ユーザー名 ' + (Get-JsonField $Locations 'KEY_NAME') + '）')
     Write-Step ('  pip0 専用フォルダー（あなたのファイル）：' + $pip0Root)
     Write-Step '  ブラウザーの拡張機能「pip0 連携」：chrome://extensions または edge://extensions で削除します'
     Write-Host ''
     Write-Step '手で消すときの順番（必要な場合だけ。消したものは元に戻せません）'
-    Write-Step '  1. 自分のファイルがすべて元の場所にあることを確かめる（「ゴーストが見つからない」ものは、保管庫の content から取り出す。'
-    Write-Step ('     取り出し方は ' + (Join-Path $vaultDir 'README.txt') + '）')
+    Write-Step '  1. 自分のファイルがすべて元の場所にあることを確かめる（「ゴーストが見つからない」ものと、名前が項目ID ではないフォルダーの'
+    Write-Step ('     中身は、保管庫の content から取り出す。取り出し方は ' + (Join-Path $vaultDir 'README.txt') + '）')
     Write-Step ('  2. エクスプローラーで、データのフォルダー（' + $dataDir + '）を消す（保管庫も中にあります）')
     Write-Step '  3. 資格情報マネージャーで「pip0」を削除する（鍵を消すと、暗号化DB は二度と読めません）'
     Write-Step 'もう一度 pip0 を導入する場合は、2 と 3 をせずに残しておけば、索引や操作履歴を引き継げます。'
     Write-Step '全復元で「自動処理の停止」が記録されています。もう一度導入したときは、自動処理は止まったままです（python -m pip0 resume で再開）。'
+}
+
+# 登録を解除した後（4/8 より後）に止まり、プログラムのフォルダーが残っているときに、続け方と、
+# 消さずに pip0 を使い続けるときの戻し方を表示します（どのコマンドも、何度実行しても同じ結果になります）
+function Write-KeepUsingSteps([string]$Root, [string]$Python) {
+    $scriptsDir = Join-Path $Root 'scripts'
+    Write-Host ''
+    Write-Step 'プログラムのフォルダーは残っています。全復元で自動処理を止め、pip0 フォルダーの登録・ブラウザー拡張の受け口・'
+    Write-Step '自動起動を解除した後です（4/8〜6/8）。原因を取り除いてから、もう一度実行すると、続きから進みます。'
+    Write-Step '消さずに pip0 を使い続ける場合は、PowerShell で次を実行して元に戻します（自動起動は、使っていた場合だけ）。'
+    Write-Step ('  & "' + $Python + '" -I -m pip0 register-root')
+    Write-Step ('  powershell -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $scriptsDir 'register-native-host.ps1') + '" -InstallDir "' + $Root + '"')
+    Write-Step ('  powershell -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $scriptsDir 'autostart.ps1') + '" -Enable -InstallDir "' + $Root + '"')
+    Write-Step ('  & "' + $Python + '" -I -m pip0 resume')
+    Write-Step ('その後、pip0 を起動します：' + (Join-Path $scriptsDir 'start-pip0.cmd'))
 }
 
 # ----------------------------------------------------------------------
@@ -565,6 +617,8 @@ function Write-DataLocations($Locations, $Summary) {
 # ----------------------------------------------------------------------
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+# 4/8 で pip0 フォルダーの登録を解除した後か（止まったときに、戻し方を表示するため）
+$unregistered = $false
 
 try {
     Write-Step 'pip0 のアンインストール（プログラムの削除）'
@@ -590,6 +644,13 @@ try {
             'scripts\install.ps1 で導入し直してから、もう一度実行してください。何も消していません。')
     }
     $locations = Get-Pip0Locations $python
+    # 先に、プログラムのフォルダーを消せる状態かを確かめる（消せないなら、終了の依頼も全復元も登録の解除もせずに止まる）
+    try {
+        Assert-ProgramFolderRemovable $InstallDir $locations
+    }
+    catch {
+        throw ($_.Exception.Message + '何も変えていません。')
+    }
 
     Write-Step ('  導入先（消すもの）：' + $InstallDir)
     Write-Step ('  データ（消さないもの）：' + (Get-JsonField $locations 'DATA_DIR'))
@@ -643,10 +704,18 @@ try {
         foreach ($item in @($summary.Missing)) {
             Write-VaultItem $item
         }
-        if (-not $AcceptMissingGhosts) {
-            Write-Step '  中身を取り出してから続ける場合は、-AcceptMissingGhosts を付けて実行し直してください（保管庫は消しません）。'
-            $stopHere = $true
+    }
+    if (@($summary.Unknown).Count -gt 0) {
+        Write-Caution ('保管庫の items に、名前が項目ID（32桁の英数字）ではないフォルダーで、退避の記録か中身があるものがあります' +
+            '（名前を変えた・コピーした項目のフォルダー等）。pip0 は、これを項目として扱えず、全復元でも戻せません。消さないでください。')
+        foreach ($item in @($summary.Unknown)) {
+            Write-VaultItem $item
         }
+        Write-Step '  名前を変えた場合は、manifest.json の "item_id" と同じ名前に戻してから、もう一度実行してください（全復元で戻ります）。'
+    }
+    if (((@($summary.Missing).Count + @($summary.Unknown).Count) -gt 0) -and (-not $AcceptMissingGhosts)) {
+        Write-Step '  中身を取り出してから続ける場合は、-AcceptMissingGhosts を付けて実行し直してください（保管庫は消しません）。'
+        $stopHere = $true
     }
     if ($stopHere) {
         Write-Host ''
@@ -656,7 +725,12 @@ try {
         Write-Step ('  - 手で取り出す方法：' + (Join-Path $vaultDir 'README.txt'))
         exit 1
     }
-    Write-Step '  元の場所に戻っていない項目はありません。'
+    if ((@($summary.Missing).Count -eq 0) -and (@($summary.Unknown).Count -eq 0)) {
+        Write-Step '  元の場所に戻っていない項目はありません。'
+    }
+    else {
+        Write-Step '  -AcceptMissingGhosts の指定により、続けます（上の中身は、保管庫に残したままです）。'
+    }
 
     Write-Section '4/8 pip0 フォルダーの登録（同期ルート）を解除します'
     $code = Invoke-Live $python @('-I', '-X', 'utf8', '-m', 'pip0', 'unregister-root')
@@ -664,6 +738,7 @@ try {
         throw ('pip0 フォルダーの登録を解除できませんでした（終了コード ' + $code + '。理由は上の表示）。プログラムは消していません。' +
             '全復元は終わっています。原因を取り除いてから、もう一度実行してください。')
     }
+    $unregistered = $true
     [void](Wait-Pip0Exit $InstallDir 30)
 
     Write-Section '5/8 ブラウザー拡張の受け口の登録を解除します'
@@ -708,5 +783,8 @@ try {
 catch {
     Write-Host ''
     Write-Host ('エラー：' + $_.Exception.Message) -ForegroundColor Red
+    if ($unregistered -and (Test-Path -LiteralPath $InstallDir -PathType Container)) {
+        Write-KeepUsingSteps $InstallDir $python
+    }
     exit 1
 }

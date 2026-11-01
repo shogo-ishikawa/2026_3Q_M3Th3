@@ -75,17 +75,19 @@ pip0 は、次の3つのプログラムで動きます。
 | `%LOCALAPPDATA%\pip0\pip0.db`（と `-wal`） | 索引、解析結果（本文の抜粋、色、グラフらしさ、機密の判定）、ファイルの由来、操作履歴、保管庫の項目 | SQLCipher（AES-256） |
 | Windows の資格情報マネージャー（`pip0` / `database-key-v1`） | DB の鍵（64文字の16進数）。「この PC だけ」（`CRED_PERSIST_LOCAL_MACHINE`）で保存し、移動プロファイルでほかの PC へ持ち出さない | Windows が DPAPI で保護 |
 | `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\content` | 退避したファイルの本体 | **しない**（下の注を参照） |
-| `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\manifest.json` | 復元に必要な最小限の情報（元のパス、サイズ、更新日時、ハッシュ、状態、ダウンロード元の印の種類 `ZoneId`）。URL は書かない | **しない**（下の注を参照） |
-| `%LOCALAPPDATA%\pip0\control\` | 自動処理の停止の印、全復元の依頼と進み具合（件数だけ）、常駐処理の状態（`service.status.json`。件数と機能の状態だけで、パスは書かない）、終了の依頼（`shutdown.request.json`） | しない（解析内容を含まない） |
+| `%LOCALAPPDATA%\pip0\vault\items\<項目ID>\manifest.json` | 復元に必要な最小限の情報（元のパス、退避したときの `PIP0_ROOT`、サイズ、更新日時、ハッシュ、状態、ダウンロード元の印の種類 `ZoneId`。7-1）。URL は書かない | **しない**（下の注を参照） |
+| `%LOCALAPPDATA%\pip0\control\` | 自動処理の停止の印（`automation.stopped`）、全復元の依頼（`restore_all.request.json`。依頼の時刻と番号だけ）と進み具合（`restore_all.progress.json`。件数と依頼の番号だけ）、常駐処理の状態（`service.status.json`。件数と機能の状態だけで、パスは書かない）、終了の依頼（`shutdown.request.json`。読んだ依頼と、起動の前の依頼には「済み」の印 `done` を書く） | しない（解析内容を含まない） |
 | `%LOCALAPPDATA%\pip0\locks\service.lock` | 常駐処理と、保管庫・シェルを使うコマンドが、同時に2つ動かないための印（中身なし） | しない |
 | `%LOCALAPPDATA%\pip0\logs\` | 動作の記録（エラーの種類と件数のみ。ファイル名・本文・URL は書かない） | しない（解析内容を含まない） |
 | `%USERPROFILE%\pip0\` | pip0 専用フォルダー（M1 の仕分け先、M4 の同期ルート） | ユーザーのファイルそのもの |
 
 注：保管庫の本体と manifest.json を暗号化しないのは、①元の場所でも暗号化されていなかったユーザーのファイルであり、②鍵をなくしたとき（Windows の再設定など）にファイルを取り出せなくなる危険を避けるためです。保管庫はユーザーのプロファイルの中（本人だけが読める場所）に置きます。DB の鍵を失っても、`python -m pip0 restore-all` は manifest.json から項目を読み直して復元できます。
 
+ファイルにも DB にも書かず、常駐処理のメモリーの中だけに持つもの：作業文脈（ウィンドウタイトルなど）、M5 の消音の組、浮上式デスクが覚える本文の先頭（解析済みの文書ごとに `desk.TEXT_CHECK_CHARS`＝2,000文字。DB の本文と同じものを、読み直さないために持つ。SQLite のページのキャッシュと同じく、pip0 を終了すると消える）。
+
 ### 4-2. 高負荷処理の条件（3-2）
 
-- 高負荷処理：解析（本文の抽出、画像の色と形）、ハッシュの計算、保管庫へのコピー（M4 の退避）。
+- 高負荷処理：解析（本文の抽出、画像の色と形）、解析と退避のためのハッシュの計算、保管庫へのコピー（M4 の退避）。復元のときのハッシュの確認（元の場所のファイルと、保管庫から取り出したもの。`vault.restore`）と、ゴーストを開いたときに pip0 シェルが行う保管庫のハッシュの確認は、復元の一部として、この条件と関係なく行います。
 - 実行の条件：`GetSystemPowerStatus` の電源が「AC」で、**かつ** `GetLastInputInfo` によるセッション全体の無操作時間が 180 秒以上。`GetLastInputInfo` はキーボードとマウスの入力の時刻で、pip0 のウィンドウだけでなく、サインイン中のセッション全体の入力が対象です。
 - どちらかの値を取得できないとき（電源が「不明」など）は、条件を満たさないものとして扱い、高負荷処理をしません（満たしたことにはしません）。
 - 実行中は、区切り（1ファイルごと、ハッシュとコピーは 1MB ごと）で条件を確かめ直し、満たさなくなったら一時停止します。途中のファイルは結果を保存せずに順番待ちへ戻し、次に条件を満たしたときに、そのファイルの最初からやり直します。
@@ -93,11 +95,14 @@ pip0 は、次の3つのプログラムで動きます。
 
 ### 4-3. M1 流入処理
 
-- **完了の確認**：①拡張機能から「完了」の記録が届き、そのパスのファイルが報告どおりのサイズで存在し、ほかのプロセスが使っていないとき。②記録がないときは、ダウンロードフォルダーの**直下**にあり、`.crdownload` などの途中の名前でなく、サイズと更新日時が `DOWNLOAD_STABLE_SECONDS`（2秒）変わらず、ほかのプロセスが使っていないとき。サブフォルダーの中のファイル（エクスプローラーの「すべて展開」でできた `Downloads\<zip の名前>\`、移動・コピーしたフォルダーの中身など）は、拡張機能の記録がそのパスを名指ししているときだけ扱います。どちらも満たさないファイルは、移動も改名もしません。
+- **完了の確認**：①拡張機能から「完了」の記録が届き、そのパスのファイルが報告どおりのサイズで存在し、ほかのプロセスが使っていないとき。②記録がないときは、ダウンロードフォルダーの**直下**にあり、`.crdownload` などの途中の名前でなく、サイズと更新日時が `DOWNLOAD_STABLE_SECONDS`（2秒）変わらず、ほかのプロセスが使っていないとき。サブフォルダーの中のファイル（エクスプローラーの「すべて展開」でできた `Downloads\<zip の名前>\`、移動・コピーしたフォルダーの中身など）は、拡張機能の記録がそのパスを名指ししているときだけ扱います。どちらも満たさないファイルは、移動も改名もしません。提案を作る `inflow.build_proposal` でも同じ決まりを確かめ直し、当てはまらないファイルは「何もしない提案」（`no_candidate`）にします。
 - **ミニドック**：完了を確認した直後から、画面の右下に3秒表示します。1つのダウンロードが1行です。
   - 複数のダウンロード：同時に表示するのは3行までで、それを超えた分は順番待ちにし、行が空いたときに3秒の表示を始めます。行ごとに3秒を数えます。
   - 操作中：マウスがミニドックの上にある間は、全行の残り時間を止めます。マウスが離れたら、残り時間が1秒未満の行は1秒にしてから数え直します。
-  - 終了：行の時間が尽きたら、その行の提案を自動で実行して行を閉じます。ユーザーがボタンを押したら、その操作をすぐに実行して行を閉じます。行がなくなったらミニドックを閉じます。
+  - 終了：行の時間が尽きたら、その行の提案を自動で実行して行を閉じます。ユーザーが「開く」以外のボタン（「提案どおり」、別の仕分け先、「そのまま」）を押したら、その操作をすぐに実行して行を閉じます。「開く」はファイルを開くだけで、行を残します（`inflow.MiniDock.user_action`）。行がなくなったらミニドックを閉じます。
+  - 制約（コードを読んで分かったこと。直す必要がある）：pip0 シェルは、ボタンを押した行のボタンを、本体からの次の表示まで押せなくします。本体は「開く」だけでは表示し直さないため、「開く」の後は、その行のほかのボタンを押せないまま、時間が尽きると提案が実行されます（[status.md](status.md) の7節）。
+  - 画面を見られない間（pip0 シェルが落ちた、シェルが画面を準備できない、画面のロック中・スリープ中）：全行の残り時間を止め、表示も自動の実行もしません（順番待ちの行も数え始めない）。また見られるようになったら、どの行も少なくとも3秒にして表示し直します。そのときマウスがミニドックの上に残っていれば（同じシェルで、まだ「離れた」の知らせがない）、離れるまで止めたままにし、離れてから3秒以上を数えます。起動し直したシェルは、前のシェルのマウスの状態を引き継ぎません。
+  - ミニドックの操作（マウスの出入り、ボタン）の知らせは、ほかのシェルの知らせより先に処理します（6-10 の service）。
 - **仕分け先**：`rules.SORT_RULES` の規則ごとに点数を付け、`SORT_MIN_SCORE`（2点）以上で最高点の規則を提案します。ファイル名・文書のタイトル・ダウンロード開始時のページ題名に規則の語があれば +2、作業中のアプリのウィンドウタイトル（Slack の会話名など）に規則の文脈語があれば +2、拡張子が一致すれば +1。点数の根拠を、ミニドックと操作履歴に残します。
 - **作業文脈の扱い**：ウィンドウタイトルはその場で使うだけで、DB には保存しません。操作履歴には「作業中のアプリ（Slack）の会話名に『予算』」のように、一致したアプリ名と規則の語だけを残します。
 - **新しい名前（「日付_内容_送信元」）**
@@ -105,17 +110,24 @@ pip0 は、次の3つのプログラムで動きます。
   - 日付：ダウンロード完了日（拡張機能の終了時刻、なければ pip0 が完了を確認した時刻）を、端末の現地時刻の `YYYY-MM-DD` にしたもの。
   - 内容：①Office 文書の `docProps/core.xml` のタイトル、PDF の文書情報のタイトル（3秒の間に読むのは `LIGHT_METADATA_MAX_BYTES` 以下のファイルだけ）、②解析済みなら解析で得たタイトル、③画像の解析結果（例：「青いグラフ」）。どれもなければ「解析待ち」とし、移動だけを先に行い、改名は解析の後に行います。解析しても分からなければ、送信元が分かる場合は「内容不明」、送信元も分からない場合は改名しません。
   - 送信元：ブラウザー拡張の記録（ダウンロード URL、なければ参照元 URL のホスト名）、それもなければ Windows が付ける `Zone.Identifier` の `HostUrl`／`ReferrerUrl`。`rules.SOURCE_RULES` に当てはまれば「Slack」などの名前、当てはまらなければホスト名の主要部分（例：`example.co.jp`）。記録がなければ「送信元不明」。ダウンロード開始時に表示していたタブは、送信元とは限らないため、送信元には使いません。
-  - 禁止文字（`< > : " / \ | ? *` と制御文字）は全角の文字に置き換え、予約名（`CON` 等）と末尾の点・空白を避け、拡張子は元のまま残します。同じ名前があれば「 (2)」を付け、既存のファイルを上書きしません。
+  - 禁止文字（`< > : " / \ | ? *` と制御文字）は全角の文字に置き換え、予約名（`CON` 等）と末尾の点・空白を避け、拡張子は元のまま残します。拡張子のないファイルには拡張子を付けません（名前の中の「.」を全角の「．」にします。例：`2026-10-29_内容不明_example．co．jp`。Windows は最後の「.」から後ろを拡張子とみなすため）。同じ名前があれば「 (2)」を付け、既存のファイルを上書きしません。
 - **自動実行**：ミニドックの時間が尽きたとき、自動仕分け・自動改名が有効で、キルスイッチが押されていなければ、提案を実行します。仕分け先の候補がない行は、何もせずに閉じます。
-- **画面を見せられないとき**：pip0 シェルが落ちて起動し直すまでの間に完了したダウンロードは、提案を待たせ（最大50件）、シェルが戻ってからミニドックに出します（見えないまま自動で実行しない）。画面なし（`serve --no-shell`、開発用）のときは、提案そのものをせず、索引と由来（送信元）だけを記録します。
-- **pip0 が動いていなかった間のダウンロード**：その間に受け口が書いたブラウザー拡張の記録（24時間以内）は、起動の後に、提案もファイルの移動もせず、記録どおりの場所に同じ大きさのファイルがあるときだけ、索引と由来を記録します（時間がたっていて、ユーザーがもう使っているかもしれないため）。
+- **画面を見せられないとき**：「画面を見られる」のは、①pip0 シェルが動いていて、②シェルの準備（`init`）の答えの `capabilities.ui` が true で、③画面のロック中・スリープ中でないときだけです（`service.screen_available`）。見られない間に完了したダウンロードは、提案を待たせ（最大50件。それより古いものは提案の対象から外し、ファイルは動かさない）、見られるようになってからミニドックに出します（見えないまま自動で実行しない）。
+  - シェルが `capabilities.ui` を true と答えないとき（画面を準備できない）は、状態の表示に機能「画面」（`ui`）を×で出し、画面を準備できるシェルが動くまで提案を待たせます（pip0 を起動し直すと、もう一度試します）。
+  - 画面のロック（`session.event` の `lock`）から解除（`unlock`）まで、スリープ（`suspend`）から復帰（`resume`）まで、提案を待たせ、表示中の行も止めます。ロックを解除すると、スリープの待たせも終わります。待たせている間は、状態の表示に本体の機能「ダウンロードの提案」（`screen`）を×で出します（理由と件数を書く。通知はしない）。サインアウト（`logoff`）と Windows の終了（`shutdown`）の知らせでは待たせません（ほかのアプリが止めて取り消されることがあり、取り消しの知らせは届かないため）。
+  - 制約：pip0 シェルが落ちている間にロックを解除すると、本体は解除を知らないため、待たせたままになります。そのときは状態の表示の理由に従い、いったん画面をロックして（Windows キー＋L）解除します。
+  - 画面なし（`serve --no-shell`、開発用）のときは、提案そのものをせず、索引と由来（送信元）だけを記録します。
+- **pip0 が動いていなかった間のダウンロード**：その間に受け口が書いたブラウザー拡張の記録（24時間以内）は、起動の後に、提案もファイルの移動もせず、記録どおりの場所に同じ大きさのファイルがあるときだけ、索引と由来を記録します（時間がたっていて、ユーザーがもう使っているかもしれないため）。「動いていなかった間」の記録かは、時刻ではなく、起動の時点でまだ結び付いていなかった記録の番号で見分けます（時計が戻されても取り違えないため）。
 
 ### 4-4. M2 作業連動・浮上式デスク
 
 - **取得する文脈**：前面のウィンドウのプロセス名、ウィンドウタイトル、ウィンドウの種類（ファイルダイアログかどうか）。シェルが `SetWinEventHook`（前面の切り替えとタイトルの変化）で受け取り、本体へ知らせます。画面の画像は取得しません。
 - **対応アプリ**：Slack デスクトップアプリ（タイトルから会話名を読む）、Chrome／Edge（タイトルからページ題名を読む）、Word／Excel／PowerPoint ほか（タイトルから文書名を読む）。`rules.APP_RULES` に追加できます。
 - **チャット相手**：Slack のタイトルが `rules.SLACK_TITLE_PATTERNS` のどれかに一致したときだけ、会話名（チャンネル名・相手）を読み取ります。一致しなければ「チャット相手：取得不可」と表示し、推測しません。Slack のタイトルの形は実機で確認していません。
-- **順位の計算**（`desk.rank_files`）：文脈の語（会話名・ページ題名・文書名から取り出した語）ごとに、ファイル名・タイトルに含まれれば +3、本文（解析済み）に含まれれば +2。作業中のアプリと入手経路が同じ（Slack 使用中に、Slack から入手したファイル）なら +2。7日以内に使用・変更されていれば +1、30日以内なら +0.5。`DESK_MIN_SCORE` 以上の上位3件を表示し、3件未満ならその件数だけを表示します。
+- **文脈の語**（`context.extract_keywords`）：会話名・ページ題名・文書名を、空白・記号と、文字の種類（数字・英字・カタカナ・それ以外）が変わる所で分けた語です。ひらがな（助詞・送り仮名）は、M3 の検索と同じく区切りとして読み飛ばします（「予算の相談」→「予算」「相談」）。ただし `context.KEEP_WHOLE_WORDS` の語（「打ち合わせ」など）と、分けると2文字以上の語が残らない語（「引き継ぎ」）は分けません。2文字未満の語と、`rules.CONTEXT_STOP_WORDS` の語（アプリの名前、the・and・of などの英語の機能語）は除きます。形態素解析は使わないため、漢字の複合語（「年度予算」）は分けません。
+- **順位の計算**（`desk.rank_files`）：文脈の語ごとに、ファイル名・タイトルに含まれれば +3、本文（解析済みの本文の先頭 `TEXT_CHECK_CHARS`＝2,000文字）に含まれれば +2。英字・数字・カタカナの語は、1つの語として含まれるときだけ数えます（「booking」の中の「book」、「グラフィック」の中の「グラフ」、`BudgetPlan` のように大文字で区切った名前の中の語は数えない）。漢字の語は、ほかの漢字に続いていても数えます（「予算案」の中の「予算」）。作業中のアプリと入手経路が同じ（Slack 使用中に、Slack から入手したファイル）なら +2。7日以内に使用・変更されていれば +1、30日以内なら +0.5。`DESK_MIN_SCORE` 以上の上位3件を表示し、3件未満ならその件数だけを表示します。
+- **本文の読み方**：本文の先頭は、ファイルごとに解析の日時（`analysed_at`）と一緒にメモリーに覚え（ディスクには書かない）、解析し直すまで DB から読み直しません。1回の計算で DB から新しく読む本文は `TEXT_LOADS_PER_RANKING`（200件）までです。そのため、起動の直後などは、本文を読み終えるまで、一部のファイルに本文の点が付きません。
+- **前面のウィンドウが次々に変わるとき**：常駐処理は、まだ処理していない古い `context.foreground` の知らせを捨て、メインループの1回に1回だけ、最後の知らせで順位を計算します（その1つ前の知らせは、ファイルダイアログが直前の文脈を引き継ぐために読むだけ）。
 - **透過**：デスクの外周から `DESK_APPROACH_PX`（48px）以内にマウスが来たら、不透明度を 0.15 にして、クリックを下のウィンドウへ通します。デスクの左端には常に操作できる小さな「つまみ」があり、つまみにマウスを置くと（0.3秒）、デスクが不透明に戻って候補を選べる「操作モード」になります。マウスがデスクから 48px 以上離れると、操作モードは終わります。
 - **シェイク**：デスクの表示中だけ、シェイク判定のためにマウスの位置を調べます（33ms ごと、100ms ごとにまとめて本体へ送る）。0.8秒の間に、40px 以上の左右の振りの折り返しが4回以上あれば、すぐに隠します。判定は本体の `desk.ShakeDetector` です。
 - **再表示**：シェイクで隠した後は、作業文脈が変わり（別のアプリ、別の会話、別のページ）、かつ隠してから60秒たったときに再表示します。通知領域アイコンの「デスクを表示」では、すぐに再表示します。
@@ -127,7 +139,7 @@ pip0 は、次の3つのプログラムで動きます。
 
 | 手掛かり | 例 | 照合先 | 一致の理由の例 |
 | --- | --- | --- | --- |
-| 時期 | 先週、昨日、3日前、先月、最近 | ダウンロード日時（拡張機能の記録）→ pip0 が流入を確認した日時 → 最終更新日時 の順 | 時期：ダウンロード日 2026-10-22（ブラウザー拡張の記録） |
+| 時期 | 先週、昨日、3日前、2か月前、先月、先々月、今月度、最近、一昨年（おととし）、今年度、昨年度（前年度） | ダウンロード日時（拡張機能の記録）→ pip0 が流入を確認した日時 → 最終更新日時 の順 | 時期：ダウンロード日 2026-10-22（ブラウザー拡張の記録） |
 | 入手経路 | Slackで貰った、メールで | ファイルの由来（拡張機能の記録、Zone.Identifier） | 入手経路：Slack（files.slack.com からのダウンロード） |
 | 色 | 青い、赤 | 画像の色の解析（色付きの部分のうち、その色の割合） | 色：青系 62%（画像の色解析） |
 | 見た目 | グラフ、写真、画像 | 画像のグラフらしさ、Office 文書のグラフの有無 | 見た目：グラフらしさ 0.82（軸の線、単色の領域、色数） |
@@ -137,7 +149,9 @@ pip0 は、次の3つのプログラムで動きます。
 - すべての手掛かりに一致したファイルを「一致」として表示し、手掛かりごとに一致の理由を示します。
 - 一致がないときは、手掛かりの一部に一致したファイルを「一部一致」として、一致しなかった手掛かりと理由（未解析、入手経路の記録なし等）とともに示します。
 - **情報不足と該当なしの区別**：一致しなかった理由が「未解析」「入手経路の記録なし」のファイルがあるときは「情報不足」、すべての情報がそろっていて一致しないときは「該当なし」と表示します。由来の記録がないファイルを、Slack 等から入手したとは扱いません。
-- 相対日時は端末の現地時刻で、週は月曜始まり（`WEEK_STARTS_ON`）です。
+- 相対日時は端末の現地時刻で、週は月曜始まり（`WEEK_STARTS_ON`）、年度は4月始まり（`FISCAL_YEAR_START_MONTH`）です。時期の言葉の一覧は `timeutil.FIXED_WORDS` と、「3日前」「2週間前」「1か月前」の形（`timeutil.RELATIVE_PATTERNS`）です。
+- 時期の言葉が別の言葉の一部のとき（漢字で始まる時期の言葉のすぐ前が漢字、または、すぐ後ろが「度」）は、時期として扱いません（「一昨年度」、「日本日報」の中の「本日」）。時期として使う「度」の付いた言葉（「今年度」「今月度」）は、一覧に別の言葉として書いてあります。
+- 1文字の漢字の色・種類の言葉（「赤」「表」）は、漢字が続くとき（「青森」「発表」）と、`context.OTHER_MEANING_WORDS` の言葉の一部のとき（「赤ちゃん」「表す」）は、手掛かりにしません。「赤の」「赤だけ」「表より」のように助詞が続くときは手掛かりにします。
 
 ### 4-6. M4 シュレディンガー退避ストレージ
 
@@ -149,6 +163,7 @@ pip0 は、次の3つのプログラムで動きます。
   - pip0 自身の読み取り（解析、ハッシュ、コピー）は、最終アクセス日時を更新しない開き方（`SetFileTime` に 0xFFFFFFFF を渡す）で行い、利用として記録しません。ただし、ゴースト化の直前に pip0 シェルが原本を確かめ直す読み取り（`CfOpenFileWithOplock` の取っ手では `SetFileTime` が使えない）は、最終アクセス日時を更新することがあります（[shell/README.md](../shell/README.md) の制約）。その日時は、ゴーストを戻した後の判定で「利用」と数えられ、次の退避を遅らせる方向にだけ働きます。
   - 観測期間の始まり：pip0 がそのファイルを見つけた時刻と、ファイルの作成日時の遅いほう。同じパスでも、前のファイルが消えた後に置かれたもの、ファイル番号が変わったもの（別のファイルで置き換えた）、更新日時が前より古くなったもの（古いコピーで上書きした）は、観測を始め直します（`scanner.is_different_file`）。コピーしたファイルが、前のファイルの観測期間を受け継いで、すぐに「長期間未読」とされないためです。
   - 判定：pip0 の観測期間が `MIN_OBSERVED_DAYS`（90日）未満なら「判定不能」。②も④も使えない（Recent の記録が無効で、最終アクセス日時の更新も無効）なら「判定不能」。最後の利用から `UNREAD_DAYS`（90日）以上たっていれば「長期間未読」。「判定不能」のファイルは退避しません。
+  - 候補は `EVACUATE_CHECK_HOURS`（6時間）ごとに探します。1件ずつワーカーに渡す直前に、そのファイルの最終アクセス日時を記録し直して判定し直し（`evacuation.explain`）、候補を探した後に使われたファイルは退避しません。
   - ほかに、`EVACUATE_MIN_SIZE_BYTES`（1MB）未満、ユーザーが「常にこのデバイス上に保持する」にしたもの、ほかのプロセスが使用中のもの、一時ファイル、読み取り専用のもの（Cloud Files がゴーストにできない）、EFS で暗号化されたもの（暗号化していない保管庫へ平文で写さないため）は退避しません。
 - **保管庫の場所**：保管庫（`VAULT_DIR`）とデータフォルダー（`DATA_DIR`）が、クラウドの同期フォルダーの中にあるとき、判定できないとき、NTFS の内蔵ドライブにないときは、退避しません（`evacuation.vault_location_problem`）。ゴーストにした後は、保管庫のコピーが中身の唯一の置き場所になるためです。
 - **空き容量**：保管庫が同じドライブにある場合、退避（保管庫へコピーしてからゴーストにする）しても、ドライブ全体の空き容量はほとんど変わりません。pip0 は容量が減ったとは表示しません。
@@ -157,14 +172,19 @@ pip0 は、次の3つのプログラムで動きます。
 ### 4-7. M5 スマート・ハザードガード
 
 - **機密の判定**（`sensitivity.overall`）
-  - 機密：名前に `SENSITIVE_NAME_KEYWORDS` の語、`SENSITIVE_DIRS` の中、本文に `SENSITIVE_CONTENT_KEYWORDS` の語、Office の秘密度ラベル（`docProps/custom.xml` の `MSIP_Label_…_Name`）に `SENSITIVE_LABEL_KEYWORDS` の語、本文に検査用数字が正しい12桁の個人番号、Luhn 検査に合格するカード番号らしい数字。
-  - 非機密：解析済みで、どの規則にも当てはまらないもの。
-  - 未判定：まだ解析していない、解析に失敗した、解析できない形式のもの（名前の規則に当てはまれば機密）。未判定を非機密とは扱いません。
-- **ドラッグの検知**：シェルが低レベルのマウスフック（`WH_MOUSE_LL`）で、左ボタンを押したまま一定距離動いたことを検知します。押した位置がエクスプローラー（デスクトップを含む）のウィンドウなら、シェルのオートメーション（`Shell.Application`）で、そのウィンドウで選ばれている項目をドラッグ中のファイルとします。pip0 のデスク・ミニドックからのドラッグは、シェル自身が知っています。それ以外のアプリ（メールの添付など）からのドラッグは、ファイルを特定できないため対象外です。
-- **警告**：機密（赤い枠）または未判定（橙色の枠と「機密か未判定」の表示）のファイルを含むドラッグを検知した時点で、すべての画面の枠を光らせます。ただし、そのドラッグのファイルがすべて「消音中」の場合は、開始時には表示せず、消音されていない送り先アプリの上に来た時点で表示します。送り先が消音中のアプリの上にある間は表示しません。
+  - 機密：名前に `SENSITIVE_NAME_KEYWORDS` の語、`SENSITIVE_DIRS` の中、本文・タイトルに `SENSITIVE_CONTENT_KEYWORDS` の語、Office の秘密度ラベル（`docProps/custom.xml` の `MSIP_Label_…_Name`）に `SENSITIVE_LABEL_KEYWORDS` の語、本文に検査用数字が正しい12桁の個人番号（`DETECT_MY_NUMBER`）、Luhn 検査に合格するカード番号らしい数字（`DETECT_CARD_NUMBER`）。
+  - ここでの「本文」は、解析のときに読んだ文字の全体です。本文に加えて、機密の判定のためだけに次の場所も読みます（`analyse_text.EXTRA_PARTS` ほか。DB には保存せず、検索や名前の提案にも使わない）：Word のヘッダー・フッター・脚注・文末脚注・コメントと、透かし・ワードアートの文字（VML の `v:textpath` の `string` 属性）、PowerPoint のノート・スライドマスター・スライドのレイアウト・ノートと配布資料のマスター、Excel のヘッダー・フッターと12桁以上の整数の数値のセル（`EXCEL_NUMBER_MIN_DIGITS`）、PDF の注釈（`/Contents`）とフォームの入力欄の値（`/V`）。
+  - 文書の全体を調べますが、DB に残すのは、見つけたもの（`content_reasons_json`。`[場所, 規則, 値]` のリストで、番号そのものは入れない）、そのときの中身の規則（`content_rules_json`）、読まなかった部分（`unread_json`）だけです。保存する本文は、これまでどおり先頭の `TEXT_MAX_CHARS` 文字です。
+  - 非機密：解析済みで、本文の文字を読めて、文書の全体を今の規則で調べ、どの規則にも当てはまらないもの。
+  - 未判定：まだ解析していない、解析に失敗した、解析できない形式のもの。本文の文字を取り出せなかったもの（画像、スキャンした PDF など。タイトルや秘密度ラベルがあっても。それらは機密の理由を加えるだけ）。上限（`PDF_MAX_PAGES`、`analyse_text.CHECK_MAX_CHARS`、大きすぎるシート）で一部しか読まなかったもの（理由に、読まなかった部分を書く）。どこまで読んだかの記録がない、前の版の pip0 の解析。解析の後に中身の規則（`SENSITIVE_CONTENT_KEYWORDS`、`DETECT_…`）へ語などを加え、まだ解析し直していないもの。名前・場所の規則に当てはまれば、解析していなくても機密です。未判定を非機密とは扱いません。
+  - 規則を変えたとき：名前・場所・タイトル・秘密度ラベルの規則と、規則から外した語は、すぐに効きます。加えた中身の語や番号の検査は、保存した本文の先頭ではすぐに効きますが、文書の全体では解析し直すまで調べないため、その文書は（ほかの理由で機密でなければ）未判定になります。解析し直す順番待ちに入れる関数（`analysis_queue.requeue_for_rule_changes`）はありますが、今の常駐処理（`service.py`）からは、まだ呼んでいません（ファイルを変更したときは、索引の見直しで解析し直します）。
+  - 調べていない場所：グラフ、SmartArt、埋め込まれたファイル、Excel のコメント・図形・数式が返した文字、PowerPoint のコメント、画像の中の文字（文字のある PDF の中の、スキャンしたページを含む）、XFA だけで作られた PDF のフォーム。ここに「社外秘」などがあっても見つけません。
+  - ドラッグのときの確かめ直し（`hazard.evaluate_items`）：今の大きさと更新日時を、解析したときの値と比べ、違えば「非機密」を「未判定」にします（機密はそのまま）。解析し直しを待っているファイルで、前回の解析の中身が機密の規則に当てはまるときは、機密として扱います（変更の後、まだ解析し直していない間に、古い判定で警告を弱めないため）。
+- **ドラッグの検知**：シェルが低レベルのマウスフック（`WH_MOUSE_LL`）で、左ボタンを押したまま一定距離動いたことを検知します。押した位置がエクスプローラー（デスクトップを含む）のウィンドウなら、シェルのオートメーション（`Shell.Application`）で、そのウィンドウで選ばれている項目をドラッグ中のファイルとします。pip0 のデスクからのドラッグは、シェル自身が知っています（ミニドックからはドラッグできません）。それ以外のアプリ（メールの添付など）からのドラッグは、ファイルを特定できないため対象外です。
+- **警告**：機密（赤い枠）または未判定（橙色の枠と「機密か未判定」の表示）のファイルを含むドラッグを検知した時点で、すべての画面の枠を光らせます。ドラッグの始まりでは、ドラッグ元のアプリ（エクスプローラーなど）を送り先とみなします（シェルは、マウスの下のアプリがドラッグ元から変わったときだけ `drag.target_changed` を送るため）。送り先のアプリに対してファイルがすべて消音中の間は表示せず、消音されていないアプリの上に来たら表示します。
 - **続行の確認**：警告が `HAZARD_MIN_VISIBLE_SECONDS`（0.5秒）以上表示された後に、ドラッグ元と別のアプリ（pip0 以外）のウィンドウの上でボタンが離されたとき、「続行した」とみなします。送り先のアプリがドロップを受け入れたかどうかは、Windows から取得できないため確かめていません。
 - **消音**：続行したファイル × そのアプリ（プロセス名）の組だけを、同じセッションの間は警告しません。別のファイルや別のアプリへの操作では警告します。ストアアプリ（UWP）は、枠のウィンドウ（`ApplicationFrameHost.exe`）ではなく、中で動くアプリ自身のプロセス名で区別します（作業文脈 `context.foreground` のプロセス名は、枠のウィンドウのままです）。
-- **セッション**：pip0 の起動、または Windows のロック解除・スリープからの復帰で始まり、画面のロック、サインアウト、スリープ、pip0 の終了で終わります。消音の記録はメモリーだけに持ち、セッションの終わりで消えます（無期限にはしません）。
+- **セッション**：pip0 の起動、または Windows のロック解除・スリープからの復帰で始まり、画面のロック、サインアウト、スリープ、pip0 の終了で終わります。消音の記録はメモリーだけに持ち、セッションの終わりで消えます（無期限にはしません）。pip0 シェルを起動し直したときも区切りとして消音を消します（シェルが落ちていた間のロック・スリープの知らせは届かないため）。シェルがロック・スリープの知らせを受け取れない間（機能 `session_events` が×）は、セッションの終わりが分からないため、消音しません（ドラッグのたびに警告する）。
 - 送信を止める機能（DLP）はありません。警告だけです。
 
 ### 4-8. 削除・退避・復元の区別
@@ -179,13 +199,15 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 
 ### 4-9. キルスイッチ（1クリック全復元）
 
-1. 通知領域アイコンの「全復元（自動処理を止める）」、または `scripts\restore-all.cmd`（UI が動かないとき）で始めます。
+1. 通知領域アイコンの「全復元（自動処理を止める）」、または `scripts\restore-all.cmd`（UI が動かないとき。`python -m pip0 restore-all`）で始めます。通知領域のメニューも、常駐処理が動いているときのコマンドも、押した・実行したときにすぐ全復元の依頼のファイル（`control\restore_all.request.json`、`{"at", "request_id"}`）を書きます（全復元が始まる前に pip0 が止まっても、依頼が残り、次の起動で全復元する）。依頼には依頼ごとの番号（`request_id`）を付けます。まだ応え終えていない依頼があるときの新しい依頼は、上書きせずに、その依頼に加わります（同じ番号を受け取る）。
 2. すぐに停止の印（`control\automation.stopped` と DB の設定）を書き、新しい自動仕分け・自動改名・自動退避を始めないようにします。
-3. 実行中の処理は、次の区切りで止めます（保管庫へのコピーは 1MB ごと）。ゴーストにする前のものは中止し、原本はそのままです。
-4. 退避中（ゴースト）のすべての項目を、1件ずつ復元します。最初に「終わっていない」（`finished: false`）と進み具合のファイル（`control\restore_all.progress.json`）に書き、1件ごとに件数（全体、成功、衝突、失敗、残り）を表示して書きます。全復元の依頼のファイルは、全復元が終わるまで消しません（途中で pip0 が止まっても、依頼と「終わっていない」が残る）。中断や再起動の後に実行し直すと、残りから続けます。
-5. 元の場所に別のファイルがある場合は上書きせず、横に「（pip0復元）」を付けた名前で戻して「衝突」とします。失敗した項目も、保管庫の内容と manifest.json は残します。
-6. 自動処理は、ユーザーが「自動処理を再開」（確認あり）を選ぶまで止まったままです。
+3. 実行中の処理は、次の区切りで止めます（保管庫へのコピーは 1MB ごと）。ゴーストにする前のもの（`copying`・`copied`・`failed`）は中止（`cancelled`）にし、原本はそのままです。中止を書けない項目があっても（manifest.json を書けない等）、ゴーストの復元は続けます（その項目の原本は元の場所のまま）。
+4. 退避中（ゴースト）のすべての項目を、1件ずつ復元します。最初に「終わっていない」（`finished: false`）と進み具合のファイル（`control\restore_all.progress.json`）に書き、1件ごとに件数（全体、成功、衝突、失敗、残り）を表示して書きます。進み具合には、応えている依頼の番号（`request_id`）と、書いた本当の時刻（`updated_at`）も書きます。依頼のファイルは、その依頼に応えた全復元が最後まで終わった後にだけ外します。途中で止まった全復元と、全復元の間に届いた新しい依頼のファイルは残します（次の全復元で応える）。中断や再起動の後に実行し直すと、残りから続けます。応え終えた依頼のファイルを外せずに残ったとき（ほかのプロセスが開いていた等）は、再開を妨げず、後の依頼もその依頼には加わらず、常駐処理が次に確かめるときに外します。
+5. 元の場所に別のファイルがある場合は上書きせず、横に「（pip0復元）」を付けた名前で戻して「衝突」とします。失敗した項目も、保管庫の内容と manifest.json は残します。戻せなかった項目は、項目ごとの理由（DB の `vault_items.last_error`。例：読み取り専用のゴースト、`PIP0_ROOT` の外の項目）を、全復元の結果、`vault list`、通知領域の吹き出しに出します。もう一度実行するように勧めるのは、理由に書かれたことをした後です。
+6. 自動処理は、ユーザーが「自動処理を再開」（確認あり）を選ぶまで止まったままです。全復元が途中のとき（応えていない依頼がある、進み具合が「終わっていない」）は、再開を断ります。
 7. 戻すのは、pip0 が退避したファイルだけです。自動仕分け・自動改名は戻しません（操作履歴に残っています）。pip0 以外の変更や、バックアップ全体の復旧はしません。
+
+`restore-all` のコマンドが、動いている常駐処理に依頼したときの待ち方は 6-8 にあります。
 
 ## 5. 開発の約束
 
@@ -198,6 +220,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - OS の機能は、引数の `platform`（`WindowsPlatform` または `FakePlatform`）を通して使います。Windows 専用の API を直接呼ぶのは `platform_windows.py` だけです。
 - DB への書き込みは、常駐処理ではメインのスレッドだけが行います。重い処理（解析、コピー）はワーカーのスレッドで、DB を使わない関数（引数でパスを受け取り、結果の辞書を返す）として書きます。例外は `vault.evacuate` で、状態が変わるたびに manifest.json と DB を書く（7-2）ため、ワーカーのスレッドで、そのスレッド専用の DB 接続（`database.open_database`）を使って動かします。
 - 時刻は `time.time()` の秒数（REAL）で保存し、表示と期間の計算は `timeutil` で現地時刻に直します。関数は `now` を引数で受け取り、テストで時刻を決められるようにします。
+- 常駐処理の予定（次に制御用のファイルを確かめる時刻、ミニドックの締め切りなど）も、時計の時刻で持ちます。時計が戻されたときだけ、戻った分だけ予定を早めます（`service.check_clock`、`inflow.MiniDock.shift_times`）。時計が進んだときは、長い処理と見分けられないため直しません。デスクの再表示の待ち時間、警告の表示時間、ダウンロードの大きさの安定の判定は、時計が戻されても直していません（6-10 の service と [status.md](status.md) の残っていること）。
 - ログ（`logging`）には、ファイル名、パス、本文、URL、ウィンドウタイトルを書きません。書くのは処理の種類、件数、エラーの種類、項目 ID だけです。
 
 ### 5-2. テスト
@@ -214,13 +237,13 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 
 - `config.load_config(overrides=None, read_user_file=True)` → 設定の辞書。パスは `Path`（未設定は `None`）。`DB_PATH`、`CONTROL_DIR`、`LOCK_DIR`、`LOG_DIR`、`VAULT_DIR` を含む。`CONFIG_ERRORS`（危険な場所の組み合わせの説明）、`CONFIG_WARNINGS`。
 - `config.index_folders(config)` → `[(Path, location_kind), ...]`（`'downloads'`、`'pip0_root'`、`'extra'`）。`config.is_inside(child, parent)` → bool。
-- `timeutil.now()`、`to_local(ts)`、`local_date_str(ts)`、`local_datetime_str(ts)`、`find_period(text, now_ts, week_starts_on=0, recent_days=14)` → `{"word", "start", "end", "label", "span"}` または `None`（`end` は含まない）。
+- `timeutil.now()`、`to_local(ts)`、`local_date_str(ts)`、`local_datetime_str(ts)`、`find_period(text, now_ts, week_starts_on=0, recent_days=14, fiscal_year_start_month=4)` → `{"word", "start", "end", "label", "span"}` または `None`（`end` は含まない）。時期の言葉は `timeutil.FIXED_WORDS` と `RELATIVE_PATTERNS`。
 - `keystore.MemoryKeystore`、`keystore.OsKeystore`、`keystore.get_or_create_key(keystore, db_exists)`、例外 `KeystoreUnavailable`、`KeyMissing`。資格情報マネージャーの失敗（ログオンの種類で使えない等）は、`OsKeystore` が `KeystoreUnavailable` に言い換える。
 - `database.open_database(config, keystore=None)`、`open_encrypted(db_path, key_hex)` → 接続（`row["name"]` で列を読める、自動コミット）。`transaction(conn)`（まとめて書く）、`query_one`、`query_all`、`execute`（→ lastrowid）、`get_setting`、`set_setting`、`log_operation(conn, kind, *, actor, status, file_id=None, item_id=None, before_path=None, after_path=None, reasons=None, detail=None, at=None)`、`check_encryption(conn)`。例外 `EncryptionUnavailable`、`DatabaseKeyError`。テーブルは `database.SCHEMA` を参照。
 - `ui.RecordingUi` / `ui.ShellUi(link)`：`show_mini_dock(dock)`、`close_mini_dock(dock_id, reason)`、`show_desk(desk)`、`hide_desk(reason)`、`show_hazard(hazard)`、`hide_hazard()`、`notify(title, message, level)`、`update_status(status)`、`set_cursor_stream(enabled)`。
 - `safe_names.check_name(name)` → `(ok, 理由)`、`make_safe(name, max_len=200)`、`unique_name(folder, name, exists=os.path.exists)`、`split_ext(name)`、`clean_part(text)`。
 - `fsutil.no_overwrite_rename(src, dst)`（移動先があれば `FileExistsError`、上書きしない）、`atomic_write_json(path, value)`、`atomic_write_bytes(path, data)`、`read_json(path)`、`fsync_file(f)`、`fsync_dir(path)`、`sha256_stream(f, chunk_size, should_continue)`、`sha256_file(path, chunk_size, should_continue, opener)`、例外 `Paused`（区切りで止めた）。
-- `analysis_queue.enqueue(conn, kind, file_id, priority=0, now=None)`、`next_task(conn, kind=None)`、`mark(conn, task_id, state, error=None, now=None)`、`pending_count(conn, kind=None)`、`reset_running(conn, now=None)`。
+- `analysis_queue.enqueue(conn, kind, file_id, priority=0, now=None)`、`next_task(conn, kind=None)`、`mark(conn, task_id, state, error=None, now=None)`、`pending_count(conn, kind=None)`、`reset_running(conn, now=None)`、`requeue_for_rule_changes(conn, rules, now=None)` → 入れた件数（中身の規則が解析したときと違う文書と、規則の記録がない前の版の解析を、解析し直す順番待ちに入れる。起動時に呼ぶための関数だが、今の `service.py` からは、まだ呼んでいない）。
 
 ### 6-2. OS 連携（`platform`）
 
@@ -231,7 +254,7 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 | `get_idle_seconds()` | セッション全体の無操作の秒数。取得できなければ `None` |
 | `get_power_source()` | `"ac"`、`"battery"`、`"unknown"` |
 | `get_file_key(path)` | `"ボリューム番号:ファイル番号"`（`os.stat` の `st_dev:st_ino`）。なければ `None` |
-| `get_local_state(path)` | `{"local", "placeholder", "pinned", "reparse", "attributes", "reason"}`。`local=False` はクラウドの未取得のプレースホルダーや pip0 のゴーストで、読んではいけない。中身が戻ったプレースホルダーは `local=True`、`placeholder=True`、`reparse=True`。再解析ポイントの種類は、リンクをたどらずに読み、名前の代わり（リンク）の種類はすべてリンクとして扱う |
+| `get_local_state(path)` | `{"local", "placeholder", "pinned", "reparse", "attributes", "reason"}`。`local=False` はクラウドの未取得のプレースホルダーや pip0 のゴーストで、読んではいけない。中身が戻ったプレースホルダーは `local=True`、`placeholder=True`、`reparse=True`。`placeholder` は、クラウドの再解析ポイントの種類（`IO_REPARSE_TAG_CLOUD`〜）か、`RECALL_ON_OPEN`・`RECALL_ON_DATA_ACCESS` の属性で決める。`PINNED`（「常にこのデバイス上に保持する」）・`UNPINNED` の属性だけの通常のファイルは `placeholder=False`（`PINNED` なら `pinned=True`）。再解析ポイントの種類は、リンクをたどらずに読み、名前の代わり（リンク）の種類はすべてリンクとして扱う |
 | `get_volume_info(path)` | `{"filesystem": "NTFS" 等, "drive_type": "fixed"/"removable"/"network"/"unknown", "reason"}` |
 | `check_sync_folder(path)` | `{"inside": True/False/None, "provider", "reason"}`（`None` は判定できない）。pip0 自身の同期ルートの中は `provider="pip0"` |
 | `access_time_reliable(path)` | 最終アクセス日時の更新が有効なら `True`、無効なら `False`、不明なら `None` |
@@ -267,11 +290,11 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 ### 6-4. 解析
 
 - `analyse_text.light_metadata(path, platform, config, rules)` → `{"status": "done"/"skipped"/"failed", "title", "kind", "source": "office_core"/"pdf_info"/None, "reason"}`（3秒の間に使う軽い読み取り）。
-- `analyse_text.extract_text(path, platform, config, rules)` → `{"status": "done"/"unsupported"/"failed", "kind", "title", "text", "has_chart", "labels", "error"}`。
+- `analyse_text.extract_text(path, platform, config, rules)` → `{"status": "done"/"unsupported"/"failed", "kind", "title", "text", "has_chart", "labels", "error", "check_texts", "unread"}`。`text` は DB に保存する本文（先頭の `TEXT_MAX_CHARS` 文字）、`check_texts` は機密の判定だけに使う文字 `{場所: 文字列}`（「本文」は切り詰めない全体。ヘッダー・ノート・注釈なども入る。DB には保存しない）、`unread` は読まなかった部分の説明のリスト（全体を読めたら空）。
 - `analyse_image.COLOUR_NAMES`、`analyse_image.analyse_image(path, platform, config)` → `{"status", "width", "height", "colours": {色: 色付き部分に占める割合}, "colourful_ratio", "background_ratio", "palette_size", "chart_score", "chart_evidence": [文字列], "visual_kind": "chart"/"photo"/"other", "error"}`。
-- `sensitivity.overall(path, analysis, config, rules)` → `{"level": "sensitive"/"not_sensitive"/"unknown", "reasons": [文字列]}`。`analysis` は analysis テーブルの行（辞書）か `None`。`sensitivity.judge_name`、`judge_content`、`is_valid_my_number`、`luhn_ok`。
-- `analysis_queue.analyse_file(path, platform, config, rules, should_continue)` → 結果の辞書（DB を使わない。中断したら `{"status": "paused"}`、ゴースト等で読めないものは `{"status": "skipped", "reason"}`）、`analysis_queue.store_result(conn, file_id, path, result, config, rules, now)`（analysis の行を書き、`sensitivity.overall` で機密の判定も書く。`paused` と `skipped` は書かない）。順番待ちの出し入れ（`enqueue` 等）は 6-1 を参照。
-- `throttle.check(platform, config, now=None)` → `{"allowed", "power", "idle_seconds", "reason"}`。`throttle.HeavyGate(platform, config, clock=time.time)`：`may_run()`、`should_continue()`、`state`。
+- `sensitivity.overall(path, analysis, config, rules)` → `{"level": "sensitive"/"not_sensitive"/"unknown", "reasons": [文字列]}`。`analysis` は analysis テーブルの行（辞書）か `None`。`sensitivity.judge_name(path, config, rules)`、`judge_content(analysis, rules)`（タイトル・ラベルと保存した本文の先頭は今の規則で調べ、`content_reasons_json` は今の規則にもあるものだけを使う）、`find_in_text(text, rules, place="本文")` → `[[場所, 規則, 値], ...]`（規則は `"keyword"`・`"my_number"`・`"card_number"`。番号そのものは入れない）、`reason_text(finding)` → 理由の文、`content_rules(rules)` → 中身の規則の辞書、`is_valid_my_number`、`luhn_ok`。
+- `analysis_queue.analyse_file(path, platform, config, rules, should_continue)` → 結果の辞書（DB を使わない。中断したら `{"status": "paused"}`、ゴースト等で読めないものは `{"status": "skipped", "reason"}`）。文書の結果には、読んだ文字の全体で見つけたもの `content_reasons`、そのときの中身の規則 `content_rules`、読まなかった部分 `unread` も入る。`analysis_queue.store_result(conn, file_id, path, result, config, rules, now)`（analysis の行を書き（`content_reasons_json`、`content_rules_json`、`unread_json`、`analyser_version` を含む）、`sensitivity.overall` で機密の判定も書く。`paused` と `skipped` は書かない）。順番待ちの出し入れ（`enqueue` 等）は 6-1 を参照。
+- `throttle.check(platform, config, now=None)` → `{"allowed", "power", "idle_seconds", "reason"}`。`throttle.HeavyGate(platform, config, clock=time.time, extra_stop=None)`：`may_run()`、`should_continue()`、`state`（`extra_stop` は、真を返すと条件に関係なく止める関数。常駐処理は、キルスイッチと終了の合図を渡す）。
 
 ### 6-5. 機能
 
@@ -281,18 +304,18 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 - `trash.prepare_deletion(conn, paths, config, platform)` → 依頼の辞書 `{"request_id", "items", "count", "total_bytes", "problems"}`。`trash.delete_with_confirmation(conn, platform, request, *, actor="user", now=None)` → `{"approved", "answer", "results", "summary"}`。
 - `vault`：状態は `copying`、`copied`、`ghosting`、`evacuated`、`restoring`、`restored`、`restored_conflict`、`restored_local_newer`、`ghost_missing`、`cancelled`、`failed`。`vault.evacuate(conn, platform, path, config, *, reasons, should_continue, actor="auto", now=None)` → `{"ok", "item_id", "state", "reason"}`、`vault.restore(conn, platform, item_id, config, *, actor, now=None)` → `{"ok", "state", "path", "reason"}`、`vault.recover_incomplete(conn, platform, config, now=None)`、`vault.read_manifest(config, item_id)`、`vault.list_items(conn, states=None)`、`vault.sync_from_manifests(conn, config)`（DB を作り直したとき、manifest.json から項目を読み直す）。
 - `evacuation.check_location(platform, path, config)` → `{"ok", "reason"}`、`evacuation.find_candidates(conn, platform, now, config, rules, recent_items_enabled)` → `[{"file_id", "path", "reasons"}]`、`evacuation.explain(...)`。
-- `killswitch.engage(conn, config, reason, actor="user", now=None)`、`is_engaged(conn, config)`、`resume(conn, config, confirmed, actor="user", now=None)`、`restore_all(conn, platform, config, progress=None, should_stop=None, now=None)` → 件数の辞書、`request_restore_all(config)`、`take_restore_request(config)`、`read_progress(config)`。`conn` が `None` でも、停止の印（ファイル）だけは書ける。
-- `inflow.score_rules(texts, context, ext, rules)`、`inflow.build_proposal(conn, platform, path, download_event, context, config, rules, now)` → 提案の辞書、`inflow.execute_proposal(conn, platform, proposal, decision, config, rules, registry, now, alternative_index=None)`、`inflow.MiniDock(config)`：`add`、`interaction`、`user_action`、`tick` → 動作のリスト（`{"do": "show", "dock"}`、`{"do": "close", "dock_id", "reason"}`、`{"do": "execute", "proposal_id", "decision", "alternative_index"}`）、`inflow.apply_deferred_renames(conn, platform, config, rules, registry, now)`。
-- `context.parse_foreground(event, rules)` → 文脈の辞書（`app`、`category`、`process`、`window_title`、`page_title`、`conversation`、`conversation_kind`、`workspace`、`partner_status`、`partner_reason`、`keywords`、`is_file_dialog`、`dialog_hwnd`、`at`）、`context.extract_keywords(text, rules)`、`context.summary_label(context)`。
+- `killswitch.engage(conn, config, reason, actor="user", now=None)` → `{"ok", "marker", "database", "reason"}`、`is_engaged(conn, config)`、`resume(conn, config, confirmed, actor="user", now=None)` → `{"ok", "reason"}`、`restore_all(conn, platform, config, progress=None, should_stop=None, now=None)` → 件数の辞書（`total`、`restored`、`conflict`、`local_newer`、`missing`、`failed`、`already`、`remaining`、`finished`）、`request_restore_all(config, now=None)` → `{"ok", "reason", "request_id"}`、`read_restore_request(config)` → 依頼の辞書 `{"at", "request_id"}`（ないときは `None`、読めないときは `{}`）、`take_restore_request(config, answered)` → 外したら `True`（依頼のファイルの中身が、応えた依頼 `answered` と同じときだけ外す）、`read_progress(config)`、`write_progress(config, counts, request_id=None)`。`conn` が `None` でも、停止の印（ファイル）だけは書ける。
+- `inflow.score_rules(texts, context, ext, rules)`、`inflow.build_proposal(conn, platform, path, download_event, context, config, rules, now)` → 提案の辞書（ダウンロードフォルダーの外のファイルと、サブフォルダーの中でそのパスを名指しした拡張機能の記録がないファイルは、何もしない提案 `"no_candidate"`）、`inflow.execute_proposal(conn, platform, proposal, decision, config, rules, registry, now, alternative_index=None)`、`inflow.MiniDock(config)`：`add(proposal, now)`、`interaction(dock_id, state, now)`、`user_action(dock_id, entry_id, action, now, alternative_index=None)`、`tick(now)`、`resume(now)` → 動作のリスト（`{"do": "show", "dock"}`、`{"do": "close", "dock_id", "reason"}`、`{"do": "execute", "proposal_id", "decision", "alternative_index"}`、`{"do": "open", "proposal_id", "path"}`）。`pause(now, pointer_gone=False)`（画面を見られない間、全行の残り時間を止める。動作は返さない）、`shift_times(seconds)`（時計が戻ったとき、締め切りを早める）、`payload(now)`（今の表示内容）。`inflow.apply_deferred_renames(conn, platform, config, rules, registry, now)`。
+- `context.parse_foreground(event, rules)` → 文脈の辞書（`app`、`category`、`process`、`window_title`、`page_title`、`conversation`、`conversation_kind`、`workspace`、`partner_status`、`partner_reason`、`keywords`、`is_file_dialog`、`dialog_hwnd`、`at`）、`context.extract_keywords(text, rules)`（4-4 の文脈の語）、`context.split_words(text, keep_words=())`、`context.contains_whole_word(prepared_text, forms)`（`prepare_text(text)` と `search_forms(word)` で作った形を受け取り、英字・数字・カタカナの語は1つの語としてあるときだけ真）、`context.summary_label(context)`。
 - `desk.rank_files(conn, context, now, config, rules, limit=3)` → `[{"file_id", "path", "name", "status", "score", "reasons"}]`、`desk.DeskController(config)`：`on_context`、`on_shake`、`on_show_request` → 動作のリスト、`desk.ShakeDetector(config)`：`feed(samples)` → bool。
 - `search.parse_query(text, now, config, rules)`、`search.search(conn, text, now, config, rules, limit=None)` → `{"query", "status": "found"/"no_match"/"insufficient_info"/"empty_query", "results", "partial_results", "notes"}`。
-- `hazard.evaluate_items(conn, paths, config, rules)` → `{"level": "sensitive"/"unknown"/"none", "items", "message"}`、`hazard.HazardSession(config)`：`start_drag`、`target_changed`、`end_drag`、`end_session`、`muted_pairs`。
+- `hazard.evaluate_items(conn, paths, config, rules)` → `{"level": "sensitive"/"unknown"/"none", "items", "message"}`、`hazard.HazardSession(config)`：`start_drag(drag_id, evaluation, file_keys, source_process, now)`、`target_changed(drag_id, target_process, now)` → 動作のリスト、`end_drag(drag_id, target_process, dropped_on_other_process, now)` → `{"actions", "muted", "continued"}`、`end_session(reason)`、`muted_pairs()`。
 
 ### 6-6. 連携と進行
 
 - `netguard.install(allowed_executables=())`：監査フックで、ソケットの接続・名前解決・HTTP 等と、許可していない外部コマンドの起動を止める（`NetworkBlocked` を出す）。`netguard.is_installed()`、`netguard.blocked_attempts()`。
-- `shell_link.ShellLink(command, on_event)`：`start()`、`stop()`、`request(type, payload, timeout)`（→ 応答の `payload`、失敗は `ShellError`）、`send_event(type, payload)`、`is_alive()`。
-- `native_host.read_message(stream)`、`write_message(stream, obj)`、`validate_message(message)` → `(整えた辞書 または None, エラーのリスト)`、`native_host.main(argv)`。
+- `shell_link.ShellLink(command, on_event)`：`start()`、`stop()`、`request(type, payload, timeout)`（→ 応答の `payload`、失敗は `ShellError`）、`send_event(type, payload)`（→ 送れたら `True`）、`is_alive()`、`process_id()`、`generation()`（このつながりで何回目に起動したシェルか。1 から数え、同じ値を二度と使わない）、`counters()`。
+- `native_host.read_message(stream)`、`write_message(stream, obj)`、`validate_message(message)` → `(整えた辞書 または None, エラーのリスト)`、`native_host.main(argv=None, stdin=None, stdout=None, config=None, keystore=None, install_guard=True)`（→ 終了コード。引数はテストで差し替えるためのもの）。
 - `service.run(config, rules, platform, ui, conn, link=None, keystore=None)`：常駐のメインループ（終了の依頼まで戻らない。→ `{"ok", "reason"}`）。テストでは `service.Service(config, rules, platform, ui, conn, link=None, clock=time.time, start_threads=True, keystore=None)` の `start()`、`step(now)`、`handle_event(event, now)`、`handle_file_event(event, now)`、`shutdown()` を直接呼ぶ。`cli.main(argv=None, keystore=None, platform=None, out=None)`：コマンド。
 - 通信の形は [ipc-protocol.md](ipc-protocol.md) を参照。
 
@@ -322,41 +345,27 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 | `status` | 自動処理の状態、高負荷処理の条件、保管庫の件数、各機能の状態（権限の不足を含む）を表示 |
 | `stop` | キルスイッチの「停止」だけを行う（新しい自動処理を止める。復元はしない） |
 | `restore-all` | キルスイッチ（停止して、退避したファイルをすべて復元）。常駐処理が動いていれば依頼を渡して進み具合を表示し、動いていなければ自分でシェル（`--headless`）を起動して復元する |
-| `resume` | 止めた自動処理を再開する（確認あり） |
+| `resume [--yes]` | 止めた自動処理を再開する（「はい」と入力して確かめる。`--yes` は、確かめた後に入力を省くとき） |
 | `search "<言葉>"` | エピソード記憶検索 |
 | `delete <パス>...` | ごみ箱へ移動する（シェルの確認画面で承認したときだけ） |
 | `vault list` / `vault restore <項目ID>` | 保管庫の一覧／1件の復元 |
 | `demo [--dir <空のフォルダー>]` | ダミーデータを作り、代役の OS 連携で、検索の3例などを試す（Windows 以外でも動く） |
-| `register-root` / `unregister-root` | pip0 専用フォルダーを同期ルートとして登録／解除（解除は、ゴーストが残っていないときだけ） |
+| `register-root` / `unregister-root` | pip0 専用フォルダーを同期ルートとして登録／解除（解除は、ゴーストが残っているかもしれない項目がないときだけ） |
 | `check-encryption` | DB の暗号化の状態を確かめる |
 | `check-network` | pip0 のプロセスの中で、外部通信の禁止（監査フック）が働くかを確かめる（OS のファイアウォールの確認は `scripts\network-policy.ps1 -Check`） |
 | `shutdown` | 常駐処理に終了を依頼する |
 
+- どのコマンドの前にも、`--data-dir`、`--pip0-root`、`--downloads-dir` で場所を変えられます（試すとき用）。
 - 終了コード：0 成功、1 失敗・断った・期待と違う結果、2 使い方の誤り・この PC では使えない操作（Windows 以外での `serve`、`delete` など）。
-- `restore-all` が 0 を返すのは、すべての項目を戻せたとき（衝突で横に戻したもの、開いた後に変更されていたものを含む）だけです。見つからない・失敗・残りがあれば 1 を返します。
-- `delete`、`vault restore`、`register-root`、`unregister-root` は、常駐処理（またはほかの pip0 のコマンド）が動いている間は実行を断ります（pip0 シェルは1つしか動かせず、保管庫を2つのプロセスで同時に扱わないため。`locks\service.lock` で確かめる）。`restore-all` は、常駐処理が動いていれば依頼のファイルを渡して進み具合を表示し、動いていなければ自分で行います。
+- `restore-all` が 0 を返すのは、すべての項目を戻せたとき（衝突で横に戻したもの、開いた後に変更されていたものを含む）だけです。見つからない・失敗・残りがあれば 1 を返します。戻せなかった項目は、項目ごとに場所と理由（`vault_items.last_error`）を表示します（`UNRESTORED_SHOWN`＝10件まで。残りは `vault list` で見る）。
+- `restore-all` は、常駐処理が動いていれば、依頼のファイルを書いて（4-9）、その依頼の番号（`request_id`）の進み具合だけを、自分の結果として表示します（時計は比べない）。
+  - 進み具合の件数（書いた時刻 `updated_at` を除いた値）が `cli.RESTORE_QUIET_SECONDS`（120秒）変わらなければ、待つのをやめ、全復元が常駐処理の中で続いていること・することを示して 1 を返します（全復元が失敗して後で試し直すと、件数は同じまま時刻だけが変わるため、時刻は比べない）。
+  - この依頼に応えた全復元のすぐ後に、別の全復元（続けて押された通知領域の「全復元」など）が進み具合を書き換えたときは、この依頼の件数は読めません。そのときは、まだ戻していない項目を DB から読んで示し、1件もないと確かめられたときだけ 0 を返します。
+  - 常駐処理が途中で終わったときは 1 を返し、もう一度実行すると残りから続けることを示します。
+- `delete`、`vault restore`、`unregister-root` は、常駐処理（またはほかの pip0 のコマンド）が動いている間は実行を断ります（pip0 シェルは1つしか動かせず、保管庫を2つのプロセスで同時に扱わないため。`locks\service.lock` で確かめる）。`register-root` は、常駐処理が動いていれば、常駐処理が行った登録の結果（`service.status.json` の機能 `sync_root`）を表示します。
+- `unregister-root` を断るのは、ゴーストが残っているかもしれない項目（`ghosting`、`evacuated`、`restoring`）か、読めない manifest.json があるときだけです。戻し終えた項目と、ゴーストにしていない項目は、`PIP0_ROOT` を変える前のものでも止めません。止めた項目の中に今の `PIP0_ROOT` の外のものがあれば、`PIP0_ROOT` を元に戻してから全復元するよう示します。
+- `shutdown` は、`service.status.json` に「動いている」と書いた常駐処理の番号（`instance`）を依頼に書きます（なければ番号なし＝今動いている常駐処理あて）。常駐処理は、自分の番号の依頼と番号のない依頼だけを受け付け、起動の前からあった依頼は受け付けません（6-10 の service）。
 - `check-network` は、コマンド自身のプロセスに監査フックを入れて確かめます（常駐処理のプロセスの状態ではありません）。
-
-### 6-10. 実装で決まった細部（各担当の報告から）
-
-6-1〜6-6 の約束に加えて、実装のときに次のことを決めました。呼ぶ側はこれに合わせてください。
-
-- **platform**：`WindowsPlatform(link, pip0_root=None)`、`set_pip0_root(path)`、`unregister_sync_root(path)` → `{"ok", "reason"}`。`register_sync_root` は `cf.register_root` と `cf.connect` を続けて送り、両方成功したときだけ `ok`（何度呼んでもよい。`init` の後と、シェルを起動し直すたびに呼ぶ）。`is_sync_root_registered` はシェルを通さず `CfGetSyncRootInfoByPath` で調べる。`open_for_copy`／`open_for_analysis` は `SetFileTime` のために `FILE_WRITE_ATTRIBUTES` も求め、断られたら読み取りだけで開き直す（その場合は最終アクセス日時が更新されうる）。`make_ghost`／`restore_ghost` が時間切れになった後は、シェルが動いている間、その場所の `ghost_status` が `is_ghost: None`（不明）になる。シェルにつながらないときの `confirm_and_recycle` は `answer: "unavailable"` で、何も削除しない。
-- **shell_link**：`ShellUnavailable` と `ShellTimeout` は `ShellError` の一種。`start()` は失敗しても例外を出さず `{"ok", "reason"}` を返す。`stop()` は `{"stopped", "returncode", "method"}`。`counters()`。シェルが終わると、本体の中で `{"type": "shell.exited", "payload": {"returncode", "requested_stop"}}` が届く（読み取りのスレッドから。`on_event` の中では順番待ちに入れるだけにする）。`netguard.install([SHELL_EXE])` の後でないと起動できない。
-- **netguard**：`self_check()` → `{"ok", "reason", "checks": [{"name", "blocked", "detail"}]}`。許可した実行ファイルは絶対パスで、リストで渡す。
-- **provenance**：`determine_source`、`record_provenance` は download_events の行（平らな辞書）を受け取る。`parse_zone_identifier(None)` も辞書を返す。`expire_old_events` は、24時間結び付かなかった記録を行ごと消し、その件数を返す。`mark_event_matched` は、結び付けた記録からタブの URL と題名を消す。`record_provenance` は、タブの URL と題名を残さない（列は常に NULL）。受け口は、ダウンロードフォルダーの外への保存を記録しない（`{"ok": true, "stored": false}` と答える）。
-- **scanner／watcher**：`scan_folder` は `{"ok", "reason", "seen", "new", "changed", "skipped", "missing", "errors"}`、`scan_all` はそれに `folders` を加える。改名の追跡は、ファイル番号に加えて大きさと更新日時が同じときだけ。pip0 のゴーストの行は `missing` ではなく `ghost`。`FolderWatcher.start()` は `{"ok", "reason", "watching"}`。`DownloadTracker` はダウンロードフォルダーの中だけを見て、拡張機能の記録を最大 `DOWNLOAD_BROWSER_WAIT_SECONDS`（30秒）待つ。
-- **usage**：`last_use(conn, file_row, kinds=None)`。`record_usage` は追加した行の id、pip0 自身の読み取りなら `None`。
-- **analysis**：`sensitivity.overall` は、解析済みでも本文・タイトル・ラベルを読めなかったもの（画像、スキャンした PDF など）を `unknown` にする（中身を調べていないものを非機密としない）。`throttle.check` は `checked_at` も返す。`HeavyGate` には `history`、`refresh()`、`stop_requested()` もある。`analyse_file` は、途中でファイルが変わったときなども `skipped` を返す。`store_result` は機密の判定 `{"level", "reasons"}` を返す。
-- **fileops／trash**：`move_and_rename` は `new_name=None`（名前は変えずに移動）を受け付け、`actor="auto"` は停止の印があるときは断る。`prepare_deletion` の `problems` は、問題のある項目（辞書）のリスト。削除できるものがなく確認画面を出さなかったときの `answer` は `None`。確認画面の文には、ファイル名を書かない（名前と件数は画面が `items` から一覧にする）。
-- **vault／evacuation／killswitch**：`evacuate(..., rules=None)` と `check_location(platform, path, config, rules=None)`（大きさ0、ハードリンクが複数あるもの、使用中のものも断る）。`restore` の結果に `already`。`vault.cancel`、`vault.record_moved`（`cf.notify_rename` のとき）、`claim_path`／`release_path`／`is_busy`（同じパスを同時に扱わない）。`engage` → `{"ok", "marker", "database", "reason"}`。`request_restore_all` は停止の印もすぐに書く。全復元が終わっていない間は `resume` を断る。
-- **context**：`parse_foreground` の結果には、`document_name`（Office・メモ帳の文書名）、`dialog_rect`、`inaccessible` もある。知らないアプリは `app` が `None`、`category` が `"other"`。`carry_over(previous, current)` は、ファイルダイアログ（題名に文脈がない）に、同じアプリの直前の文脈を引き継ぐ。`partner_label(context)`。
-- **desk**：`DeskController.tick(now)`（隠している間に文脈が変わり、待ち時間が過ぎたら再表示）、`on_show_request(now, ranked=None)`。文脈の区別には、プロセス・会話・ページ題名・文書名・ファイルダイアログかどうかを使う。pip0 自身のウィンドウは文脈として扱わない。`rank_files` は、使用・変更の日時を1回の問い合わせでまとめて読む（`usage.last_use` と同じ決まり）。
-- **search**：結果の各項目は `{"file_id", "path", "name", "status", "reasons", "unmatched": [{"cue", "reason", "missing_info"}], "matched_count", "cue_count"}`。「情報不足」（`missing_info`）は、その種類のファイルに普通はある情報（画像の色・形の解析、文書の本文、Office のグラフの有無、入手経路の記録）がないとき。
-- **hazard**：各項目に `file_id` もある。`end_session` は `unlock`、`resume` でもセッションの区切りとする（終わりの知らせを取りこぼしても、消音を持ち越さない）。
-- **demo_data**：`run_demo(target_dir=None, now=None, rules=None, protected=None)` → 報告の辞書、`report_lines(report)` → 表示する行。一時フォルダーの中に、メモリーの DB と代役の OS 連携だけで動く（本物のフォルダーと DB には触れない）。
-- **service（常駐処理）**：全復元は、メインのスレッドで1件ずつ行います（その間、シェルからの知らせは順番待ちになり、全復元が終わってから処理します）。自動退避の候補探しの1回目は、起動の `600` 秒後（`FIRST_EVACUATION_CHECK_SECONDS`）で、その後は `EVACUATE_CHECK_HOURS` ごとです。候補を探す直前に、pip0 専用フォルダーのファイルの最終アクセス日時を利用の記録に加えます（読んだだけのファイルを、長期間未読としないため）。状態（`ui.status`）は、変わったときと、最短 2 秒ごとに送り、`service.status.json` には最短 5 秒ごとに書きます。
-- **inflow／naming**：提案の状態に `needs_analysis`（名前が解析待ち。仕分け先があれば先に移動する）。`MiniDock` の動作に `{"do": "open", "proposal_id", "path"}` があり、`payload(now)` で今の表示内容を返す。`execute_proposal` → `{"ok", "status", "path", "state", "reason"}`。`load_proposal(conn, proposal_id)` で DB から提案を読み直せる。`apply_deferred_renames` は件数の辞書を返す。
 
 ### 6-9. 導入後の配置（`scripts\install.ps1`）
 
@@ -374,6 +383,36 @@ pip0 には、ごみ箱を空にする機能と、ユーザーのファイルを
 
 `serve` は、`settings.SHELL_EXE`（None なら、pip0 本体の2つ上のフォルダーの `shell\Pip0Shell.exe`）を起動します。
 
+### 6-10. 実装で決まった細部（各担当の報告から）
+
+6-1〜6-6 の約束に加えて、実装のときに次のことを決めました。呼ぶ側はこれに合わせてください。
+
+- **platform**：`WindowsPlatform(link, pip0_root=None)`、`set_pip0_root(path)`、`unregister_sync_root(path)` → `{"ok", "reason"}`。`register_sync_root` は `cf.register_root` と `cf.connect` を続けて送り、両方成功したときだけ `ok`（何度呼んでもよい。`init` の後と、シェルを起動し直すたびに呼ぶ）。`is_sync_root_registered` はシェルを通さず `CfGetSyncRootInfoByPath` で調べる。`open_for_copy`／`open_for_analysis` は `SetFileTime` のために `FILE_WRITE_ATTRIBUTES` も求め、断られたら読み取りだけで開き直す（その場合は最終アクセス日時が更新されうる）。`make_ghost`／`restore_ghost` が時間切れになった後は、そのシェルが動いている間、その場所の `ghost_status` が `is_ghost: None`（不明）になる（答えが遅れた印）。印は、どのシェルで付けたかを `ShellLink.generation()`（シェルを起動した回数）で見分け、シェルを起動し直したら外す（プロセス番号 PID は、Windows が後のプロセスに使い回すことがあるため使わない）。シェルにつながらないときの `confirm_and_recycle` は `answer: "unavailable"` で、何も削除しない。
+- **shell_link**：`ShellUnavailable` と `ShellTimeout` は `ShellError` の一種。`start()` は失敗しても例外を出さず `{"ok", "reason"}` を返す。`stop()` は `{"stopped", "returncode", "method"}`。`counters()`（読み捨てた行、送れなかった知らせ `dropped_events` などの回数）、`generation()`、`process_id()`。`send_event` は、シェルが動いていないとき、1 MiB を超えるとき、JSON にできない値（NaN、無限大、関数など）を含むときは、送らずに数えて `False` を返す（例外にしない。画面への知らせ1つのために、メインループや全復元を止めないため）。`request` は、形の誤りを従来どおり例外にする。シェルが終わると、本体の中で `{"type": "shell.exited", "payload": {"returncode", "requested_stop"}}` が届く（読み取りのスレッドから。`on_event` の中では順番待ちに入れるだけにする）。`netguard.install([SHELL_EXE])` の後でないと起動できない。
+- **netguard**：`self_check()` → `{"ok", "reason", "checks": [{"name", "blocked", "detail"}]}`。許可した実行ファイルは絶対パスで、リストで渡す。
+- **provenance**：`determine_source`、`record_provenance` は download_events の行（平らな辞書）を受け取る。`parse_zone_identifier(None)` も辞書を返す。`expire_old_events` は、24時間結び付かなかった記録を行ごと消し、その件数を返す（常駐処理が、起動したときと `EXPIRE_EVENTS_SECONDS`（1時間）ごとに呼ぶ。受け口は呼ばないため、pip0 が止まっている間に受け口が書いた記録は、次に起動するまで残る）。`mark_event_matched` は、結び付けた記録からタブの URL と題名を消す。`record_provenance` は、タブの URL と題名を残さない（列は常に NULL）。受け口は、ダウンロードフォルダーの外への保存を記録しない（`{"ok": true, "stored": false}` と答える）。
+- **scanner／watcher**：`scan_folder` は `{"ok", "reason", "seen", "new", "changed", "skipped", "missing", "errors"}`、`scan_all` はそれに `folders` を加える。改名の追跡は、ファイル番号に加えて大きさと更新日時が同じときだけ。pip0 のゴーストの行は `missing` ではなく `ghost`。`FolderWatcher.start()` は `{"ok", "reason", "watching"}`。`DownloadTracker` はダウンロードフォルダーの中だけを見て、拡張機能の記録を最大 `DOWNLOAD_BROWSER_WAIT_SECONDS`（30秒）待つ。
+- **usage**：`last_use(conn, file_row, kinds=None)`。`record_usage` は追加した行の id、pip0 自身の読み取りなら `None`。
+- **analysis**：`sensitivity.overall` は、解析済みでも本文を読めなかったもの（画像、スキャンした PDF など。タイトル・ラベルがあっても）、一部しか読まなかったもの（`unread_json` に読まなかった部分がある）、読んだ範囲や規則の記録がない前の版の解析、解析の後に中身の規則を加えたものを `unknown` にする（中身を調べていないものを非機密としない）。`analysis_queue.ANALYSER_VERSION` は 2（本文の全体とヘッダー・ノート・注釈などを調べ、見つけたもの・そのときの規則・読まなかった部分を記録する版）。前の版で作った DB には、開くときに `database.add_missing_analysis_columns` が `content_reasons_json`、`content_rules_json`、`unread_json` の列を加える（値は空のまま。その行は、ほかの理由で機密でなければ、解析し直すまで未判定）。`throttle.check` は `checked_at` も返す。`HeavyGate` には `history`、`refresh()`、`stop_requested()` もある。`analyse_file` は、途中でファイルが変わったときなども `skipped` を返す。`store_result` は機密の判定 `{"level", "reasons"}` を返す。
+- **fileops／trash**：`move_and_rename` は `new_name=None`（名前は変えずに移動）を受け付け、`actor="auto"` は停止の印があるときは断る。`prepare_deletion` の `problems` は、問題のある項目（辞書）のリスト。削除できるものがなく確認画面を出さなかったときの `answer` は `None`。確認画面の文には、ファイル名を書かない（名前と件数は画面が `items` から一覧にする）。
+- **vault／evacuation／killswitch**：`evacuate(..., rules=None)` と `check_location(platform, path, config, rules=None)`（大きさ0、ハードリンクが複数あるもの、使用中のものも断る）。`restore` の結果に `already`。`vault.cancel`、`vault.record_moved`（`cf.notify_rename` のとき）、`claim_path`／`release_path`／`is_busy`（同じパスを同時に扱わない）。`engage` → `{"ok", "marker", "database", "reason"}`。`request_restore_all` は停止の印もすぐに書く。全復元が終わっていない間（`restore_unfinished(config)`：応えていない依頼がある、または進み具合が「終わっていない」）は `resume` を断る。`killswitch.is_answered(config, request)`（その番号の進み具合が「終わり」なら真。外せずに残った依頼に加わらないために使う）、`request_waiting(config, request_id)`（その番号の依頼が、まだ依頼のファイルにあれば真。読めなければ真）、`progress_without_time(progress)`（進み具合から `updated_at` を除いたもの。進んだかを比べるのに使う）。
+- **context**：`parse_foreground` の結果には、`document_name`（Office・メモ帳の文書名）、`dialog_rect`、`inaccessible` もある。知らないアプリは `app` が `None`、`category` が `"other"`。`carry_over(previous, current)` は、ファイルダイアログ（題名に文脈がない）に、同じアプリの直前の文脈を引き継ぐ。`partner_label(context)`。
+- **desk**：`DeskController.tick(now)`（隠している間に文脈が変わり、待ち時間が過ぎたら再表示）、`on_show_request(now, ranked=None)`。文脈の区別には、プロセス・会話・ページ題名・文書名・ファイルダイアログかどうかを使う。pip0 自身のウィンドウは文脈として扱わない。`rank_files` は、使用・変更の日時を1回の問い合わせでまとめて読む（`usage.last_use` と同じ決まり）。本文は、解析済みの文書ごとに先頭の `TEXT_CHECK_CHARS`（2,000文字）だけを、`analysed_at` と一緒にメモリーに覚え（`desk.TEXT_CACHE`。ディスクには書かない。DB の接続が変わったら忘れる）、1回の計算で新しく読むのは `TEXT_LOADS_PER_RANKING`（200件）まで。読みきれなかったファイルは、次の計算から本文の点を数える。
+- **search**：結果の各項目は `{"file_id", "path", "name", "status", "reasons", "unmatched": [{"cue", "reason", "missing_info"}], "matched_count", "cue_count"}`。「情報不足」（`missing_info`）は、その種類のファイルに普通はある情報（画像の色・形の解析、文書の本文、Office のグラフの有無、入手経路の記録）がないとき。
+- **hazard**：各項目に `file_id` もある。`evaluate_items` は、解析した後に大きさか更新日時が変わったファイルの「非機密」を「未判定」にする（4-7）。`start_drag` は、ドラッグ元のアプリを最初の送り先とみなす。`end_session` は `unlock`、`resume` でもセッションの区切りとする（終わりの知らせを取りこぼしても、消音を持ち越さない）。常駐処理は、pip0 シェルを起動し直したときと、機能 `session_events` が×のときのドラッグの後に、新しい `HazardSession` を作って消音を消す。
+- **demo_data**：`run_demo(target_dir=None, now=None, rules=None, protected=None)` → 報告の辞書（`queries` に3つの検索、`other_queries` に `OTHER_QUERIES` の「ほかにも試せる検索」）、`expected_results(manifest)`、`other_expected_results(manifest)`（期待する結果。日付で答えが変わる「先月の予算」は、動かした日時から計算する）、`report_lines(report)` → 表示する行（「ほかにも試せる検索」も出す）。一時フォルダーの中に、メモリーの DB と代役の OS 連携だけで動く（本物のフォルダーと DB には触れない）。
+- **service（常駐処理）**
+  - メインループの1回（`step`）で処理するシェルの知らせは `SHELL_EVENTS_PER_STEP`（20件）までで、`URGENT_EVENTS`（`tray.command`、`session.event`、`shell.exited`、`drag.started`・`drag.target_changed`・`drag.ended`、`ui.mini_dock.interaction`・`ui.mini_dock.action`）を先に処理する（残りは次の step）。`context.foreground` は順番待ちに入れず、最後の2つだけを持ち、制御用のファイルと全復元の後に、1回の step で1回だけ処理する（4-4）。
+  - 全復元は、メインのスレッドで1件ずつ行う（その間、ほかの知らせは待たされる）。進み具合の表示に失敗しても、全復元は止めない。通知領域の「全復元」は、押したときに依頼のファイルを書く（4-9）。
+  - 自動退避の候補探しの1回目は、起動の 600 秒後（`FIRST_EVACUATION_CHECK_SECONDS`）で、その後は `EVACUATE_CHECK_HOURS` ごと。候補を探す直前に、pip0 専用フォルダーのファイルの最終アクセス日時を利用の記録に加える（読んだだけのファイルを、長期間未読としないため）。ワーカーに渡す直前にも、そのファイルの最終アクセス日時を記録し直して判定し直す（候補を探した後に使われたファイルは退避しない）。
+  - 状態（`ui.status`）は、変わったときと、最短 2 秒ごとに送り、`service.status.json` には最短 5 秒ごとに書く。
+  - 画面を見られるか（`screen_available`）と、見られない間の扱いは 4-3。`init` の答えの `capabilities` は、決まった名前（`cloud_files`、`trash`、`ui`、`hooks`）の真偽値だけを使う（ほかの名前と真偽値でない値は捨て、辞書でなければ「分からない」）。
+  - pip0 シェルが終わったら、2、5、15、30、60 秒（`SHELL_RESTART_DELAYS`）と間を広げて起動し直す。待ち時間を最初に戻すのは、シェルが `SHELL_STABLE_SECONDS`（60秒）以上動いてから終わったときだけ（準備の直後に落ちるシェルを、2秒ごとに起動し続けないため）。
+  - 終了の依頼（`shutdown.request.json`）：起動したときに、それより前からあった依頼に「済み」の印（`done`）を書き、受け付けない。依頼に常駐処理の番号（`instance`）があれば、自分の番号のときだけ受け付ける。読んだ依頼には `done` を書く（ファイルは消さない）。時計の時刻は比べない。
+  - 時計が戻されたら、戻った分だけ予定（制御用のファイル・ダウンロードの記録の確認、見直し、退避の候補探し、全復元のやり直し、シェルの起動し直し、開いたゴーストの後片付け、ミニドックの締め切りなど）を早める（`check_clock`）。時計が進んだときは直さない（長い step と見分けられないため）。ミニドックの行は、その step の途中で時計が戻されても、その step の時刻より前からは数えない。
+  - シェルの知らせの数は、有限の数のときだけ使う（`cf.fetch` の `elapsed_ms`、`hwnd`、`dialog_rect`、`input.cursor_batch` の `samples`、`usage.recent_items` の `opened_at`）。形の違う値は捨て、例外にしない。
+- **inflow／naming**：提案の状態に `needs_analysis`（名前が解析待ち。仕分け先があれば先に移動する）。`MiniDock` の動作に `{"do": "open", "proposal_id", "path"}` があり、`payload(now)` で今の表示内容を返す。`MiniDock.pause(now, pointer_gone=True)` は、シェルが終わったとき（そのシェルが知らせたマウスの状態も忘れる）、`pause(now)` は画面のロック・スリープなどで見られないとき（マウスの状態は残す）に使う。`execute_proposal` → `{"ok", "status", "path", "state", "reason"}`。`load_proposal(conn, proposal_id)` で DB から提案を読み直せる。`record_source_only(conn, platform, path, download_event, config, rules, now)`（提案せず、索引と由来だけを記録する）。`apply_deferred_renames` は件数の辞書を返す。`naming.build_name` は、拡張子がないとき「.」を全角の「．」にする（4-3）。
+
 ## 7. 保管庫の形式と状態遷移
 
 ### 7-1. 形式
@@ -388,15 +427,21 @@ vault\
       manifest.json             ← 復元に必要な情報
 ```
 
-`manifest.json` の項目：`format`（1）、`item_id`、`state`、`original_path`、`current_path`、`file_key`、`size`、`mtime_ns`、`sha256`、`created_at`、`updated_at`、`restored_path`、`zone_identifier`（ダウンロード元の印。`[ZoneTransfer]` と `ZoneId=N` だけで、URL は書かない。なければ `null`）、`restore_from`（復元を始める前の状態。復元に失敗したときに戻す先）、`history`（`{"state", "at", "note"}` のリスト）。書き込みは、一時ファイルに書いて `fsync` してから `os.replace` で置き換えます。パスが絶対パスでない、または pip0 専用フォルダー（`PIP0_ROOT`）の外を指す manifest.json は、読み込まずに問題として知らせます（保管庫はそのまま）。`content` は、どの処理でも置き換え・再利用しません（新しい退避には、必ず新しい項目ID を使う）。pip0 シェルは、ゴーストが開かれたとき、`content` と `manifest.json` の `sha256` を照合してから中身を渡します。
+`manifest.json` の項目：`format`（1）、`item_id`、`state`、`original_path`、`current_path`、`pip0_root`（退避したときの `PIP0_ROOT`。`PIP0_ROOT` を変えた後の説明に使う）、`file_key`、`size`、`mtime_ns`、`sha256`、`created_at`、`updated_at`、`restored_path`、`zone_identifier`（ダウンロード元の印。`[ZoneTransfer]` と `ZoneId=N` だけで、URL は書かない。なければ `null`）、`content_reusable`（`false`：pip0 シェルが「内容が違う」と答えた中身。次の退避で使い直さない）、`restore_from`（復元を始める前の状態。復元に失敗したときに戻す先）、`history`（`{"state", "at", "note"}` のリスト）。書き込みは、一時ファイルに書いて `fsync` してから `os.replace` で置き換えます。
+
+- **場所の確かめ**：全復元の対象の状態（`evacuated`、`ghosting`、`restoring`、`ghost_missing`）で、パスが絶対パスでない、または pip0 専用フォルダー（`PIP0_ROOT`）の外を指す manifest.json は、復元に使いません（復元でファイルを書くのは、この状態の項目だけのため）。理由とすること（`PIP0_ROOT` を変えた場合は元に戻してから全復元する。退避したときの `PIP0_ROOT`）を DB の `last_error` に残し、全復元の結果と `vault list` に出します（保管庫はそのまま）。戻し終えた項目と、ゴーストにしていない項目の manifest.json は、場所にかかわらず読みます。
+- **中身の使い直し**：`content` は、どの処理でも上書き・削除しません。ゴーストにしていない項目（`copied`、`failed`、`cancelled`）の確かめ済みの `content` は、今のファイルの大きさ・更新日時・ファイル番号がコピーしたときと同じで、pip0 シェルがその中身を「内容が違う」（`changed`）と断ったことがない（`content_reusable` が `false` でない）ときだけ、コピーし直さずに使い直します（退避を試した回数 `attempts` は数える。失敗をくり返しても、保管庫に同じファイルのコピーが増え続けないため）。それ以外は、新しい項目ID でコピーします（前の項目に `content` がないときだけ、その項目ID を使い直す）。
+- pip0 シェルは、ゴーストが開かれたとき、`content` と `manifest.json` の `sha256` を照合してから中身を渡します。
 
 ### 7-2. 退避の手順（`vault.evacuate`）
+
+前の項目の確かめ済みの中身を使い直すとき（7-1）は、1〜3 を飛ばし、`copied` にしてから 4 へ進みます。
 
 1. `copying`：項目を作り、manifest.json と DB に書く。
 2. 原本を `open_for_copy`（他プロセスの書き込みを拒否）で開き、`content.partial` へ 1MB ずつコピーしながら SHA-256 を計算する。区切りごとに `should_continue()` を確かめ、偽なら中止する（状態は `failed`、理由「一時停止」、原本はそのまま）。
 3. コピー後に原本のサイズと更新日時が変わっていないことを確かめ、`content.partial` を読み直してハッシュが一致することを確かめてから `content` に名前を変える。→ `copied`（ハッシュを manifest.json と DB に書く）。容量不足などの失敗は `failed`（原本はそのまま）。
-4. `ghosting`：manifest.json と DB に書いてから、`platform.make_ghost(パス, 項目ID, {"size", "mtime_ns", "file_key", "sha256"})` を呼ぶ。シェルは、原本を排他的に開き、サイズ・更新日時・ファイル番号（必要ならハッシュも）が一致することを確かめてから、プレースホルダーに変換して中身を外す。
-5. `"ghosted"` で、`ghost_status` が自分の項目のゴーストだと確かめられたら `evacuated`。`"ghosted"` の後に状態を確かめられない（分からない）ときは、`ghosting` のまま残し、後で確かめ直す（「原本はそのまま」とは記録しない）。`"changed"`・`"locked"` などは `failed`（原本はそのまま、後でやり直せる。読み取り専用のときは、やり直せないと書く）。
+4. 自動の退避なら、キルスイッチをもう一度確かめる（押されていれば `cancelled`。原本はそのまま）。`ghosting`：manifest.json と DB に書いてから、`platform.make_ghost(パス, 項目ID, {"size", "mtime_ns", "file_key", "sha256"})` を呼ぶ。シェルは、原本を排他的に開き、サイズ・更新日時・ファイル番号（必要ならハッシュも）が一致することを確かめてから、プレースホルダーに変換して中身を外す。
+5. `"ghosted"` で、`ghost_status` が自分の項目のゴーストだと確かめられたら `evacuated`。`"ghosted"` の後に状態を確かめられない（分からない）ときは、`ghosting` のまま残し、後で確かめ直す（「原本はそのまま」とは記録しない）。`"changed"` は `failed` にし、`content_reusable` を `false` にする（次の退避では、新しい項目ID でコピーし直す。この中身も消さずに残す）。`"locked"` などは `failed`（原本はそのまま、後でやり直せる。読み取り専用のときは、やり直せないと書く）。
 
 ### 7-3. 復元の手順（`vault.restore`）
 
@@ -404,16 +449,16 @@ vault\
 | --- | --- | --- |
 | 自分の項目のゴースト | `restore_ghost`（中身がなければ保管庫から戻す）→ ハッシュを確かめる | 一致：`restored`、不一致（開いた後に編集された）：`restored_local_newer` |
 | 通常のファイルで、ハッシュが一致 | 何もしない（すでに戻っている） | `restored` |
-| 通常の別のファイル | 横に「元の名前 (pip0復元).拡張子」で保管庫からコピーし、ハッシュと更新日時を確かめる | `restored_conflict` |
-| ファイルがない、または別のファイルがある（ゴーストが移動された・消された） | `locate_ghost` で同期ルートの中を探す。ちょうど1か所で見つかり、自分の項目のゴーストだと確かめられたら、その場所へ記録を移して復元する。見つからない・複数ある・分からないときは、勝手に作り直さない | 見つかった：上の行と同じ、それ以外：`ghost_missing`（保管庫に残す。後で復元できる） |
+| 通常の別のファイル | 横に「元の名前 (pip0復元).拡張子」で保管庫からコピーし、ハッシュと更新日時を確かめる。ダウンロード元の印（`Zone.Identifier`）は、名前を変える前の一時ファイルに付けておく（印を書いた後に更新日時を戻す）。行き先の名前は先に manifest.json に書いておき、名前を変えた直後に止まったときは、次の実行で、そのファイルに印と更新日時を付け直して終える（コピーは増えない） | `restored_conflict` |
+| ファイルがない、別のファイルがある、または別の項目のゴーストがある（ゴーストが移動された・消された） | `locate_ghost` で同期ルートの中を探す。ちょうど1か所で見つかり、自分の項目のゴーストだと確かめられたら、その場所へ記録を移して復元する。見つからない・複数ある・分からないときは、勝手に作り直さない。探し切れなかった（複数ある・分からない）ときに、元の場所に別のファイルがあれば、横に戻さず、前の状態のまま理由を `last_error` に残す（次の全復元で探し直す） | 見つかった：上の行と同じ。探して見つからなかった：別のファイルなら上の行（`restored_conflict`）、ファイルがなければ `ghost_missing`（保管庫に残す。後で復元できる）。探し切れなかった：別のファイルがあれば前の状態のまま、ファイルがなければ `ghost_missing` |
 | ゴーストが pip0 専用フォルダーの外へ移された | 外の場所は追わない | `ghost_missing` |
-| シェルが動いていない等 | 何もしない（状態を戻す） | `evacuated` のまま（失敗として記録） |
+| シェルが動いていない等（状態を確かめられない） | 何もしない（状態を戻し、理由を `last_error` に残して、全復元の結果と `vault list` に出す） | `evacuated` のまま（失敗として記録） |
 
 どの場合も、保管庫の `content` と `manifest.json` は消しません。同じ復元を何度実行しても、結果は同じです。
 
 ### 7-4. 起動時の点検（`vault.recover_incomplete`）
 
 - `copying` → 中断されたので `failed`（原本はそのまま）。
-- `ghosting` → `ghost_status` を見て、ゴーストになっていれば `evacuated`、同じ通常のファイル（ファイル番号が同じ）なら `copied`、なければ、または別のファイルなら `locate_ghost` で探してから決める（見つからなければ `ghost_missing`）。分からないときは `ghosting` のまま。
+- `ghosting` → `ghost_status` を見て、ゴーストになっていれば `evacuated`。同じファイル（ファイル番号が同じ）が通常のファイルのままなら `copied`（原本はそのまま）。ファイルがない、または別のファイルなら `locate_ghost` で探し、見つかればその場所で `evacuated`、見つからなければ `ghost_missing`（「原本はそのまま」とはしない。ファイルがないときは、探し切れなかったときも `ghost_missing` にし、次の全復元で探し直す）。別のファイルがあって探し切れなかったときと、元の場所の状態が分からないときは `ghosting` のまま（理由を DB の `last_error` に残し、全復元の結果と `vault list` に出す。次の点検・全復元で確かめ直す）。元の場所が別の項目のゴーストなら `failed`（この項目はゴーストにしていない）。
 - `restoring` → 復元をやり直す。
 - DB にない manifest.json があれば、DB に読み込む（`sync_from_manifests`）。

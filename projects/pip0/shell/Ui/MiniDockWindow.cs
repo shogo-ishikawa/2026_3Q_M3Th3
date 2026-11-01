@@ -52,7 +52,9 @@ internal sealed class MiniDockWindow : Window
         layout.Children.Add(rowsPanel);
         Content = UiStyle.Panel(layout);
 
-        SourceInitialized += (_, _) => WindowPlacement.ApplyFloatingStyle(this, clickThrough: false);
+        // 画面の共有に写さない設定は使わない。使うと遠隔操作のアプリで見えなくなり、見えないまま本体が
+        // 提案どおりに仕分けてしまうため（WindowPlacement の説明を参照）
+        SourceInitialized += (_, _) => WindowPlacement.ApplyFloatingStyle(this, clickThrough: false, excludeFromCapture: false);
         Loaded += (_, _) => Reposition();
         SizeChanged += (_, _) => Reposition();
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(Reposition);

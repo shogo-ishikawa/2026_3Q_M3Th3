@@ -18,9 +18,15 @@ namespace Pip0Shell.Ui;
 ///   WPF が WS_EX_LAYERED を付けるため、この2つがそろうとクリックが通る）。
 /// - 位置は物理ピクセル（GetCursorPos と同じ座標）で SetWindowPos する。WPF の Left/Top は拡大率の違う画面で
 ///   ずれることがあるため使わない。
-/// - 画面の共有・録画・スクリーンショットに写さない（SetWindowDisplayAffinity の WDA_EXCLUDEFROMCAPTURE）。
-///   警告の枠やミニドックには、ファイル名や作業中の会話名が出るため、画面の共有中に、ほかの人へ見せないようにする。
+/// - 画面の共有・録画・スクリーンショットに写さない設定（SetWindowDisplayAffinity の WDA_EXCLUDEFROMCAPTURE）は、
+///   デスクとつまみにだけ使う（引数 excludeFromCapture）。デスクにはファイル名や作業中の会話名が出るため、
+///   画面の共有中に、ほかの人へ見せないようにする。
 ///   Windows の説明どおり、これは画面を写されないための「保護の仕組み」ではありません（カメラで撮るなどは防げない）。
+/// - ミニドックと警告の枠には、この設定を使わない。この設定のウィンドウは、PC につないだ画面（モニター）にだけ表示され、
+///   画面を写して送る遠隔操作のアプリ（TeamViewer、AnyDesk など）では見えなくなる（ほかのアプリでの報告。pip0 では未確認）。
+///   本体は、ミニドックが見えていることを前提に、少したつと提案どおりに仕分ける。また、警告の枠を見せた後のドロップを
+///   「警告を見て続けた」とみなし、同じファイルとアプリの組の警告を止める。見えないままでは、どちらもユーザーが知らないうちに
+///   起きてしまうため。その代わり、画面の共有中は、ミニドックと警告の枠に出るファイル名が、ほかの人にも見えます。
 /// </summary>
 internal static class WindowPlacement
 {
@@ -44,8 +50,11 @@ internal static class WindowPlacement
 
     public static HWND Handle(Window window) => (HWND)new WindowInteropHelper(window).Handle;
 
-    /// <summary>SourceInitialized（ウィンドウが作られた直後、表示の前）で呼ぶ</summary>
-    public static void ApplyFloatingStyle(Window window, bool clickThrough)
+    /// <summary>
+    /// SourceInitialized（ウィンドウが作られた直後、表示の前）で呼ぶ。
+    /// excludeFromCapture が真なら、画面の共有・録画・スクリーンショットに写さない（どのウィンドウに使うかは、上の説明を参照）。
+    /// </summary>
+    public static void ApplyFloatingStyle(Window window, bool clickThrough, bool excludeFromCapture)
     {
         HWND hwnd = Handle(window);
         if (hwnd.IsNull)
@@ -57,7 +66,7 @@ internal static class WindowPlacement
         style = clickThrough ? style | (int)WINDOW_EX_STYLE.WS_EX_TRANSPARENT : style & ~(int)WINDOW_EX_STYLE.WS_EX_TRANSPARENT;
         PInvoke.SetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, style);
         HwndSource.FromHwnd((IntPtr)hwnd)?.AddHook(NoActivateHook);
-        if (!PInvoke.SetWindowDisplayAffinity(hwnd, WINDOW_DISPLAY_AFFINITY.WDA_EXCLUDEFROMCAPTURE))
+        if (excludeFromCapture && !PInvoke.SetWindowDisplayAffinity(hwnd, WINDOW_DISPLAY_AFFINITY.WDA_EXCLUDEFROMCAPTURE))
         {
             // 失敗しても表示は続ける（ウィンドウの種類の名前だけを記録する。パスやタイトルは書かない）
             Core.Log.Warning("画面の共有に写さない設定ができませんでした（" + window.GetType().Name + "、エラー "

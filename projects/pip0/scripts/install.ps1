@@ -611,27 +611,44 @@ function Write-InstallMarker([string]$Dir, [string]$Pip0Version) {
 #    - pip0 本体のすべてのモジュール（app\pip0 の .py）を読み込めること。platform_windows は、読めなくても
 #      設定の読み込みが先へ進むため、名前を挙げて確かめます。読み込めなかったときは、モジュールの名前と
 #      エラーの種類だけを表示します（コードの中身やパスは表示しません）
+#    - 読み込むときに、標準出力へ何も表示しないこと（モジュールの一番上の print() 等。標準出力は、ブラウザー拡張との
+#      通信に使うため）。表示されたものは受け取って捨て、表示した場所に近い pip0 のモジュールの名前を挙げます
+#      （Catcher の write が、print() を呼んだところから呼び出し元をたどって探します）。
+#      一番上の sys.exit() は、SystemExit として名前を挙げます。結果の JSON は、出力の最後の行だけを読みます
 #    - 「python -m pip0 --help」が終了コード 0 で終わること（全復元・起動・アンインストールが使うコマンドの入口）
 #    - ライブラリを読み込めること、SQLCipher の版を読めること
 #    読み込むだけで、pip0 の処理が正しく動くかまでは確かめません（コードを変えたときは python -m pytest で確かめます）
 function Test-StagedRuntime([string]$RuntimeDir) {
     $python = Join-Path $RuntimeDir 'python.exe'
     $code = @(
-        'import importlib, json, pkgutil, sys',
+        'import contextlib, importlib, io, json, pkgutil, sys',
         'result = {''python'': sys.version.split()[0], ''errors'': [], ''modules'': 0}',
-        'try:',
-        '    import pip0',
+        'printed = set()',
+        'class Catcher(io.StringIO):',
+        '    def write(self, text):',
+        '        frame = sys._getframe(1)',
+        '        while frame.f_back is not None and not frame.f_globals.get(''__name__'', '''').startswith(''pip0''):',
+        '            frame = frame.f_back',
+        '        if text:',
+        '            printed.add(frame.f_globals.get(''__name__'', ''?''))',
+        '        return len(text)',
+        'def load(name):',
+        '    try:',
+        '        with contextlib.redirect_stdout(Catcher()):',
+        '            return importlib.import_module(name)',
+        '    except BaseException as error:',
+        '        result[''errors''].append(name + '' ('' + type(error).__name__ + '')'')',
+        '        return None',
+        'pip0 = load(''pip0'')',
+        'names = set()',
+        'if pip0 is not None:',
         '    names = {module.name for module in pkgutil.iter_modules(pip0.__path__)}',
         '    names.add(''platform_windows'')',
-        'except Exception as error:',
-        '    names = set()',
-        '    result[''errors''].append(''pip0 ('' + type(error).__name__ + '')'')',
         'for name in sorted(names):',
-        '    try:',
-        '        importlib.import_module(''pip0.'' + name)',
+        '    if load(''pip0.'' + name) is not None:',
         '        result[''modules''] += 1',
-        '    except Exception as error:',
-        '        result[''errors''].append(''pip0.'' + name + '' ('' + type(error).__name__ + '')'')',
+        'for name in sorted(printed):',
+        '    result[''errors''].append(name + '' (標準出力への表示)'')',
         'if not result[''errors'']:',
         '    try:',
         '        from pip0 import config',
@@ -667,11 +684,32 @@ function Test-StagedRuntime([string]$RuntimeDir) {
     if ($result.ExitCode -ne 0) {
         throw ('pip0 専用の Python を起動できませんでした（終了コード ' + $result.ExitCode + '）：' + ($result.StdErr + $result.StdOut).Trim())
     }
-    $info = $result.StdOut | ConvertFrom-Json
+    # 結果は、出力の最後の行の JSON です（その前の行は読みません）
+    $lines = @($result.StdOut -split '\r?\n' | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -gt 0 })
+    $info = $null
+    if ($lines.Count -gt 0) {
+        try {
+            $info = $lines[$lines.Count - 1] | ConvertFrom-Json
+        }
+        catch {
+            $info = $null
+        }
+    }
+    if ($null -eq $info) {
+        throw ('pip0 専用の Python で確かめた結果を、受け取れませんでした。pip0 のモジュールの一番上（関数の外）に、' +
+            'os._exit() のようにプログラムを終わらせる行や、画面へ表示する行がないかを確かめてください。')
+    }
     $errors = @(Get-JsonField $info 'errors')
     if ($errors.Count -gt 0) {
-        throw ('pip0 専用の Python で、次のものを読み込めませんでした：' + ($errors -join '、') +
-            '。pip0 本体のコードを変えた場合は、リポジトリーの projects\pip0 で python -m pytest を実行すると、詳しい理由が分かります。')
+        $advice = ''
+        if (($errors -join ' ') -match '標準出力への表示') {
+            $advice += '「標準出力への表示」は、モジュールの一番上（関数の外）の print() 等です。pip0 は標準出力をブラウザー拡張との通信に使うため、消してください。'
+        }
+        if (($errors -join ' ') -match 'SystemExit') {
+            $advice += '「SystemExit」は、モジュールの一番上（関数の外）の sys.exit() 等です。'
+        }
+        throw ('pip0 専用の Python で、次のものを読み込めませんでした：' + ($errors -join '、') + '。' + $advice +
+            'pip0 本体のコードを変えた場合は、リポジトリーの projects\pip0 で python -m pytest を実行すると、詳しい理由が分かります。')
     }
     $helpResult = Invoke-Captured $python @('-I', '-X', 'utf8', '-m', 'pip0', '--help') 120
     if ($helpResult.ExitCode -ne 0) {

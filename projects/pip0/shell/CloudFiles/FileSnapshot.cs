@@ -32,6 +32,9 @@ internal sealed class FileSnapshot
 
     public uint Attributes { get; }
 
+    /// <summary>読み取り専用の属性が付いているか</summary>
+    public bool IsReadOnly => (Attributes & (uint)FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_READONLY) != 0;
+
     /// <summary>
     /// 中身がすべてはディスクにない印が付いているか（FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS または RECALL_ON_OPEN）。
     /// Windows の説明では「ファイルのデータのすべてがローカルの記憶装置にあるわけではない」という意味です。

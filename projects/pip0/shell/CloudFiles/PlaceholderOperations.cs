@@ -166,8 +166,10 @@ internal sealed class PlaceholderOperations
         }
         if (entry.IsReadOnly)
         {
-            // CfConvertToPlaceholder には、書き込み（WRITE_DATA）の権利のあるハンドルが要る。
-            // 読み取り専用のファイルは書き込みの権利で開けないので、何度試しても失敗する
+            // この後、原本を書き込みの権利（CF_OPEN_FILE_FLAG_WRITE_ACCESS）で開くため、読み取り専用のファイルは開けず、
+            // 何度試しても失敗する。（Microsoft Learn の CfConvertToPlaceholder の説明で求められているのは、呼び出し元が
+            // ファイルに WRITE_DATA か WRITE_DAC の権利を持つことと、中身を外すときは排他的なハンドルを使うこと。
+            // 書き込みの権利なしで開いてもゴーストにできるかは確かめていないので、読み取り専用のファイルは断ったままにする）
             return Outcome("error", "読み取り専用のファイルのため、ゴーストにしません（何度試しても同じです）。");
         }
 
@@ -426,6 +428,11 @@ internal sealed class PlaceholderOperations
     ///    ここで排他的なハンドルを持たないのは、中身を戻す Windows の処理と、こちらのハンドルがぶつからないようにするため。
     /// 2. 排他的に開き直し、この項目のゴーストで、中身がすべてディスクにあることをもう一度確かめてから、
     ///    CfRevertPlaceholder で通常のファイルに戻す。
+    ///
+    /// 読み取り専用のゴーストも、前もって断らずに戻す。Microsoft Learn の CfRevertPlaceholder の説明では、ハンドルは
+    /// 属性だけを読むものでも足り、要るのは、呼び出し元（ユーザー）がファイルに WRITE_DATA か WRITE_DAC の権利を持つこと
+    /// （この権利はファイルの ACL で決まり、読み取り専用の属性では変わらない）。そのため 2 では、書き込みの権利を求めずに
+    /// 開く（求めると、読み取り専用のファイルは開けない）。読み取り専用のゴーストで戻せるかは、Windows の実機では確かめていない。
     /// </summary>
     public JsonObject Restore(string path, string itemId)
     {
@@ -447,14 +454,6 @@ internal sealed class PlaceholderOperations
         {
             return Outcome("error", "リンク（シンボリックリンク等）です。");
         }
-        if (entry.IsReadOnly)
-        {
-            // CfRevertPlaceholder には、書き込み（WRITE_DATA）か WRITE_DAC の権利のあるハンドルが要る。
-            // 読み取り専用のファイルは書き込みの権利で開けず、CfOpenFileWithOplock では WRITE_DAC を求められない。
-            // 属性を勝手に変えることはしないので、ユーザーに外してもらう
-            return Outcome("error", "読み取り専用のゴーストのため、通常のファイルに戻せません。エクスプローラーでファイルのプロパティを開き、"
-                + "「読み取り専用」を外してから、もう一度試してください（中身は保管庫に残っています）。");
-        }
 
         // 1. 確かめて、必要なら中身を戻す
         JsonObject? decided = HydrateIfNeeded(path, itemId);
@@ -463,11 +462,9 @@ internal sealed class PlaceholderOperations
             return decided;
         }
 
-        // 2. 排他的に開き直して、通常のファイルに戻す
-        int openResult = ProtectedFile.Open(
-            path,
-            CF_OPEN_FILE_FLAGS.CF_OPEN_FILE_FLAG_EXCLUSIVE | CF_OPEN_FILE_FLAGS.CF_OPEN_FILE_FLAG_WRITE_ACCESS,
-            out ProtectedFile? file);
+        // 2. 排他的に開き直して、通常のファイルに戻す。書き込みの権利（CF_OPEN_FILE_FLAG_WRITE_ACCESS）は求めない
+        //    （CfRevertPlaceholder には要らず、求めると読み取り専用のゴーストを開けない。上の説明を参照）
+        int openResult = ProtectedFile.Open(path, CF_OPEN_FILE_FLAGS.CF_OPEN_FILE_FLAG_EXCLUSIVE, out ProtectedFile? file);
         if (openResult < 0 || file is null)
         {
             if (IsNotFound(openResult))
@@ -577,7 +574,8 @@ internal sealed class PlaceholderOperations
         int revertResult = PInvoke.CfRevertPlaceholder(handle, CF_REVERT_FLAGS.CF_REVERT_FLAG_NONE, null).Value;
         if (revertResult < 0)
         {
-            return Outcome("error", "通常のファイルに戻せませんでした：" + HResultText.Describe(revertResult));
+            // 読み取り専用のゴーストでアクセスが拒否されたときは、「読み取り専用」を外して試す案内を付ける
+            return Outcome("error", RestoreReason.RevertFailed(revertResult, snapshot.IsReadOnly));
         }
         int afterResult = PlaceholderInfo.TryRead(handle, out PlaceholderInfo after);
         if (afterResult < 0 || after.IsPlaceholder)

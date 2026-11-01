@@ -43,7 +43,7 @@ dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:P
 | `Ipc/` | 本体との通信。1行ずつの読み書き（`JsonLineChannel.cs`、1行 1 MiB まで）、メッセージの読み取り（`IncomingMessage.cs`、`Payload.cs`）、type ごとの振り分け（`MessageRouter.cs`）、答えと知らせの送信（`ShellOutput.cs`、`RequestResult.cs`） |
 | `CloudFiles/` | ゴースト（M4）。入口は `CloudFilesModule.cs`。同期ルートの登録（`SyncRootRegistrar.cs`）、接続とコールバック（`SyncProvider.cs`）、中身を渡す処理（`FetchDataService.cs`）、ゴーストの状態・作成・復元（`PlaceholderOperations.cs`）、保管庫の確認（`VaultContent.cs`）、エラーの日本語の理由（`HResultText.cs`） |
 | `Trash/` | ごみ箱。入口は `TrashModule.cs`。確認画面（`ConfirmDeleteWindow.cs`）、ごみ箱へ移す処理（`RecycleBin.cs`、`RecycleProgressSink.cs`） |
-| `Ui/` | 常駐UI。入口は `UiModule.cs`（WPF の Application と画面のスレッドを持ち、ui.* の知らせと OS の見張りの開始・終了をまとめる）。ミニドック（`MiniDockWindow.cs`、`MiniDockContent.cs`）、デスク（`DeskWindow.cs`、`DeskHandleWindow.cs`、`DeskContent.cs`、接近で透過の決まり `DeskProximity.cs`、デスクからのドラッグの記録 `DeskPressRecorder.cs`）、警告の枠（`HazardBorderWindow.cs`、`HazardContent.cs`）、通知領域アイコン（`TrayIcon.cs`、`TrayIconImage.cs`）、状態の画面（`StatusWindow.cs`、`StatusText.cs`）、再開の確認画面（`ConfirmResumeWindow.cs`）、ファイルを開く・場所を開く（`FileActions.cs`、開かない種類 `OpenableFile.cs`）、置き場所の計算（`ScreenGeometry.cs`、`WindowPlacement.cs`）、色と部品（`UiStyle.cs`） |
+| `Ui/` | 常駐UI。入口は `UiModule.cs`（WPF の Application と画面のスレッドを持ち、ui.* の知らせと OS の見張りの開始・終了をまとめる）。ミニドック（`MiniDockWindow.cs`、`MiniDockContent.cs`）、デスク（`DeskWindow.cs`、`DeskHandleWindow.cs`、`DeskContent.cs`、接近で透過の決まり `DeskProximity.cs`、デスクからのドラッグの記録 `DeskPressRecorder.cs`）、警告の枠（`HazardBorderWindow.cs`、`HazardContent.cs`）、通知領域アイコン（`TrayIcon.cs`、`TrayIconImage.cs`）、状態の画面（`StatusWindow.cs`、`StatusText.cs`）、再開の確認画面（`ConfirmResumeWindow.cs`）、ファイルを開く・場所を開く（`FileActions.cs`、開いてよい種類の許可の一覧 `OpenableFile.cs`）、置き場所の計算（`ScreenGeometry.cs`、`WindowPlacement.cs`）、色と部品（`UiStyle.cs`） |
 | `Input/` | マウス。低レベルのマウスのフック（`MouseHook.cs`）、ドラッグの判定（`DragTracker.cs`）と知らせ（`DragMonitor.cs`）、エクスプローラーで選ばれている項目（`ExplorerSelection.cs`）、マウスの位置を送る（`CursorSampler.cs`、`CursorBatcher.cs`） |
 | `Context/` | 作業文脈と利用の記録。前面ウィンドウ（`ForegroundWatcher.cs`、まとめ方 `Debouncer.cs`、`WindowInfo.cs`、`ProcessInfo.cs`）、ファイルダイアログ（`FileDialogAutomation.cs`）、セッション（`SessionEventsWatcher.cs`）、最近使ったファイル（`RecentItemsWatcher.cs`、`RecentItems.cs`、`ShellLinkReader.cs`、`RecentTrackingSetting.cs`） |
 | `NativeMethods.txt`、`NativeMethods.json` | CsWin32 に宣言を生成させる Win32 API の一覧と設定 |
@@ -96,7 +96,7 @@ dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:P
 
 - 主モニターの作業領域（タスクバーを除く範囲）の右下に出します。幅 380（100% のとき）。
 - 1つのダウンロードが1行：ファイル名、状態（「仕分け先の候補なし」「解析待ち」）、仕分け先、新しい名前、理由、作業中のアプリ。ボタンは「提案どおり」（候補がない行では押せない）、別の仕分け先（`alternatives` の数だけ）、「そのまま」、「開く」。
-- ボタンを押すと `ui.mini_dock.action {"dock_id", "entry_id", "action": "accept"/"alternative"/"keep"/"open", "alternative_index"}` を送り、その行のボタンを押せなくします。行を消す・閉じるのは本体からの次の `ui.mini_dock.show` / `ui.mini_dock.close` です。
+- ボタンを押すと `ui.mini_dock.action {"dock_id", "entry_id", "action": "accept"/"alternative"/"keep"/"open", "alternative_index"}` を送り、その行のボタンを押せなくします。行を消す・閉じるのは本体からの次の `ui.mini_dock.show` / `ui.mini_dock.close` です。「開く」のときも同じですが、本体は「開く」では行を残し、表示し直さないため、その行のボタンは押せないまま残ります（直す必要がある。[docs/status.md](../docs/status.md) の7節）。
 - マウスが乗った・離れたら `ui.mini_dock.interaction {"dock_id", "state": "enter"/"leave"}`。残り時間を止める・数え直すのは本体です。シェルは残り時間を表示しません（本体が止めたり数え直したりするため、シェルの表示とずれないように）。
 - `ui.mini_dock.close` は、表示中の `dock_id` と同じときだけ閉じます。
 
@@ -154,6 +154,9 @@ dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:P
 ### セッション（`session.event`）
 
 `Microsoft.Win32.SystemEvents` の SessionSwitch（`lock` / `unlock` / `logoff`）、PowerModeChanged（`suspend` / `resume`）、SessionEnding（`shutdown`、サインアウトなら `logoff`）を送ります。同じ kind が 2 秒以内に続いたら1回にまとめます。
+
+- SessionEnding（`WM_QUERYENDSESSION`）の知らせは、サインアウト・シャットダウンが始まったときに送ります。ほかのアプリが止めて取り消されることがありますが、取り消しの知らせは送りません（本体は、`logoff`・`shutdown` ではダウンロードの提案を待たせません。[docs/design.md](../docs/design.md) 4-3）。
+- 確かめていない心配：WPF の `Application` は、`SessionEnding` が取り消されないと `Shutdown` を呼ぶことがあります（Microsoft の説明）。そうなると、サインアウトなどが後で取り消されたとき、シェルのプロセスは動いたまま、画面のスレッド（通知領域のメニュー（キルスイッチを含む）、ミニドック、デスク、警告の枠）だけが終わるおそれがあります。今のコードは、`application.Run()` が戻ったことを本体へ知らせていません。実機で確かめる必要があります（下の表）。
 
 ### 最近使ったファイル（`usage.recent_items`）
 
@@ -218,7 +221,7 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
 - ファイル番号（`file_key`）の書き方が、本体の Python の `os.stat` と一致するか（Python 3.11 と 3.12 以降の両方の書き方を受け付けています）。
 - 確認画面、ごみ箱へ移す処理（`IFileOperation` と進み具合の知らせ）、ごみ箱が使えないドライブで `refused` になること。
 - 通知領域アイコンとメニュー（5 項目）、吹き出し、ツールチップ、状態の画面、再開の確認画面、高 DPI の表示。
-- ゴーストを開いてから使えるまでの時間（`cf.fetch` の `elapsed_ms` で実測できます）。
+- ゴーストを開いてから使えるまでの時間（`cf.fetch` の `elapsed_ms` で実測できます。本体は `%LOCALAPPDATA%\pip0\control\service.status.json` の `ghost_open` にまとめて書きます。状態の画面には出ません）。
 - 常駐UI・入力・作業文脈は、**すべて Windows 11 の実機で確かめていません**（Linux ではコンパイルと、上の判定の確認だけ）。下の「実機で確かめること」を参照してください。
 
 ### 実機で確かめること（Windows 11）
@@ -239,25 +242,31 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
 | Slack で会話を切り替えると、タイトルの変化で `context.foreground` が届く（300ms まとめ） | プロセスごとのタイトルの変化のフック |
 | 管理者として動くアプリが前面のとき、`inaccessible` と理由が正しく、マウスのフックの「外れた」の誤判定が起きない | UIPI と低レベルのフック |
 | 画面のロック・ロック解除・スリープ・復帰・サインアウト・シャットダウンで `session.event` が届く | `SystemEvents` |
+| サインアウト・シャットダウンを、ほかのアプリで止めて取り消した後も、通知領域のメニュー・ミニドック・デスク・警告の枠が動き続ける | WPF の `Application.SessionEnding` と `Shutdown`、`application.Run()` が戻った後の扱い（上の「確かめていない心配」） |
+| マウスをミニドックに乗せたまま Windows キー＋L でロックしたとき、`ui.mini_dock.interaction` の `leave` が届くか | WPF の MouseLeave（届いても届かなくても、本体は行を止めたままにする決まり） |
+| ミニドック・デスク・つまみ・警告の枠が、画面共有（Teams など）・録画・スクリーンショットに写らない | `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`（Windows 10 2004 以降の機能） |
+| pip0 専用フォルダーの中の通常のファイルに `attrib +P`（または「常にこのデバイス上に保持する」）を付けたとき、`cf.status` の `pinned` が真になり、本体の `get_local_state` がプレースホルダーとしない | ファイルの属性の値（`PINNED` だけで、再解析ポイントがないか） |
 | ファイルを開くと `usage.recent_items` が届き、設定アプリで「最近開いた項目」を切ると `tracking_enabled: false` になる | Recent のショートカットの更新日時、レジストリーの値 |
 | 応答の遅いフックが外されたとき（デバッガーで止める等）に付け直し、`mouse_hook` の `false` → `true` が届く | 2 秒ごとの点検 |
 
-## docs/ipc-protocol.md との違い・補足
+## docs/ipc-protocol.md への補足
+
+ここに書いた項目は、どれも [docs/ipc-protocol.md](../docs/ipc-protocol.md) の約束に入っています。シェルの側から見た、細かい決まりを補っています。
 
 - `shell.ready` は、受け付けを始めた直後（`init` の前）に、ほかのどの答えよりも先に送ります。付ける `capabilities` は起動時点の見込みで、確定した値は `init` の答えです。
-- `cf.hydrated` に、約束にない `by_pip0`（pip0 自身の復元で中身が戻ったとき真）を加えています。
-- `trash.confirm_and_recycle` の `answer` には、表示なしのとき `unavailable` を返します（docs/design.md 6-2 の約束に合わせたもの）。
+- `cf.hydrated` の `by_pip0` は、pip0 自身の復元（`cf.restore` の中の `CfHydratePlaceholder`）で中身が戻ったときに真です。
+- `trash.confirm_and_recycle` の `answer` は、表示なし（`--headless`）のとき `unavailable` で、何も削除しません。
 - ごみ箱へ移す印に `FOF_NO_CONNECTED_ELEMENTS` を加えています（`page.html` と一緒に `page_files` まで消さないため）。
 - `cf.restore` は、`CfRevertPlaceholder` が中身を戻すことに頼らず、先に `CfHydratePlaceholder` で中身を戻させ、すべてあることを確かめてから戻します。
 - `cf.make_ghost` の `file_key` は、Python 3.12 以降（64ビットのボリューム番号:128ビットのファイル番号）と 3.11 まで（32ビット:64ビット）のどちらの書き方でも照合します。
 - `cf.notify_delete` と `cf.notify_rename` は、項目ID を持つファイルについてだけ、操作が終わった後に送ります（フォルダーには送りません）。
 - 失敗の答えの `code`：`unknown_type`、`bad_request`、`not_initialised`、`already_initialised`、`unsupported_protocol`、`shutting_down`、`too_large`、`internal_error`。
-- `init` に、約束にない `watched_roots`（絶対パスの配列。「最近使ったファイル」を知らせる対象のフォルダー）を加えています。ない場合は `pip0_root` だけを対象にします。本体は `config.index_folders(config)` のフォルダーを渡すと、ダウンロード等のフォルダーの利用も届きます。
-- `context.foreground`：`dialog_rect` の形は `{"left", "top", "right", "bottom"}`（物理ピクセル）。`hwnd` は整数。`inaccessible: true` のときは約束にない `reason` を付けます。pip0 自身のウィンドウが前面のときと、前と同じ内容のときは送りません。
-- `drag.started`：約束にない `unidentified_count`（パスの分からない項目の数）を付けます。`drag_id` は 32 桁の16進数。知らせるのはエクスプローラー（デスクトップを含む）のフォルダー表示と pip0 のデスクからのドラッグだけです。
-- `drag.ended`：離したことを確かめられなかったときは、`target_process: null`、`dropped_on_other_process: false` に約束にない `reason` を付けます。
-- `ui.desk.action`：約束にない `desk_id` を付けます（`fill_dialog` には `dialog_hwnd` も）。`ui.mini_dock.action` の `alternative_index` は、`alternative` 以外では `null` です。
-- `tray.command` の `resume` は、確認画面で「再開する」が押されたときだけ送り、約束にない `confirmed: true` を付けます（`killswitch.resume` の `confirmed` に使える）。
+- `init` の `watched_roots`（絶対パスの配列）は、「最近使ったファイル」を知らせる対象のフォルダーです。ない場合は `pip0_root` だけを対象にします。本体は `config.index_folders(config)` のフォルダーを渡すので、ダウンロード等のフォルダーの利用も届きます。
+- `context.foreground`：`dialog_rect` の形は `{"left", "top", "right", "bottom"}`（物理ピクセル）。`hwnd` は整数。`inaccessible: true` のときは `reason` を付けます。pip0 自身のウィンドウが前面のときと、前と同じ内容のときは送りません。
+- `drag.started`：`unidentified_count` は、パスの分からない項目の数です。`drag_id` は 32 桁の16進数。知らせるのはエクスプローラー（デスクトップを含む）のフォルダー表示と pip0 のデスクからのドラッグだけです（ミニドックからはドラッグできません）。
+- `drag.ended`：離したことを確かめられなかったときは、`target_process: null`、`dropped_on_other_process: false` に `reason` を付けます。
+- `ui.desk.action`：`desk_id` を付けます（`fill_dialog` には `dialog_hwnd` も）。`ui.mini_dock.action` の `alternative_index` は、`alternative` 以外では `null` です。
+- `tray.command` の `resume` は、確認画面で「再開する」が押されたときだけ送り、`confirmed: true` を付けます（`killswitch.resume` の `confirmed` に使える）。
 - `input.cursor_batch` の時刻は 1970年1月1日からのミリ秒（整数）です。
 - `usage.recent_items` の `tracking_enabled` は、Recent フォルダーを読めない・対象のフォルダーがないときも `null` にします（当てにできないため）。
 - `shell.open_file` は、文書・画像・音声・動画・ZIP の決まった拡張子（`Ui/OpenableFile.cs` の許可の一覧）だけを開き、それ以外（`.exe`、`.py`、`.msc`、マクロ付きの `.docm` など）は開かずに `ok: false` と理由を返します（ボタン1つでプログラムを動かさないため。禁止の一覧では、`.py` のように既定のアプリがプログラムを動かす種類を数え漏らすため、許可の一覧にしています）。`shell.fill_file_dialog`・`shell.open_file`・`shell.reveal_file` は、`* ? " < > |` を含むパスを `bad_request` で断り、表示なしのときは `ok: false` を返します。
@@ -282,7 +291,7 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
 - 置き場所（右下・右端・ダイアログの上辺）：`Ui/ScreenGeometry.cs`
 - つまみにとどまる時間（0.3 秒）：`Ui/DeskProximity.cs` の `HoverMilliseconds`
 - 状態の画面の機能の日本語の名前：`Ui/StatusText.cs` の `FeatureNames`
-- 開かない種類のファイル：`Ui/OpenableFile.cs` の `RunnableExtensions`
+- 「開く」ボタンで開いてよい種類のファイル（許可の一覧）：`Ui/OpenableFile.cs` の `DocumentExtensions`（足してよいのは、既定のアプリで開いてもプログラムが動かない種類だけ）
 - 前面ウィンドウの知らせをまとめる時間（300ms）：`Context/ForegroundWatcher.cs` の `QuietMilliseconds`
 - ドラッグを知らせるアプリ（今はエクスプローラーと pip0 のデスク）：`Input/DragMonitor.cs` の `BeginDrag`
 

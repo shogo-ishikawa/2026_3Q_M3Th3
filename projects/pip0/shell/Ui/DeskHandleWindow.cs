@@ -58,7 +58,8 @@ internal sealed class DeskHandleWindow : Window
         SetEngaged(false);
         Content = grip;
 
-        SourceInitialized += (_, _) => WindowPlacement.ApplyFloatingStyle(this, clickThrough: false);
+        // デスクと同じく、画面の共有に写さない
+        SourceInitialized += (_, _) => WindowPlacement.ApplyFloatingStyle(this, clickThrough: false, excludeFromCapture: true);
         MouseLeftButtonUp += (_, _) => this.onClick();
     }
 

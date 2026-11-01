@@ -81,7 +81,9 @@ internal sealed class HazardBorderWindow : Window
 
         SourceInitialized += (_, _) =>
         {
-            WindowPlacement.ApplyFloatingStyle(this, clickThrough: true);
+            // 画面の共有に写さない設定は使わない。使うと遠隔操作のアプリで見えなくなり、見えなかった警告を
+            // 本体が「続けた」とみなして止めてしまうため（WindowPlacement の説明を参照）
+            WindowPlacement.ApplyFloatingStyle(this, clickThrough: true, excludeFromCapture: false);
             WindowPlacement.SetBounds(this, bounds);
         };
         // 拡大率の違う画面へ動いたとき、Windows の提案する大きさに変わることがあるので、画面の全体に置き直す
