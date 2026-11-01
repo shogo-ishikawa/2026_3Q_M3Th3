@@ -10,10 +10,14 @@
 - ShakeDetector：マウスの左右の振り（シェイク）を見分ける
 
 点数の決まり（docs/design.md 4-4。★点数は下の定数で変えられます）
-  文脈の語ごとに：ファイル名かタイトルに含まれれば +3、本文（解析済み）に含まれれば +2
+  文脈の語ごとに：ファイル名かタイトルに含まれれば +3、本文（解析済み。先頭の TEXT_CHECK_CHARS 文字）に含まれれば +2
+  （英字・数字・カタカナの語は、1つの語として含まれるときだけ。「booking」の中の「book」は数えない）
   入手経路が作業中のアプリと同じ（Slack を使っているときに、Slack から入手したファイル）なら +2
   7日以内に使用・変更されていれば +1、30日以内なら +0.5
   DESK_MIN_SCORE 以上の上位 DESK_MAX_ITEMS 件を出す（候補が少なければ、その件数だけ）
+
+rank_files は、前面のウィンドウが変わるたびに、常駐処理のメインのスレッドで呼ばれます（ドラッグの警告と同じ所）。
+解析済みの文書が数千あっても待たせないように、本文は DB から毎回は読まず、先頭だけを覚えておきます（body_texts）。
 """
 
 import logging
@@ -34,16 +38,30 @@ MONTH_DAYS = 30
 
 SECONDS_PER_DAY = 24 * 60 * 60
 
-# 候補にするファイル（存在するもの、退避中のゴースト）と、その解析結果・入手経路
+# ★本文は、先頭からこの文字数までを調べる（解析した本文は最大2万文字。毎回すべてを調べると重いため）
+TEXT_CHECK_CHARS = 2000
+# ★1回の計算で、DB から新しく読む本文の数の上限。起動の直後などに、数千の本文をまとめて読んで待たせないため。
+#   読みきれなかった本文は、次の計算のときに読む（それまでは、そのファイルの本文の点を数えない）
+TEXT_LOADS_PER_RANKING = 200
+
+# 候補にするファイル（存在するもの、退避中のゴースト）と、その解析結果・入手経路。新しいファイルから順に並べる
+# 本文（text_excerpt）は、ここでは読まない。typeof(...) は、本文の中身を読まずに、本文があるか（"text"）だけを調べる
 FILES_SQL = (
-    "SELECT f.id, f.path, f.name, f.status, f.mtime, a.status AS analysis_status, a.title, a.text_excerpt, "
-    "p.source_label "
+    "SELECT f.id, f.path, f.name, f.status, f.mtime, a.status AS analysis_status, a.analysed_at, a.title, "
+    "typeof(a.text_excerpt) AS text_type, p.source_label "
     "FROM files AS f "
     "LEFT JOIN analysis AS a ON a.file_id = f.id "
     "LEFT JOIN provenance AS p ON p.file_id = f.id "
     "WHERE f.status IN ('present', 'ghost') "
-    "ORDER BY f.id"
+    "ORDER BY f.mtime DESC, f.id"
 )
+# 1つのファイルの本文（解析済みのものだけ）
+TEXT_SQL = "SELECT analysed_at, text_excerpt FROM analysis WHERE file_id = ? AND status = 'done'"
+
+# 読んだ本文の覚え書き：{"conn": 最後に使った DB の接続, "texts": {file_id: {"analysed_at", "text"}}}
+# 解析し直して analysed_at が変わるまで、同じ本文を DB から読み直さない。
+# 別の DB（テストやデモ）の本文と混ざらないように、接続が変わったら、覚えた本文を全部忘れる
+TEXT_CACHE = {"conn": None, "texts": {}}
 
 
 # ----------------------------------------------------------------------
@@ -69,14 +87,17 @@ def rank_files(conn, context, now, config, rules, limit=3):
     if count <= 0:
         return []
 
-    # 語を探す形は、語ごとに1回だけ作る。英字の語（大文字・小文字のある語）があるときだけ、
-    # ファイル名・本文の大文字・小文字をそろえる（日本語の語だけなら、そろえる手間を省く）
+    # 語を探す形は、語ごとに1回だけ作る
     keyword_forms = [(word, context_module.search_forms(word)) for word in keywords]
-    fold_case = any(context_module.has_case(context_module.fold(word)) for word in keywords)
     recent = recent_uses(conn, now)
+    rows = database.query_all(conn, FILES_SQL)
+    texts = {}
+    if keyword_forms:
+        texts = body_texts(conn, rows)  # 文脈の語がないときは、本文を使わない
     ranked = []
-    for row in database.query_all(conn, FILES_SQL):
-        score, reasons, last_at = score_file(row, keyword_forms, fold_case, app_label, recent.get(row["id"]), now)
+    for row in rows:
+        score, reasons, last_at = score_file(row, keyword_forms, texts.get(row["id"]), app_label,
+                                             recent.get(row["id"]), now)
         if score < config["DESK_MIN_SCORE"]:
             continue
         ranked.append({"file_id": row["id"], "path": row["path"], "name": row["name"], "status": row["status"],
@@ -92,30 +113,30 @@ def rank_files(conn, context, now, config, rules, limit=3):
     return result
 
 
-def score_file(row, keyword_forms, fold_case, app_label, recent_use, now):
+def score_file(row, keyword_forms, text, app_label, recent_use, now):
     """1つのファイルの点数と理由を計算する。(点数, 理由のリスト, 最後に使った時刻) を返す
 
     keyword_forms：[(文脈の語, context.search_forms の形), ...]
-    fold_case：英字の語があるときは True（名前・タイトル・本文の大文字・小文字をそろえてから探す）
+    text：本文の先頭を比べる形にしたもの（body_texts の値）。本文がない・まだ読んでいなければ None
     """
     score = 0.0
     reasons = []
     analysed = row["analysis_status"] == "done"
-    # 名前・タイトル・本文は、語ごとにではなく、ファイルごとに1回だけ直す（本文は最大2万文字あるため）
-    name = context_module.prepare_text(row["name"], fold_case)
-    title = context_module.prepare_text(row["title"] if analysed else None, fold_case)
-    text = context_module.prepare_text(row["text_excerpt"] if analysed else None, fold_case)
+    # 名前・タイトルは、語ごとにではなく、ファイルごとに1回だけ比べる形（英字を小文字）にする
+    name = context_module.prepare_text(row["name"])
+    title = context_module.prepare_text(row["title"] if analysed else None)
 
+    # 英字・数字・カタカナの語は「1つの語として」あるときだけ数える（「booking」の中の「book」は数えない）
     for keyword, forms in keyword_forms:
         places = []
-        if context_module.contains_prepared(name, forms):
+        if context_module.contains_whole_word(name, forms):
             places.append("ファイル名")
-        if context_module.contains_prepared(title, forms):
+        if context_module.contains_whole_word(title, forms):
             places.append("タイトル")
         if places:
             score += NAME_OR_TITLE_POINTS
             reasons.append(f"{'・'.join(places)}に「{keyword}」（+{NAME_OR_TITLE_POINTS}）")
-        if context_module.contains_prepared(text, forms):
+        if context_module.contains_whole_word(text, forms):
             score += TEXT_POINTS
             reasons.append(f"本文に「{keyword}」（+{TEXT_POINTS}）")
 
@@ -127,14 +148,53 @@ def score_file(row, keyword_forms, fold_case, app_label, recent_use, now):
     last = latest_use(row, recent_use)
     if last is not None:
         days = (now - last["at"]) / SECONDS_PER_DAY
-        when = f"{timeutil.local_date_str(last['at'])}、{usage.USAGE_KIND_LABELS.get(last['kind'], last['kind'])}"
         if days <= WEEK_DAYS:
             score += WEEK_POINTS
-            reasons.append(f"{WEEK_DAYS}日以内に使用・変更（{when}）（+{WEEK_POINTS}）")
+            reasons.append(f"{WEEK_DAYS}日以内に使用・変更（{use_label(last)}）（+{WEEK_POINTS}）")
         elif days <= MONTH_DAYS:
             score += MONTH_POINTS
-            reasons.append(f"{MONTH_DAYS}日以内に使用・変更（{when}）（+{MONTH_POINTS}）")
+            reasons.append(f"{MONTH_DAYS}日以内に使用・変更（{use_label(last)}）（+{MONTH_POINTS}）")
     return score, reasons, (last["at"] if last else None)
+
+
+def use_label(last):
+    """理由の文に入れる、使用・変更の日付と種類（例：「2026-10-27、ファイルの更新」）"""
+    return f"{timeutil.local_date_str(last['at'])}、{usage.USAGE_KIND_LABELS.get(last['kind'], last['kind'])}"
+
+
+def body_texts(conn, rows):
+    """解析済みの文書の本文の先頭を、比べる形（英字を小文字）にして返す {file_id: 文字列}
+
+    - 本文は、先頭の TEXT_CHECK_CHARS 文字だけを、ファイルごとに覚えておく（TEXT_CACHE）。
+      解析し直して analysed_at が変わったファイルは、読み直す（analysed_at の記録がない行は、毎回読む）
+    - まだ覚えていない本文は、1回に TEXT_LOADS_PER_RANKING 件まで、rows の順（新しいファイルから）に DB から読む。
+      読みきれなかったファイルは、ここでは返さない（そのファイルの本文の点は、次の計算から数える）
+    - 今の索引にないファイルの本文は、忘れる（覚える量が増え続けないように）
+    """
+    if TEXT_CACHE["conn"] is not conn:
+        TEXT_CACHE["conn"] = conn
+        TEXT_CACHE["texts"] = {}
+    remembered = TEXT_CACHE["texts"]
+    kept = {}
+    loads = 0
+    for row in rows:
+        if row["analysis_status"] != "done" or row["text_type"] != "text":
+            continue  # 解析済みの本文がない（画像、未解析、解析に失敗 など）
+        file_id = row["id"]
+        item = remembered.get(file_id)
+        if item is not None and row["analysed_at"] is not None and item["analysed_at"] == row["analysed_at"]:
+            kept[file_id] = item  # 覚えている本文が、今の解析の結果
+        elif loads < TEXT_LOADS_PER_RANKING:
+            loads += 1
+            loaded = database.query_one(conn, TEXT_SQL, (file_id,))
+            if loaded is not None:
+                head = (loaded["text_excerpt"] or "")[:TEXT_CHECK_CHARS]
+                kept[file_id] = {"analysed_at": loaded["analysed_at"], "text": context_module.prepare_text(head)}
+    TEXT_CACHE["texts"] = kept
+    texts = {}
+    for file_id, item in kept.items():
+        texts[file_id] = item["text"]
+    return texts
 
 
 def recent_uses(conn, now):

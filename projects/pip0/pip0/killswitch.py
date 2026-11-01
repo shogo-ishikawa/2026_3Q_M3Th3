@@ -9,6 +9,14 @@
    途中で止まっても（強制終了を含む）、resume は断られ、もう一度実行すると残りから続ける
 4. 自動処理は、ユーザーが確認のうえで resume を選ぶまで止まったまま
 
+全復元の依頼（CONTROL_DIR/restore_all.request.json）には、依頼ごとの番号（request_id）を付けます。
+通知領域の「全復元」と、python -m pip0 restore-all（常駐処理が動いているとき）が、押した・実行したときに書きます
+（応え終えていない依頼があれば、上書きせずに、その依頼に加わります）。
+restore_all は、応えている依頼の番号を進み具合に書き、終わったら、その依頼のファイルだけを外します
+（全復元の間に届いた新しい依頼は残り、次の全復元で応えます）。コマンドは、自分の番号の進み具合を待ちます。
+応え終えた依頼のファイルを外せずに残ったとき（ほかのプロセスが開いていた等）は、その依頼には加わらず
+（is_answered）、常駐処理が次に確かめるときに、もう一度外します。
+
 戻すのは pip0 が退避したファイルだけです。自動仕分け・自動改名は戻しません（操作履歴に残っています）。
 pip0 以外が行った変更や、バックアップ全体の復旧はしません。
 画面（UI）が動かないときは、scripts/restore-all.cmd（python -m pip0 restore-all）から使います。
@@ -19,6 +27,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from pathlib import Path
 
 from pip0 import database, fsutil, vault
@@ -138,9 +147,12 @@ def resume(conn, config, confirmed, actor="user", now=None):
 
 
 def restore_unfinished(config):
-    """全復元の依頼が残っているか、前回の全復元が途中で止まっていれば True"""
-    request = control_file(config, REQUEST_FILE_NAME)
-    if request is not None and request.exists():
+    """まだ応えていない全復元の依頼が残っているか、前回の全復元が途中で止まっていれば True
+
+    応え終えた依頼のファイルが、外せずに残っているだけのとき（is_answered）は、全復元は終わっている。
+    """
+    request = read_restore_request(config)
+    if request is not None and not is_answered(config, request):
         return True
     progress = read_progress(config)
     return progress is not None and progress.get("finished") is False
@@ -162,6 +174,9 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
        1 件ごとに progress(件数の辞書) を呼び、CONTROL_DIR/restore_all.progress.json に件数だけを書く
        （パスや名前は書かない）
     5. 1 件ごとに should_stop() を確かめ、真なら止める。もう一度呼ぶと、残りの項目から続ける
+    6. 始めたときに全復元の依頼があれば、それに応える。進み具合には、その依頼の番号（request_id）と、
+       書いた時刻（その時の本当の時刻）を書く。最後まで終わったら、その依頼のファイルだけを外す
+       （全復元の間に届いた新しい依頼は残し、次の全復元で応える）
 
     戻り値：{"total", "restored", "conflict", "local_newer", "missing", "failed", "already", "remaining", "finished"}
     - total：今回の対象の件数。残りの件数（remaining）は、まだ試していない件数
@@ -183,12 +198,15 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
     """
     now_value = time.time() if now is None else now
 
-    # 0. 最初に「全復元が途中」の印（finished: False）を書く。この後のどこで止まっても（強制終了を含む）、
+    # 0. 応える依頼を読む（依頼がなくても全復元はする：起動時に途中から続けるとき、コマンドが自分で行うとき）。
+    #    次に「全復元が途中」の印（finished: False）を書く。この後のどこで止まっても（強制終了を含む）、
     #    前回の「終わり」の記録が残ったままにならず、resume は断られ、次の起動で続きから行う
+    request = read_restore_request(config)
+    request_id = request_number(request)
     started = {key: 0 for key in COUNT_KEYS}
     started["total"] = started["remaining"] = len(vault.list_items(conn, vault.RESTORE_TARGET_STATES))
     started["finished"] = False
-    write_progress(config, started, now_value)
+    write_progress(config, started, request_id)
 
     # 1. 自動処理を止める。停止の印と DB の設定の両方をそろえる
     #    （片方だけだと、印のファイルが消されたときに、確認なしで自動処理が動き出すため）
@@ -205,8 +223,7 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
 
     # 3. ゴーストにする前の項目は中止にする（原本は元の場所のまま。保管庫のコピーも残す）
     for item in vault.list_items(conn, ["copying", "copied", "failed"]):
-        vault.cancel(conn, config, item["item_id"],
-                     "キルスイッチ（全復元）で中止しました（原本はそのままです）", actor="kill_switch", now=now)
+        cancel_one(conn, config, item, now)
 
     # 4. 退避中の項目を 1 件ずつ戻す
     targets = vault.list_items(conn, vault.RESTORE_TARGET_STATES)
@@ -214,7 +231,7 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
     counts["total"] = len(targets)
     counts["remaining"] = len(targets)
     counts["finished"] = False
-    write_progress(config, counts, now_value)
+    write_progress(config, counts, request_id)
     for item in targets:
         if should_stop is not None and should_stop():
             break
@@ -225,12 +242,14 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
         counts["remaining"] -= 1
         if progress is not None:
             progress(dict(counts))
-        write_progress(config, counts, time.time() if now is None else now)
+        write_progress(config, counts, request_id)
 
     counts["finished"] = counts["remaining"] == 0
-    write_progress(config, counts, time.time() if now is None else now)
-    # 全復元の依頼に応えたので、依頼のファイルを外す（途中で止まったときは、進み具合の「途中」が残り、続きから行う）
-    take_restore_request(config)
+    write_progress(config, counts, request_id)
+    if counts["finished"]:
+        # 依頼に応え終えたので、その依頼のファイルを外す。全復元の間に届いた新しい依頼は残す（次の全復元で応える）。
+        # 途中で止まったときは外さない（依頼と、進み具合の「途中」が残り、続きから行う）
+        take_restore_request(config, request)
     database.log_operation(
         conn, "restore_all", actor="kill_switch", status="done" if counts["finished"] else "cancelled",
         detail=json.dumps(counts, ensure_ascii=False), at=time.time() if now is None else now,
@@ -241,6 +260,16 @@ def restore_all(conn, platform, config, progress=None, should_stop=None, now=Non
         counts["failed"], counts["already"], counts["remaining"],
     )
     return counts
+
+
+def cancel_one(conn, config, item, now):
+    """ゴーストにする前の項目を 1 件中止にする。中止を書けなくても（manifest.json が読み取り専用・容量不足など）
+    全復元を止めない（その項目の原本は元の場所のまま。自動処理は止まっているので、ゴーストにされることもない）"""
+    try:
+        vault.cancel(conn, config, item["item_id"],
+                     "キルスイッチ（全復元）で中止しました（原本はそのままです）", actor="kill_switch", now=now)
+    except Exception as error:  # 1 件の記録の失敗で、ゴーストの復元を止めないため
+        logger.warning("全復元：項目 %s を中止にできませんでした（%s）", item["item_id"], type(error).__name__)
 
 
 def restore_one(conn, platform, config, item, now):
@@ -275,27 +304,40 @@ def count_result(counts, result):
 
 
 def request_restore_all(config, now=None):
-    """常駐処理へ全復元を依頼する（cli の restore-all が、常駐処理が動いているときに使う）。{"ok", "reason"}
+    """全復元を依頼する（依頼のファイルを書く）。{"ok", "reason", "request_id"}
 
+    cli の restore-all（常駐処理が動いているとき）と、常駐処理の通知領域の「全復元」が、すぐに書きます。
+    依頼には、依頼ごとの番号（request_id）を付けます。restore_all は、応えている依頼の番号を進み具合に書くので、
+    依頼した側は、自分の番号の進み具合を待てます（時計を比べない）。
+    まだ応え終えていない依頼が残っていれば、上書きせずに、その依頼に加わります（その番号を返す。
+    上書きすると、先に依頼した側が、自分の番号の結果を受け取れなくなるため）。
+    応え終えた依頼のファイルが、外せずに残っているだけなら（is_answered）、加わらずに新しい依頼を書きます
+    （加わると、古い結果をすぐに受け取り、新しい全復元が行われないため）。
     依頼と同時に、停止の印も書く（新しい自動処理を、常駐処理が依頼を受け取る前から止めるため）。
+    依頼のファイルは、その依頼に応えた全復元が終わるまで残る（途中で pip0 が止まっても、次の起動で全復元する）。
     """
     now = time.time() if now is None else now
     request = control_file(config, REQUEST_FILE_NAME)
     if request is None:
-        return {"ok": False, "reason": "データフォルダー（DATA_DIR）が設定されていないため、依頼できません"}
+        return {"ok": False, "reason": "データフォルダー（DATA_DIR）が設定されていないため、依頼できません",
+                "request_id": None}
     stopped = engage(None, config, "全復元の依頼", actor="user", now=now)
+    waiting = read_restore_request(config)
+    if request_number(waiting) is not None and not is_answered(config, waiting):
+        return {"ok": True, "reason": stopped["reason"], "request_id": request_number(waiting)}
+    request_id = uuid.uuid4().hex
     try:
         request.parent.mkdir(parents=True, exist_ok=True)
-        fsutil.atomic_write_json(request, {"at": now})
+        fsutil.atomic_write_json(request, {"at": now, "request_id": request_id})
     except OSError as error:
-        return {"ok": False, "reason": f"全復元の依頼を書けませんでした（{type(error).__name__}）"}
-    return {"ok": True, "reason": stopped["reason"]}
+        return {"ok": False, "reason": f"全復元の依頼を書けませんでした（{type(error).__name__}）", "request_id": None}
+    return {"ok": True, "reason": stopped["reason"], "request_id": request_id}
 
 
 def read_restore_request(config):
-    """全復元の依頼があれば、その辞書を返す（依頼のファイルは外さない）。なければ None
+    """全復元の依頼があれば、その辞書（{"at", "request_id"}）を返す（依頼のファイルは外さない）。なければ None
 
-    常駐処理はこれで依頼に気付き、依頼のファイルは、全復元が終わった後に restore_all が外します
+    常駐処理はこれで依頼に気付き、依頼のファイルは、その依頼に応えた全復元が終わった後に restore_all が外します
     （依頼を受け付けた直後に止まっても、依頼が残り、resume は断られ、次の起動で全復元するため）。
     """
     request = control_file(config, REQUEST_FILE_NAME)
@@ -310,26 +352,59 @@ def read_restore_request(config):
     return value if isinstance(value, dict) else {}
 
 
-def take_restore_request(config):
-    """全復元の依頼があれば取り出して（依頼のファイルを外して）、その辞書を返す。なければ None"""
+def take_restore_request(config, answered):
+    """応えた全復元の依頼のファイルを外す。外したら True
+
+    answered：全復元を始めたときに読んだ依頼（read_restore_request の値。依頼がなかったときは None）。
+    依頼のファイルの中身が answered と違えば（全復元の間に、新しい依頼が届いた）、外さずに残す（次の全復元で応える）。
+    """
     request = control_file(config, REQUEST_FILE_NAME)
-    if request is None:
-        return None
+    if request is None or answered is None:
+        return False
+    if read_restore_request(config) != answered:
+        return False  # 依頼がない、または新しい依頼に変わった
     try:
-        value = fsutil.read_json(request)
+        os.remove(request)  # 依頼のファイル（制御用）を外す。同じ依頼に二度応えないため
     except FileNotFoundError:
-        return None
-    except (OSError, ValueError):
-        value = {}  # 読めなくても、依頼があったことは確か
-    if not isinstance(value, dict):
-        value = {}
-    try:
-        os.remove(request)  # 依頼のファイル（制御用）を外す。同じ依頼を二度受け取らないため
-    except FileNotFoundError:
-        pass
+        return False
     except OSError as error:
         logger.warning("全復元の依頼のファイルを外せませんでした（%s）", type(error).__name__)
-    return value
+        return False
+    return True
+
+
+def request_number(request):
+    """依頼の辞書から、依頼の番号（request_id。32桁の16進数）を取り出す。なければ None"""
+    if not isinstance(request, dict):
+        return None
+    request_id = request.get("request_id")
+    return request_id if isinstance(request_id, str) and request_id else None
+
+
+def is_answered(config, request):
+    """依頼（read_restore_request の値）に、もう応え終えていれば True（その番号の進み具合が「終わり」）
+
+    依頼のファイルは、応え終えた全復元が外しますが、外せなかったとき（ほかのプロセスが開いていた等）は残ります。
+    残った依頼に、もう一度加わったり、全復元を途中のものと扱ったりしないために使います。
+    番号のない依頼（読めない依頼）は、応えたかどうかを見分けられないので False。
+    """
+    request_id = request_number(request)
+    progress = read_progress(config)
+    if request_id is None or progress is None:
+        return False
+    return progress.get("request_id") == request_id and progress.get("finished") is True
+
+
+def request_waiting(config, request_id):
+    """番号 request_id の依頼が、まだ依頼のファイルにあれば True（依頼した側が、応えを待っている間）
+
+    False は、応え終えて外された、または応え終えた後に新しい依頼に代わったとき。依頼のファイルを読めないときは、
+    分からないので True（待ち続ける側に倒す。待つ時間には上限がある）。
+    """
+    waiting = read_restore_request(config)
+    if waiting is None:
+        return False
+    return request_number(waiting) in (None, request_id)
 
 
 def read_progress(config):
@@ -344,14 +419,29 @@ def read_progress(config):
     return value if isinstance(value, dict) else None
 
 
-def write_progress(config, counts, now):
-    """進み具合のファイルに、件数と時刻だけを書く（書けなくても全復元は続ける）"""
+def progress_without_time(progress):
+    """進み具合から、書いた時刻（updated_at）を除いた辞書（件数・終わったか・依頼の番号）。なければ None
+
+    全復元が進んだかを比べるときに使います。全復元が失敗して後で試し直すと、件数は同じまま、時刻だけが変わるためです。
+    """
+    if progress is None:
+        return None
+    return {key: value for key, value in progress.items() if key != "updated_at"}
+
+
+def write_progress(config, counts, request_id=None):
+    """進み具合のファイルに、件数、応えている依頼の番号、書いた時刻だけを書く（書けなくても全復元は続ける）
+
+    request_id：応えている全復元の依頼の番号（依頼がないときは None）。依頼した側は、この番号で自分の結果を見分ける
+    書いた時刻（updated_at）は、いつも、その時の本当の時刻（テスト用の now は使わない）
+    """
     path = control_file(config, PROGRESS_FILE_NAME)
     if path is None:
         return
     value = {key: counts[key] for key in COUNT_KEYS}
     value["finished"] = counts["finished"]
-    value["updated_at"] = now
+    value["request_id"] = request_id
+    value["updated_at"] = time.time()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fsutil.atomic_write_json(path, value)

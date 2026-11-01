@@ -168,6 +168,8 @@ def build_proposal(conn, platform, path, download_event, context, config, rules,
     context：今の作業文脈（context.parse_foreground の辞書）。分からなければ None
     重い解析はしません。文書のタイトルを軽く読み（LIGHT_METADATA_BUDGET_SECONDS 秒まで）、
     すでにある解析結果を使います。
+    ダウンロードフォルダーの外のファイルと、サブフォルダーの中でそのパスを名指しした拡張機能の記録がないファイルは、
+    何もしない提案（"no_candidate"）にします（自動でも、ボタンでも、移動・改名しない）。
 
     戻り値の提案の辞書
     - "proposal_id"：inflow テーブルの行の id
@@ -185,7 +187,16 @@ def build_proposal(conn, platform, path, download_event, context, config, rules,
     """
     path = os.path.abspath(os.fspath(path))
 
-    # 1. 扱ってよいファイルかを確かめる（リンク、中身がこの PC にないもの、一時ファイル等は扱わない）
+    # 1. 扱ってよいファイルかを確かめる
+    #    ダウンロードとして扱うのは、ダウンロードフォルダーの直下のファイルと、拡張機能の記録がそのパスを
+    #    名指ししているサブフォルダーの中のファイルだけ（watcher.DownloadTracker と同じ決まりを、ここでも確かめる。
+    #    展開・コピーしたフォルダーの中身を、ダウンロードとして動かさないため）
+    if download_event is None and not directly_in_downloads(path, config):
+        download_event = provenance.find_download_event(conn, path, file_size(path), now)
+    place_problem = download_place_problem(path, download_event, config)
+    if place_problem is not None:
+        return build_skipped_proposal(conn, platform, path, None, place_problem, now)
+    #    リンク、中身がこの PC にないもの、一時ファイル等は扱わない
     skip, skip_reason = scanner.should_skip(path, platform, config, rules)
     if skip:
         return build_skipped_proposal(conn, platform, path, download_event, skip_reason, now)
@@ -282,6 +293,29 @@ def build_skipped_proposal(conn, platform, path, download_event, reason, now):
         proposal["proposal_id"] = insert_inflow_row(conn, proposal, now, detail=reason)
     logger.info("流入：扱わないファイルのため、提案しません")
     return proposal
+
+
+def directly_in_downloads(path, config):
+    """path がダウンロードフォルダー（DOWNLOADS_DIR）の直下（サブフォルダーの中ではない）にあれば True"""
+    downloads = config.get("DOWNLOADS_DIR")
+    return downloads is not None and provenance.same_path(os.path.dirname(path), downloads)
+
+
+def download_place_problem(path, download_event, config):
+    """path をダウンロードとして扱えない理由（日本語）。扱えれば None
+
+    download_event：path に結び付いた拡張機能の記録（なければ None）
+    """
+    downloads = config.get("DOWNLOADS_DIR")
+    if downloads is None or not scanner.is_under(path, downloads):
+        return "ダウンロードフォルダーの外にあるため、ダウンロードとして扱いません"
+    if directly_in_downloads(path, config):
+        return None
+    filename = download_event.get("filename") if download_event else None
+    if isinstance(filename, str) and provenance.same_path(filename, path):
+        return None  # 拡張機能の記録が、このパスを名指ししている（「名前を付けて保存」でサブフォルダーを選んだ等）
+    return ("ダウンロードフォルダーのサブフォルダーの中にあり、拡張機能の記録もないため、ダウンロードとして扱いません"
+            "（展開・コピーしたフォルダーの中身は動かしません）")
 
 
 def record_source_only(conn, platform, path, download_event, config, rules, now):
@@ -841,6 +875,10 @@ class MiniDock:
       そこから MINI_DOCK_SECONDS 秒を数える。行ごとに残り時間を数える
     - マウスがミニドックの上にある間（"enter" から "leave" まで）は、全行の残り時間を止める
     - マウスが離れたら、残り時間が MINI_DOCK_GRACE_AFTER_LEAVE_SECONDS 秒未満の行は、その秒数にしてから数え直す
+    - 画面が見えない間（pause から resume まで。pip0 シェルが落ちた、画面のロックなど）も、全行の残り時間を止め、
+      表示も送らない。見えるようになったら（resume）、どの行も少なくとも MINI_DOCK_SECONDS 秒にして表示し直す
+      （見えないまま時間切れにして、自動で実行しないため）。マウスがまだ上にあれば（"leave" がまだ届いていない）、
+      "leave" まで止めたままにする（同じシェルは、マウスが乗ったままなら "enter" をもう一度は知らせないため）
     - 時間が尽きた行は、提案（"proposed"、"needs_analysis"）なら自動で実行し、候補なし（"no_candidate"）なら
       何もせずに閉じる
     - ボタン（accept、alternative、keep）は、すぐに実行して、その行を閉じる。「開く」（open）は行を閉じない
@@ -855,7 +893,8 @@ class MiniDock:
         self.dock_id = None        # 表示中のミニドックの番号。閉じているときは None
         self.rows = []             # 表示中の行 {"entry_id", "proposal", "deadline", "remaining"}
         self.waiting = []          # 順番待ちの提案（先に来たものから表示する）
-        self.interacting = False   # マウスがミニドックの上にあるか（残り時間を止めているか）
+        self.interacting = False   # マウスがミニドックの上にあるか
+        self.paused = False        # 画面が見えないため、止めているか（pause から resume まで）
         self.dock_count = 0        # これまでに開いたミニドックの数（番号を付けるため）
         self.entry_count = 0       # これまでに表示した行の数（番号を付けるため）
 
@@ -878,16 +917,64 @@ class MiniDock:
             return []  # 閉じたミニドックからの、遅れて届いた知らせは無視する
         if state == "enter":
             actions, changed = self._expire(now)  # 来る前に時間が尽きていた行は、先に片付ける
-            if self.rows and not self.interacting:
+            if self.rows and not self._frozen():
                 self._freeze(now)
+            if self.rows:
+                self.interacting = True
             return self._finish(actions, changed, now)
         if state == "leave":
             if not self.interacting:
                 return self.tick(now)
-            self._resume(now)
+            self.interacting = False
+            if self.paused:
+                return []  # 画面が見えない間は止めたまま（見えるようになったら resume で数え直す）
+            self._unfreeze(now, self.grace_seconds)
             return self._finish([], True, now)  # 残り時間が変わったので、表示し直す
         logger.warning("ミニドック：知らない操作の状態を無視しました")
         return []
+
+    def pause(self, now, pointer_gone=False):
+        """画面が見えなくなった（pip0 シェルが落ちた、画面のロックなど）：全行の残り時間を止める
+
+        止めている間は、行の時間切れ（自動の実行）も、順番待ちの行の数え始めも、表示の送り直しもしない。
+        すでに止めていれば、止めたままにする。動作は返さない（見えない画面に送るものはない）。
+        pointer_gone：ミニドックの画面そのものがなくなった（pip0 シェルが終わった）なら True。そのシェルが知らせた
+        マウスの状態を忘れる（新しいシェルの画面にマウスが乗れば、新しいシェルが "enter" を知らせる）。
+        画面のロックやスリープでは False のまま（同じシェルの画面が残り、マウスが乗ったままなら、
+        そのシェルは "enter" をもう一度は知らせないため）。
+        """
+        if not self.paused:
+            if not self._frozen():
+                self._freeze(now)
+            self.paused = True
+        if pointer_gone:
+            self.interacting = False  # 止めた後なので、行の残り時間は止まったまま
+
+    def resume(self, now):
+        """画面がまた見えるようになった：どの行も少なくとも MINI_DOCK_SECONDS 秒にして、表示し直す
+
+        止めていなければ、何もしない（[] を返す）。マウスがまだミニドックの上にあれば（"enter" の後に
+        "leave" が届いていない）、"leave" が届くまで止めたままにする。
+        """
+        if not self.paused:
+            return []
+        self.paused = False
+        if self.interacting:
+            # 離れたときに、少なくとも MINI_DOCK_SECONDS 秒から数え直すように、残り時間だけを延ばしておく
+            for row in self.rows:
+                row["remaining"] = max(row["remaining"], self.seconds)
+        else:
+            self._unfreeze(now, self.seconds)
+        return self._finish([], True, now)
+
+    def shift_times(self, seconds):
+        """時計が seconds 秒戻ったとき：数えている行の締め切りを、同じだけ早める（残り時間は変えない）
+
+        締め切りは時計の時刻で持っているので、そのままだと、戻った分だけ長く表示し続けてしまうため。
+        """
+        for row in self.rows:
+            if row["deadline"] is not None:
+                row["deadline"] -= seconds
 
     def user_action(self, dock_id, entry_id, action, now, alternative_index=None):
         """ミニドックのボタンが押された（action は "accept"、"alternative"、"keep"、"open"）"""
@@ -934,8 +1021,8 @@ class MiniDock:
 
     def _expire(self, now):
         """時間が尽きた行を閉じる。(実行の動作のリスト, 行が変わったか) を返す"""
-        if self.interacting:
-            return [], False  # マウスが上にある間は、時間を止めている
+        if self._frozen():
+            return [], False  # マウスが上にある間と、画面が見えない間は、時間を止めている
         expired = [row for row in self.rows if row["deadline"] <= now]
         expired.sort(key=lambda row: row["deadline"])
         actions = []
@@ -954,8 +1041,8 @@ class MiniDock:
             self.dock_id = self.dock_count
         self.entry_count += 1
         row = {"entry_id": self.entry_count, "proposal": proposal, "deadline": None, "remaining": None}
-        if self.interacting:
-            row["remaining"] = self.seconds  # マウスが上にある間は、数え始めない
+        if self._frozen():
+            row["remaining"] = self.seconds  # マウスが上にある間と、画面が見えない間は、数え始めない
         else:
             row["deadline"] = now + self.seconds
         self.rows.append(row)
@@ -965,29 +1052,31 @@ class MiniDock:
         while self.waiting and len(self.rows) < self.max_rows:
             self._start_row(self.waiting.pop(0), now)
 
+    def _frozen(self):
+        """残り時間を止めているか（マウスが上にある、または画面が見えない）"""
+        return self.interacting or self.paused
+
     def _freeze(self, now):
         """全行の残り時間を止める（締め切りの時刻を、残りの秒数に直して持つ）"""
         for row in self.rows:
             row["remaining"] = max(0.0, row["deadline"] - now)
             row["deadline"] = None
-        self.interacting = True
 
-    def _resume(self, now):
-        """止めていた残り時間を数え直す。残りが短い行は、MINI_DOCK_GRACE_AFTER_LEAVE_SECONDS 秒にする"""
+    def _unfreeze(self, now, at_least):
+        """止めていた残り時間を数え直す。残りが at_least 秒より短い行は、at_least 秒にする"""
         for row in self.rows:
-            row["deadline"] = now + max(row["remaining"], self.grace_seconds)
+            row["deadline"] = now + max(row["remaining"], at_least)
             row["remaining"] = None
-        self.interacting = False
 
     def _finish(self, actions, changed, now):
-        """最後に、表示の動作を足す（行がなければ閉じる、行が変わったら表示し直す）"""
+        """最後に、表示の動作を足す（行がなければ閉じる、行が変わったら表示し直す。画面が見えない間は表示しない）"""
         if self.dock_id is None:
             return actions
         if not self.rows:
             actions.append({"do": "close", "dock_id": self.dock_id, "reason": "empty"})
             self.dock_id = None
             self.interacting = False
-        elif changed:
+        elif changed and not self.paused:
             actions.append({"do": "show", "dock": self.payload(now)})
         return actions
 

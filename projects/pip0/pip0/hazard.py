@@ -6,12 +6,14 @@ drag.ended（ボタンを離した所のアプリ）を本体へ知らせます�
 「警告の枠を出すか・隠すか」と「続行したとみなして消音するか」を決めます。画面の枠を描くのはシェルです。
 
 - evaluate_items：ドラッグ中のファイルを、機密（赤い枠）・未判定（橙色の枠）・どちらでもない に分ける。
-  判定は sensitivity.overall（名前・場所の規則は、解析していなくても使える）。DB の解析結果を使い、重い解析はしない
+  判定は sensitivity.overall（名前・場所の規則は、解析していなくても使える）。DB の解析結果を使い、重い解析はしない。
+  解析した後にファイルが変わっていたら（大きさか更新日時が違う）、「非機密」は使わずに未判定とする
 - HazardSession：1つのセッション（pip0 の起動・ロック解除・スリープからの復帰から、画面のロック・サインアウト・
   スリープ・pip0 の終了まで）の、警告の表示と消音の決まり（docs/design.md 4-7）
   - 続行：警告が HAZARD_MIN_VISIBLE_SECONDS（0.5秒）以上表示された後に、ドラッグ元と別のアプリ
     （pip0 以外）の上でボタンが離されたとき。送り先がドロップを受け入れたかは、Windows から分からない
   - 消音：続行した「ファイル × 送り先のアプリ」の組だけ。別のファイル、別のアプリでは警告する
+  - 送り先：マウスの下のアプリ。ドラッグの始まりでは、ドラッグ元のアプリ（エクスプローラーなど）を送り先とみなす
   - 消音の記録はメモリーだけに持ち、セッションの終わり（end_session）で消える。保存しない
 この機能は警告だけです。送信を止める機能（DLP）ではありません。
 """
@@ -37,6 +39,10 @@ LEVEL_LABELS = {"sensitive": "機密", "unknown": "未判定", "not_sensitive": 
 STALE_SENSITIVE_NOTE = "前回の解析では機密でした（変更の後、まだ解析し直していないため、機密として扱います）"
 NOT_INDEXED_REASON = "pip0 の索引にないため、中身で判定できません（解析の対象フォルダーの外か、まだ見直していないファイル）"
 FOLDER_REASON = "フォルダーの中身は調べていないため、判定できません"
+# 解析した後にファイルが変わったとき（索引の見直しは SCAN_MINUTES ごとなので、それまでの間も古い判定を使わない）
+CHANGED_AFTER_ANALYSIS_REASON = ("解析した後にファイルが変わったため（大きさか更新日時が違う）、"
+                                 "中身で判定できません（次の解析で判定し直します）")
+NOT_CHECKED_SINCE_ANALYSIS_REASON = "ファイルの大きさと更新日時を確かめられないため、解析したときのままか分かりません"
 
 
 # ----------------------------------------------------------------------
@@ -73,6 +79,8 @@ def evaluate_one(conn, path, config, rules):
     2. 中身の解析がまだ終わっていない（変更の後の解析し直し待ちなど）のに、前回の解析の本文・タイトル・ラベルが
        機密の規則に当てはまるなら、機密として扱う（警告を弱めない）。前回の名前の規則の理由は使わない
        （名前を変えた後に、古い名前の理由を出さないため）
+    3. 「非機密」でも、解析した後にファイルが変わっていたら（今の大きさか更新日時が、解析したときと違う）、
+       未判定にする（変更に索引の見直しが気づく前でも、古い中身の判定で警告を消さない）。機密はそのまま
     """
     name = os.path.basename(path.rstrip("\\/")) or path
     file_id = usage.find_file_id(conn, path) if conn is not None else None
@@ -88,9 +96,28 @@ def evaluate_one(conn, path, config, rules):
         if previous:
             level = "sensitive"
             reasons = previous + [STALE_SENSITIVE_NOTE]
+    if level == "not_sensitive":
+        changed = change_since_analysis(path, analysis)
+        if changed is not None:
+            level = "unknown"
+            reasons = [changed]
     if level == "unknown" and file_id is None:
         reasons = [FOLDER_REASON if os.path.isdir(path) else NOT_INDEXED_REASON]
     return {"path": path, "name": name, "level": level, "reasons": reasons, "file_id": file_id}
+
+
+def change_since_analysis(path, analysis):
+    """解析した後にファイルが変わっていれば（または確かめられなければ）、その理由。変わっていなければ None
+
+    解析したときの大きさと更新日時（analysis の size_at_analysis、mtime_at_analysis）を、今の値と比べる。
+    """
+    try:
+        info = os.stat(path)
+    except OSError:
+        return NOT_CHECKED_SINCE_ANALYSIS_REASON
+    if info.st_size != analysis.get("size_at_analysis") or info.st_mtime != analysis.get("mtime_at_analysis"):
+        return CHANGED_AFTER_ANALYSIS_REASON
+    return None
 
 
 def is_hazard(level, warn_unanalysed):
@@ -137,7 +164,10 @@ class HazardSession:
 
         evaluation：evaluate_items の結果。file_keys：evaluation["items"] と同じ順の、ファイルの識別子
         （platform.get_file_key の値。分からなければ None。そのときはパスを識別子にする）
-        ドラッグのファイルがすべて「どこかのアプリに対して消音中」なら、ここでは出さずに、送り先が分かるのを待つ。
+        ドラッグの始まりでは、マウスの下はドラッグ元のアプリです。シェルは、マウスの下のアプリがドラッグ元から
+        変わったときだけ target_changed を送るため、ドラッグ元のアプリを最初の送り先とみなします
+        （エクスプローラーの別のウィンドウ、USB メモリーや共有フォルダーへのドロップも、送り先はエクスプローラー）。
+        送り先に対して消音していないファイルがあれば出し、すべて消音中なら出さない（target_changed と同じ決まり）。
         """
         items = evaluation.get("items") or []
         if len(file_keys) != len(items):
@@ -154,9 +184,7 @@ class HazardSession:
                      "visible": False, "visible_since": None, "shown": None}
         if not hazards:
             return actions
-        if all(self.muted_somewhere(hazard["key"]) for hazard in hazards):
-            return actions  # 消音中のファイルだけ：消音していないアプリの上に来たら出す
-        return self.show(hazards, now, actions)
+        return self.show_for_target(self.drag["source"], now, actions)
 
     def target_changed(self, drag_id, target_process, now):
         """ドラッグ中に、マウスの下のアプリが変わった
@@ -166,11 +194,7 @@ class HazardSession:
         drag = self.drag
         if drag is None or drag["drag_id"] != drag_id or not drag["hazards"]:
             return []
-        target = process_key(target_process)
-        unmuted = [hazard for hazard in drag["hazards"] if (hazard["key"], target) not in self.muted]
-        if not unmuted:
-            return self.hide([])
-        return self.show(unmuted, now, [])
+        return self.show_for_target(process_key(target_process), now, [])
 
     def end_drag(self, drag_id, target_process, dropped_on_other_process, now):
         """ドラッグが終わった（ボタンが離された）。続行したかを判定し、消音する
@@ -224,9 +248,12 @@ class HazardSession:
 
     # --- 内部で使う部品 ---
 
-    def muted_somewhere(self, key):
-        """そのファイルが、どれかのアプリに対して消音中なら True"""
-        return any(pair[0] == key for pair in self.muted)
+    def show_for_target(self, target, now, actions):
+        """送り先のアプリ（target。プロセス名の小文字）に対して消音していないファイルがあれば出し、なければ隠す"""
+        unmuted = [hazard for hazard in self.drag["hazards"] if (hazard["key"], target) not in self.muted]
+        if not unmuted:
+            return self.hide(actions)
+        return self.show(unmuted, now, actions)
 
     def show(self, hazards, now, actions):
         drag = self.drag

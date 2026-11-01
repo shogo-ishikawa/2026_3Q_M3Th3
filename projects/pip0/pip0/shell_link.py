@@ -101,6 +101,7 @@ class ShellLink:
         self._threads = []
         self._pending = {}                         # 要求の番号 → 答えを待つための辞書
         self._next_id = 1
+        self._starts = 0                           # シェルを起動した回数（generation() で読む）
         self._counters = {name: 0 for name in COUNTER_NAMES}
 
     # ------------------------------------------------------------------
@@ -137,6 +138,7 @@ class ShellLink:
                 self._process = process
                 self._receiving = True
                 self._stop_requested = False
+                self._starts += 1
             self._threads = [
                 threading.Thread(target=self._read_stdout, args=(process,), name="pip0-shell-stdout", daemon=True),
                 threading.Thread(target=self._read_stderr, args=(process,), name="pip0-shell-stderr", daemon=True),
@@ -180,14 +182,24 @@ class ShellLink:
     def process_id(self):
         """今つながっているシェルのプロセス番号（PID）。動いていなければ None
 
-        シェルを起動し直すと番号が変わるので、「前のシェルへの問い合わせの答え」を見分けるのに使えます
-        （platform_windows の「答えが遅れたゴースト」の印）。
+        Windows は、終わったプロセスの番号を、後のプロセスに使い回すことがあります。
+        前のシェルと今のシェルを見分けるときは、generation() を使ってください。
         """
         with self._lock:
             process = self._process
         if process is None or process.poll() is not None:
             return None
         return process.pid
+
+    def generation(self):
+        """今のシェルが、この ShellLink で何回目に起動したものか（1 から数える）。まだ起動していなければ None
+
+        起動し直すたびに 1 増え、同じ値を二度と使いません（プロセス番号と違い、使い回されない）。
+        「前のシェルへの問い合わせの答えが遅れている」印を、どのシェルで付けたかを見分けるのに使います
+        （platform_windows の _mark_unsettled）。
+        """
+        with self._lock:
+            return self._starts if self._starts > 0 else None
 
     def counters(self):
         """読み捨てた行・送れなかった知らせなどの回数（確認と表示用）"""
@@ -240,7 +252,9 @@ class ShellLink:
     def send_event(self, type, payload=None):
         """返事のいらない知らせを送る。送れたら True
 
-        シェルが動いていないときや、大きすぎて送れないときは、送らずに数えて False を返す（例外にしない）。
+        シェルが動いていないとき、大きすぎるとき、JSON にできない値（NaN、無限大など）が入っているときは、
+        送らずに数えて False を返す（例外にしない。画面への知らせ1つのために、常駐処理のメインループや
+        全復元を止めないため）。
         """
         check_name(type)
         payload = check_payload(payload)
@@ -254,6 +268,12 @@ class ShellLink:
         except ShellError as error:
             self._count("dropped_events")
             logger.warning("知らせ（%s）を送れませんでした（%s）", type, error.code)
+            return False
+        except (TypeError, ValueError) as error:
+            self._count("dropped_events")
+            # 引数の名前 type が組み込みの type() を隠しているので、エラーの種類は __class__ で読む
+            logger.error("知らせ（%s）に JSON にできない値があるため、送りませんでした（%s）", type,
+                         error.__class__.__name__)
             return False
         if not self._write_line(process, data):
             self._count("dropped_events")

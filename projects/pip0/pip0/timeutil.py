@@ -86,6 +86,15 @@ def add_months(dt, months):
     return dt.replace(year=month_index // 12, month=month_index % 12 + 1, day=1)
 
 
+def start_of_fiscal_year(dt, start_month):
+    """dt を含む年度の始まり（start_month 月1日の0時）
+
+    例：start_month が 4（4月始まり）なら、2026-10-29 → 2026-04-01、2027-02-10 → 2026-04-01
+    """
+    year = dt.year if dt.month >= start_month else dt.year - 1
+    return start_of_day(dt).replace(year=year, month=start_month, day=1)
+
+
 def parse_number(text):
     """「3」「３」「三」「十二」を整数にする。読めなければ None"""
     text = text.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
@@ -122,9 +131,40 @@ NUMBER = r"([0-9０-９]+|[一二三四五六七八九十]+)"
 RELATIVE_PATTERNS = [
     (NUMBER + r"日前", "days"),
     (NUMBER + r"週間前", "weeks"),
-    (NUMBER + r"[かヶカケ]月前", "months"),
+    (NUMBER + r"[かヵヶカケ]月前", "months"),
 ]
-FIXED_WORDS = ["先々週", "一昨日", "おととい", "今日", "本日", "昨日", "今週", "先週", "今月", "先月", "今年", "去年", "昨年", "最近"]
+# ★時期の言葉。長い言葉は、その一部の短い言葉より先に並べる（「一昨年」を「昨年」より、「今年度」を「今年」より先に）
+#   「今月度」「先月度」は、会社などで月ごとの区切りを表す言葉。暦の「今月」「先月」と同じ範囲にする（締め日は考えない）
+FIXED_WORDS = ["先々週", "一昨日", "おととい", "今日", "本日", "昨日", "今週", "先週",
+               "先々月度", "今月度", "先月度", "先々月", "今月", "先月",
+               "今年度", "昨年度", "前年度", "一昨年", "おととし", "今年", "去年", "昨年", "最近"]
+# ★時期の言葉のすぐ後ろにこの文字があれば、別の言葉の一部とみなす（「今年度」の中の「今年」は、暦の年ではない）。
+#   「度」の付いた言葉で時期として使うもの（「今年度」「今月度」）は、FIXED_WORDS に別の言葉として書きます
+WORD_EXTENDING_SUFFIXES = ["度"]
+
+
+def is_kanji(ch):
+    """1文字が漢字（「々」を含む）なら True。空の文字列は False"""
+    return ch != "" and ("一" <= ch <= "鿿" or ch == "々")
+
+
+def find_fixed_word(text, word):
+    """text の中で、時期の言葉 word が別の言葉の一部になっていない、最初の位置。なければ -1
+
+    別の言葉の一部とみなすもの
+    - 漢字で始まる言葉の、すぐ前が漢字：「一昨年」の中の「昨年」、「日本日報」の中の「本日」
+    - すぐ後ろが WORD_EXTENDING_SUFFIXES の文字：「今年度」の中の「今年」
+    """
+    index = text.find(word)
+    while index >= 0:
+        before = text[index - 1] if index > 0 else ""
+        after = text[index + len(word):index + len(word) + 1]
+        joined_before = is_kanji(before) and is_kanji(word[0])
+        joined_after = after in WORD_EXTENDING_SUFFIXES
+        if not joined_before and not joined_after:
+            return index
+        index = text.find(word, index + 1)
+    return -1
 
 
 def relative_period(word, unit, amount, today, week_starts_on, span):
@@ -139,10 +179,11 @@ def relative_period(word, unit, amount, today, week_starts_on, span):
     return make_period(word, start, add_months(start, 1), span)
 
 
-def find_period(text, now_ts, week_starts_on=0, recent_days=14):
+def find_period(text, now_ts, week_starts_on=0, recent_days=14, fiscal_year_start_month=4):
     """文の中の「先週」などを探して、現地時刻の範囲を返す。見つからなければ None
 
     返す辞書：{"word", "start", "end", "label", "span"}（start は含み、end は含まない秒数）
+    fiscal_year_start_month：年度の始まりの月（1〜12。4 なら4月1日〜翌年3月31日）。「今年度」「昨年度」に使う
     """
     today = start_of_day(to_local(now_ts))
 
@@ -158,7 +199,7 @@ def find_period(text, now_ts, week_starts_on=0, recent_days=14):
                 continue  # 「999999日前」など、暦で表せないほど前の日付は、時期として扱わない
 
     for word in FIXED_WORDS:
-        index = text.find(word)
+        index = find_fixed_word(text, word)
         if index < 0:
             continue
         span = (index, index + len(word))
@@ -177,17 +218,29 @@ def find_period(text, now_ts, week_starts_on=0, recent_days=14):
         if word == "先々週":
             start = start_of_week(today, week_starts_on) - timedelta(weeks=2)
             return make_period(word, start, start + timedelta(weeks=1), span)
-        if word == "今月":
+        if word in ("今月", "今月度"):
             start = start_of_month(today)
             return make_period(word, start, add_months(start, 1), span)
-        if word == "先月":
+        if word in ("先月", "先月度"):
             start = add_months(start_of_month(today), -1)
             return make_period(word, start, add_months(start, 1), span)
+        if word in ("先々月", "先々月度"):
+            start = add_months(start_of_month(today), -2)
+            return make_period(word, start, add_months(start, 1), span)
+        if word == "今年度":
+            start = start_of_fiscal_year(today, fiscal_year_start_month)
+            return make_period(word, start, add_months(start, 12), span)
+        if word in ("昨年度", "前年度"):
+            start = add_months(start_of_fiscal_year(today, fiscal_year_start_month), -12)
+            return make_period(word, start, add_months(start, 12), span)
         if word == "今年":
             start = today.replace(month=1, day=1)
             return make_period(word, start, start.replace(year=start.year + 1), span)
         if word in ("去年", "昨年"):
             start = today.replace(year=today.year - 1, month=1, day=1)
+            return make_period(word, start, start.replace(year=start.year + 1), span)
+        if word in ("一昨年", "おととし"):
+            start = today.replace(year=today.year - 2, month=1, day=1)
             return make_period(word, start, start.replace(year=start.year + 1), span)
         if word == "最近":
             start = today - timedelta(days=recent_days - 1)

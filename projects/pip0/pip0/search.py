@@ -78,8 +78,9 @@ def parse_query(text, now, config, rules):
     cues = []
     ignored = []
 
-    # 時期（「先週」「3日前」など）。範囲は端末の現地時刻で決める（timeutil）
-    period = timeutil.find_period(remaining, now, config["WEEK_STARTS_ON"], config["RECENT_DAYS"])
+    # 時期（「先週」「3日前」「今年度」など）。範囲は端末の現地時刻で決める（timeutil）
+    period = timeutil.find_period(remaining, now, config["WEEK_STARTS_ON"], config["RECENT_DAYS"],
+                                  config["FISCAL_YEAR_START_MONTH"])
     if period is not None:
         cues.append({"type": "time", "word": period["word"], "start": period["start"], "end": period["end"],
                      "period_label": period["label"], "label": "時期：" + period["label"]})

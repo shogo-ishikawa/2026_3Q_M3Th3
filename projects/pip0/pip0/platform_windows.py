@@ -83,9 +83,10 @@ FILE_ATTRIBUTE_UNPINNED = 0x00100000
 FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS = 0x00400000
 # 中身がこの PC にない印（読むと、クラウド等からの取得が始まる）
 NOT_LOCAL_ATTRIBUTES = FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS | FILE_ATTRIBUTE_RECALL_ON_OPEN | FILE_ATTRIBUTE_OFFLINE
-# クラウドのプレースホルダーに付く印
-CLOUD_ATTRIBUTES = (FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS | FILE_ATTRIBUTE_RECALL_ON_OPEN
-                    | FILE_ATTRIBUTE_PINNED | FILE_ATTRIBUTE_UNPINNED)
+# クラウドのプレースホルダーに付く印（開く・読むと、中身の取得が始まる）。
+# 「常にこのデバイス上に保持する」（PINNED）と「空き容量を増やす」（UNPINNED）は、通常のファイルにも付く
+# （attrib +P でも付けられる）ので、それだけではプレースホルダーとはしない（再解析ポイントの種類で見分ける）
+CLOUD_ATTRIBUTES = FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS | FILE_ATTRIBUTE_RECALL_ON_OPEN
 
 # 再解析ポイントの種類（タグ）
 IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003   # ジャンクション
@@ -256,7 +257,8 @@ class WindowsPlatform:
         self.link = link
         self.pip0_root = None
         self._lock = threading.Lock()
-        self._unsettled = {}      # 答えが遅れた（シェルがまだ処理しているかもしれない）ゴーストの場所 → そのときのシェル
+        # 答えが遅れた（シェルがまだ処理しているかもしれない）ゴーストの場所 → そのときのシェルの起動の回
+        self._unsettled = {}
         self.set_pip0_root(pip0_root)
 
     def set_pip0_root(self, path):
@@ -574,10 +576,12 @@ class WindowsPlatform:
     def _mark_unsettled(self, path):
         """答えが遅れた場所を覚える。シェルがまだ処理しているかもしれないので、状態を「分からない」として扱う
 
-        そのときのシェル（プロセス番号）も覚え、シェルが起動し直されたら、印を外す（遅れていた処理も終わっている）。
+        そのときのシェル（ShellLink の何回目の起動か）も覚え、シェルが起動し直されたら、印を外す
+        （遅れていた処理も終わっている）。
+        プロセス番号（PID）は、Windows が後のプロセスに使い回すことがあるので、シェルの見分けには使わない。
         """
         with self._lock:
-            self._unsettled[path_key(path)] = shell_process_id(self.link)
+            self._unsettled[path_key(path)] = shell_generation(self.link)
 
     def _is_unsettled(self, path):
         with self._lock:
@@ -587,7 +591,7 @@ class WindowsPlatform:
                 # シェルが終わったので、遅れていた処理も終わっている（次からはシェルに聞ける）
                 self._unsettled.clear()
                 return False
-            current = shell_process_id(self.link)
+            current = shell_generation(self.link)
             if current is not None:
                 # 別のシェル（起動し直した後）で付けた印ではないものは外す
                 self._unsettled = {key: shell for key, shell in self._unsettled.items() if shell == current}
@@ -871,12 +875,12 @@ def read_locate_reply(reply):
     return {"result": "unknown", "paths": [], "reason": reason or "ゴーストの場所を確かめられませんでした"}
 
 
-def shell_process_id(link):
-    """今つながっている pip0 シェルのプロセス番号（ShellLink.process_id()）。分からなければ None"""
-    process_id = getattr(link, "process_id", None)
-    if callable(process_id):
-        process_id = process_id()
-    return process_id if isinstance(process_id, int) and not isinstance(process_id, bool) else None
+def shell_generation(link):
+    """今の pip0 シェルが、何回目に起動したものか（ShellLink.generation()）。分からなければ None"""
+    generation = getattr(link, "generation", None)
+    if callable(generation):
+        generation = generation()
+    return generation if isinstance(generation, int) and not isinstance(generation, bool) else None
 
 
 def unknown_ghost_status(path, reason):

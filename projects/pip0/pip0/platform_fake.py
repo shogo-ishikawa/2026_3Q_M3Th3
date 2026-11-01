@@ -17,6 +17,9 @@ import os
 import shutil
 from pathlib import Path
 
+# Windows のファイルの属性「常にこのデバイス上に保持する」（platform_windows.FILE_ATTRIBUTE_PINNED と同じ値）
+FILE_ATTRIBUTE_PINNED = 0x00080000
+
 
 class FakePlatform:
     name = "fake"
@@ -98,6 +101,10 @@ class FakePlatform:
             return {"local": True, "placeholder": True, "pinned": False, "reparse": True,
                     "attributes": attributes, "reason": "クラウドのプレースホルダーです（中身はこの PC にあります）"}
         is_link = os.path.islink(path)
+        if path in self.pinned:
+            # 「常にこのデバイス上に保持する」の通常のファイル：Windows では属性に PINNED の印が付くだけで、
+            # プレースホルダーではない（platform_windows.describe_local_state と同じ形）
+            attributes = (attributes or 0) | FILE_ATTRIBUTE_PINNED
         return {"local": not is_link, "placeholder": False, "pinned": path in self.pinned,
                 "reparse": is_link, "attributes": attributes,
                 "reason": "リンク（たどらない）" if is_link else ""}

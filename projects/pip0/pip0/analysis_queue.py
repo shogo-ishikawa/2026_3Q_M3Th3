@@ -77,19 +77,48 @@ def reset_running(conn, now=None):
     conn.execute("UPDATE tasks SET state = 'queued', updated_at = ? WHERE state = 'running'", (now,))
 
 
+def requeue_for_rule_changes(conn, rules, now=None):
+    """中身の規則（rules.py の SENSITIVE_CONTENT_KEYWORDS など）が、解析したときと違う文書を、
+    解析し直す順番待ちに入れる（起動時に呼ぶ）。入れた件数を返す
+
+    解析のときに読んだ文字の全体は保存しないため、規則に加えた語などは、解析し直すまで本文の先頭でしか
+    調べられず、その文書は「未判定」になります（sensitivity.new_rules_reason）。規則の記録がない、
+    前の版の pip0 の解析も入れます。解析の行は「解析済み」のまま残し、解析し直すまで今の判定に使います。
+    """
+    current = json_or_none(sensitivity.content_rules(rules))
+    marks = ", ".join("?" for _ in TEXT_KINDS)
+    rows = database.query_all(
+        conn,
+        "SELECT a.file_id FROM analysis AS a JOIN files AS f ON f.id = a.file_id "
+        f"WHERE a.status = 'done' AND a.kind IN ({marks}) AND f.status = 'present' "
+        "AND (a.content_rules_json IS NULL OR a.content_rules_json != ?)",
+        tuple(TEXT_KINDS) + (current,),
+    )
+    with write_together(conn):
+        for row in rows:
+            enqueue(conn, "analyse", row["file_id"], now=now)
+    return len(rows)
+
+
 # ----------------------------------------------------------------------
 # 解析（高負荷の処理。電源接続中かつ3分間無操作のときだけ、ワーカーのスレッドで動かす）
 # ----------------------------------------------------------------------
 
-ANALYSER_VERSION = 1  # 解析の方法を大きく変えたら増やす（古い方法の結果を見分けるため）
+ANALYSER_VERSION = 2  # 解析の方法を大きく変えたら増やす（古い方法の結果を見分けるため）
+# 2：機密の判定のために、本文の全体とヘッダー・フッター・ノート、PDF の注釈・フォームの入力欄なども調べ、
+#    見つけたもの、そのときの中身の規則、読まなかった部分を記録する
 
 # 本文を取り出す種類（rules.FILE_KINDS の値）。"image" は画像の解析、それ以外は「対象外の形式」
 TEXT_KINDS = ["pdf", "document", "spreadsheet", "slides", "text"]
 
 # analyse_file() が返す辞書の項目
+# content_reasons：読んだ文字の全体（本文、ヘッダー・フッターなど）を機密の規則で調べ、見つけたもの
+#                  （[場所, 規則, 値] のリスト。sensitivity.find_in_text）
+# content_rules：そのときの中身の規則（sensitivity.content_rules。後で rules.py を変えたかを確かめる）
+# unread：読まなかった部分の説明（analyse_text.extract_text の unread）
 RESULT_KEYS = ["status", "kind", "sha256", "size", "mtime", "title", "text", "has_chart", "labels",
                "colours", "colourful_ratio", "background_ratio", "palette_size", "chart_score",
-               "chart_evidence", "visual_kind", "error"]
+               "chart_evidence", "visual_kind", "error", "content_reasons", "content_rules", "unread"]
 
 
 def analyse_file(path, platform, config, rules, should_continue):
@@ -141,6 +170,13 @@ def analyse_file(path, platform, config, rules, should_continue):
     for key in RESULT_KEYS:
         if key in outcome and key not in ("kind", "size", "mtime", "sha256"):
             result[key] = outcome[key]
+    # 機密の判定（M5）は、保存する本文（先頭の TEXT_MAX_CHARS 文字）ではなく、読んだ文字の全体で行う。
+    # 全体は DB に保存しないので、見つけたもの（番号そのものは含まない）と、そのときの中身の規則だけを残す
+    if outcome.get("check_texts") is not None:
+        result["content_reasons"] = []
+        for place, text in outcome["check_texts"].items():
+            result["content_reasons"] += sensitivity.find_in_text(text, rules, place)
+        result["content_rules"] = sensitivity.content_rules(rules)
 
     if not should_continue():
         return {"status": "paused"}
@@ -158,7 +194,8 @@ def analyse_file(path, platform, config, rules, should_continue):
 # analysis テーブルに書く列（file_id 以外）。機密の判定（sensitivity）は、書いた後に別に書く
 ANALYSIS_COLUMNS = ["status", "analyser_version", "analysed_at", "size_at_analysis", "mtime_at_analysis",
                     "sha256", "kind", "title", "text_excerpt", "has_chart", "colours_json", "colourful_ratio",
-                    "chart_score", "chart_evidence_json", "visual_kind", "labels_json", "error"]
+                    "chart_score", "chart_evidence_json", "visual_kind", "labels_json", "error",
+                    "content_reasons_json", "content_rules_json", "unread_json"]
 
 # 「なければ追加し、あれば書き換える」SQL（列の名前のリストから組み立てる）
 UPSERT_ANALYSIS_SQL = (
@@ -173,6 +210,8 @@ def store_result(conn, file_id, path, result, config, rules, now):
 
     "paused"（一時停止）と "skipped"（読まなかった）は何も書かずに None を返します。
     書いたときは、機密の判定 {"level", "reasons"} を返します。
+    本文は先頭の TEXT_MAX_CHARS 文字だけを書きます。全体を調べて見つけたもの（content_reasons）、そのときの
+    中身の規則（content_rules）、読まなかった部分の説明（unread）も書きます。
     """
     if result["status"] in ("paused", "skipped"):
         return None
@@ -197,6 +236,9 @@ def store_result(conn, file_id, path, result, config, rules, now):
         "visual_kind": result.get("visual_kind"),
         "labels_json": json_or_none(result.get("labels")),
         "error": result.get("error"),
+        "content_reasons_json": json_or_none(result.get("content_reasons")),
+        "content_rules_json": json_or_none(result.get("content_rules")),
+        "unread_json": json_or_none(result.get("unread")),
     }
     with write_together(conn):
         conn.execute(UPSERT_ANALYSIS_SQL, [file_id] + [values[name] for name in ANALYSIS_COLUMNS])

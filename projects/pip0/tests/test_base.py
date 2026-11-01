@@ -92,6 +92,76 @@ def test_relative_days_and_kanji_numbers(tokyo):
     assert timeutil.find_period("予算資料", now_ts) is None
 
 
+def local_range(period):
+    return datetime.fromtimestamp(period["start"]), datetime.fromtimestamp(period["end"])
+
+
+@pytest.mark.parametrize("text, word, start, end", [
+    ("一昨年の予算", "一昨年", datetime(2024, 1, 1), datetime(2025, 1, 1)),    # 「昨年」（2025年）ではない
+    ("おととしの予算", "おととし", datetime(2024, 1, 1), datetime(2025, 1, 1)),
+    ("先々月の議事録", "先々月", datetime(2026, 8, 1), datetime(2026, 9, 1)),
+    ("1ヵ月前の資料", "1ヵ月前", datetime(2026, 9, 1), datetime(2026, 10, 1)),  # 小さい「ヵ」
+    ("先月の予算", "先月", datetime(2026, 9, 1), datetime(2026, 10, 1)),
+    ("昨年の予算", "昨年", datetime(2025, 1, 1), datetime(2026, 1, 1)),
+])
+def test_words_for_two_years_and_two_months_ago(tokyo, text, word, start, end):
+    period = timeutil.find_period(text, datetime(2026, 10, 29, 10, 0).timestamp())
+    assert period["word"] == word
+    assert local_range(period) == (start, end)
+
+
+@pytest.mark.parametrize("text, word, start, end", [
+    # 月ごとの区切りの言葉（「今月度の請求書」）は、暦の月と同じ範囲（「今年度」のような別の範囲にはしない）
+    ("今月度の請求書", "今月度", datetime(2026, 10, 1), datetime(2026, 11, 1)),
+    ("先月度の売上", "先月度", datetime(2026, 9, 1), datetime(2026, 10, 1)),
+    ("先々月度の予算", "先々月度", datetime(2026, 8, 1), datetime(2026, 9, 1)),
+])
+def test_month_words_with_do_are_calendar_months(tokyo, text, word, start, end):
+    period = timeutil.find_period(text, datetime(2026, 10, 29, 10, 0).timestamp())
+    assert period["word"] == word and period["span"] == (0, len(word))
+    assert local_range(period) == (start, end)
+
+
+@pytest.mark.parametrize("now, words, start, end", [
+    # 4月始まりの年度（FISCAL_YEAR_START_MONTH = 4、日本の大学・官公庁）
+    (datetime(2026, 10, 29, 10, 0), ["今年度"], datetime(2026, 4, 1), datetime(2027, 4, 1)),
+    (datetime(2026, 10, 29, 10, 0), ["昨年度", "前年度"], datetime(2025, 4, 1), datetime(2026, 4, 1)),
+    # 1〜3月は、前の年の4月に始まった年度の中
+    (datetime(2027, 2, 10, 10, 0), ["今年度"], datetime(2026, 4, 1), datetime(2027, 4, 1)),
+    (datetime(2027, 3, 31, 23, 59), ["昨年度"], datetime(2025, 4, 1), datetime(2026, 4, 1)),
+    (datetime(2027, 4, 1, 0, 0), ["今年度"], datetime(2027, 4, 1), datetime(2028, 4, 1)),
+])
+def test_fiscal_year_words_start_in_april(tokyo, now, words, start, end):
+    for word in words:
+        period = timeutil.find_period(f"{word}の予算資料", now.timestamp())
+        assert period["word"] == word
+        assert local_range(period) == (start, end)
+        assert period["span"] == (0, 3)
+
+
+def test_fiscal_year_start_month_can_be_changed(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    period = timeutil.find_period("今年度", now_ts, fiscal_year_start_month=1)  # 暦の年と同じ
+    assert local_range(period) == (datetime(2026, 1, 1), datetime(2027, 1, 1))
+    period = timeutil.find_period("昨年度", now_ts, fiscal_year_start_month=9)
+    assert local_range(period) == (datetime(2025, 9, 1), datetime(2026, 9, 1))
+
+
+def test_fixed_words_inside_longer_words_are_not_used(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    # 前の漢字や後ろの「度」とつながった言葉は、その時期として扱わない（黙って違う時期にしない）
+    assert timeutil.find_period("一昨年度の資料", now_ts) is None   # 一昨年＋度、一＋昨年度、一＋昨年
+    assert timeutil.find_period("日本日報", now_ts) is None         # 「日本日報」の中の「本日」
+    assert timeutil.find_period("昨今日本の経済", now_ts) is None   # 「昨今日本」の中の「今日」
+    # 別の言葉の中の「本日」は飛ばし、その後ろにある「本日」を使う
+    period = timeutil.find_period("日本日報の本日の記事", now_ts)
+    assert period["word"] == "本日" and period["span"] == (5, 7)
+    # 後ろに「末」などが続くのは、その時期の中のこと（そのまま使う）
+    assert timeutil.find_period("先月末の請求書", now_ts)["word"] == "先月"
+    # ひらがなの言葉は、前が漢字でも別の言葉にならない
+    assert timeutil.find_period("資料おととい", now_ts)["word"] == "おととい"
+
+
 def test_period_follows_daylight_saving_time(monkeypatch):
     # 夏時間のある地域でも、現地の0時を境にする（ニューヨークは 2026-11-01 に夏時間が終わる）
     set_timezone(monkeypatch, "America/New_York")

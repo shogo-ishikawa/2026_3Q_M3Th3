@@ -265,33 +265,42 @@ def test_browser_record_is_used_at_once_and_a_user_button_runs_immediately(resid
     assert event["state"] == "matched"
 
 
+def browser_message(download_id, filename, size, ended_at):
+    """受け口が検査して整えた、ブラウザー拡張の記録（provenance.store_download_event に渡す形）"""
+    return {
+        "type": "download_completed", "browser": "chrome",
+        "download": {"id": download_id, "filename": str(filename),
+                     "url": "https://files.slack.com/files-pri/T0-F1/document.pdf", "final_url": None,
+                     "referrer_url": "https://app.slack.com/", "mime": "application/pdf",
+                     "started_at": ended_at - 2, "ended_at": ended_at, "file_size": size, "danger": "safe"},
+        "page": {"tab_url": None, "tab_title": None, "captured_at": None},
+    }
+
+
 def test_browser_record_from_before_start_records_the_source_but_does_not_move_the_file(
-        resident, config, platform, db, ui, clock):
+        config, platform, db, ui, clock):
     path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "document.pdf", "研究室の議事録")
     missing = Path(config["DOWNLOADS_DIR"]) / "moved-away.pdf"  # 記録の後に、ユーザーが動かしたファイル
     for download_id, filename, size in ((8, path, path.stat().st_size), (9, missing, 100)):
-        message = {
-            "type": "download_completed", "browser": "chrome",
-            "download": {"id": download_id, "filename": str(filename),
-                         "url": "https://files.slack.com/files-pri/T0-F1/document.pdf", "final_url": None,
-                         "referrer_url": "https://app.slack.com/", "mime": "application/pdf",
-                         "started_at": T0 - 3603, "ended_at": T0 - 3601, "file_size": size, "danger": "safe"},
-            "page": {"tab_url": None, "tab_title": None, "captured_at": None},
-        }
         # pip0 が動いていなかった1時間前に、受け口が書いた記録
-        provenance.store_download_event(db, message, "chrome-extension://pip0-test/", T0 - 3600)
+        provenance.store_download_event(db, browser_message(download_id, filename, size, T0 - 3601),
+                                        "chrome-extension://pip0-test/", T0 - 3600)
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    try:
+        for _ in range(3):
+            svc.step(clock.advance(5))
 
-    for _ in range(3):
-        resident.step(clock.advance(5))
-
-    assert "ui.mini_dock.show" not in ui.names()  # 提案は出さない
-    assert path.exists()  # ファイルは動かさない
-    assert database.query_one(db, "SELECT COUNT(*) AS n FROM inflow")["n"] == 0
-    states = {row["browser_download_id"]: row["state"]
-              for row in database.query_all(db, "SELECT browser_download_id, state FROM download_events")}
-    assert states == {8: "matched", 9: "pending"}  # ファイルがない記録は、そのまま（24時間で期限切れ）
-    file_row = database.query_one(db, "SELECT id FROM files WHERE name = 'document.pdf'")
-    assert provenance.get_provenance(db, file_row["id"])["source_label"] == "Slack"
+        assert "ui.mini_dock.show" not in ui.names()  # 提案は出さない
+        assert path.exists()  # ファイルは動かさない
+        assert database.query_one(db, "SELECT COUNT(*) AS n FROM inflow")["n"] == 0
+        states = {row["browser_download_id"]: row["state"]
+                  for row in database.query_all(db, "SELECT browser_download_id, state FROM download_events")}
+        assert states == {8: "matched", 9: "pending"}  # ファイルがない記録は、そのまま（24時間で期限切れ）
+        file_row = database.query_one(db, "SELECT id FROM files WHERE name = 'document.pdf'")
+        assert provenance.get_provenance(db, file_row["id"])["source_label"] == "Slack"
+    finally:
+        svc.shutdown()
 
 
 def test_hovering_the_mini_dock_pauses_the_countdown(resident, config, platform, db, ui, clock):
@@ -464,6 +473,64 @@ def test_desk_buttons_only_act_on_shown_files(config, platform, db, ui, clock):
         svc.shutdown()
 
 
+def test_rapid_title_changes_are_ranked_once_per_step_after_the_kill_switch(resident, config, platform, db, ui,
+                                                                             clock, monkeypatch):
+    # タイトルが次々に変わるウィンドウ（タイマーのページなど）：前面の知らせは最後の1つだけを、1回の step で1回だけ
+    # 順位付けする。キルスイッチの全復元は、知らせの数に関係なく、同じ step で始まる
+    ghost = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
+    evacuated(db, platform, config, ghost)
+    ranked_titles = []
+    real_rank = service.desk.rank_files
+
+    def counting_rank(conn, current, now, config, rules, limit=3):
+        ranked_titles.append(current["window_title"])
+        return real_rank(conn, current, now, config, rules, limit)
+
+    monkeypatch.setattr(service.desk, "rank_files", counting_rank)
+    for number in range(1, 201):
+        resident.receive_event(shell_event("context.foreground", hwnd=7, process_name="chrome.exe",
+                                           window_title=f"予算 進捗 {number}% - Google Chrome", is_file_dialog=False,
+                                           inaccessible=False))
+    resident.receive_event(shell_event("tray.command", command="kill_switch"))
+    resident.step()
+    assert platform.ghosts == {}  # 全復元は、この step で終わった
+    assert ranked_titles == ["予算 進捗 200% - Google Chrome"]  # 最後の文脈だけを、1回だけ
+    resident.step(clock.advance(0.1))
+    assert len(ranked_titles) == 1  # 新しい知らせがなければ、もう計算しない
+
+
+def test_a_file_dialog_still_inherits_the_app_context_when_both_arrive_in_one_step(resident, config, ui, clock):
+    root = Path(config["PIP0_ROOT"])
+    make_file(root / "予算2026_案A.txt", text="メモ\n")
+    resident.step()
+    # Slack の会話を開いて、すぐにファイルを添付するダイアログを開いた（メインループが1回分忙しかった）
+    resident.receive_event(slack_foreground(clock()))
+    resident.receive_event(shell_event("context.foreground", hwnd=202, process_name="slack.exe", window_title="開く",
+                                       window_class="#32770", is_file_dialog=True,
+                                       dialog_rect={"left": 10, "top": 20, "right": 610, "bottom": 420},
+                                       inaccessible=False, reason=None, at=clock()))
+    resident.step(clock.advance(0.1))
+    shown = ui.last("ui.desk.show")
+    assert shown["partner_label"] == "チャット相手：予算2026（チャンネル）"  # ダイアログが、直前の会話を引き継いだ
+    assert shown["dialog_hwnd"] == 202 and shown["dialog_rect"] == {"left": 10, "top": 20, "right": 610, "bottom": 420}
+    assert [item["name"] for item in shown["items"]] == ["予算2026_案A.txt"]
+
+
+def test_shell_events_are_handled_a_few_per_step_with_urgent_ones_first(resident, config, platform, db, clock):
+    ghost = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
+    evacuated(db, platform, config, ghost)
+    for _ in range(service.SHELL_EVENTS_PER_STEP * 3):
+        resident.receive_event(shell_event("ui.desk.handle", state="released"))
+    resident.receive_event(shell_event("tray.command", command="kill_switch"))
+    resident.step()
+    assert platform.ghosts == {}  # 急ぐ知らせ（キルスイッチ）は、先に届いた知らせより先に処理した
+    assert len(resident.later_events) == service.SHELL_EVENTS_PER_STEP * 2 + 1  # 1回の step で決めた数まで
+    resident.step(clock.advance(0.1))
+    resident.step(clock.advance(0.1))
+    resident.step(clock.advance(0.1))
+    assert resident.later_events == [] and resident.urgent_events == []
+
+
 # ---------------------------------------------------------------------- M5 ドラッグの警告と消音
 
 
@@ -471,6 +538,12 @@ def drag_started(drag_id, paths, at, status="ok"):
     return shell_event("drag.started", drag_id=drag_id, source_process="explorer.exe", source="explorer",
                        items=[str(path) for path in paths], items_status=status, unidentified_count=0,
                        reason=None, at=at)
+
+
+def frame_visible(ui):
+    """警告の枠が今出ているか（最後の警告の枠の指示が「出す」なら True）"""
+    hazard_calls = [name for name in ui.names() if name.startswith("ui.hazard.")]
+    return bool(hazard_calls) and hazard_calls[-1] == "ui.hazard.show"
 
 
 def test_sensitive_drag_warns_a_continued_drop_mutes_the_pair_and_a_lock_clears_it(resident, config, platform,
@@ -491,14 +564,14 @@ def test_sensitive_drag_warns_a_continued_drop_mutes_the_pair_and_a_lock_clears_
     key = platform.get_file_key(str(secret))
     assert resident.hazard_session.muted_pairs() == [(key, "slack.exe")]
 
-    # 同じファイル × 同じアプリは警告しない。別のアプリの上では警告する
+    # 同じファイル × 同じアプリは警告しない（Slack の上では枠を出さない）。別のアプリの上では警告する
     resident.handle_event(drag_started("b" * 32, [secret], clock()), clock.advance(5))
     resident.handle_event(shell_event("drag.target_changed", drag_id="b" * 32, target_process="slack.exe"),
                           clock.advance(0.3))
-    assert shows() == 1
+    assert not frame_visible(ui)
     resident.handle_event(shell_event("drag.target_changed", drag_id="b" * 32, target_process="outlook.exe"),
                           clock.advance(0.3))
-    assert shows() == 2
+    assert frame_visible(ui)
     # ボタンを離したことを確かめられなかった（reason がある）ドロップは、続行とみなさない
     resident.handle_event(shell_event("drag.ended", drag_id="b" * 32, target_process=None,
                                       dropped_on_other_process=False,
@@ -509,22 +582,66 @@ def test_sensitive_drag_warns_a_continued_drop_mutes_the_pair_and_a_lock_clears_
     resident.handle_event(drag_started("e" * 32, [secret], clock()), clock.advance(1))
     resident.handle_event(shell_event("drag.target_changed", drag_id="e" * 32, target_process="outlook.exe"),
                           clock.advance(0.3))
+    assert frame_visible(ui)  # outlook.exe の上では出す
     resident.handle_event(shell_event("drag.ended", drag_id="e" * 32, target_process="outlook.exe",
                                       dropped_on_other_process=True,
                                       reason="フックを入れ直したため、確かめられませんでした"),
                           clock.advance(1.0))
     assert resident.hazard_session.muted_pairs() == [(key, "slack.exe")]
-    assert shows() == 3  # outlook.exe の上に来たときに出した
 
     # 画面のロックでセッションが終わり、消音が消える
     resident.handle_event(shell_event("session.event", kind="lock"), clock.advance(1))
     assert resident.hazard_session.muted_pairs() == []
     resident.handle_event(drag_started("c" * 32, [secret], clock()), clock.advance(1))
-    assert shows() == 4
+    resident.handle_event(shell_event("drag.target_changed", drag_id="c" * 32, target_process="slack.exe"),
+                          clock.advance(0.3))
+    assert frame_visible(ui)  # Slack の上でも、また警告する
 
     # ファイルを特定できないドラッグは、判定できないので警告しない
+    before = shows()
     resident.handle_event(drag_started("d" * 32, [], clock(), status="unavailable"), clock.advance(1))
-    assert shows() == 4
+    assert shows() == before
+
+
+def warned_over(svc, drag_id, path, target, clock):
+    """ファイルを別のアプリ（target）へドラッグして離す。target の上で警告の枠が出ていたら True"""
+    svc.handle_event(drag_started(drag_id, [path], clock()), clock.advance(1))
+    svc.handle_event(shell_event("drag.target_changed", drag_id=drag_id, target_process=target), clock.advance(0.6))
+    warned = frame_visible(svc.ui)
+    svc.handle_event(shell_event("drag.ended", drag_id=drag_id, target_process=target, dropped_on_other_process=True,
+                                 reason=None), clock.advance(0.4))
+    return warned
+
+
+def test_mutes_do_not_survive_a_shell_restart_or_missing_session_events(config, platform, db, ui, clock):
+    link = FakeLink()
+    svc = make_service(config, platform, db, ui, clock, link=link)
+    assert svc.start()["ok"]
+    try:
+        secret = make_file(Path(config["PIP0_ROOT"]) / "社外秘_計画.txt", text="計画\n")
+        svc.step()
+        assert warned_over(svc, "a" * 32, secret, "slack.exe", clock)
+        assert svc.hazard_session.muted_pairs() != []
+
+        # シェルが落ちていた間のロック・スリープは分からない：起動し直したら、消音を持ち越さない
+        link.alive = False
+        svc.receive_event(shell_event("shell.exited", returncode=70, requested_stop=False))
+        svc.step()
+        clock.advance(service.SHELL_RESTART_DELAYS[0] + 0.1)
+        svc.step()
+        assert svc.features["shell"]["ok"] is True
+        assert svc.hazard_session.muted_pairs() == []
+        assert warned_over(svc, "b" * 32, secret, "slack.exe", clock)  # Slack の上でも、また警告する
+
+        # シェルがロック・スリープの知らせを受け取れない：セッションの終わりが分からないので、消音しない
+        svc.handle_event(shell_event("feature.status", feature="session_events", ok=False,
+                                     reason="SystemEvents を受け取れません"), clock())
+        assert svc.hazard_session.muted_pairs() == []
+        assert warned_over(svc, "c" * 32, secret, "slack.exe", clock)
+        assert svc.hazard_session.muted_pairs() == []
+        assert warned_over(svc, "d" * 32, secret, "slack.exe", clock)  # 毎回警告する
+    finally:
+        svc.shutdown()
 
 
 # ---------------------------------------------------------------------- キルスイッチ（1クリック全復元）
@@ -632,6 +749,26 @@ def test_recently_read_file_is_not_evacuated_when_access_times_are_reliable(resi
     assert recorded["at"] == pytest.approx(clock() - 4 - DAY, abs=2)
 
 
+def test_a_candidate_used_after_the_check_is_not_evacuated(resident, config, platform, db, clock):
+    target = make_file(Path(config["PIP0_ROOT"]) / "去年の報告書.pdf", size=50_000, mtime=OLD_MTIME)
+    resident.step()  # 索引に入れる（観測を始める）
+    resident.handle_event(shell_event("usage.recent_items", tracking_enabled=True, items=[]), clock())
+    clock.advance(91 * DAY)
+    resident.step()  # 候補を探す（使っている最中なので、まだ退避はしない）
+    assert [Path(candidate["path"]).name for candidate in resident.evacuation_queue] == ["去年の報告書.pdf"]
+
+    clock.advance(3600)  # 1時間後に、ユーザーが開いて読んだ（Windows の「最近使ったファイル」に残る）
+    resident.handle_event(shell_event("usage.recent_items", tracking_enabled=True,
+                                      items=[{"target_path": str(target), "opened_at": clock()}]), clock())
+    clock.advance(3600)  # さらに1時間後に、電源接続中で3分間無操作になった
+    platform.idle_seconds = 600
+    for _ in range(3):
+        clock.advance(config["THROTTLE_CHECK_SECONDS"] + 1)
+        resident.step()
+    assert str(target) not in platform.ghosts  # 候補を探した後に使われたので、退避しない
+    assert vault.list_items(db) == [] and resident.evacuation_queue == []
+
+
 def test_restore_request_file_from_the_command_line_is_handled(resident, config, platform, db, clock):
     path = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
     digest = sha256_of(path)
@@ -640,9 +777,45 @@ def test_restore_request_file_from_the_command_line_is_handled(resident, config,
     clock.advance(service.CONTROL_POLL_SECONDS + 0.1)
     resident.step()
     assert platform.ghosts == {} and sha256_of(path) == digest
-    assert killswitch.take_restore_request(config) is None  # 依頼は受け取り済み
+    assert killswitch.read_restore_request(config) is None  # 依頼に応え終えたので外した
     assert killswitch.read_progress(config)["finished"] is True
     assert killswitch.is_engaged(db, config)
+
+
+class StatusFailsLaterUi(RecordingUi):
+    """broken を True にした後は、状態の表示（ui.status）が失敗する画面"""
+
+    def __init__(self):
+        super().__init__()
+        self.broken = False
+
+    def update_status(self, status):
+        if self.broken:
+            raise ValueError("Out of range float values are not JSON compliant")
+        super().update_status(status)
+
+
+def test_a_failing_progress_display_never_stops_the_restore(config, platform, db, clock):
+    for number in range(4):
+        path = make_file(Path(config["PIP0_ROOT"]) / f"退避済み{number}.pdf", size=12_000, mtime=OLD_MTIME)
+        evacuated(db, platform, config, path)
+    ui = StatusFailsLaterUi()
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    try:
+        ui.broken = True
+        assert killswitch.request_restore_all(config)["ok"]
+        clock.advance(service.CONTROL_POLL_SECONDS + 0.1)
+        # 状態の表示の失敗は、step の外へ出る（本番では run の report_loop_error が記録して、次の step へ進む）
+        with pytest.raises(ValueError):
+            svc.step()  # 依頼を受け付けた後の表示で失敗する
+        with pytest.raises(ValueError):
+            svc.step()  # 全復元をして、その後の表示で失敗する
+        assert platform.ghosts == {}  # 1件ごとの進み具合の表示が失敗しても、全復元は最後まで戻した
+        assert killswitch.read_progress(config)["finished"] is True
+    finally:
+        ui.broken = False
+        svc.shutdown()
 
 
 def test_restore_request_survives_a_stop_before_the_restore_runs(config, platform, db, ui, clock):
@@ -651,7 +824,7 @@ def test_restore_request_survives_a_stop_before_the_restore_runs(config, platfor
     evacuated(db, platform, config, path)
     finished = {key: 0 for key in killswitch.COUNT_KEYS}
     finished["finished"] = True
-    killswitch.write_progress(config, finished, T0)  # 前回の全復元の記録は「終わり」
+    killswitch.write_progress(config, finished)  # 前回の全復元の記録は「終わり」
     assert killswitch.request_restore_all(config)["ok"]
 
     svc = make_service(config, platform, db, ui, clock)
@@ -673,6 +846,102 @@ def test_restore_request_survives_a_stop_before_the_restore_runs(config, platfor
                 and payload["title"] == "全復元を始めます"] == ["ui.notify"]
     finally:
         svc.shutdown()
+
+
+def test_tray_kill_switch_leaves_a_request_that_survives_a_stop_before_the_restore(config, platform, db, ui, clock):
+    """通知領域の「全復元」は、押したときに依頼のファイルを書く。全復元の前に pip0 が止まっても、次の起動で全復元する"""
+    paths = [make_file(Path(config["PIP0_ROOT"]) / name, size=12_000, mtime=OLD_MTIME) for name in ["a.pdf", "b.pdf"]]
+    digests = [sha256_of(path) for path in paths]
+    for path in paths:
+        evacuated(db, platform, config, path)
+    finished = {key: 0 for key in killswitch.COUNT_KEYS}
+    finished["finished"] = True
+    killswitch.write_progress(config, finished)  # 前回の全復元の記録は「終わり」
+
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    svc.current_job = {"kind": "evacuate", "path": "x"}  # ワーカーが、まだ長い仕事（ゴーストにする途中など）をしている
+    svc.handle_event(shell_event("tray.command", command="kill_switch"), clock())
+    svc.step()  # 全復元は、ワーカーの仕事が終わるのを待つ
+    assert killswitch.read_restore_request(config) is not None  # 押したときに、依頼を書いた
+    assert killswitch.restore_unfinished(config) is True
+    svc.current_job = None
+    svc.shutdown()  # 全復元の前に、pip0 が止まった（サインアウトなど）
+    assert killswitch.resume(db, config, confirmed=True)["ok"] is False  # ゴーストが残ったまま再開しない
+
+    svc = make_service(config, platform, db, RecordingUi(), clock)
+    assert svc.start()["ok"]
+    try:
+        svc.step()
+        assert platform.ghosts == {} and [sha256_of(path) for path in paths] == digests
+        assert killswitch.read_restore_request(config) is None
+        assert killswitch.read_progress(config)["finished"] is True
+    finally:
+        svc.shutdown()
+
+
+def test_command_request_during_a_tray_restore_gets_the_result_of_that_restore(config, platform, db, ui, clock,
+                                                                              monkeypatch):
+    """全復元（通知領域）の途中で restore-all.cmd が依頼したとき：その依頼を消さず、続いている全復元の結果を渡す"""
+    for name in ["a.pdf", "b.pdf"]:
+        evacuated(db, platform, config, make_file(Path(config["PIP0_ROOT"]) / name, size=12_000, mtime=OLD_MTIME))
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    command = {}
+    real_restore = vault.restore
+
+    def restore_while_the_command_asks(*args, **kwargs):
+        if not command:
+            command.update(killswitch.request_restore_all(config))  # コマンドの依頼（常駐処理は、全復元の途中）
+        return real_restore(*args, **kwargs)
+
+    try:
+        svc.handle_event(shell_event("tray.command", command="kill_switch"), clock())
+        tray_request = killswitch.read_restore_request(config)
+        monkeypatch.setattr(vault, "restore", restore_while_the_command_asks)
+        svc.step()  # 通知領域の依頼に応える全復元
+        monkeypatch.setattr(vault, "restore", real_restore)
+        assert platform.ghosts == {}
+        assert command["request_id"] == tray_request["request_id"]  # 上書きせずに、続いている依頼に加わった
+        progress = killswitch.read_progress(config)
+        assert progress["request_id"] == command["request_id"] and progress["finished"] is True
+        assert (progress["restored"], progress["total"]) == (2, 2)  # コマンドは、この結果を受け取る
+        assert killswitch.read_restore_request(config) is None
+
+        clock.advance(service.CONTROL_POLL_SECONDS + 0.1)
+        svc.step()  # もう応える依頼はない
+        titles = [payload["title"] for name, payload in ui.calls if name == "ui.notify"]
+        assert titles.count("全復元を始めます") == 1 and titles.count("全復元が終わりました") == 1
+    finally:
+        svc.shutdown()
+
+
+def test_tray_kill_switch_does_not_replace_a_command_request_that_is_still_waiting(resident, config, platform, db,
+                                                                                   ui, clock):
+    """コマンドの依頼を常駐処理が受け付ける前に、通知領域の「全復元」が押されても、コマンドの依頼の番号は変えない"""
+    evacuated(db, platform, config, make_file(Path(config["PIP0_ROOT"]) / "a.pdf", size=12_000, mtime=OLD_MTIME))
+    command = killswitch.request_restore_all(config)  # コマンドが書いた（常駐処理は、まだ読んでいない）
+    resident.handle_event(shell_event("tray.command", command="kill_switch"), clock())
+    resident.step()
+    progress = killswitch.read_progress(config)
+    assert progress["request_id"] == command["request_id"] and progress["finished"] is True
+    assert platform.ghosts == {}
+
+
+def test_restore_summary_tells_why_items_were_not_restored(resident, config, platform, db, ui, clock):
+    path = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
+    evacuated(db, platform, config, path)
+    read_only = ("読み取り専用のゴーストのため、通常のファイルに戻せません。"
+                 "エクスプローラーでファイルのプロパティを開き、"
+                 "「読み取り専用」を外してから、もう一度試してください（中身は保管庫に残っています）。")
+    platform.fail_next["restore_ghost"] = {"result": "error", "reason": read_only}
+    resident.handle_event(shell_event("tray.command", command="kill_switch"), clock())
+    resident.step()
+    notice = ui.last("ui.notify")
+    assert notice["title"] == "全復元が終わりました" and notice["level"] == "warning"
+    assert notice["message"].startswith("戻せなかった項目が 1 件あります")
+    assert "「読み取り専用」を外してから" in notice["message"]  # 理由と、すること
+    assert len(notice["message"]) <= 255  # 通知の吹き出しに収まる
 
 
 def test_unfinished_restore_continues_at_start(config, platform, db, ui, clock):
@@ -699,6 +968,38 @@ def test_stop_from_the_command_line_stops_heavy_work_without_restoring(resident,
     assert resident.automation_engaged and resident.kill_event.is_set()
     assert str(path) in platform.ghosts  # stop は復元しない
     assert ui.last("ui.status")["automation"] == "stopped"
+
+
+def test_answered_request_left_behind_is_removed_at_the_next_check_without_restoring_again(
+        resident, config, platform, db, ui, clock, monkeypatch):
+    """応え終えた依頼のファイルを外せなかったとき（ほかのプロセスが開いていた等）、次に制御用のファイルを
+    確かめるときに外す（もう一度全復元はしない）。残ったままにすると、自動処理の再開と後の依頼を妨げるため"""
+    path = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
+    evacuated(db, platform, config, path)
+    assert killswitch.request_restore_all(config)["ok"]
+    real_remove = os.remove
+    failed = []
+
+    def remove(target, *args, **kwargs):
+        if str(target).endswith(killswitch.REQUEST_FILE_NAME) and not failed:
+            failed.append(str(target))
+            raise PermissionError(13, "ほかのプロセスが使用中です")
+        return real_remove(target, *args, **kwargs)
+
+    monkeypatch.setattr(os, "remove", remove)
+    clock.advance(service.CONTROL_POLL_SECONDS + 0.1)
+    resident.step()  # 依頼に応えたが、依頼のファイルを外せなかった
+    assert failed and platform.ghosts == {}
+    assert killswitch.read_restore_request(config) is not None
+
+    clock.advance(service.CONTROL_POLL_SECONDS + 0.1)
+    resident.step()  # 応え終えた依頼のファイルを、もう一度外す
+    assert killswitch.read_restore_request(config) is None
+    titles = [payload["title"] for name, payload in ui.calls if name == "ui.notify"]
+    assert titles.count("全復元を始めます") == 1 and titles.count("全復元が終わりました") == 1
+    assert [row["status"] for row in database.query_all(
+        db, "SELECT status FROM operations WHERE kind = 'restore_all'")] == ["done"]
+    assert killswitch.resume(db, config, confirmed=True)["ok"] is True
 
 
 # ---------------------------------------------------------------------- 機能の状態（権限の不足など）
@@ -806,6 +1107,313 @@ def test_downloads_wait_while_the_shell_is_down_so_nothing_moves_unseen(config, 
         svc.shutdown()
 
 
+def test_dock_rows_wait_while_the_shell_is_down_and_get_full_time_after_the_restart(config, platform, db, ui, clock):
+    link = FakeLink()
+    svc = make_service(config, platform, db, ui, clock, link=link)
+    assert svc.start()["ok"]
+    try:
+        paths = [make_pdf(Path(config["DOWNLOADS_DIR"]) / f"download ({number}).pdf", f"2026年度 予算案 {number}")
+                 for number in range(1, 6)]
+        for path in paths:
+            svc.handle_file_event(file_event("created", path, "downloads", clock()), clock())
+        svc.step()
+        clock.advance(2.5)
+        svc.step()
+        shown = ui.last("ui.mini_dock.show")
+        assert len(shown["rows"]) == 3  # 3行を表示、2つは順番待ち
+
+        # 0.5 秒後にシェルが落ち、起動し直しにも失敗し続ける（画面には何も見えない）
+        clock.advance(0.5)
+        link.alive = False
+        link.start_ok = False
+        svc.receive_event(shell_event("shell.exited", returncode=70, requested_stop=False))
+        for _ in range(10):
+            svc.step(clock.advance(1.0))
+        assert all(path.exists() for path in paths)  # 見えない間は、時間切れにして仕分けない
+
+        # シェルが戻った：止めていた行を、どれも3秒にして表示し直す
+        link.start_ok = True
+        clock.advance(service.SHELL_RESTART_DELAYS[-1])
+        svc.step()
+        resent = ui.last("ui.mini_dock.show")
+        assert resent["dock_id"] == shown["dock_id"]
+        assert [row["remaining_seconds"] for row in resent["rows"]] == [3.0, 3.0, 3.0]
+        clock.advance(2.9)
+        svc.step()
+        assert all(path.exists() for path in paths)
+        clock.advance(0.2)
+        svc.step()
+        assert [path.exists() for path in paths] == [False, False, False, True, True]
+        assert [row["file_name"] for row in ui.last("ui.mini_dock.show")["rows"]] == \
+               ["download (4).pdf", "download (5).pdf"]  # 順番待ちは、見えるようになってから3秒
+        clock.advance(3.1)
+        svc.step()
+        assert not any(path.exists() for path in paths)
+    finally:
+        svc.shutdown()
+
+
+def test_a_late_dock_button_from_a_dead_shell_does_not_run_other_rows(config, platform, db, ui, clock):
+    link = FakeLink()
+    svc = make_service(config, platform, db, ui, clock, link=link)
+    assert svc.start()["ok"]
+    try:
+        kept = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download (1).pdf", "2026年度 予算案")
+        other = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download (2).pdf", "2026年度 予算案 第2版")
+        for path in (kept, other):
+            svc.handle_file_event(file_event("created", path, "downloads", clock()), clock())
+        svc.step()
+        clock.advance(2.5)
+        svc.step()
+        shown = ui.last("ui.mini_dock.show")
+        # シェルが落ちた（終了の知らせは、まだ届いていない）。落ちる直前に押された「このまま」が、遅れて届く
+        link.alive = False
+        svc.receive_event(shell_event("ui.mini_dock.action", dock_id=shown["dock_id"],
+                                      entry_id=shown["rows"][0]["entry_id"], action="keep", alternative_index=None))
+        svc.step(clock.advance(3.5))
+        assert kept.exists() and other.exists()  # 押された行は「このまま」。ほかの行を、見えないまま実行しない
+    finally:
+        svc.shutdown()
+
+
+def test_a_shell_without_a_screen_holds_downloads_and_says_why(config, platform, db, ui, clock):
+    link = FakeLink()
+    link.replies["init"] = {"shell_version": "0.1.0-test",
+                            "capabilities": {"cloud_files": True, "trash": False, "ui": False, "hooks": True}}
+    svc = make_service(config, platform, db, ui, clock, link=link)
+    assert svc.start()["ok"]
+    try:
+        entry = svc.features["ui"]
+        assert entry["ok"] is False and "画面を準備できませんでした" in entry["reason"]
+        assert entry["label"] == "画面（ミニドック、デスク、警告の枠、通知）"
+        assert any(f["feature"] == "ui" and f["ok"] is False for f in service.read_status_file(config)["features"])
+        path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
+        finish_download(svc, path, clock)
+        for _ in range(3):
+            svc.step(clock.advance(5))
+        assert "ui.mini_dock.show" not in ui.names()
+        assert path.exists()  # シェルは動いていても画面がないので、見えないまま仕分けない
+
+        # シェルを起動し直して、画面を準備できた：待たせていた提案を出す
+        link.replies["init"] = {"shell_version": "0.1.0-test",
+                                "capabilities": {"cloud_files": True, "trash": True, "ui": True, "hooks": True}}
+        link.alive = False
+        svc.receive_event(shell_event("shell.exited", returncode=70, requested_stop=False))
+        svc.step()
+        clock.advance(service.SHELL_RESTART_DELAYS[0] + 0.1)
+        svc.step()
+        assert svc.features["ui"]["ok"] is True
+        assert ui.last("ui.mini_dock.show")["rows"][0]["file_name"] == "download.pdf"
+        clock.advance(3.1)
+        svc.step()
+        assert not path.exists()
+    finally:
+        svc.shutdown()
+
+
+def test_only_known_true_or_false_capabilities_from_the_shell_are_kept(config, platform, db, ui, clock):
+    # 形の違う init の答え：知らない名前と、真偽値でない値（無限大など）は、状態の表示に入れない
+    link = FakeLink()
+    link.replies["init"] = {"shell_version": "0.1.0-test",
+                            "capabilities": {"cloud_files": True, "trash": float("inf"), "ui": True, "hooks": 1,
+                                             "max_fetch_mb": float("inf")}}
+    svc = make_service(config, platform, db, ui, clock, link=link)
+    assert svc.start()["ok"]
+    try:
+        assert svc.shell_capabilities == {"cloud_files": True, "ui": True}
+        assert svc.screen_available() is True
+        service.shell_link.encode_message({"kind": "event", "type": "ui.status", "payload": svc.build_status(clock())})
+        assert ui.last("ui.status")["shell"]["capabilities"] == {"cloud_files": True, "ui": True}
+    finally:
+        svc.shutdown()
+    assert service.known_capabilities(["ui"]) is None and service.known_capabilities(None) is None
+
+
+def test_downloads_finishing_while_the_screen_is_locked_wait_for_the_unlock(resident, config, platform, db, ui,
+                                                                            clock):
+    shown = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download (1).pdf", "2026年度 予算案")
+    finish_download(resident, shown, clock)
+    assert len(ui.last("ui.mini_dock.show")["rows"]) == 1
+    shows = ui.names().count("ui.mini_dock.show")
+
+    resident.handle_event(shell_event("session.event", kind="lock"), clock.advance(1.0))  # Win+L で離れた
+    later = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download (2).pdf", "2026年度 予算案 第2版")
+    finish_download(resident, later, clock)  # ロックの間に、大きなダウンロードが終わった
+    resident.handle_event(shell_event("session.event", kind="suspend"), clock.advance(60))
+    resident.handle_event(shell_event("session.event", kind="resume"), clock.advance(3600))
+    for _ in range(3):
+        resident.step(clock.advance(5))  # スリープから戻っても、ロックを解除するまでは見えない
+    assert shown.exists() and later.exists()  # 見えない間は、仕分けも改名もしない
+    assert ui.names().count("ui.mini_dock.show") == shows
+
+    resident.handle_event(shell_event("session.event", kind="unlock"), clock.advance(1.0))
+    resident.step()
+    rows = ui.last("ui.mini_dock.show")["rows"]
+    assert [(row["file_name"], row["remaining_seconds"]) for row in rows] == \
+           [("download (1).pdf", 3.0), ("download (2).pdf", 3.0)]
+    clock.advance(3.1)
+    resident.step()
+    assert not shown.exists() and not later.exists()
+
+
+@pytest.mark.parametrize("kind", ["shutdown", "logoff"])
+def test_a_cancelled_shutdown_or_sign_out_does_not_hold_later_downloads(resident, config, ui, clock, kind):
+    # Windows の終了・サインアウトの知らせは、始まったときに届く。ほかのアプリが止めて、ユーザーが取り消しても、
+    # 取り消しの知らせは届かないので、画面を見られないものとして扱わない
+    resident.handle_event(shell_event("session.event", kind=kind), clock())
+    resident.step(clock.advance(600))
+    path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
+    finish_download(resident, path, clock)
+    assert ui.last("ui.mini_dock.show")["rows"][0]["file_name"] == "download.pdf"
+    assert resident.held_downloads == [] and "screen" not in resident.features
+
+
+def test_a_hold_for_a_locked_screen_shows_in_the_status_without_a_notice(resident, config, ui, clock):
+    shown = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download (1).pdf", "2026年度 予算案")
+    finish_download(resident, shown, clock)  # ミニドックに出ている行
+    resident.handle_event(shell_event("session.event", kind="lock"), clock.advance(1.0))
+    later = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download (2).pdf", "2026年度 予算案 第2版")
+    finish_download(resident, later, clock)  # ロックの間に終わったダウンロード
+    entry = resident.features["screen"]
+    assert entry["ok"] is False and entry["reason"].startswith("画面のロック中のため") and "（2 件" in entry["reason"]
+    recorded = service.read_status_file(config)["features"]
+    assert any(feature["feature"] == "screen" and feature["ok"] is False for feature in recorded)
+    notices = [payload["message"] for name, payload in ui.calls if name == "ui.notify"]
+    assert not any("ダウンロードの提案" in message for message in notices)  # ロックは故障ではないので、知らせない
+
+    # スリープからの復帰の知らせを受け取り損ねても、ロックを解除したら見られるに戻る
+    resident.handle_event(shell_event("session.event", kind="suspend"), clock.advance(60))
+    resident.step()
+    assert resident.features["screen"]["reason"].startswith("画面のロック中のため")
+    resident.handle_event(shell_event("session.event", kind="unlock"), clock.advance(3600))
+    resident.step()
+    assert "screen" not in resident.features
+    assert [row["file_name"] for row in ui.last("ui.mini_dock.show")["rows"]] == \
+           ["download (1).pdf", "download (2).pdf"]
+    assert all(feature["feature"] != "screen" for feature in service.read_status_file(config)["features"])
+
+
+@pytest.mark.parametrize("away, back", [("lock", "unlock"), ("suspend", "resume")])
+def test_a_pointer_left_on_the_dock_over_a_lock_or_sleep_keeps_the_row_waiting(resident, config, ui, clock, away,
+                                                                                back):
+    # 同じ pip0 シェルの画面は、ロック・スリープの間も残る。マウスが乗ったままなら、シェルは "enter" を
+    # もう一度は知らせない（shell/Ui/MiniDockWindow.cs）。"leave" が届くまで、時間切れにしない
+    path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
+    finish_download(resident, path, clock)
+    dock_id = ui.last("ui.mini_dock.show")["dock_id"]
+    resident.receive_event(shell_event("ui.mini_dock.interaction", dock_id=dock_id, state="enter"))
+    resident.step(clock.advance(1.0))
+    resident.receive_event(shell_event("session.event", kind=away))
+    resident.step(clock.advance(60))
+    resident.receive_event(shell_event("session.event", kind=back))
+    resident.step(clock.advance(1800))
+    assert ui.last("ui.mini_dock.show")["rows"][0]["remaining_seconds"] == 3.0  # 表示し直した
+    for _ in range(100):
+        resident.step(clock.advance(0.1))
+    assert path.exists()  # マウスが上にある間は、10秒たっても動かさない
+    resident.receive_event(shell_event("ui.mini_dock.interaction", dock_id=dock_id, state="leave"))
+    resident.step(clock.advance(0.1))
+    resident.step(clock.advance(2.8))
+    assert path.exists()
+    resident.step(clock.advance(0.2))
+    assert not path.exists()  # 離れてから3秒で、提案を実行した
+
+
+def test_the_pointer_on_the_dock_of_a_shell_that_ended_is_forgotten(config, platform, db, ui, clock):
+    link = FakeLink()
+    svc = make_service(config, platform, db, ui, clock, link=link)
+    assert svc.start()["ok"]
+    try:
+        path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
+        finish_download(svc, path, clock)
+        dock_id = ui.last("ui.mini_dock.show")["dock_id"]
+        svc.receive_event(shell_event("ui.mini_dock.interaction", dock_id=dock_id, state="enter"))
+        link.alive = False
+        svc.receive_event(shell_event("shell.exited", returncode=70, requested_stop=False))
+        svc.step(clock.advance(0.1))
+        clock.advance(service.SHELL_RESTART_DELAYS[0] + 0.1)
+        svc.step()  # 新しいシェルの画面には、まだマウスが乗っていない：表示し直して3秒を数える
+        assert ui.last("ui.mini_dock.show")["rows"][0]["remaining_seconds"] == 3.0
+        svc.step(clock.advance(2.9))
+        assert path.exists()
+        svc.step(clock.advance(0.2))
+        assert not path.exists()
+    finally:
+        svc.shutdown()
+
+
+@pytest.mark.parametrize("what", ["keep", "enter"])
+def test_a_dock_button_or_hover_is_handled_before_a_backlog_of_other_shell_events(resident, config, db, ui, clock,
+                                                                                  what):
+    path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
+    finish_download(resident, path, clock)
+    shown = ui.last("ui.mini_dock.show")
+    resident.step(clock.advance(2.7))  # 残り 0.3 秒
+    # 多くの知らせ（ゴーストのサムネイルの読み込みなど）の後に、ユーザーが「そのまま」を押した・マウスを乗せた
+    for _ in range(service.SHELL_EVENTS_PER_STEP * 5):
+        resident.receive_event(shell_event("ui.desk.handle", state="released"))
+    if what == "keep":
+        resident.receive_event(shell_event("ui.mini_dock.action", dock_id=shown["dock_id"],
+                                           entry_id=shown["rows"][0]["entry_id"], action="keep",
+                                           alternative_index=None))
+    else:
+        resident.receive_event(shell_event("ui.mini_dock.interaction", dock_id=shown["dock_id"], state="enter"))
+    for _ in range(10):
+        resident.step(clock.advance(0.1))
+    assert path.exists()  # 時間切れより前に届いた操作を、時間切れより先に扱った
+    assert database.query_one(db, "SELECT * FROM operations WHERE kind = 'sort_rename'") is None
+
+
+def test_a_clock_set_back_during_a_step_does_not_run_out_a_new_row(resident, config, ui, clock, monkeypatch):
+    real_build = service.inflow.build_proposal
+    jumps = []
+
+    def build_then_set_the_clock_back(*args, **kwargs):
+        proposal = real_build(*args, **kwargs)
+        if not jumps:
+            jumps.append(3600)
+            clock.now -= 3600  # 提案を作っている間に、時計が1時間戻された
+        return proposal
+
+    monkeypatch.setattr(service.inflow, "build_proposal", build_then_set_the_clock_back)
+    path = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download.pdf", "2026年度 予算案")
+    finish_download(resident, path, clock)
+    assert jumps and path.exists()  # 見せる前に、同じ step で時間切れにしない
+    assert ui.last("ui.mini_dock.show")["rows"][0]["remaining_seconds"] == 3.0
+    resident.step(clock.advance(0.1))
+    resident.step(clock.advance(2.8))
+    assert path.exists()  # 戻った分は次の step で合わせ、3秒を数える
+    resident.step(clock.advance(0.2))
+    assert not path.exists()
+
+
+def test_a_shell_that_crashes_soon_after_starting_is_restarted_less_and_less_often(config, platform, db, ui, clock):
+    link = FakeLink()
+    svc = make_service(config, platform, db, ui, clock, link=link)
+    assert svc.start()["ok"]
+    try:
+        delays = []
+        for _ in range(4):
+            clock.advance(0.5)  # 準備（init）は通るが、0.5 秒後に落ちる
+            link.alive = False
+            svc.receive_event(shell_event("shell.exited", returncode=70, requested_stop=False))
+            svc.step()
+            delays.append(svc.shell_restart_at - clock())
+            clock.advance(delays[-1] + 0.01)
+            svc.step()  # 起動し直す
+            assert link.alive
+        assert delays == pytest.approx(service.SHELL_RESTART_DELAYS[:4])
+
+        # しばらく（SHELL_STABLE_SECONDS）動いてから落ちたときは、最初の短い間隔に戻す
+        clock.advance(service.SHELL_STABLE_SECONDS)
+        link.alive = False
+        svc.receive_event(shell_event("shell.exited", returncode=70, requested_stop=False))
+        svc.step()
+        assert svc.shell_restart_at - clock() == pytest.approx(service.SHELL_RESTART_DELAYS[0])
+    finally:
+        svc.shutdown()
+
+
 def test_no_evacuation_is_started_when_the_sync_root_cannot_be_used(config, platform, db, ui, clock):
     platform.fail_next["register_sync_root"] = {"ok": False, "reason": "テスト：同期ルートにつなげません"}
     svc = make_service(config, platform, db, ui, clock)
@@ -904,6 +1512,49 @@ def test_shutdown_request_stops_only_a_service_started_before_it(config, platfor
         svc.shutdown()
 
 
+def test_a_shutdown_request_for_another_instance_never_stops_this_one(config, platform, db, ui, clock):
+    request_path = Path(config["CONTROL_DIR"]) / service.SHUTDOWN_REQUEST_NAME
+    request_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def write_request(request):
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+    def read_request():
+        return json.loads(request_path.read_text(encoding="utf-8"))
+
+    # 前の常駐処理あての依頼。時計が9時間遅れているので（デュアルブートなど）、依頼の時刻のほうが新しく見える
+    write_request({"at": time.time() + 9 * 3600, "instance": "0123456789abcdef" * 2})
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    try:
+        assert read_request()["done"] is True  # 起動より前の依頼には「済み」の印を書いた
+        svc.step(clock.advance(2))
+        assert not svc.stop_event.is_set()
+        # 起動の後に見つけた、ほかの常駐処理あての依頼も、受け付けない
+        write_request({"at": time.time() + 9 * 3600, "instance": "fedcba9876543210" * 2})
+        svc.step(clock.advance(2))
+        assert not svc.stop_event.is_set() and read_request()["done"] is True
+        # この常駐処理あての依頼（python -m pip0 shutdown）は受け付ける
+        assert service.request_shutdown(config)["ok"]
+        assert read_request()["instance"] == svc.instance_id
+        svc.step(clock.advance(2))
+        assert svc.stop_event.is_set() and read_request()["done"] is True
+    finally:
+        svc.shutdown()
+    # 終わった常駐処理の番号は書かない（起動の途中の常駐処理が、自分あてとして受け付けられるように）
+    assert service.request_shutdown(config)["ok"]
+    assert read_request()["instance"] is None
+
+    # 次の常駐処理は、受け付けた依頼でも、起動より前の依頼でも、止まらない
+    after = make_service(config, platform, db, RecordingUi(), clock)
+    assert after.start()["ok"]
+    try:
+        after.step(clock.advance(2))
+        assert not after.stop_event.is_set()
+    finally:
+        after.shutdown()
+
+
 def test_tray_quit_stops_the_loop(resident, clock):
     resident.receive_event(shell_event("tray.command", command="quit"))
     assert resident.stop_event.is_set()  # ワーカーの処理も、次の区切りで止まる
@@ -917,6 +1568,67 @@ def test_config_errors_refuse_to_start(config, platform, db, ui, clock):
     result = make_service(bad, platform, db, ui, clock).start()
     assert result["ok"] is False and "保管庫" in result["reason"]
     assert service.is_running(config) is False
+
+
+def test_a_clock_set_back_does_not_freeze_requests_downloads_or_the_dock(config, platform, db, ui, clock):
+    ghost = make_file(Path(config["PIP0_ROOT"]) / "退避済み.pdf", size=12_000, mtime=OLD_MTIME)
+    evacuated(db, platform, config, ghost)
+    svc = make_service(config, platform, db, ui, clock, link=FakeLink())
+    assert svc.start()["ok"]
+    try:
+        shown = make_pdf(Path(config["DOWNLOADS_DIR"]) / "download (1).pdf", "2026年度 予算案")
+        finish_download(svc, shown, clock)
+        svc.step(clock.advance(1.0))  # 残り 2 秒
+        clock.now -= 3600  # 時計が1時間戻された（手で直した、時刻の同期で直った等）
+        svc.step()
+        svc.step(clock.advance(1.9))
+        assert shown.exists()
+        svc.step(clock.advance(0.2))
+        assert not shown.exists()  # 1時間待たずに、残りの時間で実行した
+
+        # 時計が戻った後に届いたブラウザー拡張の記録も、起動の後の記録として扱う（ミニドックを出す）
+        later = make_pdf(Path(config["DOWNLOADS_DIR"]) / "document.pdf", "研究室の議事録")
+        provenance.store_download_event(db, browser_message(7, later, later.stat().st_size, clock() - 1),
+                                        "chrome-extension://pip0-test/", clock())
+        svc.step(clock.advance(service.CONTROL_POLL_SECONDS + 0.1))
+        assert ui.last("ui.mini_dock.show")["rows"][-1]["file_name"] == "document.pdf"
+
+        # 全復元の依頼（python -m pip0 restore-all）も、すぐに読む
+        assert killswitch.request_restore_all(config)["ok"]
+        svc.step(clock.advance(service.CONTROL_POLL_SECONDS + 0.1))
+        assert platform.ghosts == {}
+    finally:
+        svc.shutdown()
+
+
+def test_bad_numbers_and_types_from_the_shell_never_break_the_main_loop(resident, config, ui, clock):
+    make_file(Path(config["PIP0_ROOT"]) / "予算2026_案A.txt", text="メモ\n")
+    resident.step()
+    # ゴーストを開いたときの応答時間：無限大、NaN、float にできない整数、数でないものは使わない
+    for elapsed in (float("inf"), float("nan"), 10 ** 400, "12", True):
+        resident.handle_event(shell_event("cf.fetch", item_id="0" * 32, path="x", by_pip0=False, result="failed",
+                                          elapsed_ms=elapsed), clock())
+    assert resident.fetch_times == []
+    resident.handle_event(shell_event("cf.fetch", item_id="0" * 32, path="x", by_pip0=False, result="failed",
+                                      elapsed_ms=42), clock())
+    assert resident.fetch_times == [{"elapsed_ms": 42.0, "result": "failed"}]
+    service.shell_link.encode_message({"kind": "event", "type": "ui.status", "payload": resident.build_status(clock())})
+
+    # 位置に無限大があるファイルダイアログ：位置とウィンドウの番号は使わずに、デスクを出す
+    resident.handle_event(shell_event("context.foreground", hwnd=10 ** 400, process_name="slack.exe",
+                                      window_title="予算2026 (Channel) - 研究室 - Slack", is_file_dialog=True,
+                                      dialog_rect={"left": float("inf"), "top": 0, "right": 1, "bottom": 1},
+                                      inaccessible=False), clock())
+    desk_payload = ui.last("ui.desk.show")
+    assert desk_payload["dialog_hwnd"] is None and desk_payload["dialog_rect"] is None
+    service.shell_link.encode_message({"kind": "event", "type": "ui.desk.show", "payload": desk_payload})
+
+    # 形の違うマウスの位置の列と、「最近使ったファイル」の時刻は、使わずに無視する
+    for samples in (5, "abc", None, [[10 ** 400, 1, 2]], [[float("nan"), 1, 2], [1, 2], "x"]):
+        resident.handle_event(shell_event("input.cursor_batch", samples=samples), clock())
+    resident.handle_event(shell_event("usage.recent_items", tracking_enabled=True,
+                                      items=[{"target_path": "x", "opened_at": 10 ** 400}, 5]), clock())
+    resident.step(clock.advance(1))
 
 
 # ---------------------------------------------------------------------- M4 ゴーストの知らせ（cf.*）

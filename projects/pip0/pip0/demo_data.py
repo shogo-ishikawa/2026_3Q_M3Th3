@@ -9,6 +9,7 @@
 - load_demo：日時を付け、入手経路の記録をまね（ブラウザー拡張の記録、Zone.Identifier）、索引を作り、解析する。
   解析は、電源接続中・180秒無操作を「まねた」条件で行う（実機の電源・アイドル状態ではない）
 - expected_results：3つの検索で、一致するはずのファイルと、出るはずの一致の理由
+- other_expected_results：「ほかにも試せる検索」の期待。動かした日付で答えが変わるもの（先月の予算）は、日付から計算する
 - run_demo：上の全部と、検索・機密の判定の確認をまとめて行う（python -m pip0 demo の中身）
 
 本物のデスクトップ・ダウンロード・ドキュメントの中や、空でないフォルダーには作りません。
@@ -56,6 +57,9 @@ DUMMY_MY_NUMBER_FIRST_ELEVEN = "12345678901"
 
 # 3つの検索の言葉
 DEMO_QUERIES = ["青いグラフ", "Slackで貰った", "先週の予算資料"]
+
+# 「ほかにも試せる検索」の言葉（docs/test-data.md 7節）
+OTHER_QUERIES = ["青い写真", "赤いグラフ", "メールで貰った", "2か月前の予算", "先月の予算", "Slackで貰った写真"]
 
 
 # ----------------------------------------------------------------------
@@ -120,7 +124,7 @@ def demo_files(times):
         {"key": "budget_old", "folder": "pip0/予算・会計", "name": "document.docx",
          "make": "docx", "title": "2026年度 予算（第1次案）",
          "paragraphs": ["2026年度 予算（第1次案・ダミー）", "最初の案です。この後、予算案にまとめ直しました。"],
-         "description": "2か月前の、古い予算の文書（Word 文書。pip0 専用フォルダーの中）",
+         "description": "2か月前の月の、古い予算の文書（Word 文書。pip0 専用フォルダーの中）",
          "modified_at": times["two_months_ago"],
          "provenance": None,
          "expected_sensitivity": "not_sensitive"},
@@ -167,17 +171,20 @@ def zone_record(host_url, referrer_url):
 
 
 def demo_times(now, week_starts_on=0):
-    """ダミーのファイルの日時。「先週」は timeutil.find_period と同じ決まり（端末の現地時刻）で決める"""
+    """ダミーのファイルの日時。「先週」は timeutil.find_period と同じ決まり（端末の現地時刻）で決める
+
+    two_months_ago は、2か月前の月の15日にする（「2か月前」はいつ動かしてもその月の中、「先月」には入らない）
+    """
     last_week = timeutil.find_period("先週", now, week_starts_on)
     first_day = timeutil.to_local(last_week["start"])  # 先週の最初の日（週の始まりが月曜なら月曜日）の 0時
     week_before = first_day - timedelta(weeks=1)
-    today = timeutil.start_of_day(timeutil.to_local(now))
+    month_two_ago = timeutil.add_months(timeutil.start_of_month(timeutil.to_local(now)), -2)  # 2か月前の月の1日 0時
     return {
         "last_week_day2": timeutil.from_local(first_day + timedelta(days=1, hours=15)),           # 先週の火曜日 15:00
         "last_week_day3": timeutil.from_local(first_day + timedelta(days=2, hours=14, minutes=30)),  # 先週の水曜日 14:30
         "last_week_day4": timeutil.from_local(first_day + timedelta(days=3, hours=10, minutes=15)),  # 先週の木曜日 10:15
         "two_weeks_ago": timeutil.from_local(week_before + timedelta(days=2, hours=11)),          # 先々週の水曜日 11:00
-        "two_months_ago": timeutil.from_local(today - timedelta(days=61) + timedelta(hours=10)),  # 61日前の 10:00
+        "two_months_ago": timeutil.from_local(month_two_ago + timedelta(days=14, hours=10)),  # 2か月前の月の15日 10:00
     }
 
 
@@ -595,6 +602,47 @@ def expected_results(manifest):
     }
 
 
+def other_expected_results(manifest):
+    """「ほかにも試せる検索」（OTHER_QUERIES）の、期待する結果 {検索の言葉: 期待}。期待の形は expected_results と同じ
+
+    "partial_matches" があれば、そのファイルがすべて一部一致の中にあるかも確かめます
+    （一部一致には、ほかのファイルがあってもかまいません）。
+    「先月の予算」は、動かした日付で答えが変わります。予算案（document (1).docx）のダウンロード日（先週の木曜日）が
+    先月に入る日（月の初めの数日）に動かすと「一致」、それ以外の日は「該当なし」で、時期だけが違う2つの予算の文書が
+    一部一致に出ます（先月のほかのファイルも、時期だけが合うファイルとして一部一致に出ることがあります）。
+    どちらになるかを、manifest の日時から計算します（「2か月前の予算」は、いつ動かしても古い予算の文書に一致します）。
+    """
+    files = {entry["key"]: entry for entry in manifest["files"]}
+    name = {key: entry["name"] for key, entry in files.items()}
+    now = manifest["now"]
+    two_months_ago = timeutil.find_period("2か月前", now, manifest["week_starts_on"])
+    last_month = timeutil.find_period("先月", now, manifest["week_starts_on"])
+    budget_downloaded = files["budget_last_week"]["provenance"]["ended_at"]
+    if last_month["start"] <= budget_downloaded < last_month["end"]:
+        last_month_budget = {"status": "found", "matches": [name["budget_last_week"]],
+                             "not_matches": {name["budget_old"]: "2か月前の月の予算の文書（時期が違う）"}}
+    else:
+        last_month_budget = {"status": "no_match", "matches": [],
+                             "partial_matches": [name["budget_last_week"], name["budget_old"]],
+                             "not_matches": {}}
+    last_month_budget["reasons"] = {}
+    last_month_budget["notes"] = [f"時期：{last_month['label']}は、端末の現地時刻で調べました"]
+    return {
+        "青い写真": {"status": "found", "matches": [name["sky_photo"]], "reasons": {},
+                     "not_matches": {name["blue_chart"]: "青いが、写真ではなくグラフ"}, "notes": []},
+        "赤いグラフ": {"status": "found", "matches": [name["red_chart"]], "reasons": {},
+                       "not_matches": {name["blue_chart"]: "グラフだが、赤くない"}, "notes": []},
+        "メールで貰った": {"status": "found", "matches": [name["budget_last_week"], name["red_chart"]], "reasons": {},
+                           "not_matches": {name["blue_chart"]: "Slack から入手"}, "notes": []},
+        "2か月前の予算": {"status": "found", "matches": [name["budget_old"]], "reasons": {},
+                          "not_matches": {name["budget_last_week"]: "先週の予算案（時期が違う）"},
+                          "notes": [f"時期：{two_months_ago['label']}は、端末の現地時刻で調べました"]},
+        "先月の予算": last_month_budget,
+        "Slackで貰った写真": {"status": "insufficient_info", "matches": [], "reasons": {}, "not_matches": {},
+                              "notes": []},
+    }
+
+
 def check_search_result(result, expectation):
     """search.search の結果が期待どおりかを確かめ、違いの説明のリストを返す（空なら期待どおり）"""
     problems = []
@@ -603,6 +651,11 @@ def check_search_result(result, expectation):
     names = sorted(item["name"] for item in result["results"])
     if names != sorted(expectation["matches"]):
         problems.append(f"一致したファイルが {names} でした（期待：{sorted(expectation['matches'])}）")
+    if "partial_matches" in expectation:
+        partial = [item["name"] for item in result["partial_results"]]
+        for file_name in expectation["partial_matches"]:
+            if file_name not in partial:
+                problems.append(f"{file_name} が一部一致にありません（一部一致：{partial}）")
     for file_name, wanted_reasons in expectation["reasons"].items():
         entry = next((item for item in result["results"] if item["name"] == file_name), None)
         if entry is None:
@@ -644,7 +697,8 @@ def run_demo(target_dir=None, now=None, rules=None, protected=None):
     now：基準の時刻（None なら今）。rules：規則（None なら rules.py）
     protected：ほかにも作ってはいけないフォルダー（例：本物の設定のダウンロードフォルダー）
     DB はメモリーの中だけに作り（鍵もメモリーだけ）、終わると消えます。作ったファイルは残ります。
-    戻り値：{"ok", "reason", "target_dir", "conditions", "load", "queries", "sensitivity", "problems"}
+    戻り値：{"ok", "reason", "target_dir", "conditions", "load", "queries", "other_queries", "sensitivity", "problems"}
+    queries は3つの検索、other_queries は「ほかにも試せる検索」（どちらも {"text", "result", "expected", "problems"}）
     """
     now = time.time() if now is None else now
     rules = default_rules if rules is None else rules
@@ -652,7 +706,8 @@ def run_demo(target_dir=None, now=None, rules=None, protected=None):
         target_dir = tempfile.mkdtemp(prefix="pip0-demo-")
     config = config_module.load_config(overrides=demo_config_overrides(target_dir), read_user_file=False)
     report = {"ok": False, "reason": "", "target_dir": str(Path(target_dir).expanduser().resolve()),
-              "conditions": SIMULATED_CONDITIONS, "load": None, "queries": [], "sensitivity": [], "problems": []}
+              "conditions": SIMULATED_CONDITIONS, "load": None, "queries": [], "other_queries": [],
+              "sensitivity": [], "problems": []}
 
     manifest = create_demo_dataset(target_dir, now, week_starts_on=config["WEEK_STARTS_ON"], protected=protected)
     if not manifest["ok"]:
@@ -667,13 +722,9 @@ def run_demo(target_dir=None, now=None, rules=None, protected=None):
         if not loaded["ok"]:
             report["reason"] = loaded["reason"]
             return report
-        expectations = expected_results(manifest)
-        for text in DEMO_QUERIES:
-            result = search.search(conn, text, now, config, rules)
-            problems = check_search_result(result, expectations[text])
-            report["queries"].append({"text": text, "result": result, "expected": expectations[text],
-                                      "problems": problems})
-            report["problems"].extend(f"「{text}」：{problem}" for problem in problems)
+        check_queries(report, "queries", DEMO_QUERIES, expected_results(manifest), conn, now, config, rules)
+        check_queries(report, "other_queries", OTHER_QUERIES, other_expected_results(manifest), conn, now, config,
+                      rules)
         for entry in manifest["files"]:
             item = hazard.evaluate_items(conn, [entry["path"]], config, rules)["items"][0]
             matches = item["level"] == entry["expected_sensitivity"]
@@ -687,6 +738,15 @@ def run_demo(target_dir=None, now=None, rules=None, protected=None):
     report["ok"] = not report["problems"]
     report["reason"] = "" if report["ok"] else "期待と違う結果があります"
     return report
+
+
+def check_queries(report, key, queries, expectations, conn, now, config, rules):
+    """queries の言葉で検索し、期待と比べた結果を report[key] に、期待との違いを report["problems"] に加える"""
+    for text in queries:
+        result = search.search(conn, text, now, config, rules)
+        problems = check_search_result(result, expectations[text])
+        report[key].append({"text": text, "result": result, "expected": expectations[text], "problems": problems})
+        report["problems"].extend(f"「{text}」：{problem}" for problem in problems)
 
 
 # 画面に出す、状態と判定の名前
@@ -726,6 +786,15 @@ def report_lines(report):
         else:
             lines.append("  ✓ 期待どおり（docs/test-data.md）")
     lines.append("")
+    lines.append("ほかにも試せる検索（docs/test-data.md 7節。期待は、デモを動かした日付から決めます）")
+    for query in report["other_queries"]:
+        lines.append(f"  {'✗' if query['problems'] else '✓'} {short_result(query)}")
+        for cue in query["result"]["query"]["cues"]:
+            if cue["type"] == "time":
+                lines.append(f"      {cue['label']}")
+        for problem in query["problems"]:
+            lines.append(f"      期待と違う：{problem}")
+    lines.append("")
     lines.append("機密の判定（M5。ドラッグしたときの警告に使う）")
     for item in report["sensitivity"]:
         mark = "✓" if item["ok"] else "✗"
@@ -734,3 +803,16 @@ def report_lines(report):
     lines.append("")
     lines.append("結果：すべて期待どおりです" if report["ok"] else f"結果：期待と違うものが {len(report['problems'])} 件あります")
     return lines
+
+
+def short_result(query):
+    """検索の結果を1行で表す（例：「先月の予算」：該当なし（一部一致：document (1).docx、document.docx））"""
+    result = query["result"]
+    text = f"「{query['text']}」：{STATUS_LABELS.get(result['status'], result['status'])}"
+    found = "、".join(item["name"] for item in result["results"])
+    partial = "、".join(item["name"] for item in result["partial_results"])
+    if found:
+        return f"{text}（{found}）"
+    if partial:
+        return f"{text}（一部一致：{partial}）"
+    return text

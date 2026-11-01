@@ -171,9 +171,49 @@ def test_parse_week_can_start_on_sunday(env):
     ("送ってもらった資料", [("doc_kind", "資料", "document")]),
     ("Slackからのファイル", [("source", "Slack", ["Slack"])]),
     ("予算 予算 YOSAN yosan", [("keyword", "予算", None), ("keyword", "YOSAN", None)]),
+    # 別の意味の言葉（context.OTHER_MEANING_WORDS）の中の「赤」「表」は、色や表ではない（「赤ちゃん」「表す」）
+    ("赤ちゃんの写真", [("visual", "写真", "photo")]),
+    ("赤ん坊の写真", [("visual", "写真", "photo")]),
+    ("表し方の資料", [("doc_kind", "資料", "document")]),
+    ("表された資料", [("doc_kind", "資料", "document")]),
+    # 1文字の漢字の色・表の後ろに、助詞・送り仮名などのひらがなが続くものは、色・表として数える
+    ("赤と青のグラフ", [("colour", "赤", "red"), ("colour", "青", "blue"), ("visual", "グラフ", "chart")]),
+    ("赤っぽい写真", [("colour", "赤", "red"), ("visual", "写真", "photo")]),
+    ("青みがかった写真", [("colour", "青", "blue"), ("visual", "写真", "photo")]),
+    ("赤の表", [("colour", "赤", "red"), ("doc_kind", "表", "spreadsheet")]),
+    ("赤だけのグラフ", [("colour", "赤", "red"), ("visual", "グラフ", "chart")]),
+    ("青ばかりの写真", [("colour", "青", "blue"), ("visual", "写真", "photo")]),
+    ("青しかない写真", [("colour", "青", "blue"), ("visual", "写真", "photo")]),
+    ("表だけ", [("doc_kind", "表", "spreadsheet")]),
+    # 中黒「・」は区切り（カタカナの続きではない）
+    ("グラフ・表", [("visual", "グラフ", "chart"), ("doc_kind", "表", "spreadsheet")]),
 ])
 def test_parse_handles_word_boundaries(env, text, expected):
     assert cue_summary(parse(env, text)) == expected
+
+
+@pytest.mark.parametrize("text, label, ignored", [
+    ("一昨年の予算", "時期：一昨年（2024-01-01（月）〜2024-12-31（火））", ["の"]),
+    ("おととしの予算", "時期：おととし（2024-01-01（月）〜2024-12-31（火））", ["の"]),
+    ("今年度の予算", "時期：今年度（2026-04-01（水）〜2027-03-31（水））", ["の"]),
+    ("昨年度予算", "時期：昨年度（2025-04-01（火）〜2026-03-31（火））", []),
+    ("先々月の予算", "時期：先々月（2026-08-01（土）〜2026-08-31（月））", ["の"]),
+    ("1ヵ月前の予算", "時期：1ヵ月前（2026-09-01（火）〜2026-09-30（水））", ["の"]),
+    # 「今月度」「先月度」：月ごとの区切りの言葉。暦の月と同じ範囲（「度」の付いた別の言葉として、内容の語にしない）
+    ("今月度の予算", "時期：今月度（2026-10-01（木）〜2026-10-31（土））", ["の"]),
+    ("先月度の予算", "時期：先月度（2026-09-01（火）〜2026-09-30（水））", ["の"]),
+    ("先々月度の予算", "時期：先々月度（2026-08-01（土）〜2026-08-31（月））", ["の"]),
+])
+def test_parse_more_relative_dates(env, text, label, ignored):
+    query = parse(env, text)
+    assert [cue["label"] for cue in query["cues"]] == [label, "内容：予算"]  # 時期の言葉の一部が、内容の語に残らない
+    assert query["ignored"] == ignored
+
+
+def test_parse_fiscal_year_follows_the_setting(env):
+    query = search.parse_query("今年度の予算", now(), dict(env, FISCAL_YEAR_START_MONTH=1), rules)
+    assert query["cues"][0]["label"] == "時期：今年度（2026-01-01（木）〜2026-12-31（木））"
+    assert env["FISCAL_YEAR_START_MONTH"] == 4  # settings.py の初期値（4月始まり）
 
 
 def test_parse_with_nothing_to_search(env):

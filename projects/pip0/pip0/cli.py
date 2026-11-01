@@ -52,6 +52,8 @@ EXIT_UNAVAILABLE = 2
 
 # ★待ち時間（秒）
 PROGRESS_POLL_SECONDS = 1.0   # 常駐処理に全復元を依頼したとき、進み具合を確かめる間隔
+RESTORE_QUIET_SECONDS = 120.0  # 常駐処理の全復元の進み具合が、この秒数変わらなければ、待つのをやめて、することを示す
+UNRESTORED_SHOWN = 10          # 全復元の結果で、戻せなかった項目を理由と一緒に表示する最大の件数
 SHUTDOWN_WAIT_SECONDS = 60.0  # 常駐処理に終了を依頼したとき、終わるのを待つ秒数
 
 RESUME_ANSWER = "はい"        # resume の確認で入力してもらう言葉
@@ -276,6 +278,8 @@ def read_vault_manifests(config):
 
     manifest.json も中身（content、content.partial）もない項目のフォルダーは数えない
     （最初の manifest.json を書く前に止まったもので、戻すものがない。scripts/uninstall.ps1 と同じ決まり）。
+    一覧を見せる・数えるだけなので、今の pip0 専用フォルダー（PIP0_ROOT）の外を指す manifest.json も読む
+    （PIP0_ROOT を変える前の項目も、状態ごとに数えるため。復元には使わない）。
     """
     vault_dir = config.get("VAULT_DIR")
     if vault_dir is None:
@@ -292,7 +296,7 @@ def read_vault_manifests(config):
             continue  # 項目ではないもの（触れない）
         if not any(os.path.lexists(entry / name) for name in ("manifest.json", "content", "content.partial")):
             continue  # 記録も中身もない項目のフォルダー（戻すものがない）
-        manifest = vault.read_manifest(config, entry.name)
+        manifest, _problem = vault.load_manifest(config, entry.name, check_paths=False)
         if manifest is None:
             unreadable += 1
         else:
@@ -602,35 +606,89 @@ def command_restore_all(cli):
 
 
 def restore_all_by_request(cli):
-    """常駐処理が動いているとき：全復元を依頼し、進み具合（件数）を表示する"""
+    """常駐処理が動いているとき：全復元を依頼し、その依頼に応えた全復元の進み具合（件数）を表示する
+
+    依頼には番号（request_id）が付き、常駐処理は、応えている依頼の番号を進み具合のファイルに書く。
+    この番号の進み具合だけを、この依頼の結果として表示する（時計は比べない）。
+    この依頼に応えた全復元のすぐ後に、別の全復元（続けて押された通知領域の「全復元」など）が進み具合を書き換えると、
+    この依頼の件数は読めない。そのときは、まだ戻していない項目を DB から読んで、結果を示す。
+    進み具合（件数）が RESTORE_QUIET_SECONDS 変わらなければ、待つのをやめて、することを示す（終了コード 1）。
+    """
     config = cli["config"]
-    requested_at = time.time()
-    result = killswitch.request_restore_all(config, now=requested_at)
+    result = killswitch.request_restore_all(config)
     if not result["ok"]:
         say(cli, "全復元を依頼できませんでした：" + result["reason"])
         return EXIT_FAILED
+    request_id = result["request_id"]
     say(cli, "動いている pip0 に全復元を依頼しました（自動処理は止めました）。進み具合を表示します。")
     flush(cli)
     last_line = None
+    # 進んだかどうかは、書いた時刻（updated_at）を除いて比べる（全復元が失敗して後で試し直すと、
+    # 件数は同じまま、時刻だけが書き換わるため）
+    last_progress = killswitch.progress_without_time(killswitch.read_progress(config))
+    quiet_since = time.monotonic()
     while True:
+        # 依頼のファイルを先に見る（全復元は、進み具合に「終わり」を書いてから依頼を外すので、
+        # 外れた後に読む進み具合には、この依頼の「終わり」か、その後に続いた全復元の進み具合が書いてある）
+        waiting = killswitch.request_waiting(config, request_id)
         progress = killswitch.read_progress(config)
-        if progress is not None and is_after(progress.get("updated_at"), requested_at):
+        compared = killswitch.progress_without_time(progress)
+        if compared != last_progress:
+            last_progress = compared
+            quiet_since = time.monotonic()  # 進み具合が変わった（常駐処理が動いている）
+        if progress is not None and progress.get("request_id") == request_id:
             line = progress_line(progress)
             if line != last_line:
                 say(cli, line)
                 flush(cli)
                 last_line = line
             if progress.get("finished"):
-                return finish_restore_report(cli, progress)
+                not_restored = progress.get("failed") or progress.get("missing")
+                return finish_restore_report(cli, progress, read_unrestored(cli) if not_restored else [])
+        elif not waiting and progress is not None and progress.get("finished"):
+            # この依頼に応えた全復元は終わったが、すぐ後に続いた全復元が、進み具合を書き換えた
+            return finish_restore_report_without_counts(cli, read_unrestored(cli))
         if not service.is_running(config):
             say(cli, "全復元が終わる前に、pip0 の常駐処理が終わりました。"
                      "もう一度 python -m pip0 restore-all を実行すると、残りから続けます。")
             return EXIT_FAILED
+        if time.monotonic() - quiet_since >= RESTORE_QUIET_SECONDS:
+            # 依頼が外れた後は、続いた全復元を待っていた（「全復元を始めない」「依頼は残してある」とは言わない）
+            explain_quiet_service(cli, started=last_line is not None or not waiting)
+            return EXIT_FAILED
         time.sleep(PROGRESS_POLL_SECONDS)
 
 
-def is_after(value, moment):
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= moment
+def explain_quiet_service(cli, started):
+    """常駐処理の全復元の進み具合が、長い間変わらないとき：待つのをやめる理由と、することを示す"""
+    seconds = f"{RESTORE_QUIET_SECONDS:g}"
+    if started:
+        say(cli, f"{seconds} 秒のあいだ、全復元の進み具合が変わりません"
+                 "（大きなファイルを戻している途中かもしれません）。")
+        say(cli, "全復元は、pip0 の常駐処理の中で続いています。進み具合は python -m pip0 status で確かめられます。")
+    else:
+        say(cli, f"pip0 の常駐処理が、{seconds} 秒たっても全復元を始めません"
+                 "（ほかの処理が終わるのを待っている、または画面と常駐処理が応答していない可能性があります）。")
+        say(cli, "全復元の依頼は残してあります。常駐処理が受け付けると、全復元を行います。")
+    say(cli, "待っても進まないときは、pip0 を終了してから（python -m pip0 shutdown。終わらなければ、"
+             "タスク マネージャーで pip0 を終了）、もう一度 python -m pip0 restore-all を実行してください"
+             "（常駐処理が動いていなければ、このコマンドが自分で全復元します）。")
+    say(cli, "自動処理は止まったままです（再開するときは python -m pip0 resume）。")
+
+
+def read_unrestored(cli):
+    """まだ戻していない項目の行（理由 last_error を含む）を、DB から読む。DB を開けない・読めなければ None"""
+    try:
+        conn, _problem = open_db(cli, create=False)
+        if conn is None:
+            return None
+        try:
+            return vault.list_items(conn, vault.RESTORE_TARGET_STATES)
+        finally:
+            conn.close()
+    except Exception as error:  # 理由を読めなくても、全復元の結果と終了コードは表示する（理由は vault list で見られる）
+        logger.warning("全復元の結果：戻せなかった理由を DB から読めませんでした（%s）", type(error).__name__)
+        return None
 
 
 def restore_all_directly(cli):
@@ -656,13 +714,14 @@ def restore_all_directly(cli):
             try:
                 counts = killswitch.restore_all(conn, prepared["platform"], config,
                                                 progress=lambda counts: say(cli, progress_line(counts)))
+                unrestored = vault.list_items(conn, vault.RESTORE_TARGET_STATES)  # 戻せなかった項目と理由
             finally:
                 conn.close()
         finally:
             release_platform(prepared)
     finally:
         lock.release()
-    return finish_restore_report(cli, counts)
+    return finish_restore_report(cli, counts, unrestored)
 
 
 def explain_restore_without_windows(cli):
@@ -690,21 +749,69 @@ def progress_line(counts):
             f"すでに戻っていた {counts.get('already', 0)}、残り {remaining}")
 
 
-def finish_restore_report(cli, counts):
-    """全復元の結果をまとめて表示し、終了コードを決める（すべて戻せたときだけ 0）"""
+def finish_restore_report(cli, counts, unrestored=None):
+    """全復元の結果をまとめて表示し、終了コードを決める（すべて戻せたときだけ 0）
+
+    unrestored：まだ戻していない項目の行（vault.list_items の結果）。項目ごとに、戻せなかった理由（last_error）を出す。
+                None（DB を読めない等）なら、理由は vault list で見るように案内する
+    """
     say(cli, "結果：" + progress_line(counts))
     if counts.get("conflict"):
         say(cli, "・衝突：元の場所に別のファイルがあったため、上書きせず、横に「(pip0復元)」を付けた名前で戻しました。")
     if counts.get("missing"):
         say(cli, "・見つからない：ゴーストが移動・削除されていました。中身は保管庫に残っています"
-                 "（python -m pip0 vault list、保管庫の README.txt）。")
-    if counts.get("failed") or counts.get("remaining"):
-        say(cli, "・失敗・残り：保管庫の中身はそのままです。"
-                 "もう一度 python -m pip0 restore-all を実行すると、続きから試します。")
+                 "（保管庫の README.txt に、手で取り出す方法があります）。")
+    if counts.get("failed"):
+        # もう一度実行して直るかは、理由によって違う（読み取り専用、PIP0_ROOT の変更などは、先に直す必要がある）
+        say(cli, "・失敗：保管庫の中身はそのままです。項目ごとの理由を読み、そこに書かれたことをしてから、"
+                 "もう一度 python -m pip0 restore-all を実行してください。")
+    if counts.get("remaining"):
+        say(cli, "・残り：途中で止まりました。もう一度 python -m pip0 restore-all を実行すると、残りから続けます。")
+    if counts.get("failed") or counts.get("missing"):
+        show_unrestored(cli, unrestored)
     say(cli, "自動処理は止まったままです（再開するときは python -m pip0 resume）。")
     complete = (counts.get("finished") is True and not counts.get("failed") and not counts.get("missing")
                 and not counts.get("remaining"))
     return EXIT_OK if complete else EXIT_FAILED
+
+
+def finish_restore_report_without_counts(cli, unrestored):
+    """この依頼の全復元の件数を読めなかったとき（restore_all_by_request を参照）：まだ戻していない項目で結果を示す
+
+    unrestored：まだ戻していない項目の行（vault.list_items の結果）。None（DB を読めない等）なら、確かめられない。
+    終了コードは、まだ戻していない項目が 1 件もないと確かめられたときだけ 0。
+    """
+    say(cli, "結果：全復元は終わっています（この依頼の件数は、すぐ後に続いた全復元の記録に置き換わったため、"
+             "表示できません）。")
+    if unrestored is None:
+        say(cli, "まだ戻していない項目があるかを、DB から読めませんでした"
+                 "（python -m pip0 vault list で確かめられます）。")
+    elif unrestored:
+        say(cli, "・戻していない項目の中身は、保管庫に残っています。"
+                 "項目ごとの理由を読み、そこに書かれたことをしてから、"
+                 "もう一度 python -m pip0 restore-all を実行してください。")
+        show_unrestored(cli, unrestored)
+    else:
+        say(cli, "まだ戻していない項目はありません。")
+    say(cli, "自動処理は止まったままです（再開するときは python -m pip0 resume）。")
+    return EXIT_OK if unrestored == [] else EXIT_FAILED
+
+
+def show_unrestored(cli, unrestored):
+    """まだ戻していない項目を、戻せなかった理由と一緒に表示する（多いときは UNRESTORED_SHOWN 件まで）"""
+    if unrestored is None:
+        say(cli, "項目ごとの理由は python -m pip0 vault list で確かめられます。")
+        return
+    if not unrestored:
+        return
+    say(cli, f"まだ戻していない項目：{len(unrestored)} 件")
+    for item in unrestored[:UNRESTORED_SHOWN]:
+        say(cli, f"  {item['item_id']}  {vault.STATE_LABELS.get(item['state'], item['state'])}")
+        say(cli, f"      場所：{item['current_path']}")
+        reason = item["last_error"] or "記録がありません（python -m pip0 vault restore <項目ID> で確かめられます）"
+        say(cli, f"      理由：{reason}")
+    if len(unrestored) > UNRESTORED_SHOWN:
+        say(cli, f"  ほか {len(unrestored) - UNRESTORED_SHOWN} 件（python -m pip0 vault list で、すべて見られます）")
 
 
 def command_vault(cli):
@@ -738,6 +845,9 @@ def vault_list(cli):
         if item.get("restored_path") and item["restored_path"] != item["current_path"]:
             say(cli, f"      戻した場所：{item['restored_path']}")
         say(cli, f"      大きさ：{format_size(item['size'])}、最後の変化：{local_time_text(item['updated_at'])}")
+        if item.get("last_error"):
+            # 最後にうまくいかなかった理由（読み取り専用、PIP0_ROOT の変更など）と、すること
+            say(cli, f"      理由：{item['last_error']}")
     return EXIT_OK
 
 
@@ -1012,14 +1122,19 @@ def command_unregister_root(cli):
     if config.get("PIP0_ROOT") is None:
         say(cli, "pip0 専用フォルダー（PIP0_ROOT）が設定されていないため、解除するものはありません。")
         return EXIT_OK
-    # ゴーストが残っている（かもしれない）項目があれば解除しない
-    # （manifest.json を読むので、DB の鍵がなくても確かめられる）
+    # ゴーストが残っている（かもしれない）項目があれば解除しない。戻し終えた項目と、ゴーストにしていない項目は、
+    # PIP0_ROOT を変える前のものでも止めない（manifest.json を読むので、DB の鍵がなくても確かめられる）
     manifests, unreadable = read_vault_manifests(config)
     blocking = [manifest for manifest in manifests if manifest["state"] in vault.GHOST_STATES]
     if blocking or unreadable:
         say(cli, f"退避中（ゴーストがある、またはその途中）の項目が {len(blocking)} 件"
                  + (f"、読めない manifest.json が {unreadable} 件" if unreadable else "")
                  + "あるため、解除しません。先に python -m pip0 restore-all で戻してください。")
+        outside = [manifest for manifest in blocking if vault.check_manifest_paths(manifest, config) is not None]
+        if outside:
+            say(cli, f"そのうち {len(outside)} 件は、今の pip0 専用フォルダー（PIP0_ROOT）の外にあります。"
+                     "PIP0_ROOT を変えた場合は、元に戻してから全復元してください"
+                     "（python -m pip0 vault list で確かめられます）。")
         return EXIT_FAILED
     missing = [manifest for manifest in manifests if manifest["state"] == "ghost_missing"]
     if missing:

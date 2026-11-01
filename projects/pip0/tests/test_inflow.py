@@ -409,6 +409,86 @@ def test_a_row_whose_time_ran_out_before_the_pointer_came_is_executed(config):
     assert actions[-1]["dock"]["rows"][0]["remaining_seconds"] == 0.8
 
 
+def test_rows_wait_while_the_screen_cannot_be_seen_and_get_full_time_again(config):
+    dock = inflow.MiniDock(config)
+    for proposal_id in range(1, 5):
+        dock.add(dock_proposal(proposal_id), NOW + proposal_id * 0.1)  # 3行を表示、4つ目は順番待ち
+    dock.pause(NOW + 2.9)  # 画面が見えなくなった（シェルが落ちた、画面のロックなど）
+    assert dock.tick(NOW + 60.0) == []  # 時間切れにしない（見えないまま自動で実行しない）
+    # 見えなくなる前に押されたボタンは行う。空いた行には順番待ちが入るが、見えない画面には送らない
+    actions = dock.user_action(dock.dock_id, dock.rows[0]["entry_id"], "keep", NOW + 61.0)
+    assert kinds(actions) == ["execute"]
+    assert dock.tick(NOW + 120.0) == []
+
+    actions = dock.resume(NOW + 200.0)  # また見えるようになった：どの行も3秒以上にして表示し直す
+    assert kinds(actions) == ["show"]
+    assert [row["file_name"] for row in actions[0]["dock"]["rows"]] == \
+           ["download (2).pdf", "download (3).pdf", "download (4).pdf"]
+    assert [row["remaining_seconds"] for row in actions[0]["dock"]["rows"]] == [3.0, 3.0, 3.0]
+    assert dock.resume(NOW + 200.0) == []  # 止めていなければ、何もしない
+    assert dock.tick(NOW + 202.9) == []
+    assert executed(dock.tick(NOW + 203.0)) == [(2, "auto", None), (3, "auto", None), (4, "auto", None)]
+
+
+def test_a_pointer_still_on_the_dock_keeps_the_rows_waiting_after_the_screen_comes_back(config):
+    # 画面のロック・スリープの間も、同じシェルの画面は残る。マウスが乗ったままなら、そのシェルは "enter" を
+    # もう一度は知らせないので、"leave" が届くまで止めたままにする
+    dock = inflow.MiniDock(config)
+    dock.add(dock_proposal(1), NOW)
+    dock.interaction(dock.dock_id, "enter", NOW + 2.5)  # 残り 0.5 秒で止まる
+    dock.pause(NOW + 3.0)
+    actions = dock.resume(NOW + 1800.0)
+    assert actions[0]["dock"]["rows"][0]["remaining_seconds"] == 3.0  # 表示し直す（少なくとも3秒）
+    assert dock.tick(NOW + 1900.0) == []  # マウスがまだ上にある
+    dock.interaction(dock.dock_id, "leave", NOW + 1900.0)
+    assert dock.tick(NOW + 1902.9) == []  # 離れてから、少なくとも3秒を数える
+    assert executed(dock.tick(NOW + 1903.0)) == [(1, "auto", None)]
+
+
+def test_leaving_while_the_screen_cannot_be_seen_counts_only_after_resume(config):
+    dock = inflow.MiniDock(config)
+    dock.add(dock_proposal(1), NOW)
+    dock.interaction(dock.dock_id, "enter", NOW + 1.0)
+    dock.pause(NOW + 1.5)
+    assert dock.interaction(dock.dock_id, "leave", NOW + 2.0) == []  # 見えない間は、離れても数え直さない
+    assert dock.tick(NOW + 30.0) == []
+    actions = dock.resume(NOW + 30.0)
+    assert actions[0]["dock"]["rows"][0]["remaining_seconds"] == 3.0
+    assert executed(dock.tick(NOW + 33.0)) == [(1, "auto", None)]
+
+
+def test_the_pointer_on_a_screen_that_went_away_is_forgotten(config):
+    # pip0 シェルが終わった（pointer_gone）：その画面の上のマウスの状態は忘れて、表示し直したら3秒を数える
+    dock = inflow.MiniDock(config)
+    dock.add(dock_proposal(1), NOW)
+    dock.interaction(dock.dock_id, "enter", NOW + 1.0)
+    dock.pause(NOW + 1.5, pointer_gone=True)
+    assert dock.tick(NOW + 30.0) == []
+    actions = dock.resume(NOW + 30.0)
+    assert actions[0]["dock"]["rows"][0]["remaining_seconds"] == 3.0
+    assert dock.tick(NOW + 32.9) == []
+    assert executed(dock.tick(NOW + 33.0)) == [(1, "auto", None)]
+
+
+def test_rows_added_while_paused_start_counting_only_after_resume(config):
+    dock = inflow.MiniDock(config)
+    dock.pause(NOW)
+    assert dock.add(dock_proposal(1), NOW + 1.0) == []  # 見えない画面には送らない
+    assert dock.tick(NOW + 10.0) == []
+    actions = dock.resume(NOW + 20.0)
+    assert kinds(actions) == ["show"] and actions[0]["dock"]["rows"][0]["remaining_seconds"] == 3.0
+    assert executed(dock.tick(NOW + 23.0)) == [(1, "auto", None)]
+
+
+def test_a_clock_set_back_keeps_the_remaining_time_of_shown_rows(config):
+    dock = inflow.MiniDock(config)
+    dock.add(dock_proposal(1), NOW)
+    dock.shift_times(3600.0)  # 0.5 秒後に、時計が1時間戻った
+    back = NOW - 3600.0
+    assert dock.tick(back + 2.9) == []
+    assert executed(dock.tick(back + 3.0)) == [(1, "auto", None)]  # 1時間待たずに、残りの時間で実行する
+
+
 # ---------------------------------------------------------------------- 提案から実行まで（通しの確かめ）
 
 
@@ -867,3 +947,25 @@ def test_a_replaced_file_is_not_moved(config, platform, db, registry):
     assert (result["status"], result["state"]) == ("skipped", "failed")
     assert "別のファイルに置き換わった" in result["reason"]
     assert src.exists()
+
+
+def test_only_downloads_named_by_a_record_are_handled_inside_subfolders(config, platform, db, registry):
+    # 「すべて展開」・コピーでできたサブフォルダーの中身と、ダウンロードフォルダーの外のファイルは、
+    # ダウンロードとして扱わない（DownloadTracker と同じ決まりを、提案を作るときにも確かめる）
+    extracted = make_pdf(config["DOWNLOADS_DIR"] / "course" / "docs" / "請求書.pdf", "請求書")
+    elsewhere = make_pdf(config["DOWNLOADS_DIR"].parent / "Documents" / "請求書.pdf", "請求書")
+    for path in (extracted, elsewhere):
+        proposal = build(db, platform, config, path, None)
+        assert proposal["status"] == "no_candidate"
+        assert proposal["reasons"][0].startswith("このファイルは扱いません：ダウンロードフォルダーの")
+        for decision in ("auto", "user_accept"):
+            assert execute(db, platform, config, proposal, decision, registry)["status"] == "skipped"
+        assert path.exists()
+    assert database.query_all(db, "SELECT * FROM operations WHERE status = 'done'") == []
+
+    # 拡張機能の記録がそのパスを名指ししている（「名前を付けて保存」でサブフォルダーを選んだ）なら扱う
+    saved = make_pdf(config["DOWNLOADS_DIR"] / "経理" / "download.pdf", "2026年度 予算案")
+    event = store_event(db, saved)
+    proposal = build(db, platform, config, saved, None)
+    assert proposal["status"] == "proposed" and proposal["download_event_id"] == event["id"]
+    assert proposal["destination"]["rule"] == "予算・会計"

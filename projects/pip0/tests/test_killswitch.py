@@ -5,10 +5,12 @@ OS 連携は代役（FakePlatform）です。ここで確かめたことは「�
 「確かめたコピーがあるはずの項目の content が残っていること」を確かめます（vault_guard）。
 """
 
+import errno
 import hashlib
 import json
 import os
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -160,11 +162,12 @@ def test_restore_all_restores_every_ghost_and_reports_progress(config, platform,
     for path, (_item_id, before) in files.items():
         assert fingerprint(path) == before
         assert not is_ghost(platform, path)
-    # 進み具合のファイルは件数（と時刻）だけで、パスや名前を含まない
+    # 進み具合のファイルは件数（と、応えた依頼の番号、時刻）だけで、パスや名前を含まない
     progress_file = Path(config["CONTROL_DIR"]) / "restore_all.progress.json"
     stored = json.loads(progress_file.read_text(encoding="utf-8"))
-    assert set(stored) == set(counts) | {"updated_at"}
+    assert set(stored) == set(counts) | {"request_id", "updated_at"}
     assert {key: stored[key] for key in counts} == counts
+    assert stored["request_id"] is None  # 依頼のファイルなしで始めた全復元
     text = progress_file.read_text(encoding="utf-8")
     for path in files:
         assert path.stem not in text
@@ -177,7 +180,7 @@ def test_restore_all_restores_every_ghost_and_reports_progress(config, platform,
 
 def test_restore_all_marks_itself_unfinished_before_anything_else(config, platform, db, monkeypatch):
     evacuated_files(db, platform, config, ["a.pdf"])
-    killswitch.write_progress(config, ALL_RESTORED_3, NOW)  # 前回の全復元の記録は「終わり」
+    killswitch.write_progress(config, ALL_RESTORED_3)  # 前回の全復元の記録は「終わり」
 
     def killed(*args, **kwargs):
         raise KeyboardInterrupt  # 点検の途中で、プロセスが止められた（強制終了のまね）
@@ -193,13 +196,88 @@ def test_restore_all_marks_itself_unfinished_before_anything_else(config, platfo
 
 def test_restore_request_is_removed_only_by_a_finished_restore(config, platform, db):
     evacuated_files(db, platform, config, ["a.pdf"])
-    killswitch.request_restore_all(config, now=NOW)
-    assert killswitch.read_restore_request(config) == {"at": NOW}
-    assert killswitch.read_restore_request(config) == {"at": NOW}  # 読むだけでは外さない
+    requested = killswitch.request_restore_all(config, now=NOW)
+    request = {"at": NOW, "request_id": requested["request_id"]}
+    assert killswitch.read_restore_request(config) == request
+    assert killswitch.read_restore_request(config) == request  # 読むだけでは外さない
     assert killswitch.restore_unfinished(config) is True
+
+    # 途中で止まった全復元は、依頼を外さない（依頼と「途中」が残り、続きから行う）
+    stopped = killswitch.restore_all(db, platform, config, should_stop=lambda: True, now=NOW + 5)
+    assert stopped["finished"] is False
+    assert killswitch.read_restore_request(config) == request
+    assert killswitch.read_progress(config)["request_id"] == requested["request_id"]
+
     killswitch.restore_all(db, platform, config, now=NOW + 10)
     assert killswitch.read_restore_request(config) is None  # 全復元が終わったので外した
     assert killswitch.restore_unfinished(config) is False
+    assert killswitch.read_progress(config)["request_id"] == requested["request_id"]
+
+
+@pytest.mark.parametrize("at_start", ["no_request", "unreadable_request"])
+def test_a_request_made_during_a_restore_is_kept_and_answered_by_the_next_one(config, platform, db, monkeypatch,
+                                                                             at_start):
+    """全復元の途中に届いた新しい依頼（restore-all.cmd など）は、その全復元の終わりに外さず、次の全復元で応える
+
+    （起動のときに、途中だった全復元を続けている間などに、依頼が届いた場合）
+    """
+    evacuated_files(db, platform, config, ["a.pdf", "b.pdf"])
+    if at_start == "unreadable_request":
+        request_file = Path(config["CONTROL_DIR"]) / "restore_all.request.json"
+        request_file.parent.mkdir(parents=True, exist_ok=True)
+        request_file.write_text("{壊れた", encoding="utf-8")
+    later = {}
+    real_restore = vault.restore
+
+    def restore_while_a_request_arrives(*args, **kwargs):
+        if not later:
+            later.update(killswitch.request_restore_all(config, now=NOW + 1))  # 全復元の途中で依頼された
+        return real_restore(*args, **kwargs)
+
+    monkeypatch.setattr(vault, "restore", restore_while_a_request_arrives)
+    done = killswitch.restore_all(db, platform, config, now=NOW + 10)
+    assert done["finished"] is True and done["restored"] == 2
+    assert killswitch.read_progress(config)["request_id"] is None  # この全復元は、その依頼に応えたものではない
+    assert killswitch.read_restore_request(config)["request_id"] == later["request_id"]  # 新しい依頼は残る
+    assert killswitch.restore_unfinished(config) is True
+
+    monkeypatch.setattr(vault, "restore", real_restore)
+    again = killswitch.restore_all(db, platform, config, now=NOW + 20)
+    assert again["finished"] is True and again["total"] == 0
+    progress = killswitch.read_progress(config)
+    assert progress["request_id"] == later["request_id"] and progress["finished"] is True
+    assert killswitch.read_restore_request(config) is None
+
+
+def test_a_second_request_joins_the_one_still_waiting(config, platform, db, monkeypatch):
+    """応え終えていない依頼があるときの依頼（通知領域とコマンドの両方から等）は、上書きせずに、その依頼に加わる
+
+    上書きすると、先に依頼した側（コマンド）が、自分の番号の結果を受け取れずに待ち続けるため。
+    """
+    evacuated_files(db, platform, config, ["a.pdf", "b.pdf"])
+    first = killswitch.request_restore_all(config, now=NOW)
+    joined = {}
+    real_restore = vault.restore
+
+    def restore_while_asked_again(*args, **kwargs):
+        if not joined:
+            joined.update(killswitch.request_restore_all(config, now=NOW + 1))
+        return real_restore(*args, **kwargs)
+
+    monkeypatch.setattr(vault, "restore", restore_while_asked_again)
+    done = killswitch.restore_all(db, platform, config, now=NOW + 10)
+    assert joined["ok"] is True and joined["request_id"] == first["request_id"]
+    assert done["finished"] is True and done["restored"] == 2
+    assert killswitch.read_progress(config)["request_id"] == first["request_id"]
+    assert killswitch.read_restore_request(config) is None  # 両方の依頼に応えたので外した
+
+
+def test_progress_is_stamped_with_the_real_time_not_the_given_time(config, platform, db):
+    """進み具合の updated_at は、渡された時刻（常駐処理の 1 回分の始めの時刻など）ではなく、書いたときの時刻"""
+    evacuated_files(db, platform, config, ["a.pdf"])
+    before = time.time()
+    killswitch.restore_all(db, platform, config, now=NOW - 86400)
+    assert killswitch.read_progress(config)["updated_at"] >= before
 
 
 def test_restore_all_can_be_interrupted_and_continued(config, platform, db):
@@ -259,7 +337,7 @@ def test_restore_all_records_the_stop_in_both_places(config, platform, db):
     # 印のファイルが消されても、確認なしでは自動処理が動き出さない
     evacuated_files(db, platform, config, ["a.pdf"])
     killswitch.request_restore_all(config, now=NOW)
-    assert killswitch.take_restore_request(config) == {"at": NOW}
+    assert database.get_setting(db, "automation_enabled") != "0"  # 依頼は、停止の印だけを書く
     killswitch.restore_all(db, platform, config, now=NOW + 10)
     assert database.get_setting(db, "automation_enabled") == "0"
     marker_path(config).unlink()
@@ -436,25 +514,145 @@ def test_restore_all_after_losing_the_database_key(config, platform, key_store, 
 
 
 def test_request_and_take_restore_all(config, db):
-    assert killswitch.take_restore_request(config) is None
+    assert killswitch.read_restore_request(config) is None
+    assert killswitch.take_restore_request(config, None) is False
     assert killswitch.read_progress(config) is None
 
-    assert killswitch.request_restore_all(config, now=NOW)["ok"] is True
+    first = killswitch.request_restore_all(config, now=NOW)
+    assert first["ok"] is True and len(first["request_id"]) == 32
     assert killswitch.is_engaged(None, config) is True  # 依頼と同時に、新しい自動処理を止める
     assert killswitch.resume(db, config, confirmed=True)["ok"] is False  # 依頼が残っている間は再開しない
+    answered = killswitch.read_restore_request(config)
+    assert answered == {"at": NOW, "request_id": first["request_id"]}
 
-    assert killswitch.take_restore_request(config) == {"at": NOW}
-    assert killswitch.take_restore_request(config) is None  # 同じ依頼を二度受け取らない
+    # 応え終えていない依頼があるうちの依頼は、上書きせずに、その依頼に加わる（同じ番号）
+    assert killswitch.request_restore_all(config, now=NOW + 1)["request_id"] == first["request_id"]
+    assert killswitch.read_restore_request(config) == answered
+
+    # 応えた依頼と違う（新しい）依頼は外さない
+    newer = {"at": NOW + 2, "request_id": "b" * 32}
+    fsutil.atomic_write_json(Path(config["CONTROL_DIR"]) / "restore_all.request.json", newer)
+    assert killswitch.take_restore_request(config, answered) is False
+    assert killswitch.read_restore_request(config) == newer
+
+    # 応えた依頼なら外す。同じ依頼に二度応えない
+    assert killswitch.take_restore_request(config, newer) is True
+    assert killswitch.read_restore_request(config) is None
+    assert killswitch.take_restore_request(config, newer) is False
+    # 依頼がなくなった後の依頼には、新しい番号が付く
+    assert killswitch.request_restore_all(config, now=NOW + 3)["request_id"] not in (first["request_id"], "b" * 32)
 
     no_place = dict(config, CONTROL_DIR=None)
     assert killswitch.request_restore_all(no_place)["ok"] is False
-    assert killswitch.take_restore_request(no_place) is None
+    assert killswitch.take_restore_request(no_place, answered) is False
     assert killswitch.read_progress(no_place) is None
 
 
-def test_broken_request_file_still_counts_as_a_request(config):
+def test_broken_request_file_still_counts_as_a_request(config, platform, db):
     request = Path(config["CONTROL_DIR"]) / "restore_all.request.json"
     request.parent.mkdir(parents=True)
     request.write_text("{壊れた", encoding="utf-8")
-    assert killswitch.take_restore_request(config) == {}
+    assert killswitch.read_restore_request(config) == {}
+    assert killswitch.restore_unfinished(config) is True
+    killswitch.restore_all(db, platform, config, now=NOW)  # 読めない依頼にも応え、終わったら外す
     assert not request.exists()
+    assert killswitch.read_progress(config)["request_id"] is None
+
+
+# ---------------------------------------------------------------------- R1 の修正の 2 回目の見直しで加えた確認
+
+
+def fail_to_remove_the_request_once(monkeypatch):
+    """依頼のファイルを外す os.remove を、1 回だけ失敗させる（ほかのプロセスが開いていた、のまね）
+
+    失敗したパスのリストを返す。
+    """
+    real_remove = os.remove
+    failed = []
+
+    def remove(path, *args, **kwargs):
+        if str(path).endswith(killswitch.REQUEST_FILE_NAME) and not failed:
+            failed.append(str(path))
+            raise PermissionError(errno.EACCES, "ほかのプロセスが使用中です")
+        return real_remove(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "remove", remove)
+    return failed
+
+
+def test_an_item_that_cannot_be_cancelled_does_not_stop_the_restore(config, platform, db, monkeypatch):
+    """ゴーストにする前の項目を中止にできなくても（manifest.json が読み取り専用・容量不足など）、ゴーストは戻す"""
+    files = evacuated_files(db, platform, config, ["a.pdf"])
+    stuck = make_file(Path(config["PIP0_ROOT"]) / "b.pdf")
+    stuck_before = fingerprint(stuck)
+    platform.fail_next["make_ghost"] = {"result": "error", "reason": "テストのための失敗"}
+    stuck_id = evacuate(db, platform, stuck, config)["item_id"]  # failed（原本はそのまま）
+    real_write = vault.write_manifest
+
+    def read_only_manifest(config_, manifest):
+        if manifest["item_id"] == stuck_id:
+            raise PermissionError(errno.EACCES, "アクセスが拒否されました")
+        return real_write(config_, manifest)
+
+    monkeypatch.setattr(vault, "write_manifest", read_only_manifest)
+    counts = killswitch.restore_all(db, platform, config, now=NOW + 10)
+
+    assert (counts["total"], counts["restored"], counts["finished"]) == (1, 1, True)
+    for path, (_item_id, before) in files.items():
+        assert fingerprint(path) == before and not is_ghost(platform, path)
+    assert vault.read_manifest(config, stuck_id)["state"] == "failed"  # 中止にはできなかった
+    assert fingerprint(stuck) == stuck_before  # 原本はそのまま
+
+
+def test_a_request_left_behind_after_its_restore_is_not_joined_and_does_not_block_resume(config, platform, db,
+                                                                                         monkeypatch):
+    """応え終えた依頼のファイルが、外せずに残ったとき（ほかのプロセスが開いていた等）
+
+    後の依頼は、その古い依頼に加わらず（古い結果をすぐに返さず）、新しい依頼を書いて、新しい全復元を待つ。
+    残った古い依頼で、自動処理の再開を断らない（全復元は終わっている）。
+    """
+    evacuated_files(db, platform, config, ["a.pdf"])
+    first = killswitch.request_restore_all(config, now=NOW)
+    failed = fail_to_remove_the_request_once(monkeypatch)
+    done = killswitch.restore_all(db, platform, config, now=NOW + 10)
+    assert done["finished"] is True and failed
+    left = killswitch.read_restore_request(config)
+    assert left["request_id"] == first["request_id"]  # 外せずに残った
+    assert killswitch.is_answered(config, left) is True
+    assert killswitch.restore_unfinished(config) is False
+
+    second = killswitch.request_restore_all(config, now=NOW + 20)
+    assert second["ok"] is True and second["request_id"] != first["request_id"]  # 古い依頼に加わらない
+    waiting = killswitch.read_restore_request(config)
+    assert waiting["request_id"] == second["request_id"] and killswitch.is_answered(config, waiting) is False
+    assert killswitch.restore_unfinished(config) is True  # 新しい依頼には、まだ応えていない
+    killswitch.restore_all(db, platform, config, now=NOW + 30)
+    assert killswitch.read_restore_request(config) is None
+    assert killswitch.resume(db, config, confirmed=True)["ok"] is True
+
+
+def test_waiting_request_tells_whether_it_is_still_waiting(config, platform, db):
+    """依頼した側（コマンド）は、自分の依頼がまだ依頼のファイルにあるか（応えを待っているか）を確かめられる"""
+    evacuated_files(db, platform, config, ["a.pdf"])
+    mine = killswitch.request_restore_all(config, now=NOW)["request_id"]
+    assert killswitch.request_waiting(config, mine) is True
+    killswitch.restore_all(db, platform, config, now=NOW + 10)
+    assert killswitch.request_waiting(config, mine) is False  # 応えて外した
+    other = killswitch.request_restore_all(config, now=NOW + 20)["request_id"]
+    assert killswitch.request_waiting(config, mine) is False and killswitch.request_waiting(config, other) is True
+    request_file = Path(config["CONTROL_DIR"]) / killswitch.REQUEST_FILE_NAME
+    request_file.write_text("{壊れた", encoding="utf-8")
+    # 読めないときは、残っているものとする（待ち続ける側に倒す。待つ時間には上限がある）
+    assert killswitch.request_waiting(config, mine) is True
+
+
+def test_progress_without_time_ignores_only_the_time():
+    first = dict(ALL_RESTORED_3, request_id="a" * 32, updated_at=NOW)
+    retried = dict(first, updated_at=NOW + 60)  # 試し直しで、同じ件数を書き直した（時刻だけが違う）
+    assert killswitch.progress_without_time(first) == killswitch.progress_without_time(retried)
+    moved = dict(first, restored=2, remaining=1, finished=False)  # 件数が変わった
+    assert killswitch.progress_without_time(moved) != killswitch.progress_without_time(first)
+    other = dict(first, request_id="b" * 32)  # 別の依頼の進み具合になった
+    assert killswitch.progress_without_time(other) != killswitch.progress_without_time(first)
+    assert "updated_at" not in killswitch.progress_without_time(first)
+    assert killswitch.progress_without_time(None) is None

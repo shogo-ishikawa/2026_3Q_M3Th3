@@ -9,9 +9,17 @@
     4. Office の秘密度ラベルの名前に rules.SENSITIVE_LABEL_KEYWORDS の語がある
     5. 本文に、検査用数字が正しい12桁の個人番号（マイナンバー）らしい数字がある
     6. 本文に、Luhn 検査に合格するカード番号らしい数字（13〜19桁）がある
-- not_sensitive（非機密）：解析済みで、どの規則にも当てはまらない
+  3・5・6 の「本文」は、解析のときに読んだ文字の全体です。Office 文書のヘッダー・フッター、脚注、コメント、
+  スライドマスター、ノート、Word の透かし、PDF の注釈とフォームの入力欄なども調べます（analyse_text.py）。
+  DB に保存する本文は先頭の TEXT_MAX_CHARS 文字だけなので、全体で見つけたもの（[場所, 規則, 値]。番号そのものは
+  含まない）と、そのときの中身の規則を、解析のときに保存しておきます。
+  判定のときは、見つけたもののうち今の規則にもあるものと、保存した本文の先頭を今の規則で調べ直した結果を使います
+  （rules.py の語を外せばすぐに理由から消え、語を加えれば本文の先頭ではすぐに見つかります）。
+- not_sensitive（非機密）：解析済みで、本文を読めて、文書の全体を今の規則で調べ、どの規則にも当てはまらない
 - unknown（未判定）：まだ解析していない、解析に失敗した、解析できない形式。
-  画像と、文字を取り出せなかった文書（スキャンした PDF など）も、中の文字を調べていないので未判定です
+  画像と、本文の文字を取り出せなかった文書（スキャンした PDF など。タイトルがあっても）も、中の文字を調べて
+  いないので未判定です。上限（PDF のページ数など）で一部しか読まなかった文書と、解析の後に中身の規則へ語などを
+  加え、まだ解析し直していない文書も未判定です（加えた規則は、本文の先頭でしか調べていないため）
   （1・2 の名前と場所の規則に当てはまれば、解析していなくても機密です）
 
 未判定を非機密とは扱いません。判定の理由には、見つかった番号そのものは書きません。
@@ -49,6 +57,11 @@ def normalise_numbers(text):
     return normalise(text or "").translate(HYPHEN_LIKE)
 
 
+def fold(text):
+    """語を比べるための形（全角・半角をそろえ、小文字にする）"""
+    return normalise(text).lower()
+
+
 def find_keywords(text, keywords):
     """text に含まれる語のリスト（大文字・小文字と全角・半角を区別しない）
 
@@ -56,11 +69,11 @@ def find_keywords(text, keywords):
     """
     if not text:
         return []
-    folded = normalise(text).lower()
+    folded = fold(text)
     found = []
     seen = []
     for keyword in keywords:
-        folded_keyword = normalise(keyword).lower()
+        folded_keyword = fold(keyword)
         if folded_keyword in folded and folded_keyword not in seen:
             seen.append(folded_keyword)
             found.append(keyword)
@@ -90,43 +103,163 @@ def judge_name(path, config, rules):
 # ----------------------------------------------------------------------
 
 
-def judge_content(analysis, rules):
-    """解析の結果（analysis テーブルの行の辞書）で判定し、当てはまった理由のリストを返す
+def find_in_text(text, rules, place="本文"):
+    """文字（本文、ヘッダーなど）を、中身の規則（機密の語、個人番号、カード番号）で調べ、見つけたもののリストを返す
 
-    使う列：text_excerpt（本文）、title（タイトル）、labels_json（秘密度ラベルの名前）
+    place：理由に書く場所の名前（「本文」「ヘッダー」「ノート」など）
+    見つけたもの1つは [場所, 規則, 値] のリストです（番号そのものは入れません）：
+      [場所, "keyword", 語]        機密の語（rules.SENSITIVE_CONTENT_KEYWORDS に書かれたとおりの語）
+      [場所, "my_number", 件数]    検査用数字が正しい12桁の個人番号らしい数字
+      [場所, "card_number", 件数]  Luhn 検査に合格するカード番号らしい数字
+    解析のとき（analysis_queue.analyse_file）に、読んだ文字の全体を場所ごとに調べ、DB に保存するのに使います。
     """
-    reasons = []
-    text = analysis.get("text_excerpt") or ""
-    for keyword in find_keywords(analysis.get("title"), rules.SENSITIVE_CONTENT_KEYWORDS):
-        reasons.append(f"タイトルに「{keyword}」")
+    found = []
     for keyword in find_keywords(text, rules.SENSITIVE_CONTENT_KEYWORDS):
-        reasons.append(f"本文に「{keyword}」")
-    for label in labels_of(analysis):
-        if find_keywords(label, rules.SENSITIVE_LABEL_KEYWORDS):
-            reasons.append(f"秘密度ラベル「{label}」")
+        found.append([place, "keyword", keyword])
     if rules.DETECT_MY_NUMBER:
         count = len(find_my_numbers(text))
         if count:
-            reasons.append(f"本文に、検査用数字が正しい12桁の個人番号らしい数字（{count}件）")
+            found.append([place, "my_number", count])
     if rules.DETECT_CARD_NUMBER:
         count = len(find_card_numbers(text))
         if count:
-            reasons.append(f"本文に、Luhn 検査に合格するカード番号らしい数字（{count}件）")
+            found.append([place, "card_number", count])
+    return found
+
+
+def reason_text(finding):
+    """見つけたもの [場所, 規則, 値] を、判定の理由の文にする（番号そのものは書かない）"""
+    place, rule, value = finding
+    if rule == "keyword":
+        return f"{place}に「{value}」"
+    if rule == "my_number":
+        return f"{place}に、検査用数字が正しい12桁の個人番号らしい数字（{value}件）"
+    return f"{place}に、Luhn 検査に合格するカード番号らしい数字（{value}件）"
+
+
+def still_a_rule(finding, rules):
+    """解析のときに見つけたもの [場所, 規則, 値] が、今の規則でも機密の理由になるなら True
+
+    解析の後に SENSITIVE_CONTENT_KEYWORDS から外した語や、False にした番号の検査（DETECT_…）は、理由にしません。
+    """
+    place, rule, value = finding
+    if rule == "keyword":
+        return fold(value) in [fold(keyword) for keyword in rules.SENSITIVE_CONTENT_KEYWORDS]
+    if rule == "my_number":
+        return bool(rules.DETECT_MY_NUMBER)
+    return bool(rules.DETECT_CARD_NUMBER)
+
+
+def same_check(first, second):
+    """2つの見つけたものが、同じ場所の同じ検査なら True（語は同じ語のとき。番号は件数が違っても同じ検査）"""
+    if first[0] != second[0] or first[1] != second[1]:
+        return False
+    if first[1] == "keyword":
+        return fold(first[2]) == fold(second[2])
+    return True
+
+
+def judge_content(analysis, rules):
+    """解析の結果（analysis テーブルの行の辞書）で判定し、当てはまった理由のリストを返す
+
+    - title（タイトル）と labels_json（秘密度ラベルの名前）：今の規則で調べる
+    - content_reasons_json（解析のときに、本文の全体とヘッダー・フッター・ノートなどで見つけたもの）：
+      今の規則にもあるものだけを使う（解析の後に規則から外した語は、理由にしない）
+    - text_excerpt（保存した本文の先頭）：今の規則で調べ直す（解析の後に規則へ加えた語も見つける。
+      content_reasons_json がない、前の版の pip0 の解析も、ここで調べる）
+    本文の全体で数えた件数があれば、それを使います（本文の先頭で数え直した件数と、2つ並べない）。
+    """
+    reasons = []
+    for keyword in find_keywords(analysis.get("title"), rules.SENSITIVE_CONTENT_KEYWORDS):
+        reasons.append(f"タイトルに「{keyword}」")
+    found = []
+    for finding in stored_content_reasons(analysis) or []:
+        if still_a_rule(finding, rules):
+            found.append(finding)
+    for finding in find_in_text(analysis.get("text_excerpt"), rules):
+        if not any(same_check(finding, earlier) for earlier in found):
+            found.append(finding)  # 解析のときには調べていなかった規則（後から加えた語など）で見つけた
+    for finding in found:
+        reasons.append(reason_text(finding))
+    for label in labels_of(analysis):
+        if find_keywords(label, rules.SENSITIVE_LABEL_KEYWORDS):
+            reasons.append(f"秘密度ラベル「{label}」")
     return reasons
+
+
+def json_value(value):
+    """JSON の文字列を読む。値がない、または読めなければ None"""
+    if value is None:
+        return None
+    try:
+        return json.loads(value)
+    except ValueError:
+        return None
+
+
+def json_list(value):
+    """JSON の文字列を、文字列のリストにする。値がない、または読めなければ None"""
+    items = json_value(value)
+    if not isinstance(items, list):
+        return None
+    return [item for item in items if isinstance(item, str)]
 
 
 def labels_of(analysis):
     """labels_json（JSON の文字列）を、ラベルの名前のリストにする。読めなければ空のリスト"""
-    value = analysis.get("labels_json")
-    if not value:
-        return []
-    try:
-        labels = json.loads(value)
-    except ValueError:
-        return []
-    if not isinstance(labels, list):
-        return []
-    return [label for label in labels if isinstance(label, str)]
+    return json_list(analysis.get("labels_json")) or []
+
+
+def is_finding(item):
+    """[場所, 規則, 値] の形なら True（DB から読んだ値を確かめる）"""
+    if not isinstance(item, list) or len(item) != 3 or not isinstance(item[0], str):
+        return False
+    if item[1] == "keyword":
+        return isinstance(item[2], str)
+    return item[1] in ("my_number", "card_number") and isinstance(item[2], int)
+
+
+def stored_content_reasons(analysis):
+    """解析のときに、読んだ文字の全体で見つけたもの（content_reasons_json。[場所, 規則, 値] のリスト）
+
+    記録がなければ None。形の合わないものは除きます。
+    """
+    items = json_value(analysis.get("content_reasons_json"))
+    if not isinstance(items, list):
+        return None
+    return [item for item in items if is_finding(item)]
+
+
+def content_rules(rules):
+    """中身の規則（機密の語と、個人番号・カード番号の検査）。解析の結果と一緒に保存し、後で規則を変えたかを確かめる"""
+    return {"keywords": list(rules.SENSITIVE_CONTENT_KEYWORDS), "my_number": bool(rules.DETECT_MY_NUMBER),
+            "card_number": bool(rules.DETECT_CARD_NUMBER)}
+
+
+def rules_added_after_analysis(analysis, rules):
+    """解析の後に、中身の規則へ加えたもの（語と番号の検査）の名前のリスト
+
+    加えたものがなければ空のリスト。解析のときの規則の記録（content_rules_json）がなければ None。
+    """
+    used = json_value(analysis.get("content_rules_json"))
+    if not isinstance(used, dict):
+        return None
+    known = [fold(keyword) for keyword in used.get("keywords") or [] if isinstance(keyword, str)]
+    added = []
+    for keyword in rules.SENSITIVE_CONTENT_KEYWORDS:
+        if fold(keyword) not in known:
+            added.append(f"「{keyword}」")
+            known.append(fold(keyword))  # 大文字・小文字だけが違う語は、1回だけ書く
+    if rules.DETECT_MY_NUMBER and not used.get("my_number"):
+        added.append("個人番号の検査")
+    if rules.DETECT_CARD_NUMBER and not used.get("card_number"):
+        added.append("カード番号の検査")
+    return added
+
+
+def unread_parts(analysis):
+    """解析で読まなかった部分の説明のリスト（unread_json）。全体を読んだら空のリスト、記録がなければ None"""
+    return json_list(analysis.get("unread_json"))
 
 
 # ----------------------------------------------------------------------
@@ -210,17 +343,44 @@ def find_card_numbers(text):
 # ----------------------------------------------------------------------
 
 
-def has_readable_content(analysis):
-    """判定に使える文字（本文、タイトル、秘密度ラベル）が1つでもあれば True"""
-    text = (analysis.get("text_excerpt") or "").strip()
-    title = (analysis.get("title") or "").strip()
-    return bool(text or title or labels_of(analysis))
+def has_body_text(analysis):
+    """本文の文字を取り出せていれば True
+
+    タイトルと秘密度ラベルは、機密の理由を加えるだけです。それだけでは本文を調べたことにならないため
+    （例：タイトルの付いた、スキャンした PDF）、本文がなければ「非機密」とは言いません。
+    """
+    return bool((analysis.get("text_excerpt") or "").strip())
 
 
 def no_content_reason(analysis):
     if analysis.get("kind") == "image":
         return "対象外の形式（画像の中の文字は読み取らない）のため、中身で判定できません"
     return "本文の文字を取り出せなかったため（スキャンした PDF など）、中身で判定できません"
+
+
+def partly_read_reason(analysis):
+    """文書の一部しか読んでいないときの、未判定の理由。全体を読んでいれば None"""
+    unread = unread_parts(analysis)
+    if unread is None:
+        return "どこまで読んだかの記録がない解析（pip0 の前の版）のため、非機密とは言えません"
+    if unread:
+        return "文書の一部しか調べていないため、非機密とは言えません（調べていない部分：" + "、".join(unread) + "）"
+    return None
+
+
+def new_rules_reason(analysis, rules):
+    """解析の後に中身の規則へ語などを加えたときの、未判定の理由。加えていなければ None
+
+    解析のときに読んだ文字の全体は保存していないため、加えた規則は、解析し直すまで、保存した本文の先頭・タイトル・
+    ラベルでしか調べられません（analysis_queue.requeue_for_rule_changes で、解析し直す順番待ちに入れます）。
+    """
+    added = rules_added_after_analysis(analysis, rules)
+    if added is None:
+        return "どの規則で調べたかの記録がない解析（pip0 の前の版）のため、非機密とは言えません"
+    if added:
+        return ("解析の後に機密の規則へ加えたもの（" + "、".join(added) + "）は、まだ文書の全体では調べていないため、"
+                "非機密とは言えません（解析し直すと、全体を調べます）")
+    return None
 
 
 # 解析の状態 → 未判定の理由
@@ -242,9 +402,18 @@ def overall(path, analysis, config, rules):
         reasons += judge_content(analysis, rules)
         if reasons:
             return {"level": "sensitive", "reasons": reasons}
-        if not has_readable_content(analysis):
+        if not has_body_text(analysis):
             # 画像や、文字のない PDF（スキャンしたもの）は、中の文字を調べていないので「非機密」とは言えない
+            # （タイトルやラベルがあっても、本文は調べていない）
             return {"level": "unknown", "reasons": [no_content_reason(analysis)]}
+        partly_read = partly_read_reason(analysis)
+        if partly_read is not None:
+            # 上限で読むのをやめた部分（PDF の後ろのページなど）は調べていないので「非機密」とは言えない
+            return {"level": "unknown", "reasons": [partly_read]}
+        new_rules = new_rules_reason(analysis, rules)
+        if new_rules is not None:
+            # 解析の後に規則へ加えた語などは、本文の先頭でしか調べていないので「非機密」とは言えない
+            return {"level": "unknown", "reasons": [new_rules]}
         return {"level": "not_sensitive", "reasons": ["解析済みで、機密の規則に当てはまるものはありません"]}
     if reasons:
         return {"level": "sensitive", "reasons": reasons}

@@ -4,14 +4,17 @@
 """
 
 import hashlib
+import io
 import json
 import logging
 import os
+import types
 import zipfile
 
 from PIL import Image, ImageDraw
+from pypdf import PdfReader, PdfWriter
 
-from pip0 import analyse_text, analysis_queue, database, rules, throttle
+from pip0 import analyse_text, analysis_queue, database, demo_data, rules, sensitivity, throttle
 
 NOW = 1_793_250_000.0
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -332,3 +335,128 @@ def test_store_result_with_a_card_number_does_not_store_it_in_the_reasons(env, p
     row = analysis_row(db, file_id)
     assert row["sensitivity"] == "sensitive"
     assert "4111" not in row["sensitivity_reasons_json"]
+    assert "4111" not in row["content_reasons_json"]
+
+
+# ---------------------------------------------------------------------- 全体を調べる判定と、読んだ範囲の記録
+
+
+def test_a_header_marking_makes_the_document_sensitive_but_is_not_stored(env, platform, db, tmp_path):
+    path = tmp_path / "四半期報告.docx"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", f'<w:document xmlns:w="{W_NS}"><w:body><w:p><w:r>'
+                                              "<w:t>売上の推移をまとめました。</w:t></w:r></w:p></w:body></w:document>")
+        archive.writestr("word/header1.xml", f'<w:hdr xmlns:w="{W_NS}"><w:p><w:r><w:t>社外秘</w:t></w:r></w:p></w:hdr>')
+    file_id = add_file_row(db, path)
+    verdict = analysis_queue.store_result(db, file_id, path, analyse(path, platform, env), env, rules, NOW)
+    assert verdict == {"level": "sensitive", "reasons": ["ヘッダーに「社外秘」"]}
+    row = analysis_row(db, file_id)
+    assert row["analyser_version"] == 2
+    assert row["text_excerpt"] == "売上の推移をまとめました。"  # ヘッダーの文字は DB に保存しない
+    assert json.loads(row["content_reasons_json"]) == [["ヘッダー", "keyword", "社外秘"]]  # 見つけたもの
+    assert json.loads(row["content_rules_json"]) == sensitivity.content_rules(rules)    # そのときの規則
+    assert json.loads(row["unread_json"]) == []
+
+
+def test_numbers_after_the_stored_excerpt_are_found_but_not_stored(env, platform, db, tmp_path):
+    config = dict(env, TEXT_MAX_CHARS=100)
+    my_number = demo_data.add_my_number_check_digit("98765432101")
+    path = tmp_path / "export.csv"
+    path.write_text("id,memo\n" + "".join(f"{n},通常の行です\n" for n in range(300)) + f"9999,{my_number}\n",
+                    encoding="utf-8")
+    file_id = add_file_row(db, path)
+    verdict = analysis_queue.store_result(db, file_id, path, analyse(path, platform, config), config, rules, NOW)
+    assert verdict == {"level": "sensitive", "reasons": ["本文に、検査用数字が正しい12桁の個人番号らしい数字（1件）"]}
+    row = analysis_row(db, file_id)
+    assert len(row["text_excerpt"]) == 100 and my_number not in row["text_excerpt"]
+    assert my_number not in row["content_reasons_json"]
+
+
+def test_a_partly_read_pdf_is_unknown_not_safe(env, platform, db, tmp_path):
+    writer = PdfWriter()
+    for number in range(1, 4):
+        page = PdfReader(io.BytesIO(demo_data.pdf_bytes("handbook", [f"General text on page {number}"]))).pages[0]
+        writer.add_page(page)
+    path = tmp_path / "handbook.pdf"
+    with open(path, "wb") as f:
+        writer.write(f)
+    file_id = add_file_row(db, path)
+    config = dict(env, PDF_MAX_PAGES=2)
+    verdict = analysis_queue.store_result(db, file_id, path, analyse(path, platform, config), config, rules, NOW)
+    assert verdict == {"level": "unknown",
+                       "reasons": ["文書の一部しか調べていないため、非機密とは言えません（調べていない部分：3ページ）"]}
+    assert analysis_row(db, file_id)["sensitivity"] == "unknown"
+    whole = analysis_queue.store_result(db, file_id, path, analyse(path, platform, env), env, rules, NOW)
+    assert whole["level"] == "not_sensitive"  # 全部のページを読めば非機密
+
+
+def test_a_scanned_pdf_with_a_title_is_unknown_not_safe(env, platform, db, tmp_path):
+    # スキャナーで作った PDF（ページは画像だけで、文字の層がない）に、文書のタイトルだけが付いている
+    pages = io.BytesIO()
+    Image.new("RGB", (595, 842), "white").save(pages, "PDF", resolution=72)
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(pages.getvalue())))
+    writer.add_metadata({"/Title": "給与明細 2026年10月"})
+    path = tmp_path / "scan_0001.pdf"
+    with open(path, "wb") as f:
+        writer.write(f)
+    file_id = add_file_row(db, path)
+    result = analyse(path, platform, env)
+    assert result["status"] == "done" and result["title"] == "給与明細 2026年10月" and result["text"] == ""
+    verdict = analysis_queue.store_result(db, file_id, path, result, env, rules, NOW)
+    assert verdict == {"level": "unknown",
+                       "reasons": ["本文の文字を取り出せなかったため（スキャンした PDF など）、中身で判定できません"]}
+
+
+def test_a_database_made_by_an_earlier_version_gets_the_new_columns(env, platform, db, tmp_path):
+    # 前の版の analysis テーブル（content_reasons_json などがない）にしてから、開き直したときと同じ処理をする
+    for name in database.ANALYSIS_ADDED_COLUMNS:
+        db.execute(f"ALTER TABLE analysis DROP COLUMN {name}")
+    assert database.missing_analysis_columns(db) == ["content_reasons_json", "content_rules_json", "unread_json"]
+    database.ensure_schema(db)
+    assert database.missing_analysis_columns(db) == []
+    database.ensure_schema(db)  # 2回目は何もしない
+    path = make_docx(tmp_path / "a.docx", "本文")
+    file_id = add_file_row(db, path)
+    verdict = analysis_queue.store_result(db, file_id, path, analyse(path, platform, env), env, rules, NOW)
+    assert verdict["level"] == "not_sensitive"
+
+
+def rules_with(**changes):
+    """rules の値を一部だけ変えた、テスト用の規則（学生が rules.py を書き換えて、pip0 を起動し直したとき）"""
+    values = {name: getattr(rules, name) for name in dir(rules) if name.isupper()}
+    values.update(changes)
+    return types.SimpleNamespace(**values)
+
+
+def queued_file_ids(db):
+    rows = database.query_all(db, "SELECT file_id FROM tasks WHERE kind = 'analyse' AND state = 'queued'")
+    return sorted(row["file_id"] for row in rows)
+
+
+def test_documents_checked_with_other_rules_are_queued_again(env, platform, db, tmp_path):
+    # 解析の後に rules.py の中身の規則を変えたら（起動のときに確かめる）、その規則で調べていない文書を解析し直す
+    doc = make_docx(tmp_path / "a.docx", "本文")
+    doc_id = add_file_row(db, doc)
+    analysis_queue.store_result(db, doc_id, doc, analyse(doc, platform, env), env, rules, NOW)
+    image = make_chart_png(tmp_path / "chart.png")  # 画像の中の文字は読まないので、規則が変わっても解析し直さない
+    image_id = add_file_row(db, image)
+    analysis_queue.store_result(db, image_id, image, analyse(image, platform, env), env, rules, NOW)
+    old_id = add_file_row(db, make_docx(tmp_path / "old.docx", "本文"))  # 前の版の pip0 の解析（規則の記録がない）
+    db.execute("INSERT INTO analysis (file_id, status, kind) VALUES (?, 'done', 'document')", (old_id,))
+    gone_id = add_file_row(db, make_docx(tmp_path / "gone.docx", "本文"))  # 見つからなくなったファイルは入れない
+    db.execute("INSERT INTO analysis (file_id, status, kind) VALUES (?, 'done', 'document')", (gone_id,))
+    db.execute("UPDATE files SET status = 'missing' WHERE id = ?", (gone_id,))
+
+    assert analysis_queue.requeue_for_rule_changes(db, rules, NOW) == 1  # 規則は同じ：記録のない行だけ
+    assert queued_file_ids(db) == [old_id]
+    edited = rules_with(SENSITIVE_CONTENT_KEYWORDS=list(rules.SENSITIVE_CONTENT_KEYWORDS) + ["マル秘"])
+    assert analysis_queue.requeue_for_rule_changes(db, edited, NOW + 1) == 2
+    assert queued_file_ids(db) == [doc_id, old_id]
+    assert analysis_row(db, doc_id)["status"] == "done"  # 解析し直すまで、今の判定に使う
+    # 新しい規則で解析し直したら、もう入れない
+    analysis_queue.store_result(db, doc_id, doc, analysis_queue.analyse_file(doc, platform, env, edited, always),
+                                env, edited, NOW + 2)
+    doc_task = database.query_one(db, "SELECT id FROM tasks WHERE kind = 'analyse' AND file_id = ?", (doc_id,))
+    analysis_queue.mark(db, doc_task["id"], "done", now=NOW + 2)
+    assert analysis_queue.requeue_for_rule_changes(db, edited, NOW + 3) == 1  # old だけ（記録がないまま）
+    assert queued_file_ids(db) == [old_id]

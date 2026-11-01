@@ -20,7 +20,8 @@ report = demo_data.run_demo("pip0-demo")          # 空のフォルダー（な�
 print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおりかどうかを表示する
 ```
 
-自動テストは `python -m pytest -q tests/test_demo_data.py` です（日本時間の 2026-10-29（木）10:00 に固定して確かめます）。
+自動テストは `python -m pytest -q tests/test_demo_data.py` です（日本時間の 2026-10-29（木）10:00 に固定して確かめます。
+日時の決め方と「ほかにも試せる検索」は、月の初め・月の終わり・年の初めの日付でも確かめます）。
 
 `run_demo()` がすること：
 
@@ -28,7 +29,8 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
 2. 最終更新日時を付け、入手経路の記録をまねる（ブラウザー拡張の記録、Windows の Zone.Identifier）
 3. 索引を作る（`scanner.scan_folder`）
 4. 解析する（`analysis_queue.analyse_file` と `store_result`。`throttle.HeavyGate` を通す）
-5. 3つの検索（`search.search`）と、機密の判定（`hazard.evaluate_items`）を行い、期待（`expected_results`）と比べる
+5. 3つの検索（`search.search`）と「ほかにも試せる検索」（7節）、機密の判定（`hazard.evaluate_items`）を行い、
+   期待（`expected_results`、`other_expected_results`）と比べる
 
 ### 安全のための決まり
 
@@ -42,7 +44,8 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
 
 ## 2. 日時の決め方
 
-日時は、デモを動かした時刻（`now`）を基準に決めます。いつ動かしても「先週」のファイルが先週になります。
+日時は、デモを動かした時刻（`now`）を基準に決めます。いつ動かしても「先週」のファイルが先週になり、
+古い予算の文書は「2か月前」の月の中（「先月」には入らない）になります。
 「先週」は、検索と同じ決まり（`timeutil.find_period`、端末の現地時刻、週の始まりは `WEEK_STARTS_ON`）で決めます。
 
 | 名前（コードの中） | 日時 | 例：2026-10-29（木）10:00 に動かしたとき |
@@ -51,7 +54,7 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
 | `last_week_day3` | 先週の3日目（水曜）14:30 | 2026-10-21 14:30 |
 | `last_week_day4` | 先週の4日目（木曜）10:15 | 2026-10-22 10:15 |
 | `two_weeks_ago` | 先々週の3日目（水曜）11:00 | 2026-10-14 11:00 |
-| `two_months_ago` | 61日前の 10:00 | 2026-08-29 10:00 |
+| `two_months_ago` | 2か月前の月の15日 10:00 | 2026-08-15 10:00 |
 
 ## 3. ダミーのファイル
 
@@ -65,7 +68,7 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
 | `IMG_2043.jpg` | Downloads | 青空の写真のような画像 | 先々週の水曜 | なし | 未判定 |
 | `F0A1B2C3.pdf` | Downloads | 研究室ミーティングの配布資料 | 先々週の水曜 | Zone.Identifier だけ（files.slack.com） | 非機密 |
 | `document (1).docx` | Downloads | 2026年度 予算案 | 先週の木曜 | ブラウザー拡張の記録（Gmail の添付） | 非機密 |
-| `document.docx` | pip0\予算・会計 | 2026年度 予算（第1次案） | 61日前 | なし | 非機密 |
+| `document.docx` | pip0\予算・会計 | 2026年度 予算（第1次案） | 2か月前の月の15日 | なし | 非機密 |
 | `untitled.txt` | Downloads | 先週の議事録（「予算」という語はない） | 先週の火曜 | なし | 非機密 |
 | `社外秘_打ち合わせメモ.txt` | Downloads | 打ち合わせのメモ（中身に機密の語はない） | 先々週の水曜 | なし | 機密（名前） |
 | `申請書_下書き.txt` | Downloads | 個人番号らしい12桁の数字がある下書き | 先々週の水曜 | なし | 機密（中身） |
@@ -135,7 +138,7 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
   - `種類：文書（.docx）`
   - `内容：タイトル・本文に「予算」`
 - 一致しないもの
-  - `document.docx`：「予算」はあるが、61日前（時期が違う）
+  - `document.docx`：「予算」はあるが、2か月前の月の文書（時期が違う）
   - `untitled.txt`：先週の文書だが、「予算」という語がない
   - `IMG_2041.png`：先週ダウンロードしたが、文書ではない
 - 補足：`時期：先週（2026-10-19（月）〜2026-10-25（日））は、端末の現地時刻で調べました`、`読み飛ばした言葉：の`
@@ -158,19 +161,34 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
 
 ## 7. ほかにも試せる検索
 
+`run_demo()` は、次の検索も行い、期待（`other_expected_results`）と比べた結果を「ほかにも試せる検索」に表示します。
+
 | 検索の言葉 | 結果 |
 | --- | --- |
 | 青い写真 | `IMG_2043.jpg` |
 | 赤いグラフ | `IMG_2042.png` |
 | メールで貰った | `document (1).docx`、`IMG_2042.png`（「メール」は Gmail と Outlook をまとめた言葉） |
-| 2か月前の予算 | `document.docx` |
-| 先月の予算 | 該当なし（一部一致として、時期だけが違う2つの予算の文書を示す） |
+| 2か月前の予算 | `document.docx`（いつ動かしても、2か月前の月の15日の文書） |
+| 先月の予算 | 動かした日付で変わります（下を参照） |
 | Slackで貰った写真 | 情報不足（写真には入手経路の記録がないため。Slack から入手したとは扱わない） |
+
+「先月の予算」の結果は、予算案 `document (1).docx` のダウンロード日（先週の木曜日）が先月に入るかで決まります。
+
+- 先週の木曜日が今月のとき（例：2026-10-29）：**該当なし**。
+  一部一致として、時期だけが違う2つの予算の文書（`document (1).docx`、`document.docx`）を示します。
+  先週の火曜日・水曜日や先々週の水曜日が先月に入る日（例：2026-10-06、2026-12-08）は、その日のファイル
+  （「予算」の語はなく、時期だけが合うもの）も一部一致に並びます。デモは、2つの予算の文書が一部一致にあることを確かめ、
+  ほかのファイルが一部一致に並んでいても期待どおりとします。
+- 先週の木曜日が先月のとき（月の初めの数日。1日〜10日のうち、どの日までかは曜日で決まります。
+  例：2026-11-01、2027-03-01）：**一致：`document (1).docx`**。
+
+どちらになるかは `other_expected_results()` が動かした日付から計算し、デモの表示に、その日の「先月」の範囲も出します。
 
 ## 8. 変え方（★）
 
-- ダミーのファイルを足す・変える：`pip0/demo_data.py` の `demo_files()`。期待も `expected_results()` で直し、
-  `python -m pytest -q tests/test_demo_data.py` で確かめます。
+- ダミーのファイルを足す・変える：`pip0/demo_data.py` の `demo_files()`。期待も `expected_results()`
+  （「ほかにも試せる検索」は `other_expected_results()`）で直し、`python -m pytest -q tests/test_demo_data.py` で確かめます。
+  日時で答えが変わる検索の期待は、決まった日付で書かず、`manifest["now"]` から計算してください。
 - 一致の決まりを変える：`pip0/settings.py` の `COLOUR_MIN_SHARE`、`COLOUR_MIN_COLOURFUL`、`CHART_MIN_SCORE`、`WEEK_STARTS_ON`、
   言葉の辞書は `pip0/rules.py` の `COLOUR_WORDS`、`VISUAL_KIND_WORDS`、`DOC_KIND_WORDS`、`SOURCE_WORDS`。
 - 一致の理由の文：`pip0/search.py` の `check_time` などの関数。
@@ -178,7 +196,9 @@ print("\n".join(demo_data.report_lines(report)))  # 結果と、期待どおり�
 ## 9. 確かめたことと、確かめていないこと
 
 - 確かめたこと（Linux の開発環境、代役の OS 連携）：ファイルの作成、索引、まねた入手経路の記録、解析、
-  3つの検索の結果と理由、機密の判定、本物のフォルダーと空でないフォルダーを断ること（`tests/test_demo_data.py`）。
+  3つの検索の結果と理由、「ほかにも試せる検索」（月の初め・月の終わり・年の初めの日付と、先月のほかのファイルも
+  「先月の予算」の一部一致に並ぶ日付を含む）、機密の判定、
+  本物のフォルダーと空でないフォルダーを断ること（`tests/test_demo_data.py`）。
 - 確かめていないこと：Windows の実機での、本物の Chrome／Edge の拡張機能の記録、本物の Zone.Identifier、
   実機の電源・アイドル状態での解析。これらは実機で別に確かめる必要があります。
 

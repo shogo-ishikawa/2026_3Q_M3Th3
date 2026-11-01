@@ -104,8 +104,29 @@ def test_build_name_joins_the_parts_and_keeps_the_extension():
     assert naming.build_name("2026-10-29", "予算案", "Slack", ".pdf") == "2026-10-29_予算案_Slack.pdf"
     # 拡張子は、大文字・小文字も変えない
     assert naming.build_name("2026-10-29", "予算案", "Slack", ".PDF") == "2026-10-29_予算案_Slack.PDF"
-    # 拡張子のないファイル
-    assert naming.build_name("2026-10-29", "予算案", "example.co.jp", "") == "2026-10-29_予算案_example.co.jp"
+    # 拡張子のないファイル：「.」を全角の「．」にして、「.jp」を拡張子にしない
+    assert naming.build_name("2026-10-29", "予算案", "example.co.jp", "") == "2026-10-29_予算案_example．co．jp"
+    # 拡張子があれば、ホスト名の「.」はそのまま
+    assert naming.build_name("2026-10-29", "予算案", "example.co.jp", ".pdf") == "2026-10-29_予算案_example.co.jp.pdf"
+
+
+@pytest.mark.parametrize("label", ["example.co.jp", "files.example.com", "a.b"])
+def test_extensionless_download_does_not_gain_an_extension_from_the_host(env, label):
+    """拡張子のないダウンロードの新しい名前に、送信元のホスト名から拡張子（.jp など）が付かない"""
+    host = {"label": label, "kind": "zone_identifier", "evidence": "Windows のダウンロード元情報（Zone.Identifier）"}
+    result = propose(env, "download", source=host, analysis={"status": "unsupported", "kind": "other"})
+    assert result["status"] == "ready"
+    new_name = result["new_name"]
+    assert new_name == f"{timeutil.local_date_str(NOW)}_内容不明_{label.replace('.', '．')}"
+    # pip0 自身（safe_names）も Windows と同じく、最後の「.」から後ろを拡張子とみなす
+    assert safe_names.split_ext(new_name) == (new_name, "")
+    assert safe_names.check_name(new_name) == (True, "")
+    # 同じ名前があるときの「 (2)」は、名前の最後に付く（「example.co (2).jp」にならない）
+    taken = {new_name}
+    assert safe_names.unique_name("", new_name, exists=lambda path: path in taken) == new_name + " (2)"
+    # 元の名前に拡張子があれば、その拡張子だけが残る
+    with_ext = propose(env, "download.bin", source=host, analysis={"status": "unsupported", "kind": "other"})
+    assert safe_names.split_ext(with_ext["new_name"])[1] == ".bin"
 
 
 def test_build_name_replaces_forbidden_and_control_characters():

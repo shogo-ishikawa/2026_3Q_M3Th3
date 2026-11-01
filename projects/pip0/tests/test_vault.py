@@ -184,10 +184,11 @@ def test_ghost_opens_transparently_and_then_restores(config, platform, db, repor
 def test_manifest_has_every_field_and_readme_is_written(config, platform, db, report):
     item_id = evacuate(db, platform, report, config)["item_id"]
     manifest = fsutil.read_json(item_folder(config, item_id) / "manifest.json")
-    for key in ("format", "item_id", "state", "original_path", "current_path", "file_key", "size", "mtime_ns",
-                "sha256", "created_at", "updated_at", "restored_path", "history"):
+    for key in ("format", "item_id", "state", "original_path", "current_path", "pip0_root", "file_key", "size",
+                "mtime_ns", "sha256", "content_reusable", "created_at", "updated_at", "restored_path", "history"):
         assert key in manifest
     assert manifest["format"] == 1
+    assert manifest["pip0_root"] == str(config["PIP0_ROOT"])  # 退避したときの pip0 専用フォルダー
     assert [entry["state"] for entry in manifest["history"]] == ["copying", "copied", "ghosting", "evacuated"]
     readme = (Path(config["VAULT_DIR"]) / "README.txt").read_bytes().decode("utf-8-sig")
     assert "手作業で取り出す方法" in readme
@@ -280,13 +281,13 @@ def test_crash_during_evacuation_is_recovered(config, platform, key_store, monke
     else:
         assert not is_ghost(platform, report)
         assert fingerprint(report) == before
-        # やり直すと退避できる。前回の項目に中身（content）があれば使い直さず、新しい項目で退避する
-        # （前回の content は上書きせずに残す。どこかにその項目のゴーストがあるかもしれないため）
+        # やり直すと、同じ項目で退避できる。前回確かめた中身（content）があれば、ファイルが同じなので、
+        # コピーし直さずに使う（content は上書きしない）。中身がなければ、コピーし直す
         old_content = item_folder(config, item["item_id"]) / "content"
         had_content = old_content.exists()
         again = evacuate(conn, platform, report, config)
-        assert again["ok"] is True
-        assert (again["item_id"] != item["item_id"]) is had_content
+        assert again["ok"] is True and again["item_id"] == item["item_id"]
+        assert len(list((Path(config["VAULT_DIR"]) / "items").iterdir())) == 1
         if had_content:
             assert sha256_of(old_content) == before[0]
         target_id = again["item_id"]
@@ -530,10 +531,16 @@ def test_make_ghost_refusal_leaves_original(config, platform, db, report, answer
     assert f"代役の答え：{answer}" in result["reason"]
     assert fingerprint(report) == before
     assert not is_ghost(platform, report)
-    # やり直すと、新しい項目で退避する（前回の項目の content は、上書きせずに残す）
     again = evacuate(db, platform, report, config)
-    assert again["ok"] is True and again["item_id"] != result["item_id"]
-    assert sha256_of(item_folder(config, result["item_id"]) / "content") == before[0]
+    assert again["ok"] is True
+    assert sha256_of(item_folder(config, result["item_id"]) / "content") == before[0]  # content は上書きしない
+    if answer == "changed":
+        # 「内容が違う」と断られた中身は使い直さず、新しい項目でコピーし直す
+        assert again["item_id"] != result["item_id"]
+    else:
+        # 同じ項目で、確かめ済みの中身をコピーし直さずに使って退避する
+        assert again["item_id"] == result["item_id"]
+        assert row_of(db, result["item_id"])["attempts"] == 2
 
 
 def test_ghost_status_unknown_keeps_ghosting_for_the_check(config, platform, db, monkeypatch, report):
@@ -1005,3 +1012,256 @@ def test_unclear_search_does_not_guess_and_tries_again_later(config, platform, d
     assert first["ok"] is False and first["state"] == "ghost_missing" and phrase in first["reason"]
     second = restore(db, platform, item_id, config)  # 次の試しでは、1 か所だけ見つかる
     assert second["ok"] is True and second["state"] == "restored" and second["path"] == str(renamed)
+
+
+# ---------------------------------------------------------------------- R1 の修正の見直しで加えた確認
+
+
+GHOSTING_REFUSED = {"result": "error",
+                    "reason": "中身を外せなかったため、通常のファイルに戻しました（理由は分かりません）。"}
+
+
+def item_folders(config):
+    return sorted((Path(config["VAULT_DIR"]) / "items").iterdir())
+
+
+def test_repeated_ghosting_failures_keep_one_checked_copy(config, platform, db, report):
+    """ゴーストにできない失敗をくり返しても、保管庫に同じファイルのコピーが増えない（確かめた中身を使い直す）"""
+    before = fingerprint(report)
+    first = None
+    for attempt in range(5):
+        platform.fail_next["make_ghost"] = dict(GHOSTING_REFUSED)
+        result = evacuate(db, platform, report, config)
+        assert result["state"] == "failed"
+        first = first or result["item_id"]
+        assert result["item_id"] == first
+    assert len(item_folders(config)) == 1
+    assert row_of(db, first)["attempts"] == 5  # くり返しが見えるように、試した回数を数える
+    assert fingerprint(report) == before
+
+    done = evacuate(db, platform, report, config)  # 6 回目はゴーストにできた
+    assert done["ok"] is True and done["item_id"] == first
+    assert len(item_folders(config)) == 1
+    copies = [entry for entry in platform.calls if entry[0] == "make_ghost"]
+    assert len(copies) == 6
+    assert sha256_of(item_folder(config, first) / "content") == before[0]
+
+
+def test_copy_cancelled_by_the_kill_switch_is_used_again_after_resume(config, platform, db, report):
+    """キルスイッチでゴーストにする前に中止した項目の中身は、再開した後の退避で、そのまま使う
+
+    （2 つ目のコピーを作らない）
+    """
+    calls = []
+
+    def press_kill_switch_during_copy():
+        calls.append(1)
+        if len(calls) == 2:
+            killswitch.engage(None, config, "テスト")
+        return True
+
+    cancelled = evacuate(db, platform, report, config, should_continue=press_kill_switch_during_copy)
+    assert cancelled["state"] == "cancelled"
+    killswitch.resume(db, config, confirmed=True)
+    again = evacuate(db, platform, report, config)
+    assert again["ok"] is True and again["item_id"] == cancelled["item_id"]
+    assert len(item_folders(config)) == 1
+
+
+def test_changed_file_gets_a_new_copy_and_the_old_copy_is_kept(config, platform, db, report):
+    """前回コピーした後でファイルが変わっていたら、前回の中身は使わず、新しい項目でコピーする（前回の中身も残す）"""
+    platform.fail_next["make_ghost"] = dict(GHOSTING_REFUSED)
+    failed = evacuate(db, platform, report, config)
+    old_content = item_folder(config, failed["item_id"]) / "content"
+    old_digest = sha256_of(old_content)
+    make_file(report, size=30_000, mtime_ns=MTIME_NS + 10**12)  # ユーザーがファイルを編集した
+    again = evacuate(db, platform, report, config)
+    assert again["ok"] is True and again["item_id"] != failed["item_id"]
+    assert sha256_of(old_content) == old_digest  # 前回の中身は上書きしない
+    assert sha256_of(item_folder(config, again["item_id"]) / "content") != old_digest
+
+
+def test_restore_after_changing_the_pip0_root_is_refused_with_the_reason(config, platform, db, report, tmp_path):
+    """PIP0_ROOT を変えた後の全復元：前の場所の項目は戻さず、理由と「元に戻す」ことを last_error に残す"""
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    old_root = str(config["PIP0_ROOT"])
+    new_root = tmp_path / "Documents" / "pip0"
+    new_root.mkdir(parents=True)
+    moved_root = dict(config, PIP0_ROOT=new_root)
+    platform.register_sync_root(new_root, "pip0")
+
+    counts = killswitch.restore_all(db, platform, moved_root, now=NOW + 60)
+    assert (counts["failed"], counts["restored"]) == (1, 0)
+    reason = row_of(db, item_id)["last_error"]
+    assert "PIP0_ROOT を変えた場合は、元に戻してから全復元してください" in reason
+    assert old_root in reason  # 退避したときの場所を示す
+    assert is_ghost(platform, report)  # ゴーストにも保管庫にも触れていない
+
+    counts = killswitch.restore_all(db, platform, config, now=NOW + 120)  # PIP0_ROOT を元に戻した
+    assert (counts["restored"], counts["failed"]) == (1, 0)
+    assert not is_ghost(platform, report)
+
+
+def test_items_restored_before_changing_the_pip0_root_are_still_read(config, platform, db, report, tmp_path):
+    """戻し終えた項目は、PIP0_ROOT の外を指していても読める（点検の問題・解除の妨げにしない。復元には使わない）"""
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    assert restore(db, platform, item_id, config)["state"] == "restored"
+    moved_root = dict(config, PIP0_ROOT=tmp_path / "Documents" / "pip0")
+    assert vault.read_manifest(moved_root, item_id)["state"] == "restored"
+    summary = vault.recover_incomplete(db, platform, moved_root, now=NOW + 120)
+    assert summary["problems"] == [] and summary["unresolved"] == 0
+    assert restore(db, platform, item_id, moved_root)["already"] is True
+
+
+def test_check_marks_a_replaced_ghost_that_cannot_be_found_as_missing(config, platform, db, report, tmp_path):
+    """点検：ゴーストになったか分からない項目の場所に別のファイルがあり、ゴーストも見つからないとき、
+    「原本はそのまま」（copied）とせず ghost_missing にする（設計書 7-4）。全復元で、保管庫の中身を横に戻す"""
+    before = fingerprint(report)
+    platform.fail_next["ghost_status"] = [None, MISREPORTED_REGULAR]
+    item_id = evacuate(db, platform, report, config)["item_id"]  # ghosting のまま（本当はゴーストになっている）
+    recycle_bin = tmp_path / "RecycleBin"
+    recycle_bin.mkdir(exist_ok=True)
+    platform.simulate_user_rename(report, recycle_bin / "$R1A2B3C.docx")  # エクスプローラーで消した（ごみ箱へ移った）
+    make_file(report, size=30_000, mtime_ns=MTIME_NS + 10**12)  # 後で、同じ名前の別のファイルを保存した
+    newer = fingerprint(report)
+
+    vault.recover_incomplete(db, platform, config, now=NOW + 30)
+    manifest = vault.read_manifest(config, item_id)
+    assert manifest["state"] == "ghost_missing"
+    assert "見つかりません" in row_of(db, item_id)["last_error"]
+
+    counts = killswitch.restore_all(db, platform, config, now=NOW + 60)
+    assert counts["conflict"] == 1  # 中止（原本はそのまま）にせず、横に戻した
+    copy = Path(vault.read_manifest(config, item_id)["restored_path"])
+    assert copy != report and fingerprint(copy) == before
+    assert fingerprint(report) == newer
+
+
+def test_unclear_search_with_another_file_at_the_place_does_not_restore_beside(config, platform, db, env):
+    """元の場所に別のファイルがあり、移されたゴーストを探し切れないときは、横に戻さない（全復元の対象に残す）"""
+    folder = env["PIP0_ROOT"] / "レポート"
+    path = make_file(folder / "a.pdf")
+    before = fingerprint(path)
+    item_id = evacuate(db, platform, path, config)["item_id"]
+    renamed_folder = env["PIP0_ROOT"] / "レポート_旧"
+    platform.simulate_user_rename(folder, renamed_folder)  # シェルが動いていない間に、フォルダーの名前を変えた
+    make_file(path, size=5_000, mtime_ns=MTIME_NS + 10**12)  # 後で、元の場所に別のファイルを保存した
+    newer = fingerprint(path)
+    platform.fail_next["locate_ghost"] = {"result": "unknown", "paths": [],
+                                          "reason": "pip0 専用フォルダーの中をすべては探せませんでした"}
+
+    first = killswitch.restore_all(db, platform, config, now=NOW + 60)
+    assert (first["failed"], first["conflict"]) == (1, 0)
+    assert vault.read_manifest(config, item_id)["state"] in vault.RESTORE_TARGET_STATES
+    assert "探し切れませんでした" in row_of(db, item_id)["last_error"]
+    assert sorted(p.name for p in folder.iterdir()) == ["a.pdf"]  # 横にコピーを作っていない
+    assert fingerprint(path) == newer
+
+    second = killswitch.restore_all(db, platform, config, now=NOW + 120)  # 次の全復元で探し直し、見つけて戻す
+    assert (second["restored"], second["failed"]) == (1, 0)
+    assert fingerprint(renamed_folder / "a.pdf") == before
+    assert platform.ghosts == {}
+
+
+def test_conflict_copy_gets_the_download_mark_even_if_stopped_right_after_the_rename(config, platform, db,
+                                                                                    monkeypatch, report):
+    """横に戻すとき、ダウンロード元の印は、名前を変える前の一時ファイルに付ける。名前を変えた直後に止まっても、
+    次の実行で、印と更新日時のそろったコピーになる"""
+    platform.zone_identifiers[str(report)] = SLACK_ZONE
+    item_id = evacuate(db, platform, report, config)["item_id"]
+    platform.simulate_user_delete(report)
+    report.write_bytes(b"another file saved later")
+    crash_once(monkeypatch, fsutil, "no_overwrite_rename", after=True)  # 名前を変えた直後に止まった
+    with pytest.raises(RuntimeError):
+        restore(db, platform, item_id, config)
+    marked = [entry[1] for entry in platform.calls if entry[0] == "write_zone_identifier"]
+    assert marked and marked[0].endswith(".pip0-restore.partial")  # 名前を変える前に、一時ファイルに付けていた
+
+    result = restore(db, platform, item_id, config)
+    copy = Path(result["path"])
+    assert result["state"] == "restored_conflict" and copy != report
+    assert platform.read_zone_identifier(copy) == MINIMAL_ZONE
+    assert os.stat(copy).st_mtime_ns == MTIME_NS
+    assert sorted(p.name for p in report.parent.iterdir()) == sorted([report.name, copy.name])
+
+
+# ---------------------------------------------------------------------- R1 の修正の 2 回目の見直しで加えた確認
+
+
+def damage_the_copy(config, item_id):
+    """保管庫の中身（content）の 1 ビットを変える（ドライブの劣化などのまね）"""
+    content = item_folder(config, item_id) / "content"
+    data = bytearray(content.read_bytes())
+    data[5000] ^= 0x01
+    content.write_bytes(bytes(data))
+
+
+def edit_in_place_keeping_size_and_time(path):
+    """同じ大きさのまま中身の一部を書き換え、更新日時を元に戻す（タグの編集ソフトの「更新日時を保つ」などのまね）"""
+    info = os.stat(path)
+    with open(path, "r+b") as f:
+        f.seek(100)
+        f.write(b"EDITED-TAG")
+    os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns))
+
+
+@pytest.mark.parametrize("change", ["original_edited", "copy_damaged"])
+def test_copy_the_shell_called_changed_is_not_used_again(config, platform, db, report, change):
+    """pip0 シェルが「内容が違う」（changed）と答えた保管庫の中身は、次の退避で使い直さない
+
+    大きさ・更新日時・ファイル番号が同じでも、原本が書き換えられた・保管庫の中身が壊れたことがある。
+    同じ中身を使い直し続けると、何度試してもゴーストにできない。断られた後は、新しい項目でコピーし直す
+    （前回の中身は、上書きせずに残す）。
+    """
+    platform.fail_next["make_ghost"] = {"result": "locked", "reason": "ほかのプロセスが使用中です"}
+    first = evacuate(db, platform, report, config)
+    assert first["state"] == "failed"
+    old_content = item_folder(config, first["item_id"]) / "content"
+    if change == "original_edited":
+        edit_in_place_keeping_size_and_time(report)
+    else:
+        damage_the_copy(config, first["item_id"])
+    kept = sha256_of(old_content)
+    now = fingerprint(report)
+
+    rejected = evacuate(db, platform, report, config)  # 前回の中身を使ったが、シェルが見比べて断った
+    assert rejected["state"] == "failed" and rejected["item_id"] == first["item_id"]
+    assert "後でやり直せます" in rejected["reason"]
+    again = evacuate(db, platform, report, config)  # 次は、コピーし直して退避できる（失敗をくり返さない）
+    assert again["ok"] is True and again["item_id"] != first["item_id"]
+    assert sha256_of(item_folder(config, again["item_id"]) / "content") == now[0]
+    assert sha256_of(old_content) == kept  # 前回の中身は上書きしない
+    assert len(item_folders(config)) == 2
+    platform.simulate_app_open(report)  # ゴーストを開くと、今の内容が戻る
+    assert fingerprint(report) == now
+
+
+def test_item_kept_in_ghosting_after_an_unclear_search_tells_why(config, platform, db, report, monkeypatch):
+    """ゴーストになったか分からない項目（ghosting）の場所に別のファイルがあり、移されたゴーストを探し切れないとき、
+    全復元の結果と vault restore に、その理由を出す（「OS 連携が動いていない等」とはしない）"""
+    platform.fail_next["ghost_status"] = [None, MISREPORTED_REGULAR]
+    item_id = evacuate(db, platform, report, config)["item_id"]  # ghosting のまま（本当はゴーストになっている）
+    platform.simulate_user_rename(report, report.parent / "最終報告_旧.docx")  # pip0 が止まっている間に名前を変えた
+    make_file(report, size=30_000, mtime_ns=MTIME_NS + 10**12)  # 後で、元の名前で別のファイルを保存した
+    newer = fingerprint(report)
+    unclear = {"result": "unknown", "paths": [], "reason": "時間内に探し終わりませんでした"}
+    monkeypatch.setattr(platform, "locate_ghost", lambda item_id: dict(unclear))  # 大きなフォルダーで探し切れない
+
+    counts = killswitch.restore_all(db, platform, config, now=NOW + 60)
+    assert (counts["failed"], counts["finished"]) == (1, True)
+    assert vault.read_manifest(config, item_id)["state"] == "ghosting"  # 全復元の対象に残す
+    assert "探し切れませんでした" in row_of(db, item_id)["last_error"]  # 全復元の結果と vault list に出る理由
+    result = restore(db, platform, item_id, config)
+    assert result["ok"] is False and "探し切れませんでした" in result["reason"]
+    assert "OS 連携が動いていない" not in result["reason"]
+    assert fingerprint(report) == newer
+
+
+def test_item_kept_in_ghosting_while_the_shell_does_not_answer_tells_why(config, platform, db, report):
+    platform.fail_next["ghost_status"] = [None, MISREPORTED_REGULAR]
+    item_id = evacuate(db, platform, report, config)["item_id"]  # ghosting のまま
+    platform.fail_next["ghost_status"] = UNKNOWN_STATUS  # OS 連携が答えない
+    result = restore(db, platform, item_id, config)
+    assert result["ok"] is False and result["state"] == "ghosting"
+    assert "OS 連携が動いていない" in result["reason"]
+    assert row_of(db, item_id)["last_error"] == result["reason"]  # 全復元の結果と vault list にも出す

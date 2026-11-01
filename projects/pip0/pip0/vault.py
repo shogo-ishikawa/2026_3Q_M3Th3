@@ -10,8 +10,11 @@ M4 の「退避」は、長い間使われていないファイルの中身を�
 - 保管庫の形：VAULT_DIR/items/<項目ID>/ の content（中身）、content.partial（コピーの途中）、manifest.json（復元情報）
 - 状態が変わるたびに、先に manifest.json を書き、その後で DB（vault_items）を書く（set_state）。
   manifest.json が正本で、DB の鍵をなくしても、manifest.json から項目を読み直して復元できる（sync_from_manifests）
-- content と manifest.json は、どの処理でも消さない（復元した後も残す）。中身（content）のある項目は使い直さず、
-  content を上書きしない（どこかに、その項目のゴーストが残っているかもしれないため）
+- content と manifest.json は、どの処理でも消さない（復元した後も残す）。content を上書きしない
+  （どこかに、その項目のゴーストが残っているかもしれないため）。中身（content）のある項目を使い直すのは、
+  ゴーストにしていない項目（失敗・中止・コピー済み）で、今のファイルがコピーしたときと同じ（大きさ・更新日時・
+  ファイル番号）ときだけ。そのときはコピーし直さず、確かめ済みの content をそのまま使う（保管庫が増え続けないように）。
+  ただし、pip0 シェルが「内容が違う」（changed）と答えた content は、二度と使い直さない（content_reusable）
 - 原本をゴーストに置き換えるのは、保管庫のコピーを読み直してハッシュを確かめ、manifest.json に書いた後だけ
 - 途中で失敗・中断したら、原本はそのまま残し、後でやり直せる状態にする
 - 復元で既存のファイルを上書きしない（別のファイルがあれば、横に「 (pip0復元)」を付けた名前で戻す）
@@ -56,8 +59,11 @@ NOT_GHOSTED_STATES = ["copying", "copied", "failed", "cancelled"]
 GHOST_STATES = ["ghosting", "evacuated", "restoring"]
 # 元の場所（か、その横）に戻し終えた状態
 RESTORED_STATES = ["restored", "restored_conflict", "restored_local_newer"]
-# 全復元（killswitch.restore_all）で戻す状態
+# 全復元（killswitch.restore_all）で戻す状態。復元でファイルを書くのは、この状態の項目だけなので、
+# この状態の manifest.json だけ、場所が pip0 専用フォルダー（PIP0_ROOT）の中かを確かめる（check_manifest_paths）
 RESTORE_TARGET_STATES = ["evacuated", "ghosting", "restoring", "ghost_missing"]
+# 退避をやり直すとき、確かめ済みの中身（content）を、コピーし直さずに使ってよい状態（ゴーストにしていない）
+CONTENT_REUSE_STATES = ["copied", "failed", "cancelled"]
 # manifest.json に sha256（確かめた保管庫の内容のハッシュ）が必ずある状態
 STATES_WITH_CONTENT = ["copied", "ghosting", "evacuated", "restoring", "ghost_missing"] + RESTORED_STATES
 
@@ -228,8 +234,13 @@ def read_manifest(config, item_id):
     return manifest
 
 
-def load_manifest(config, item_id):
-    """(manifest, problem) を返す。problem は読めなかった理由（読めたら None）"""
+def load_manifest(config, item_id, check_paths=True):
+    """(manifest, problem) を返す。problem は読めなかった理由（読めたら None）
+
+    check_paths：全復元の対象の状態（RESTORE_TARGET_STATES）の項目は、場所が pip0 専用フォルダーの中かを確かめる。
+                 False は、一覧を見せるだけのとき（ファイルを書かない）。復元した・ゴーストにしていない項目は、
+                 どちらでも確かめない（その項目のために、ファイルを書くことはないため）
+    """
     if config.get("VAULT_DIR") is None:
         return None, "保管庫の場所（VAULT_DIR）が設定されていません"
     item_id = normalise_item_id(item_id)
@@ -241,7 +252,9 @@ def load_manifest(config, item_id):
         return None, "保管庫に、この項目の manifest.json がありません"
     except (OSError, ValueError):
         return None, "この項目の manifest.json を読めません"
-    problem = check_manifest(manifest, item_id) or check_manifest_paths(manifest, config)
+    problem = check_manifest(manifest, item_id)
+    if problem is None and check_paths and manifest["state"] in RESTORE_TARGET_STATES:
+        problem = check_manifest_paths(manifest, config)
     if problem is not None:
         return None, problem
     manifest.setdefault("history", [])
@@ -280,8 +293,8 @@ def check_manifest_paths(manifest, config):
     """manifest.json の場所が、pip0 専用フォルダー（PIP0_ROOT）の中の絶対パスかを確かめる。よければ None
 
     ゴーストを作るのは pip0 専用フォルダーの中だけなので、ほかの場所を指す manifest.json は、
-    書き換えられたか壊れたものとして使いません（保管庫の中身には触れず、問題として知らせるだけです）。
-    PIP0_ROOT を変えた後なら、元に戻してから全復元してください。
+    PIP0_ROOT を変えた後のものか、書き換えられた・壊れたものとして、復元に使いません
+    （保管庫の中身には触れず、理由を知らせるだけです）。PIP0_ROOT を変えた後なら、元に戻してから全復元してください。
     """
     root = config.get("PIP0_ROOT")
     keys = ["original_path", "current_path"]
@@ -291,8 +304,12 @@ def check_manifest_paths(manifest, config):
         value = manifest.get(key)
         if (root is None or not isinstance(value, str) or not os.path.isabs(value)
                 or not config_module.is_inside(value, root)):
-            return (f"manifest.json の {key} が、今の pip0 専用フォルダー（PIP0_ROOT）の中を指していないため、"
-                    "この項目は使いません（保管庫の中身には触れていません。PIP0_ROOT を変えた場合は、元に戻してください）")
+            reason = ("今の pip0 専用フォルダー（PIP0_ROOT）の外にある項目のため、戻しません。"
+                      f"PIP0_ROOT を変えた場合は、元に戻してから全復元してください（manifest.json の {key}")
+            old_root = manifest.get("pip0_root")
+            if isinstance(old_root, str) and old_root:
+                reason += f"。退避したときの PIP0_ROOT：{old_root}"
+            return reason + "）"
     return None
 
 
@@ -308,16 +325,24 @@ def new_manifest(item_id, path, snapshot, at):
         "state": "copying",
         "original_path": path,
         "current_path": path,
+        "pip0_root": None,   # 退避したときの PIP0_ROOT（start_item が書く）
         "file_key": snapshot["file_key"],
         "size": snapshot["size"],
         "mtime_ns": snapshot["mtime_ns"],
         "sha256": None,
         "zone_identifier": None,
+        "content_reusable": True,  # False：pip0 シェルが「内容が違う」と答えた中身（次の退避で使い直さない）
         "created_at": at,
         "updated_at": at,
         "restored_path": None,
         "history": [],
     }
+
+
+def root_text(config):
+    """退避したときの pip0 専用フォルダー（PIP0_ROOT）。manifest.json に残し、PIP0_ROOT を変えた後の説明に使う"""
+    root = config.get("PIP0_ROOT")
+    return str(root) if root is not None else None
 
 
 # ----------------------------------------------------------------------
@@ -418,6 +443,15 @@ def record_problem(conn, manifest, reason, operation, now):
             log_item_operation(conn, manifest, operation, at, find_file_id(conn, manifest["current_path"]))
 
 
+def record_refusal(conn, item_id, reason):
+    """manifest.json を使えないため扱わなかった項目の理由を、DB の行（あれば）の last_error に残す
+
+    vault list と全復元の結果に、理由とすること（例：PIP0_ROOT を元に戻す）を出すためです。manifest.json はそのまま。
+    """
+    with write_together(conn):
+        conn.execute("UPDATE vault_items SET last_error = ? WHERE item_id = ?", (reason, item_id))
+
+
 def log_item_operation(conn, manifest, operation, at, file_id):
     database.log_operation(
         conn, operation["kind"], actor=operation["actor"], status=operation["status"], file_id=file_id,
@@ -493,21 +527,29 @@ def run_evacuation(conn, platform, path, config, reasons, should_continue, actor
     snapshot = path_snapshot(platform, path)
     if snapshot is None:
         return refuse_evacuation(conn, path, existing, "ファイルが見つかりません", actor, reasons, now)
-
-    # 3. 項目を copying で記録する（前回の失敗・中止の項目で、中身のコピーがないものだけ、同じ項目ID を使い直す）。
-    #    ダウンロード元の印（Zone.Identifier）は、ゾーンの番号だけを manifest.json に残す（横に戻すときに付け直す）
-    ensure_vault(config)
+    # ダウンロード元の印（Zone.Identifier）は、ゾーンの番号だけを manifest.json に残す（横に戻すときに付け直す）
     zone_text = minimal_zone_text(platform.read_zone_identifier(path))
-    manifest = start_item(conn, config, path, snapshot, existing, now, zone_text)
+    ensure_vault(config)
 
-    # 4. 保管庫へコピーし、読み直してハッシュを確かめる → copied
-    copy = copy_into_vault(platform, path, config, manifest["item_id"], snapshot, should_continue)
-    if not copy["ok"]:
-        return fail_evacuation(conn, config, manifest, copy["reason"], actor, reasons, now)
-    manifest = set_state(
-        conn, config, manifest, "copied", "保管庫へコピーし、読み直してハッシュを確かめました", now,
-        changes={"sha256": copy["sha256"]},
-    )
+    if can_reuse_content(config, existing, path, snapshot):
+        # 3・4. 前回の項目（失敗・中止・コピー済み）の確かめ済みの中身が、今のファイルと同じ：コピーし直さずに使う
+        #       （失敗をくり返しても、保管庫に同じファイルのコピーが増え続けないように。content は上書きしない）
+        note = (f"もう一度退避します（前回：{STATE_LABELS[existing['state']]}）。ファイルはコピーしたときと同じなので、"
+                "保管庫の確かめ済みの中身を、コピーし直さずに使います")
+        manifest = set_state(conn, config, existing, "copied", note, now, add_attempt=True,
+                             changes={"zone_identifier": zone_text, "pip0_root": root_text(config)})
+    else:
+        # 3. 項目を copying で記録する（前回の失敗・中止の項目で、中身のコピーがないものだけ、同じ項目ID を使い直す）
+        manifest = start_item(conn, config, path, snapshot, existing, now, zone_text)
+
+        # 4. 保管庫へコピーし、読み直してハッシュを確かめる → copied
+        copy = copy_into_vault(platform, path, config, manifest["item_id"], snapshot, should_continue)
+        if not copy["ok"]:
+            return fail_evacuation(conn, config, manifest, copy["reason"], actor, reasons, now)
+        manifest = set_state(
+            conn, config, manifest, "copied", "保管庫へコピーし、読み直してハッシュを確かめました", now,
+            changes={"sha256": copy["sha256"]},
+        )
 
     # 5. 原本をゴーストにする前に、キルスイッチをもう一度確かめる（自動の退避だけ）
     if actor == "auto" and killswitch.is_engaged(conn, config):
@@ -520,12 +562,37 @@ def run_evacuation(conn, platform, path, config, reasons, should_continue, actor
     return ghost_step(conn, platform, config, manifest, actor, reasons, now)
 
 
+def can_reuse_content(config, existing, path, snapshot):
+    """前回の項目の、確かめ済みの中身（content）を、コピーし直さずに使ってよければ True
+
+    使ってよいのは、次のすべてに当てはまるときだけです。
+    - ゴーストにしていない項目（CONTENT_REUSE_STATES：コピー済み・失敗・中止）で、場所が同じ
+    - 保管庫に、ハッシュ（sha256）を確かめた中身（content）がある
+    - 今のファイルの大きさ・更新日時・ファイル番号が、コピーしたときと同じ（同じファイルで、変更されていない）
+    - pip0 シェルが、この中身を「内容が違う」（changed）と断ったことがない（content_reusable が False でない）
+    ゴーストにする直前に、pip0 シェルが原本と保管庫の中身のハッシュを、もう一度確かめます。大きさと更新日時を
+    変えずに書き換えたファイルや、壊れた保管庫の中身は、そこで断られます（その後は、コピーし直す）。
+    """
+    if existing is None or existing["state"] not in CONTENT_REUSE_STATES:
+        return False
+    if existing["current_path"] != path or existing.get("sha256") is None:
+        return False
+    if existing.get("content_reusable") is False:
+        return False
+    content = content_path(config, existing["item_id"])
+    if os.path.islink(content) or not os.path.isfile(content):
+        return False
+    return (existing["size"] == snapshot["size"] and existing["mtime_ns"] == snapshot["mtime_ns"]
+            and existing["file_key"] == snapshot["file_key"])
+
+
 def start_item(conn, config, path, snapshot, existing, now, zone_text=None):
     """copying の状態で項目を記録する（manifest.json → DB の順）
 
-    前回の項目（失敗・中止）を使い直すのは、保管庫に中身（content）がないときだけです。
-    content のある項目は、どこかにその項目のゴーストが残っているかもしれないので、使い直さず、
+    前回の項目（失敗・中止）の項目ID を使い直すのは、保管庫に中身（content）がないときだけです。
+    content のある項目は、どこかにその項目のゴーストが残っているかもしれないので、content を上書きせず、
     新しい項目ID でコピーします（古い項目の content と manifest.json は、そのまま残ります）。
+    今のファイルが前回コピーしたときと同じなら、ここには来ません（can_reuse_content。コピーし直さずに使う）。
     """
     if (existing is not None and existing["state"] in NOT_GHOSTED_STATES
             and not os.path.lexists(content_path(config, existing["item_id"]))):
@@ -538,9 +605,9 @@ def start_item(conn, config, path, snapshot, existing, now, zone_text=None):
         manifest = new_manifest(item_id, path, snapshot, current_time(now))
         note = "退避を始めます（保管庫へコピーします）"
     changes = {
-        "original_path": path, "current_path": path, "file_key": snapshot["file_key"],
+        "original_path": path, "current_path": path, "pip0_root": root_text(config), "file_key": snapshot["file_key"],
         "size": snapshot["size"], "mtime_ns": snapshot["mtime_ns"], "sha256": None, "restored_path": None,
-        "zone_identifier": zone_text,
+        "zone_identifier": zone_text, "content_reusable": True,
     }
     return set_state(conn, config, manifest, "copying", note, now, changes=changes, add_attempt=True)
 
@@ -683,7 +750,13 @@ def ghost_step(conn, platform, config, manifest, actor, reasons, now):
         return {"ok": False, "item_id": item_id, "state": "ghost_missing", "reason": reason}
 
     # 通常のファイルのまま・ファイルがない・別の項目のゴースト：この項目はゴーストにしていない（原本はそのまま）
-    return fail_evacuation(conn, config, manifest, ghost_failure_reason(answer, place), actor, reasons, now)
+    changes = None
+    if result == "changed":
+        # 原本か保管庫の中身が、コピーしたときと違う（大きさと更新日時を変えずに書き換えた、保管庫の中身が壊れた等）。
+        # この中身は使い直さない（次の退避では、新しい項目でコピーし直す。この中身も消さずに残す）
+        changes = {"content_reusable": False}
+    return fail_evacuation(conn, config, manifest, ghost_failure_reason(answer, place), actor, reasons, now,
+                           changes=changes)
 
 
 def ghost_failure_reason(answer, place):
@@ -713,9 +786,9 @@ def refuse_evacuation(conn, path, existing, reason, actor, reasons, now):
     return {"ok": False, "item_id": item_id, "state": state, "reason": reason}
 
 
-def fail_evacuation(conn, config, manifest, reason, actor, reasons, now):
-    """退避を failed にする（原本はそのまま。後でやり直せる）"""
-    set_state(conn, config, manifest, "failed", reason, now, last_error=reason,
+def fail_evacuation(conn, config, manifest, reason, actor, reasons, now, changes=None):
+    """退避を failed にする（原本はそのまま。後でやり直せる）。changes は、状態のほかに変える manifest の項目"""
+    set_state(conn, config, manifest, "failed", reason, now, last_error=reason, changes=changes,
               operation=evacuate_operation(actor, "failed", reasons, reason))
     return {"ok": False, "item_id": manifest["item_id"], "state": "failed", "reason": reason}
 
@@ -784,6 +857,8 @@ def restore(conn, platform, item_id, config, *, actor, now=None):
     item_id = normalise_item_id(item_id)
     manifest, problem = load_manifest(config, item_id)
     if manifest is None:
+        if is_valid_item_id(item_id):
+            record_refusal(conn, item_id, problem)  # vault list と全復元の結果に、理由とすることを出す
         return {"ok": False, "state": None, "path": None, "already": False,
                 "reason": problem + "。保管庫の中身には触れていません"}
     sync_row(conn, manifest)
@@ -817,28 +892,30 @@ def run_restore(conn, platform, config, manifest, actor, now, follow_moves=True)
         reason = "この項目は退避していません（元のファイルはそのままです）。復元は不要です"
         return restore_result(manifest, False, reason)
     if state == "ghosting":
-        manifest = settle_ghosting(conn, platform, config, manifest, now)
+        manifest, reason = settle_ghosting(conn, platform, config, manifest, now)
         if manifest["state"] in NOT_GHOSTED_STATES:
             reason = "ゴーストにする前に止まっていました（元のファイルはそのままです）。復元は不要です"
             return restore_result(manifest, False, reason)
         if manifest["state"] == "ghosting":
-            reason = "ゴーストになったかどうかを確かめられません（OS 連携が動いていない等）。後でもう一度試してください"
-            return restore_result(manifest, False, reason)
+            return restore_result(manifest, False, reason)  # 確かめ切れなかった理由（DB の last_error にも残した）
 
     # 前回の復元で、横に戻し終えたファイルがあれば、それで終わり（名前を変えた直後に止まった場合。
-    # 何度実行しても、横のコピーは1つ）
+    # 何度実行しても、横のコピーは1つ）。ダウンロード元の印と更新日時は、欠けていれば付け直す
     planned = manifest.get("restored_path")
     if (state == "restoring" and planned and planned != manifest["current_path"]
             and holds_vault_content(platform, planned, manifest, config)):
-        return finish_restore(conn, config, manifest, "restored_conflict", planned, conflict_note(planned), actor, now)
+        note = conflict_note(planned) + put_back_zone(platform, planned, manifest)
+        put_back_mtime(planned, manifest["mtime_ns"])
+        return finish_restore(conn, config, manifest, "restored_conflict", planned, note, actor, now)
 
     # うまくいかなかったときに戻す状態（復元を始める前の状態）
     back_to = state_before_restore(manifest)
     place = where_is(platform.ghost_status(manifest["current_path"]), manifest["item_id"])
     if place == "ours":
         return restore_from_ghost(conn, platform, config, manifest, actor, now)
-    search = {"path": None, "note": ""}
-    if follow_moves and (place == "missing" or (place == "regular" and is_other_file(platform, manifest))):
+    search = {"path": None, "note": "", "unclear": False}
+    if follow_moves and (place in ("missing", "other_ghost")
+                         or (place == "regular" and is_other_file(platform, manifest))):
         # 元の場所にゴーストがない（別のファイルに置き換わっていた）：pip0 シェルが動いていない間に
         # 名前を変えた・フォルダーごと移した、などで場所の知らせが届かなかったかもしれないので、探す
         search = search_moved_ghost(platform, config, manifest)
@@ -847,6 +924,10 @@ def run_restore(conn, platform, config, manifest, actor, now, follow_moves=True)
         manifest = set_state(conn, config, manifest, manifest["state"], note, now,
                              changes={"current_path": search["path"]})
         return restore_at_new_place(conn, platform, config, manifest, actor, now)
+    if search["unclear"] and place != "missing":
+        # 元の場所には別のファイルがあるのに、移されたゴーストを探し切れなかった。ここで横に戻すと、項目が
+        # 全復元の対象から外れ、どこかのゴーストが戻らないまま残る。横には戻さず、次の全復元で探し直す
+        return restore_failed(conn, config, manifest, unclear_search_reason(search), actor, now, back_to)
     if place == "regular":
         return restore_onto_regular_file(conn, platform, config, manifest, actor, now, back_to)
     if place == "other_ghost":
@@ -906,6 +987,15 @@ def search_moved_ghost(platform, config, manifest):
         return {"path": None, "note": "（pip0 専用フォルダーの中にも、見つかりませんでした）", "unclear": False}
     return {"path": None, "note": "（pip0 専用フォルダーの中を探せませんでした。次の全復元で、もう一度探します）",
             "unclear": True}
+
+
+def unclear_search_reason(search):
+    """元の場所に別のファイルがあり、移されたゴーストを探し切れなかったときの理由
+
+    search：search_moved_ghost の結果（"note" を理由に添える）
+    """
+    return ("元の場所には別のファイルがあり、移されたゴーストを探し切れませんでした" + search["note"]
+            + "。横には戻さず、保管庫の中身はそのまま残しています")
 
 
 def restore_from_ghost(conn, platform, config, manifest, actor, now):
@@ -973,6 +1063,10 @@ def restore_beside(conn, platform, config, manifest, actor, now, back_to):
     if not copy["ok"]:
         return restore_failed(conn, config, manifest, copy["reason"], actor, now, back_to)
     temp = copy["temp"]
+    # ダウンロード元の印（Zone.Identifier）は、名前を変える前の一時ファイルに付けておく。代替データストリームの印は、
+    # 名前を変えても付いたままなので、名前を変えた直後に止まっても、印のないコピーが残らない
+    zone_note = put_back_zone(platform, temp, manifest)
+    put_back_mtime(temp, manifest["mtime_ns"])  # 印を書くと更新日時が変わることがあるので、戻しておく
 
     # 2. 空いている名前へ、上書きせずに名前を変える。行き先の名前は、先に manifest.json に書いておく
     #    （名前を変えた直後に止まっても、次の実行で run_restore がそのファイルを見つけるので、コピーが増えない）
@@ -989,9 +1083,11 @@ def restore_beside(conn, platform, config, manifest, actor, now, back_to):
             remove_own_temp(temp)
             reason = f"横に戻せませんでした（{describe_error(error)}）"
             return restore_failed(conn, config, manifest, reason, actor, now, back_to)
-        note = conflict_note(dest) + put_back_zone(platform, dest, manifest)
+        # 印が名前の変更に付いてこなかったとき（代役の OS 連携など）だけ、ここで付け直す
+        zone_note = put_back_zone(platform, dest, manifest) or zone_note
         put_back_mtime(dest, manifest["mtime_ns"])
-        return finish_restore(conn, config, manifest, "restored_conflict", dest, note, actor, now)
+        return finish_restore(conn, config, manifest, "restored_conflict", dest, conflict_note(dest) + zone_note,
+                              actor, now)
     remove_own_temp(temp)
     reason = f"横に戻す名前を決められませんでした（{MAX_RENAME_ATTEMPTS} 回試しました）"
     return restore_failed(conn, config, manifest, reason, actor, now, back_to)
@@ -1118,10 +1214,12 @@ def recover_incomplete(conn, platform, config, now=None):
 
     1. manifest.json を読み直し、DB を合わせる（sync_from_manifests。DB にない項目も読み込む）
     2. copying → failed（コピーの途中で止まった。原本はそのまま）
-       ghosting → 元の場所を見て evacuated（ゴースト）／copied（通常のファイル）／ghost_missing（ない）
+       ghosting → 元の場所を見て evacuated（ゴースト）／copied（同じファイルが通常のファイルのまま）／
+                  ghost_missing（ない、または別のファイルで、ゴーストも見つからない）
        restoring → 復元をやり直す
     戻り値：{"loaded", "updated", "resolved", "unresolved", "problems"}
-    （unresolved は、OS 連携が動いていない等で確かめられず、そのままにした件数）
+    （unresolved は、OS 連携が動いていない、移されたゴーストを探し切れない等で確かめられず、そのままにした件数。
+    ghosting のまま残した項目の理由は、DB の last_error に残す）
     """
     synced = sync_from_manifests(conn, config)
     summary = {"loaded": synced["loaded"], "updated": synced["updated"], "resolved": 0, "unresolved": 0,
@@ -1155,52 +1253,73 @@ def settle_one(conn, platform, config, manifest, now):
                   operation=evacuate_operation("system", "failed", None, reason))
         return "failed"
     if manifest["state"] == "ghosting":
-        return settle_ghosting(conn, platform, config, manifest, now)["state"]
+        settled, _reason = settle_ghosting(conn, platform, config, manifest, now)
+        return settled["state"]
     return restore(conn, platform, manifest["item_id"], config, actor="system", now=now)["state"]
 
 
 def settle_ghosting(conn, platform, config, manifest, now):
-    """ghosting のまま止まった項目を、元の場所の様子で確かな状態にする。新しい manifest を返す"""
+    """ghosting のまま止まった項目を、元の場所の様子で確かな状態にする。(新しい manifest, 理由) を返す
+
+    理由は、確かめ切れずに ghosting のまま残したときの説明です（DB の last_error にも残し、全復元の結果と
+    vault list に出します）。確かな状態にそろえたときは None。
+    """
     place = where_is(platform.ghost_status(manifest["current_path"]), manifest["item_id"])
     if place == "ours":
         note = "点検：ゴーストになっていることを確かめました（中身は保管庫にあります）"
-        return set_state(conn, config, manifest, "evacuated", note, now, file_status="ghost",
-                         operation=evacuate_operation("system", "done", None, note))
+        settled = set_state(conn, config, manifest, "evacuated", note, now, file_status="ghost",
+                            operation=evacuate_operation("system", "done", None, note))
+        return settled, None
     search = {"path": None, "note": "", "unclear": False}
     if place == "missing" or (place == "regular" and is_other_file(platform, manifest)):
         # ゴーストが、名前を変えて移されたかもしれない（元の場所にない・別のファイルに置き換わっていた）
         search = search_moved_ghost(platform, config, manifest)
     if search["path"] is not None:
         note = "点検：ゴーストが別の場所へ移されていたのを見つけ、その場所を記録しました（中身は保管庫にあります）"
-        return set_state(conn, config, manifest, "evacuated", note, now, file_status="ghost",
-                         changes={"current_path": search["path"]},
-                         operation=evacuate_operation("system", "done", None, note))
+        settled = set_state(conn, config, manifest, "evacuated", note, now, file_status="ghost",
+                            changes={"current_path": search["path"]},
+                            operation=evacuate_operation("system", "done", None, note))
+        return settled, None
+    if place == "regular" and not is_other_file(platform, manifest):
+        # 同じファイル（ファイル番号が同じ）が、通常のファイルのまま：ゴーストにはなっていない
+        note = "点検：元の場所は通常のファイルのままでした（原本はそのままです）"
+        return set_state(conn, config, manifest, "copied", note, now), None
     if place == "regular":
-        if is_other_file(platform, manifest):
-            if search["unclear"]:
-                # ゴーストがどこかに移されたかもしれないのに、探し切れなかった。copied にすると全復元の対象から
-                # 外れてしまう（ゴーストが戻らない）ので、ghosting のまま残し、次の点検・全復元で探し直す
-                return manifest
-            note = ("点検：元の場所は、ゴーストではない別のファイルに置き換わっていました"
-                    "（この項目の中身は保管庫に残しています）" + search["note"])
-        else:
-            note = "点検：元の場所は通常のファイルのままでした（原本はそのままです）"
-        return set_state(conn, config, manifest, "copied", note, now)
+        # 別のファイルに置き換わっていた：ゴーストになった後で、移された・消されたのかもしれない
+        if search["unclear"]:
+            # 探し切れなかった。ghosting のまま残し、次の点検・全復元で探し直す（全復元の対象から外さない）
+            return keep_ghosting(conn, manifest, unclear_search_reason(search), now)
+        # 見つからなかった：原本はもうないかもしれないので「原本はそのまま」（copied）とはせず、
+        # ghost_missing にする（全復元で、保管庫の中身を横に戻す。設計書 7-4）
+        reason = ("点検：元の場所は、ゴーストではない別のファイルに置き換わっていて、"
+                  "この項目のゴーストも見つかりません。中身は保管庫に残しています（勝手に作り直しません）"
+                  + search["note"])
+        return set_state(conn, config, manifest, "ghost_missing", reason, now, last_error=reason), None
     if place == "missing":
         reason = ("点検：元の場所にファイルがありません。中身は保管庫に残しています（勝手に作り直しません）"
                   + search["note"])
-        return set_state(conn, config, manifest, "ghost_missing", reason, now, last_error=reason,
-                         file_status="missing")
+        settled = set_state(conn, config, manifest, "ghost_missing", reason, now, last_error=reason,
+                            file_status="missing")
+        return settled, None
     if place == "other_ghost":
         reason = "点検：元の場所は別の項目のゴーストでした（この項目はゴーストにしていません）"
-        return set_state(conn, config, manifest, "failed", reason, now, last_error=reason)
-    return manifest  # 確かめられない：そのままにして、次の点検で確かめる
+        return set_state(conn, config, manifest, "failed", reason, now, last_error=reason), None
+    # 確かめられない：そのままにして、次の点検で確かめる
+    reason = "ゴーストになったかどうかを確かめられません（OS 連携が動いていない等）。後でもう一度試してください"
+    return keep_ghosting(conn, manifest, reason, now)
+
+
+def keep_ghosting(conn, manifest, reason, now):
+    """確かめ切れなかった項目を ghosting のまま残し、その理由を DB の last_error に残す。(manifest, 理由) を返す"""
+    record_problem(conn, manifest, reason, None, now)
+    return manifest, reason
 
 
 def sync_from_manifests(conn, config):
     """保管庫の manifest.json を 1 件ずつ読み、DB（vault_items）をそれに合わせる（manifest.json が正本）
 
     DB を作り直したとき（鍵をなくしたとき等）に、項目を読み直すために使う。何も消さない。
+    使えない manifest.json（PIP0_ROOT の外を指す等）の項目が DB にあれば、その理由を last_error に残す。
     戻り値：{"loaded", "updated", "unchanged", "problems": [{"item_id", "reason"}]}
     （loaded は DB になかった項目、updated は DB を manifest.json に合わせて直した項目の件数）
     """
@@ -1219,6 +1338,7 @@ def sync_from_manifests(conn, config):
         manifest, problem = load_manifest(config, entry.name)
         if manifest is None:
             summary["problems"].append({"item_id": entry.name, "reason": problem})
+            record_refusal(conn, entry.name, problem)
             continue
         summary[sync_row(conn, manifest)] += 1
     logger.info("保管庫の読み直し：新しく %d 件、直した %d 件、問題 %d 件",

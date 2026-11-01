@@ -132,9 +132,14 @@ SLACK_KIND_MAP = {
 # Edge のタイトルには、見えない文字（U+200B）が入ることがあります
 BROWSER_TITLE_SUFFIXES = [" - Google Chrome", " - Microsoft​ Edge", " - Microsoft Edge"]
 
-# 文脈の語から除く、意味の薄い語
+# 文脈の語から除く、意味の薄い語（大文字・小文字は区別しません）
 CONTEXT_STOP_WORDS = ["Slack", "Google", "Chrome", "Microsoft", "Edge", "Word", "Excel", "PowerPoint",
-                      "新しいタブ", "New Tab", "ホーム", "Home", "Channel", "DM", "チャンネル"]
+                      "新しいタブ", "New Tab", "ホーム", "Home", "Channel", "DM", "チャンネル",
+                      # 英語の、どの文書にもある語（冠詞・前置詞・接続詞など）。関係のある文書の手掛かりにならない
+                      "the", "and", "of", "to", "in", "on", "for", "with", "from", "by", "at", "as", "an", "or",
+                      "is", "are", "be", "this", "that", "how", "what", "your", "my", "our", "about",
+                      # Edge で、1つのウィンドウにタブが複数あるときのタイトル（「… and 2 more pages」）
+                      "more", "pages"]
 
 # ----------------------------------------------------------------------
 # M3 検索の手掛かり語

@@ -170,6 +170,10 @@ def test_power_source_names(value, expected):
     (0x1000, 0, {"local": False, "placeholder": False, "pinned": False, "reparse": False}),
     # 「常にこのデバイス上に保持する」の、中身があるプレースホルダー
     (0x20 | 0x400 | 0x00080000, 0x9000301A, {"local": True, "placeholder": True, "pinned": True, "reparse": True}),
+    # 「常にこのデバイス上に保持する」（attrib +P）の通常のファイル：再解析ポイントがないので、プレースホルダーではない
+    (0x20 | 0x00080000, 0, {"local": True, "placeholder": False, "pinned": True, "reparse": False}),
+    # 「空き容量を増やす」（UNPINNED）の印だけの通常のファイルも、プレースホルダーではない
+    (0x20 | 0x00100000, 0, {"local": True, "placeholder": False, "pinned": False, "reparse": False}),
     # シンボリックリンクとジャンクションは、たどらない
     (0x20 | 0x400, 0xA000000C, {"local": False, "placeholder": False, "pinned": False, "reparse": True}),
     (0x10 | 0x400, 0xA0000003, {"local": False, "placeholder": False, "pinned": False, "reparse": True}),
@@ -543,16 +547,37 @@ def test_a_restarted_shell_drops_the_marks_of_the_old_shell(tmp_path):
                     "in_sync": None, "pinned": False, "reason": ""}
     link = FakeLink({"cf.make_ghost": ShellTimeout("時間切れ"), "cf.status": status_reply})
 
-    def set_shell(pid):
-        link.process_id = lambda: pid  # ShellLink.process_id() と同じ形
+    def set_shell(generation):
+        link.generation = lambda: generation  # ShellLink.generation() と同じ形（何回目の起動か）
 
-    set_shell(100)
+    set_shell(1)
     platform = WindowsPlatform(link)
     assert platform.make_ghost(target, ITEM_ID, EXPECTED)["result"] == "unavailable"
     assert platform.ghost_status(target)["is_ghost"] is None  # 同じシェル：まだ分からない
     # シェルが落ちて、起動し直された（その間に状態を聞かなかったので、止まったところを見ていない）
-    set_shell(200)
+    set_shell(2)
     assert platform.ghost_status(target)["is_ghost"] is False
+    assert link.types() == ["cf.make_ghost", "cf.status"]
+
+
+def test_a_later_shell_with_a_reused_process_number_is_not_mistaken_for_the_old_one(tmp_path):
+    """Windows は、終わったプロセスの番号（PID）を使い回す。印は、プロセス番号ではなく起動の回で見分ける"""
+    target = tmp_path / "a.pdf"
+    target.write_bytes(b"x")
+    status_reply = {"exists": True, "is_ghost": False, "item_id": None, "dehydrated": False,
+                    "in_sync": None, "pinned": False, "reason": ""}
+    link = FakeLink({"cf.make_ghost": ShellTimeout("時間切れ"), "cf.status": status_reply})
+
+    def set_shell(pid, generation):
+        link.process_id = lambda: pid
+        link.generation = lambda: generation
+
+    set_shell(4321, 1)  # シェル A
+    platform = WindowsPlatform(link)
+    assert platform.make_ghost(target, ITEM_ID, EXPECTED)["result"] == "unavailable"
+    set_shell(5000, 2)  # A が落ちて、シェル B を起動した（その間、誰も状態を聞かなかった）
+    set_shell(4321, 3)  # B も落ちて、シェル C を起動した。Windows が A の番号を C に使い回した
+    assert platform.ghost_status(target)["is_ghost"] is False  # C には遅れている処理がないので、聞ける
     assert link.types() == ["cf.make_ghost", "cf.status"]
 
 

@@ -159,14 +159,55 @@ def test_files_without_provenance_are_never_labelled_slack(demo):
 
 
 def test_other_queries_students_can_try(demo):
-    # docs/test-data.md の「ほかにも試せる検索」
+    # docs/test-data.md の「ほかにも試せる検索」（2026-10-29 に動かしたとき）
+    expectations = demo_data.other_expected_results(demo["manifest"])
+    assert list(expectations) == demo_data.OTHER_QUERIES
+    for text, expectation in expectations.items():
+        result = run(demo, text)
+        assert demo_data.check_search_result(result, expectation) == [], text
+        assert names(result) == expectation["matches"], text  # 並び順も（新しい順）
     assert names(run(demo, "青い写真")) == ["IMG_2043.jpg"]
     assert names(run(demo, "赤いグラフ")) == ["IMG_2042.png"]
     assert names(run(demo, "メールで貰った")) == ["document (1).docx", "IMG_2042.png"]
     assert names(run(demo, "2か月前の予算")) == ["document.docx"]
-    no_match = run(demo, "先月の予算")
+    no_match = run(demo, "先月の予算")  # 先週の木曜日（10-22）は今月なので、先月の予算の文書はない
     assert no_match["status"] == "no_match"
     assert names(no_match, "partial_results") == ["document (1).docx", "document.docx"]
+    assert run(demo, "Slackで貰った写真")["status"] == "insufficient_info"
+
+
+@pytest.mark.parametrize("when, last_month_status", [
+    ((2026, 10, 29, 10, 0), "no_match"),  # 先週の木曜日（10-22）は今月
+    ((2026, 8, 31, 10, 0), "no_match"),   # 月の終わり（61日前は 7月1日で「先月」になっていた日）
+    ((2026, 11, 1, 10, 0), "found"),      # 月の初め：先週の木曜日（10-22）が先月
+    ((2027, 3, 1, 10, 0), "found"),       # 月の初め：先週の木曜日（2-25）が先月
+    ((2026, 12, 8, 10, 0), "no_match"),   # 先週の木曜日（12-3）は今月。先々週の水曜日（11-25）は先月
+    ((2026, 10, 6, 10, 0), "no_match"),   # 先週の木曜日（10-1）は今月。先週の火曜日・水曜日（9-29、9-30）は先月
+])
+def test_last_month_expectation_follows_the_run_date(tmp_path, when, last_month_status):
+    manifest = demo_data.create_demo_dataset(tmp_path / "demo", datetime(*when).timestamp())
+    expectation = demo_data.other_expected_results(manifest)["先月の予算"]
+    assert expectation["status"] == last_month_status
+    if last_month_status == "found":
+        assert expectation["matches"] == ["document (1).docx"] and "partial_matches" not in expectation
+    else:
+        # 2つの予算の文書が一部一致にあるはず（先月のほかのファイルが、時期だけが合って一部一致にあってもよい）
+        assert expectation["matches"] == [] and expectation["partial_matches"] == ["document (1).docx", "document.docx"]
+
+
+def test_partial_matches_must_be_there_but_other_files_may_also_be_partial():
+    expectation = {"status": "no_match", "matches": [], "partial_matches": ["document (1).docx", "document.docx"],
+                   "reasons": {}, "not_matches": {}, "notes": []}
+
+    def result(partial_names):
+        return {"status": "no_match", "results": [], "notes": [],
+                "partial_results": [{"name": name} for name in partial_names]}
+
+    # 先月のほかのファイル（時期だけが合う）が、一部一致に混ざってもよい
+    assert demo_data.check_search_result(result(["document (1).docx", "IMG_2042.png", "document.docx"]),
+                                         expectation) == []
+    assert demo_data.check_search_result(result(["document (1).docx", "IMG_2042.png"]), expectation) == [
+        "document.docx が一部一致にありません（一部一致：['document (1).docx', 'IMG_2042.png']）"]
 
 
 def test_sensitivity_of_every_dummy_file(demo):
@@ -180,14 +221,22 @@ def test_sensitivity_of_every_dummy_file(demo):
 
 @pytest.mark.parametrize("when, week_starts_on", [
     ((2026, 10, 26, 0, 30), 0),   # 月曜日の深夜（先週が終わった直後）
-    ((2026, 11, 1, 23, 30), 0),   # 日曜日の夜（週の最後）
+    ((2026, 11, 1, 23, 30), 0),   # 日曜日の夜（週の最後）。月の初め（先週の木曜日が先月）
     ((2026, 10, 29, 10, 0), 6),   # 週の始まりを日曜日にした場合
+    ((2026, 8, 31, 10, 0), 0),    # 月の終わり
+    ((2027, 3, 1, 10, 0), 0),     # 月の初め（2月の次）
+    ((2027, 3, 2, 10, 0), 0),
+    ((2027, 1, 1, 0, 30), 0),     # 年の初め（先月は前の年の12月）
+    ((2026, 12, 8, 10, 0), 0),    # 先々週の水曜日（11-25）だけが先月：その日のファイルも「先月の予算」の一部一致に出る
+    ((2026, 10, 6, 10, 0), 0),    # 先週の火曜日・水曜日（9-29、9-30）も先月：そのファイルも一部一致に出る
 ])
 def test_expectations_hold_for_other_dates_and_week_starts(tmp_path, when, week_starts_on):
     now = datetime(*when).timestamp()
     data = build(tmp_path / "demo", now, week_starts_on)
     try:
-        for text, expectation in demo_data.expected_results(data["manifest"]).items():
+        expectations = demo_data.expected_results(data["manifest"])
+        expectations.update(demo_data.other_expected_results(data["manifest"]))  # 「ほかにも試せる検索」も
+        for text, expectation in expectations.items():
             result = search.search(data["conn"], text, now, data["config"], rules)
             assert demo_data.check_search_result(result, expectation) == [], (text, when)
     finally:
@@ -213,7 +262,11 @@ def test_dates_are_relative_to_now(demo):
     for key in ("last_week_day2", "last_week_day3", "last_week_day4"):
         assert last_week["start"] <= times[key] < last_week["end"], key
     assert times["two_weeks_ago"] < last_week["start"]
-    assert round((now - times["two_months_ago"]) / 86400) == 61
+    assert datetime.fromtimestamp(times["two_months_ago"]) == datetime(2026, 8, 15, 10, 0)  # 2か月前の月の15日
+    for when in [(2026, 8, 31, 10, 0), (2027, 3, 1, 10, 0), (2027, 1, 1, 0, 30)]:  # 月の終わり・初めでも、その月の中
+        other_now = datetime(*when).timestamp()
+        two_months_ago = timeutil.find_period("2か月前", other_now)
+        assert two_months_ago["start"] <= demo_data.demo_times(other_now)["two_months_ago"] < two_months_ago["end"]
     for entry in demo["manifest"]["files"]:
         assert os.stat(entry["path"]).st_mtime == pytest.approx(entry["modified_at"])
 
@@ -377,10 +430,32 @@ def test_run_demo_reports_every_expectation(tmp_path):
     assert report["ok"] is True and report["problems"] == []
     assert [query["text"] for query in report["queries"]] == demo_data.DEMO_QUERIES
     assert all(item["ok"] for item in report["sensitivity"])
+    assert [query["text"] for query in report["other_queries"]] == demo_data.OTHER_QUERIES
     lines = demo_data.report_lines(report)
     assert demo_data.SIMULATED_CONDITIONS in lines[2]
     assert lines.count("  ✓ 期待どおり（docs/test-data.md）") == 3
+    # 「ほかにも試せる検索」も、期待と比べた結果を出す（期待は、動かした日付から決める）
+    assert "  ✓ 「先月の予算」：該当なし（一部一致：document (1).docx、document.docx）" in lines
+    assert "      時期：先月（2026-09-01（火）〜2026-09-30（水））" in lines
+    assert "  ✓ 「2か月前の予算」：一致あり（document.docx）" in lines
+    assert sum(1 for line in lines if line.startswith("  ✓ 「")) == len(demo_data.OTHER_QUERIES)
     assert lines[-1] == "結果：すべて期待どおりです"
+
+
+def test_run_demo_reports_a_wrong_other_query(tmp_path, monkeypatch):
+    def wrong(manifest):
+        expectations = original(manifest)
+        expectations["赤いグラフ"]["matches"] = ["IMG_2041.png"]
+        return expectations
+
+    original = demo_data.other_expected_results
+    monkeypatch.setattr(demo_data, "other_expected_results", wrong)
+    report = demo_data.run_demo(tmp_path / "demo", now=tokyo_now())
+    assert report["ok"] is False
+    assert any(problem.startswith("「赤いグラフ」：一致したファイルが") for problem in report["problems"])
+    lines = demo_data.report_lines(report)
+    assert "  ✗ 「赤いグラフ」：一致あり（IMG_2042.png）" in lines
+    assert lines[-1] == "結果：期待と違うものが 1 件あります"
 
 
 def test_run_demo_refusal_is_reported_without_creating_files(fake_home):

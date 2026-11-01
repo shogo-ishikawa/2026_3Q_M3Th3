@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from pip0 import config as config_module
-from pip0 import database, evacuation, rules
+from pip0 import database, evacuation, platform_windows, rules
 
 DAY = 24 * 60 * 60
 NOW = 1_793_000_000.0
@@ -186,6 +186,26 @@ def test_check_location_refuses_and_touches_nothing(env, platform, good_file, na
     assert files_after == files_before
     assert not Path(env["VAULT_DIR"]).exists()  # 保管庫も作っていない
     assert platform.ghosts == {}
+
+
+def test_pinned_file_is_refused_for_being_pinned_with_the_state_windows_reports(env, platform, good_file,
+                                                                                monkeypatch):
+    """「常にこのデバイス上に保持する」（attrib +P）の通常のファイル：Windows の属性の読み方でも、同じ理由で断る
+
+    代役の答えが、Windows の答え（platform_windows.describe_local_state）と同じ形であることも確かめる。
+    """
+    pinned_attributes = 0x20 | platform_windows.FILE_ATTRIBUTE_PINNED  # ARCHIVE と PINNED。再解析ポイントはない
+    on_windows = platform_windows.describe_local_state(pinned_attributes, 0)
+    platform.pinned.add(str(good_file))
+    in_fake = platform.get_local_state(good_file)
+    for key in ("local", "placeholder", "pinned", "reparse"):
+        assert in_fake[key] == on_windows[key]
+    assert in_fake["attributes"] & platform_windows.FILE_ATTRIBUTE_PINNED
+
+    monkeypatch.setattr(platform, "get_local_state", lambda path: dict(on_windows))
+    result = evacuation.check_location(platform, good_file, env)
+    assert result["ok"] is False
+    assert "常にこのデバイス上に保持する" in result["reason"]
 
 
 def test_non_ntfs_reason_names_the_file_system(env, platform, good_file):

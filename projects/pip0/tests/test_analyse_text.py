@@ -5,14 +5,18 @@ Office 文書（.docx、.xlsx、.pptx）は zipfile で最小限の XML を組�
 """
 
 import codecs
+import io
 import logging
 import re
 import types
 import zipfile
 
 import pytest
+from pypdf import PdfReader, PdfWriter
+from pypdf.annotations import FreeText
+from pypdf.generic import ArrayObject, DictionaryObject, NameObject, RectangleObject, TextStringObject
 
-from pip0 import analyse_text, rules
+from pip0 import analyse_text, rules, sensitivity
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -57,7 +61,8 @@ def word_body(paragraphs):
             f'<w:document xmlns:w="{W_NS}"><w:body>{xml}</w:body></w:document>')
 
 
-def make_docx(path, paragraphs, title=None, chart=False, custom=None, body=None):
+def make_docx(path, paragraphs, title=None, chart=False, custom=None, body=None, extra=None):
+    """extra：ほかの部品 {ZIP の中の名前: XML}（ヘッダー、脚注など）"""
     parts = {"word/document.xml": body if body is not None else word_body(paragraphs)}
     if title is not None:
         parts["docProps/core.xml"] = core_xml(title)
@@ -65,7 +70,14 @@ def make_docx(path, paragraphs, title=None, chart=False, custom=None, body=None)
         parts["word/charts/chart1.xml"] = "<c:chartSpace xmlns:c='urn:c'/>"
     if custom is not None:
         parts["docProps/custom.xml"] = custom_xml(custom)
+    parts.update(extra or {})
     return write_zip(path, parts)
+
+
+def word_part(root, paragraphs):
+    """Word のヘッダー（hdr）・フッター（ftr）・脚注（footnotes）・コメント（comments）などの部品"""
+    xml = "".join(f"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>" for text in paragraphs)
+    return f'<?xml version="1.0" encoding="UTF-8"?><w:{root} xmlns:w="{W_NS}">{xml}</w:{root}>'
 
 
 def make_xlsx(path, shared_xml=None, sheets=None, title=None, chart=False):
@@ -90,12 +102,14 @@ def slide_xml(texts):
             f"<p:sp><p:txBody>{paragraphs}</p:txBody></p:sp></p:spTree></p:cSld></p:sld>")
 
 
-def make_pptx(path, slides, title=None, chart=False):
+def make_pptx(path, slides, title=None, chart=False, extra=None):
+    """extra：ほかの部品 {ZIP の中の名前: XML}（スライドマスター、ノートなど）"""
     parts = {f"ppt/slides/slide{number}.xml": slide_xml(texts) for number, texts in slides.items()}
     if title is not None:
         parts["docProps/core.xml"] = core_xml(title)
     if chart:
         parts["ppt/charts/chart1.xml"] = "<c:chartSpace xmlns:c='urn:c'/>"
+    parts.update(extra or {})
     return write_zip(path, parts)
 
 
@@ -226,6 +240,227 @@ def test_text_is_cut_to_text_max_chars(env, platform, tmp_path):
     config = dict(env, TEXT_MAX_CHARS=5)
     result = extract(make_docx(tmp_path / "long.docx", ["あいうえおかきくけこ"]), platform, config)
     assert result["text"] == "あいうえお"
+    assert result["check_texts"]["本文"] == "あいうえおかきくけこ"  # 機密の判定には、切り詰めない全体を使う
+
+
+# ---------------------------------------------------------------------- 機密の判定だけに読む場所と、読んだ範囲
+
+
+def test_word_headers_footers_notes_and_comments_are_read_for_the_check(env, platform, tmp_path):
+    extra = {"word/header1.xml": word_part("hdr", ["社外秘"]),
+             "word/footer2.xml": word_part("ftr", ["Confidential"]),
+             "word/footnotes.xml": word_part("footnotes", ["脚注の文"]),
+             "word/endnotes.xml": word_part("endnotes", ["文末の注"]),
+             "word/comments.xml": word_part("comments", ["コメントの文"]),
+             "word/commentsExtended.xml": word_part("commentsEx", ["読まない部品"])}
+    result = extract(make_docx(tmp_path / "report.docx", ["売上の推移"], extra=extra), platform, env)
+    assert result["status"] == "done"
+    assert result["text"] == "売上の推移"  # 保存する本文は、今までどおり本文の部品だけ（検索と名前の提案に使う）
+    assert result["check_texts"] == {"本文": "売上の推移", "ヘッダー": "社外秘", "フッター": "Confidential",
+                                     "脚注": "脚注の文", "文末脚注": "文末の注", "コメント": "コメントの文"}
+    assert result["unread"] == []
+
+
+def test_slide_masters_layouts_and_notes_are_read_for_the_check(env, platform, tmp_path):
+    extra = {"ppt/slideMasters/slideMaster1.xml": slide_xml(["社外秘"]),
+             "ppt/slideLayouts/slideLayout2.xml": slide_xml(["レイアウトの文字"]),
+             "ppt/notesSlides/notesSlide1.xml": slide_xml(["話す内容"]),
+             "ppt/notesMasters/notesMaster1.xml": slide_xml(["ノートの枠"]),
+             "ppt/handoutMasters/handoutMaster1.xml": slide_xml(["配布資料の枠"])}
+    result = extract(make_pptx(tmp_path / "review.pptx", {1: ["四半期の振り返り"]}, extra=extra), platform, env)
+    assert result["text"] == "四半期の振り返り"
+    assert result["check_texts"] == {"本文": "四半期の振り返り", "ノート": "話す内容", "スライドマスター": "社外秘",
+                                     "スライドのレイアウト": "レイアウトの文字", "ノートのマスター": "ノートの枠",
+                                     "配布資料のマスター": "配布資料の枠"}
+    assert result["unread"] == []
+
+
+# Word の透かし（デザイン → 透かし →「社外秘」）を入れたときに、Word がヘッダーに書く XML（文字は <w:t> ではなく、
+# 図形 v:textpath の属性 string にある）
+WATERMARK_HEADER = (
+    f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr xmlns:w="{W_NS}" '
+    'xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">'
+    '<w:sdt><w:sdtPr><w:docPartObj><w:docPartGallery w:val="Watermarks"/></w:docPartObj></w:sdtPr><w:sdtContent>'
+    '<w:p><w:r><w:pict><v:shapetype id="_x0000_t136" o:spt="136"><v:textpath on="t" fitshape="t"/></v:shapetype>'
+    '<v:shape id="PowerPlusWaterMarkObject1" type="#_x0000_t136" fillcolor="silver" stroked="f">'
+    '<v:textpath style="font-family:&quot;游明朝&quot;;font-size:1pt" string="社外秘"/></v:shape></w:pict></w:r></w:p>'
+    '</w:sdtContent></w:sdt><w:p/></w:hdr>')
+
+
+def test_word_watermark_text_is_read_for_the_check(env, platform, tmp_path):
+    path = make_docx(tmp_path / "事業計画.docx", ["来期の事業計画の案です。"],
+                     extra={"word/header1.xml": WATERMARK_HEADER})
+    result = extract(path, platform, env)
+    assert result["status"] == "done" and result["unread"] == []
+    assert result["check_texts"]["ヘッダー"] == "社外秘"
+    found = sensitivity.find_in_text(result["check_texts"]["ヘッダー"], rules, "ヘッダー")
+    assert [sensitivity.reason_text(finding) for finding in found] == ["ヘッダーに「社外秘」"]
+    # 同じ図形の、古い形式での表現（Fallback の中の VML）は読まない（文字が二重にならない）
+    body = (f'<?xml version="1.0"?><w:document xmlns:w="{W_NS}" xmlns:mc="{MC_NS}" '
+            'xmlns:v="urn:schemas-microsoft-com:vml"><w:body><w:p><w:r><mc:AlternateContent>'
+            "<mc:Choice Requires='wps'><w:t>ワードアート</w:t></mc:Choice><mc:Fallback><w:pict><v:shape>"
+            '<v:textpath string="ワードアート"/></v:shape></w:pict></mc:Fallback></mc:AlternateContent></w:r></w:p>'
+            "</w:body></w:document>")
+    assert extract(make_docx(tmp_path / "art.docx", None, body=body), platform, env)["text"] == "ワードアート"
+
+
+def test_excel_header_footer_and_long_numbers_are_read_for_the_check(env, platform, tmp_path):
+    sheet = (f'<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="{S_NS}"><sheetData><row r="1">'
+             '<c r="A1"><v>123456789018</v></c><c r="B1"><v>45231</v></c><c r="C1" t="s"><v>0</v></c>'
+             '<c r="D1"><v>-123456789018</v></c><c r="E1"><v>1.5</v></c></row></sheetData>'
+             '<headerFooter><oddHeader>&amp;L&amp;"ＭＳ Ｐゴシック,太字"社外秘&amp;R&amp;D</oddHeader>'
+             '<oddFooter>&amp;C&amp;12 Page &amp;P</oddFooter></headerFooter></worksheet>')
+    shared = f'<?xml version="1.0" encoding="UTF-8"?><sst xmlns="{S_NS}"><si><t>ID</t></si></sst>'
+    path = write_zip(tmp_path / "list.xlsx", {"xl/sharedStrings.xml": shared, "xl/worksheets/sheet1.xml": sheet})
+    result = extract(path, platform, env)
+    assert result["status"] == "done"
+    assert result["text"] == "ID"
+    assert result["check_texts"]["ヘッダー・フッター"] == "社外秘\nPage"  # 書式の指定（&L、&"字体"、&12 など）は除く
+    assert result["check_texts"]["セルの数値"] == "123456789018"     # 12桁以上の整数だけ
+    assert result["unread"] == []
+
+
+def test_excel_sheets_with_a_namespace_prefix_are_read_for_the_check(env, platform, tmp_path):
+    # Open XML SDK（.NET）で作った Excel ファイルは、要素の名前に x: が付く
+    sheet = (f'<?xml version="1.0" encoding="UTF-8"?><x:worksheet xmlns:x="{S_NS}"><x:sheetData><x:row r="1">'
+             '<x:c r="A1"><x:v>123456789018</x:v></x:c></x:row></x:sheetData>'
+             '<x:headerFooter><x:evenFooter>&amp;C極秘 &amp;P</x:evenFooter></x:headerFooter></x:worksheet>')
+    result = extract(write_zip(tmp_path / "sdk.xlsx", {"xl/worksheets/sheet1.xml": sheet}), platform, env)
+    assert result["status"] == "done"
+    assert result["check_texts"]["ヘッダー・フッター"] == "極秘"
+    assert result["check_texts"]["セルの数値"] == "123456789018"
+
+
+def test_numeric_sheets_are_searched_without_parsing_the_whole_xml(env, platform, tmp_path, monkeypatch):
+    # 数値だけの大きなシートを XML として解析すると時間がかかるため、ヘッダー・フッターと長い整数は、決まった形の
+    # 部分だけを探す。XML として解析するのは、共有文字列と、直接書かれた文字（inlineStr）のあるシートだけ
+    rows = "".join(f'<row r="{n}"><c r="A{n}"><v>{n * 7}</v></c><c r="B{n}"><v>4012888888881881</v></c></row>'
+                   for n in range(1, 200))
+    numbers_only = (f'<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="{S_NS}"><sheetData>{rows}</sheetData>'
+                    "<headerFooter><oddHeader>&amp;C社外秘</oddHeader></headerFooter></worksheet>")
+    shared = f'<?xml version="1.0" encoding="UTF-8"?><sst xmlns="{S_NS}"><si><t>売上</t></si></sst>'
+    path = write_zip(tmp_path / "売上明細.xlsx",
+                     {"xl/sharedStrings.xml": shared, "xl/worksheets/sheet1.xml": numbers_only})
+    parsed = []
+    real_collect = analyse_text.collect_xml_text
+
+    def recording_collect(data, *args):
+        parsed.append(data[:200])
+        return real_collect(data, *args)
+
+    monkeypatch.setattr(analyse_text, "collect_xml_text", recording_collect)
+    result = extract(path, platform, env)
+    assert result["status"] == "done"
+    assert result["check_texts"]["ヘッダー・フッター"] == "社外秘"
+    assert result["check_texts"]["セルの数値"].split("\n") == ["4012888888881881"] * 199
+    assert len(parsed) == 1 and b"<sst" in parsed[0]  # シートは XML として解析していない
+    doctype = numbers_only.replace("<worksheet", '<!DOCTYPE worksheet [<!ENTITY a "1">]><worksheet', 1)
+    refused = write_zip(tmp_path / "dtd.xlsx", {"xl/worksheets/sheet1.xml": doctype})
+    assert "DOCTYPE" in extract(refused, platform, env)["error"]  # 解析しないシートでも、DOCTYPE があれば読まない
+
+
+def test_the_check_reads_past_the_stored_excerpt(env, platform, tmp_path):
+    config = dict(env, TEXT_MAX_CHARS=10)
+    path = tmp_path / "議事メモ.txt"
+    path.write_text("あ" * 50 + "\n機密\n", encoding="utf-8")
+    result = extract(path, platform, config)
+    assert result["text"] == "あ" * 10
+    assert result["check_texts"]["本文"].endswith("機密")
+    assert result["unread"] == []
+    pdf = tmp_path / "pages.pdf"
+    pdf.write_bytes(build_pdf(["Page one", "Page two", "Page three"]))
+    result = extract(pdf, platform, dict(env, TEXT_MAX_CHARS=4))
+    assert result["text"] == "Page"
+    assert "Page three" in result["check_texts"]["本文"] and result["unread"] == []
+
+
+def test_text_file_longer_than_the_check_limit_reports_the_unread_part(env, platform, tmp_path, monkeypatch):
+    monkeypatch.setattr(analyse_text, "CHECK_MAX_CHARS", 10)  # 10文字の分（40バイト）だけ読む
+    path = tmp_path / "export.csv"
+    path.write_text("id,memo\n" + "1,通常の行\n" * 20, encoding="utf-8")
+    result = extract(path, platform, env)
+    assert result["status"] == "done"
+    assert result["unread"] == ["ファイルの先頭 40 バイトより後"]
+    small = tmp_path / "small.csv"
+    small.write_text("id,memo\n", encoding="utf-8")
+    assert extract(small, platform, env)["unread"] == []
+
+
+def test_office_parts_after_the_check_limit_are_reported(env, platform, tmp_path, monkeypatch):
+    monkeypatch.setattr(analyse_text, "CHECK_MAX_CHARS", 5)
+    extra = {"ppt/slideMasters/slideMaster1.xml": slide_xml(["社外秘"])}
+    path = make_pptx(tmp_path / "deck.pptx", {1: ["あいうえおか"], 2: ["二枚目"]}, extra=extra)
+    result = extract(path, platform, env)
+    assert result["status"] == "done"
+    assert result["check_texts"] == {"本文": "あいうえおか"}
+    assert result["unread"] == ["文字数の目安（5文字）に達した後の部品 2個"]
+
+
+def test_large_excel_sheets_that_were_skipped_are_reported(env, platform, tmp_path):
+    config = dict(env, OFFICE_MAX_XML_BYTES=64 * 1024)
+    big_row = "".join(f'<c r="A{n}" t="inlineStr"><is><t>{"x" * 50}</t></is></c>' for n in range(2000))
+    path = make_xlsx(tmp_path / "big.xlsx", "<si><t>一覧</t></si>",
+                     sheets={1: '<c r="A1" t="inlineStr"><is><t>見積</t></is></c>', 2: big_row})
+    result = extract(path, platform, config)
+    assert result["status"] == "done"
+    assert result["text"] == "一覧\n見積"
+    assert result["unread"] == ["大きすぎるか、文字数の目安に達した後のシート 1個"]
+
+
+def test_pdf_pages_after_the_limit_are_reported(env, platform, tmp_path):
+    path = tmp_path / "handbook.pdf"
+    path.write_bytes(build_pdf([f"Page {number}" for number in range(1, 6)]))
+    assert extract(path, platform, dict(env, PDF_MAX_PAGES=2))["unread"] == ["3〜5ページ"]
+    assert extract(path, platform, dict(env, PDF_MAX_PAGES=4))["unread"] == ["5ページ"]
+    assert extract(path, platform, dict(env, PDF_MAX_PAGES=5))["unread"] == []
+
+
+def make_form_pdf(path, field_value, comment, pages=1):
+    """申請書の PDF：1ページ目の文字の入力欄（kojin_bango）に field_value を入力して保存し、
+    最後のページの注釈（テキストボックス）に comment を書いた"""
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(build_pdf([f"Application form {n}" for n in range(pages)]))))
+    widget = writer.add_annotation(0, DictionaryObject({
+        NameObject("/Subtype"): NameObject("/Widget"), NameObject("/FT"): NameObject("/Tx"),
+        NameObject("/T"): TextStringObject("kojin_bango"), NameObject("/V"): TextStringObject(field_value),
+        NameObject("/Rect"): RectangleObject([150, 600, 350, 620])}))
+    writer.root_object[NameObject("/AcroForm")] = DictionaryObject(
+        {NameObject("/Fields"): ArrayObject([widget.indirect_reference])})
+    writer.add_annotation(pages - 1, FreeText(text=comment, rect=(400, 780, 560, 810)))
+    with open(path, "wb") as f:
+        writer.write(f)
+    return path
+
+
+def test_pdf_form_values_and_comments_are_read_for_the_check(env, platform, tmp_path):
+    # 入力欄に入力した値と、注釈の文字は、ページの本文（extract_text）には出てこない
+    my_number = "482715903622"
+    path = make_form_pdf(tmp_path / "扶養控除等申告書.pdf", my_number, "社外秘")
+    result = extract(path, platform, env)
+    assert result["status"] == "done" and result["unread"] == []
+    assert result["text"] == "Application form 0"  # 保存する本文には入れない（判定だけに使う）
+    assert result["check_texts"]["フォームの入力欄"] == my_number
+    assert result["check_texts"]["注釈"] == "社外秘"
+    reasons = []
+    for place, text in result["check_texts"].items():
+        reasons += [sensitivity.reason_text(finding) for finding in sensitivity.find_in_text(text, rules, place)]
+    assert reasons == ["注釈に「社外秘」", "フォームの入力欄に、検査用数字が正しい12桁の個人番号らしい数字（1件）"]
+    # 上限で読まなかったページの注釈は読まない（そのページは unread に書かれる）
+    long_form = make_form_pdf(tmp_path / "long.pdf", "", "社外秘", pages=3)
+    result = extract(long_form, platform, dict(env, PDF_MAX_PAGES=2))
+    assert result["check_texts"]["注釈"] == "" and result["unread"] == ["3ページ"]
+
+
+def test_parts_read_only_for_the_check_keep_the_size_and_xml_limits(env, platform, tmp_path):
+    config = dict(env, OFFICE_MAX_XML_BYTES=64 * 1024)
+    huge_header = word_part("hdr", ["0" * (200 * 1024)])
+    result = extract(make_docx(tmp_path / "bomb.docx", ["本文"], extra={"word/header1.xml": huge_header}),
+                     platform, config)
+    assert result["status"] == "failed" and "大きすぎる" in result["error"]
+    dtd = (f'<?xml version="1.0"?><!DOCTYPE w:hdr [<!ENTITY a "社外秘">]>'
+           f'<w:hdr xmlns:w="{W_NS}"><w:p><w:r><w:t>&a;</w:t></w:r></w:p></w:hdr>')
+    result = extract(make_docx(tmp_path / "dtd.docx", ["本文"], extra={"word/footer1.xml": dtd}), platform, env)
+    assert result["status"] == "failed" and "DOCTYPE" in result["error"]
+    assert result["check_texts"] is None and result["unread"] is None
 
 
 # ---------------------------------------------------------------------- 圧縮爆弾と壊れたファイル

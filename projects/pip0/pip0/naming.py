@@ -16,6 +16,7 @@
   分からなければ「送信元不明」（推測で決めない。provenance.determine_source を参照）
 
 拡張子は元のまま残し、Windows で使えない文字や予約名は safe_names で直します。
+拡張子のないファイルには、拡張子を付けません（名前の中の「.」を全角の「．」にします。build_name を参照）。
 同じ名前のファイルがあるときの「 (2)」は、移動・改名するとき（fileops.py）に付けます。
 """
 
@@ -32,6 +33,10 @@ UNKNOWN_CONTENT = "内容不明"
 
 # ★ 送信元の部分の最大文字数（ホスト名の主要部分は長いことがあるため）
 SOURCE_MAX_CHARS = 40
+
+# 拡張子のないファイルの新しい名前で、「.」の代わりに使う文字（全角の点）。
+# Windows は名前の最後の「.」から後ろを拡張子とみなすため、「example.co.jp」の「.jp」が拡張子にならないようにする
+DOT_WITHOUT_EXTENSION = "．"
 
 # 解析が終わった（これ以上、内容の手掛かりが増えない）とみなす analysis テーブルの状態
 ANALYSIS_FINISHED_STATES = ["done", "failed", "unsupported"]
@@ -90,13 +95,19 @@ def build_name(date_str, content, source_label, ext):
     - 禁止文字（< > : " / \\ | ? *）は全角の文字に、制御文字は空白にする（safe_names.clean_part）
     - 空の部分は飛ばす。予約名（CON など）と末尾の点・空白は safe_names.make_safe で避ける
     - 拡張子は渡されたまま使う（大文字・小文字も変えない）
+    - 拡張子がない（ext が空）ときは、「.」を全角の「．」にする。そうしないと、送信元「example.co.jp」の
+      「.jp」が、元のファイルにない拡張子になってしまう
+      例：build_name("2026-10-29", "内容不明", "example.co.jp", "") → "2026-10-29_内容不明_example．co．jp"
     """
     parts = []
     for part in (date_str, content, source_label):
         cleaned = clean_name_part(part)
         if cleaned:
             parts.append(cleaned)
-    return safe_names.make_safe(SEPARATOR.join(parts) + (ext or ""))
+    name = SEPARATOR.join(parts)
+    if not ext:
+        name = name.replace(".", DOT_WITHOUT_EXTENSION)
+    return safe_names.make_safe(name + (ext or ""))
 
 
 def clean_name_part(text):

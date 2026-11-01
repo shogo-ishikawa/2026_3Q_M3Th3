@@ -19,6 +19,7 @@ import pytest
 
 from pip0 import cli, fsutil, killswitch, keystore, netguard, rules, scanner, service, vault
 from pip0.platform_fake import FakePlatform
+from pip0.ui import RecordingUi
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 NOW = 1_793_235_600.0
@@ -274,13 +275,9 @@ def test_restore_all_asks_a_running_service_and_shows_its_progress(env, db, plat
 
         thread = threading.Thread(target=ask)
         thread.start()
-        # 常駐処理の役：依頼を受け取り、全復元する
-        deadline = time.time() + 10
-        request = None
-        while request is None and time.time() < deadline:
-            request = killswitch.take_restore_request(env)
-            time.sleep(0.02)
-        assert request is not None
+        # 常駐処理の役：依頼に気付き、全復元する（全復元が、依頼の番号を進み具合に書き、終わったら依頼を外す）
+        request = wait_for_request(env)
+        assert request is not None and len(request["request_id"]) == 32
         assert killswitch.is_engaged(None, env)  # 依頼と同時に、停止の印も書かれている
         killswitch.restore_all(db, platform, env)
         thread.join(timeout=10)
@@ -291,6 +288,178 @@ def test_restore_all_asks_a_running_service_and_shows_its_progress(env, db, plat
     assert "動いている pip0 に全復元を依頼しました" in results["text"]
     assert "結果：全 1 件中 1 件：復元 1" in results["text"]
     assert platform.ghosts == {}
+    assert killswitch.read_restore_request(env) is None
+
+
+def wait_for_request(config, seconds=10):
+    """コマンドが全復元の依頼のファイルを書くまで待ち、その中身を返す（書かれなければ None）"""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        request = killswitch.read_restore_request(config)
+        if request is not None:
+            return request
+        time.sleep(0.01)
+    return None
+
+
+def test_restore_all_gets_its_result_even_when_the_service_step_started_before_the_request(
+        env, db, key_store, platform, small, monkeypatch):
+    """常駐処理の 1 回分（step）の時刻が、依頼を書いた時刻より前でも、その依頼の結果を受け取って終わる
+
+    （常駐処理は、step の始めに読んだ時刻を使う。コマンドは時計を比べず、依頼の番号で自分の結果を見分ける）
+    """
+    monkeypatch.setattr(cli, "PROGRESS_POLL_SECONDS", 0.02)
+    path = make_file(Path(env["PIP0_ROOT"]) / "a.pdf")
+    digest = sha256_of(path)
+    ghost(db, platform, small, path)
+    behind = time.time() - 3600  # この step は、依頼が書かれるより前に時刻を読んでいた
+    svc = service.Service(small, rules, platform, RecordingUi(), db, clock=lambda: behind, start_threads=False)
+    assert svc.start()["ok"]
+    results = {}
+    try:
+        def ask():
+            results["code"], results["text"] = run(places(env) + ["restore-all"], keystore=key_store)
+
+        thread = threading.Thread(target=ask, daemon=True)
+        thread.start()
+        assert wait_for_request(env) is not None
+        svc.next_control_poll = 0
+        svc.step()  # 依頼を受け付けて、全復元する
+        thread.join(timeout=10)
+        assert not thread.is_alive(), "終わった全復元を、コマンドが待ち続けています"
+    finally:
+        svc.shutdown()
+    assert results["code"] == 0, results["text"]
+    assert "結果：全 1 件中 1 件：復元 1" in results["text"]
+    assert platform.ghosts == {} and sha256_of(path) == digest
+
+
+def test_restore_all_by_request_shows_why_an_item_was_not_restored(env, db, key_store, platform, small, monkeypatch):
+    """常駐処理に依頼した全復元でも、戻せなかった項目の理由（常駐処理が DB に残したもの）を表示する"""
+    monkeypatch.setattr(cli, "PROGRESS_POLL_SECONDS", 0.02)
+    item_id = ghost(db, platform, small, make_file(Path(env["PIP0_ROOT"]) / "a.pdf"))
+    platform.fail_next["restore_ghost"] = {"result": "error", "reason": "読み取り専用のゴーストのため、戻せません。"
+                                                                         "「読み取り専用」を外してから、もう一度試してください。"}
+    svc = service.Service(small, rules, platform, RecordingUi(), db, start_threads=False)
+    assert svc.start()["ok"]
+    results = {}
+    try:
+        def ask():
+            results["code"], results["text"] = run(places(env) + ["restore-all"], keystore=key_store)
+
+        thread = threading.Thread(target=ask, daemon=True)
+        thread.start()
+        assert wait_for_request(env) is not None
+        svc.next_control_poll = 0
+        svc.step()
+        thread.join(timeout=10)
+        assert not thread.is_alive()
+    finally:
+        svc.shutdown()
+    assert results["code"] == 1
+    assert item_id in results["text"] and "「読み取り専用」を外してから" in results["text"]
+
+
+def test_restore_all_stops_waiting_with_advice_when_the_service_does_not_answer(env, monkeypatch):
+    monkeypatch.setattr(cli, "PROGRESS_POLL_SECONDS", 0.02)
+    monkeypatch.setattr(cli, "RESTORE_QUIET_SECONDS", 0.3)
+    lock = service.InstanceLock(env)  # 常駐処理は動いているが、依頼を受け付けない（ほかの処理を待っている等）
+    assert lock.acquire()
+    results = {}
+    try:
+        def ask():
+            results["code"], results["text"] = run(places(env) + ["restore-all"])
+
+        thread = threading.Thread(target=ask, daemon=True)
+        thread.start()
+        thread.join(timeout=10)
+        assert not thread.is_alive(), "答えのない常駐処理を、コマンドが待ち続けています"
+    finally:
+        lock.release()
+    assert results["code"] == 1
+    assert "全復元を始めません" in results["text"]
+    assert "依頼は残してあります" in results["text"]
+    assert "python -m pip0 shutdown" in results["text"]
+    assert killswitch.read_restore_request(env) is not None  # 依頼は残る（常駐処理が受け付ければ全復元する）
+    assert killswitch.restore_unfinished(env) is True  # 依頼が残っている間は、resume を断る
+
+
+def test_restore_all_reports_from_the_database_when_a_later_restore_replaced_its_progress(
+        env, db, key_store, platform, small, monkeypatch):
+    """依頼に応えた全復元のすぐ後に、別の全復元（続けて押された通知領域の「全復元」など）が進み具合を書き換えても、
+    コマンドは待ち続けない。まだ戻していない項目を DB から読んで、結果を示す"""
+    monkeypatch.setattr(cli, "RESTORE_QUIET_SECONDS", 1.0)
+    for name in ["a.pdf", "b.pdf"]:
+        ghost(db, platform, small, make_file(Path(env["PIP0_ROOT"]) / name))
+    svc = service.Service(small, rules, platform, RecordingUi(), db, start_threads=False)
+    assert svc.start()["ok"]
+    real_sleep = time.sleep
+    runs = []
+
+    def service_answers_twice_between_two_checks(seconds):
+        # コマンドが進み具合を確かめてから、次に確かめるまでの間に、常駐処理がコマンドの依頼に応え、
+        # 続けて押された通知領域の「全復元」にも応える（進み具合のファイルは、後の全復元のものになる）
+        if not runs:
+            runs.append(1)
+            svc.next_control_poll = 0
+            svc.step()
+            svc.handle_event({"type": "tray.command", "payload": {"command": "kill_switch"}}, svc.clock())
+            svc.step()
+        real_sleep(0.01)
+
+    monkeypatch.setattr(cli.time, "sleep", service_answers_twice_between_two_checks)
+    try:
+        code, text = run(places(env) + ["restore-all"], keystore=key_store)
+    finally:
+        svc.shutdown()
+    assert runs and platform.ghosts == {}
+    assert code == 0, text
+    assert "件数は、すぐ後に続いた全復元" in text and "まだ戻していない項目はありません" in text
+    assert "全復元を始めません" not in text and "依頼は残してあります" not in text
+
+
+def test_restore_all_stops_waiting_when_only_the_time_of_the_progress_changes(env, monkeypatch):
+    """常駐処理の全復元が、何も戻せないまま失敗して試し直し続けるとき（進み具合は同じ件数のまま、書いた時刻だけが
+    変わる）、コマンドは待ち続けず、RESTORE_QUIET_SECONDS の後に、することを示して終わる"""
+    monkeypatch.setattr(cli, "RESTORE_QUIET_SECONDS", 0.3)
+    lock = service.InstanceLock(env)  # 常駐処理が動いている（ロックを持っている）ことをまねる
+    assert lock.acquire()
+    stuck = {key: 0 for key in killswitch.COUNT_KEYS}
+    stuck.update(total=1, remaining=1, finished=False)
+    real_sleep = time.sleep
+    checks = []
+
+    def service_retries_without_progress(seconds):
+        # 常駐処理の役：依頼に応える全復元を、試し直すたびに最初の件数から書き直す（時刻だけが変わる）
+        checks.append(seconds)
+        assert len(checks) < 300, "進み具合の時刻だけが変わる間、コマンドが待ち続けています"
+        killswitch.write_progress(env, stuck, killswitch.request_number(killswitch.read_restore_request(env)))
+        real_sleep(0.01)
+
+    monkeypatch.setattr(cli.time, "sleep", service_retries_without_progress)
+    try:
+        code, text = run(places(env) + ["restore-all"])
+    finally:
+        lock.release()
+    assert code == 1
+    assert "全 1 件中 0 件" in text and "進み具合が変わりません" in text
+    assert "python -m pip0 shutdown" in text
+
+
+def test_restore_all_report_and_vault_list_show_why_an_item_was_not_restored(env, db, key_store, platform, small):
+    path = make_file(Path(env["PIP0_ROOT"]) / "a.pdf")
+    item_id = ghost(db, platform, small, path)
+    read_only = ("読み取り専用のゴーストのため、通常のファイルに戻せません。"
+                 "エクスプローラーでファイルのプロパティを開き、"
+                 "「読み取り専用」を外してから、もう一度試してください（中身は保管庫に残っています）。")
+    platform.fail_next["restore_ghost"] = {"result": "error", "reason": read_only}
+    code, text = run(places(env) + ["restore-all"], keystore=key_store, platform=platform)
+    assert code == 1
+    assert "失敗 1" in text
+    assert item_id in text and "「読み取り専用」を外してから" in text  # 項目ごとの理由とすること
+    assert "続きから試します" not in text  # 理由を直さずにやり直しても同じなので、やり直しだけを勧めない
+    code, text = run(places(env) + ["vault", "list"], keystore=key_store)
+    assert code == 0 and "理由：" in text and "「読み取り専用」を外してから" in text
 
 
 # ---------------------------------------------------------------------- serve、shutdown
@@ -409,6 +578,29 @@ def test_unregister_root_is_refused_while_a_ghost_remains(env, db, key_store, sm
     code, text = run(places(env) + ["unregister-root"], keystore=key_store, platform=platform)
     assert code == 0, text
     assert platform.is_sync_root_registered(env["PIP0_ROOT"]) is False
+
+
+def test_unregister_root_after_changing_the_pip0_root_is_blocked_only_by_ghosts(env, db, key_store, small, tmp_path):
+    """PIP0_ROOT を変えた後：前の場所のゴーストでは止める（元に戻すよう案内する）。戻し終えた項目では止めない"""
+    platform = UnregisteringPlatform(vault_dir=env["VAULT_DIR"])
+    platform.register_sync_root(env["PIP0_ROOT"], "pip0")
+    item_id = ghost(db, platform, small, make_file(Path(env["PIP0_ROOT"]) / "a.pdf"))
+    new_root = tmp_path / "Documents" / "pip0"
+    new_root.mkdir(parents=True)
+    platform.register_sync_root(new_root, "pip0")
+    new_places = ["--data-dir", str(env["DATA_DIR"]), "--pip0-root", str(new_root),
+                  "--downloads-dir", str(env["DOWNLOADS_DIR"])]
+
+    code, text = run(new_places + ["unregister-root"], keystore=key_store, platform=platform)
+    assert code == 1 and "解除しません" in text
+    assert "PIP0_ROOT を変えた場合は、元に戻してから全復元してください" in text
+    assert platform.is_sync_root_registered(new_root) is True
+
+    # 前の場所で戻し終えた後なら、今の場所の登録を解除できる（戻し終えた項目では止めない）
+    assert vault.restore(db, platform, item_id, env, actor="user")["state"] == "restored"
+    code, text = run(new_places + ["unregister-root"], keystore=key_store, platform=platform)
+    assert code == 0, text
+    assert platform.is_sync_root_registered(new_root) is False
 
 
 def test_unregister_root_skips_folders_without_a_record_or_content(env, key_store):

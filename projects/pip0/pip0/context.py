@@ -17,7 +17,7 @@ context.foreground の知らせ（プロセス名、ウィンドウタイトル�
 画面の画像は取得しません。
 
 語の分け方（split_words）と、語を探す関数（find_word、take_words、contains_word）は、検索（search.py）でも使います。
-長い本文を速く調べる部品（prepare_text、search_forms、contains_prepared）は、浮上式デスク（desk.py）でも使います。
+長い本文を速く調べる部品（prepare_text、search_forms、contains_whole_word）は、浮上式デスク（desk.py）でも使います。
 """
 
 import os
@@ -40,6 +40,14 @@ CONVERSATION_KIND_LABELS = {"channel": "チャンネル", "dm": "DM"}
 # ★文脈の語として残す、最も短い文字数
 MIN_KEYWORD_CHARS = 2
 
+# ★ひらがなを含んでいても、分けずに1つの語として残す語（ほかの語は、ひらがなの所で分けます）。
+#   ひらがなの所で分けると、漢字が1文字ずつになって語として残らないもの（「打ち合わせ」→「打」「合」）を書きます。
+#   その語だけの題名（「打ち合わせ」「引き継ぎ」）は、ここに書かなくても分けません（split_at_hiragana）。
+#   ここに書くと、ほかの語に続けて書かれたとき（「定例打ち合わせ」「会議の打ち合わせ」）も、1つの語として残ります。
+#   rules.SORT_RULES の context_keywords に、ひらがなを含む語を足すときは、ここにも足してください
+#   （文書のアプリでは、仕分け先の文脈語を、この文脈の語と比べるため）
+KEEP_WHOLE_WORDS = ["打ち合わせ", "問い合わせ", "申し込み", "締め切り", "お知らせ"]
+
 # ★文書のアプリのタイトルで、文書名に付くことがある状態の表示（取り除く）。実機の Office では確かめていません
 DOCUMENT_TITLE_MARKERS = ["[互換モード]", "[Compatibility Mode]", "[読み取り専用]", "[Read-Only]",
                           "[保護ビュー]", "[Protected View]"]
@@ -49,6 +57,18 @@ LABEL_DETAIL_MAX_CHARS = 30
 
 # 空白・記号・括弧・区切りの文字（「・」「_」「-」「|」など）。\W は「文字・数字以外」、_ も区切りにする
 WORD_SEPARATORS = re.compile(r"[\W_]+")
+
+# カタカナの範囲（「゠」〜「ヿ」）にあるが、カタカナではなく区切りの記号として扱う文字（中黒「・」と「゠」）。
+# 「マーケティング・プラン」は「マーケティング」と「プラン」の2つの語（WORD_SEPARATORS と同じ分け方）
+KATAKANA_SEPARATORS = "゠・"
+
+# カタカナの語の後ろに付くことがある長音の印。「サーバ」と「サーバー」、「ユーザ」と「ユーザー」は、同じ語の書き方の違い
+LONG_VOWEL_MARK = "ー"
+
+# ★別の意味の、より長い言葉。この言葉の中の「赤」「表」は、色や表（スプレッドシート）として数えない。
+#   1文字の漢字の語に、ひらがなが続く言葉を書きます（漢字が続く「青森」「発表」は、書かなくても数えません）。
+#   「赤の」「赤だけ」「青ばかり」「表より」などは、色や表として数えます
+OTHER_MEANING_WORDS = ["赤ちゃん", "赤ん坊", "表す", "表し", "表さ", "表せ", "表れ", "表わ"]
 
 
 # ----------------------------------------------------------------------
@@ -204,8 +224,11 @@ def tidy(text):
 def extract_keywords(text, rules):
     """会話名・ページ題名・文書名から、文脈の語のリストを取り出す（形態素解析は使わない簡単な方法）
 
-    1. split_words で語に分ける（空白・記号・括弧・区切りで分け、「予算2026」は「予算」と「2026」に分ける）
-    2. MIN_KEYWORD_CHARS（2）文字未満の語と、rules.CONTEXT_STOP_WORDS の語（「Slack」など）を除く
+    1. split_words で語に分ける（空白・記号・括弧・区切りで分け、「予算2026」は「予算」と「2026」に分ける。
+       ひらがなは、検索と同じく語の区切りとして読み飛ばす：「予算の相談」→「予算」「相談」。
+       KEEP_WHOLE_WORDS の語（「打ち合わせ」）と、分けると2文字以上の語が残らない語（「引き継ぎ」）は分けない。
+       検索の言葉（search.parse_query）では、これらの語もひらがなの所で分けます）
+    2. MIN_KEYWORD_CHARS（2）文字未満の語と、rules.CONTEXT_STOP_WORDS の語（「Slack」「the」など）を除く
     3. 同じ語（大文字・小文字の違いだけのものを含む）は、最初の1つだけを残す。順番は元の文のまま
     """
     if not text:
@@ -213,7 +236,7 @@ def extract_keywords(text, rules):
     stop = stop_word_set(rules)
     keywords = []
     seen = set()
-    for word in split_words(text):
+    for word in split_words(text, KEEP_WHOLE_WORDS):
         key = fold(word)
         if len(word) < MIN_KEYWORD_CHARS or key in stop or key in seen:
             continue
@@ -231,24 +254,51 @@ def stop_word_set(rules):
     return stop
 
 
-def split_words(text):
+def split_words(text, keep_words=()):
     """文字列を語に分ける（★語の分け方を変えたいときは、ここを直します）
 
     1. 全角の英数字を半角に、半角カナを全角にそろえる（NFKC）
     2. 空白・記号・括弧・区切りの文字で分ける
-    3. 文字の種類（数字、英字、カタカナ、それ以外）が変わる所で分ける
-       例：「予算2026」→「予算」「2026」、「2026年度予算WG」→「2026」「年度予算」「WG」
-    漢字とひらがなの間では分けません（「打ち合わせ」を1語のまま残すため）。
+    3. keep_words の語（「打ち合わせ」など）は、分けずにそのまま1つの語にする
+    4. 文字の種類（数字、英字、カタカナ、それ以外）が変わる所で分ける（split_by_character_type）
+    5. 漢字とひらがなのまとまりは、ひらがなの所で分け、ひらがなの部分は捨てる（split_at_hiragana）
+       （ひらがなは助詞や送り仮名として読み飛ばす。検索の search.take_hiragana と同じ考え方）。
+       ただし、分けると2文字以上の語が残らないまとまり（「引き継ぎ」→「引」「継」）は、分けずに1つの語にする
+       例：「予算2026」→「予算」「2026」、「2026年度予算WG」→「2026」「年度予算」「WG」、
+           「予算の申請について」→「予算」「申請」、「引き継ぎメモ」→「引き継ぎ」「メモ」
     """
+    keep = [normalise(word) for word in keep_words if word]
     words = []
     for piece in WORD_SEPARATORS.split(normalise(text)):
-        if piece:
-            words.extend(split_by_character_type(piece))
+        rest = piece
+        while rest:
+            index, kept = first_kept_word(rest, keep)
+            if kept is None:
+                words.extend(split_by_character_type(rest))
+                break
+            words.extend(split_by_character_type(rest[:index]))  # 残す語の前の部分
+            words.append(kept)
+            rest = rest[index + len(kept):]                         # 残す語の後ろの部分を、続けて分ける
     return words
 
 
+def first_kept_word(text, keep_words):
+    """text の中で最初に出てくる keep_words の語 (位置, 語)。なければ (-1, None)"""
+    best_index = -1
+    best_word = None
+    for word in keep_words:
+        index = text.find(word)
+        if index >= 0 and (best_word is None or index < best_index):
+            best_index = index
+            best_word = word
+    return best_index, best_word
+
+
 def split_by_character_type(piece):
-    """文字の種類が変わる所で分ける（数字・英字・カタカナ・それ以外の4つのまとまり）"""
+    """文字の種類が変わる所で分ける（数字・英字・カタカナ・それ以外のまとまり）
+
+    漢字とひらがなのまとまり（"text"）は、split_at_hiragana で、さらにひらがなの所で分けます。
+    """
     parts = []
     current = ""
     current_group = None
@@ -261,25 +311,66 @@ def split_by_character_type(piece):
         current_group = group
     if current:
         parts.append(current)
-    return parts
+    words = []
+    for part in parts:
+        if split_group(part[0]) == "text":
+            words.extend(split_at_hiragana(part))
+        else:
+            words.append(part)
+    return words
 
 
 def split_group(ch):
-    """split_by_character_type で使う、文字のまとまり。漢字とひらがなは同じまとまり"""
+    """split_by_character_type で使う、文字のまとまり（漢字・ひらがな・記号などは "text" のまとまり）"""
     kind = character_type(ch)
     if kind in ("digit", "latin", "katakana"):
         return kind
     return "text"
 
 
+def split_at_hiragana(part):
+    """漢字とひらがなのまとまりを、ひらがなの所で分ける。ひらがなは助詞や送り仮名として捨てる
+
+    例：「予算の相談」→「予算」「相談」、「予算の見直し」→「予算」「見直」
+    分けると MIN_KEYWORD_CHARS（2）文字以上の語が1つも残らないときは、送り仮名のある1つの語とみなして、
+    最初の漢字から後ろを分けずに残す（「引き継ぎ」→「引き継ぎ」、「の書き方」→「書き方」）。
+    ひらがなだけのまとまり（「について」）は、語として残さない。
+    """
+    pieces = []
+    current = ""
+    for ch in part:
+        if character_type(ch) == "hiragana":
+            if current:
+                pieces.append(current)
+            current = ""
+        else:
+            current += ch
+    if current:
+        pieces.append(current)
+    if not pieces:
+        return []  # ひらがなだけ
+    for word in pieces:
+        if len(word) >= MIN_KEYWORD_CHARS:
+            return pieces  # 2文字以上の語が残る（「予算」「相談」）
+    start = 0
+    while character_type(part[start]) == "hiragana":
+        start += 1  # 前に付いたひらがな（「の書き方」の「の」）は除く
+    return [part[start:]]
+
+
 def character_type(ch):
-    """1文字の種類："digit"（数字）、"latin"（英字）、"hiragana"、"katakana"、"kanji"、"other"（それ以外）"""
+    """1文字の種類："digit"（数字）、"latin"（英字）、"hiragana"、"katakana"、"kanji"、"other"（それ以外）
+
+    カタカナの範囲にある区切りの記号（KATAKANA_SEPARATORS の「・」など）は "other" にします。
+    """
     if ch.isascii() and ch.isdigit():
         return "digit"
     if ch.isascii() and ch.isalpha():
         return "latin"
     if "ぁ" <= ch <= "ゟ":
         return "hiragana"
+    if ch in KATAKANA_SEPARATORS:
+        return "other"
     if "゠" <= ch <= "ヿ":
         return "katakana"  # 長音の「ー」も含む
     if "一" <= ch <= "鿿" or ch in "々〆":
@@ -350,6 +441,59 @@ def contains_prepared(prepared_text, forms):
     return False
 
 
+def contains_whole_word(prepared_text, forms):
+    """contains_prepared と同じく探すが、英字・数字・カタカナの語は「1つの語として」あるときだけ True
+
+    浮上式デスク（desk.py）で使います。
+
+    前後に同じ種類の文字が続く所は、より長い別の語の一部なので数えない
+    （「booking」の中の「book」、「there」の中の「the」、「グラフィック」の中の「グラフ」、「20261029」の中の「2026」）。
+    英字と数字は別の種類（「budget2026」の中の「budget」と「2026」は数える。split_words の分け方と同じ）。
+    中黒「・」は区切り（「マーケティング・プラン」の中の「マーケティング」は数える）。
+    カタカナの語のすぐ後ろの長音「ー」は、書き方の違いとして数える（「サーバー」の中の「サーバ」）。
+    漢字の語は、前後に漢字が続いていても数える（「予算案」の中の「予算」）。
+    「BudgetPlan」のように、大文字で区切った名前の中の語（budget）は数えない。
+    """
+    if not prepared_text:
+        return False
+    for form in forms:
+        start = prepared_text.find(form)
+        while start >= 0:
+            end = start + len(form)
+            if not continues_into_longer_word(prepared_text, start, end):
+                return True
+            start = prepared_text.find(form, start + 1)
+    return False
+
+
+def continues_into_longer_word(text, start, end):
+    """text[start:end] の語が、前か後ろの同じ種類の文字（英字・数字・カタカナ）と続いていれば True
+
+    カタカナで終わる語のすぐ後ろの長音「ー」は、語の書き方の違いとして語に含めてから、その後ろを調べる
+    （「サーバー・ネットワーク」の中の「サーバ」は続いていない。「データーベース」の中の「データ」は続いている）。
+    """
+    if start > 0 and continues_with(text[start], text[start - 1]):
+        return True
+    if end < len(text) and normalise(text[end]) == LONG_VOWEL_MARK and word_kind(text[end - 1]) == "katakana":
+        end += 1  # 「サーバー」の「ー」
+    return end < len(text) and continues_with(text[end - 1], text[end])
+
+
+def continues_with(edge, neighbour):
+    """語の端の文字 edge と隣の文字 neighbour が、どちらも英字、どちらも数字、どちらもカタカナなら True"""
+    kind = word_kind(edge)
+    if kind not in ("latin", "digit", "katakana"):
+        return False  # 漢字・ひらがなで終わる語は、隣の文字を調べない
+    return word_kind(neighbour) == kind
+
+
+def word_kind(ch):
+    """character_type と同じ。ただし全角の英数字（「Ａ」「１」）は、半角と同じ種類にする"""
+    if not ch.isascii():
+        ch = normalise(ch)[:1]
+    return character_type(ch)
+
+
 def contains_word(text, word):
     """text の中に word があれば True（英字の大文字・小文字と、英数字の全角・半角の違いは無視する）
 
@@ -375,7 +519,7 @@ def find_word(text, word):
     """text の中で word が「1つの語として」現れる最初の位置。なければ -1（英字の大文字・小文字は区別しない）
 
     前後の文字とつながって、より長い語の一部になっているものは数えません（stands_alone）。
-    例：「グラフィック」の中の「グラフ」、「Online」の中の「line」、「青森」の中の「青」は数えない。
+    例：「グラフィック」の中の「グラフ」、「Online」の中の「line」、「青森」「赤ちゃん」の中の「青」「赤」は数えない。
     """
     if not word:
         return -1
@@ -396,11 +540,17 @@ def stands_alone(text, start, end):
     - 英数字どうし（「LINE」と「Online」）
     - カタカナどうし（「グラフ」と「グラフィック」）、ひらがなどうし（「の」と「きのこ」）
     - 1文字の漢字の語と、漢字（「青」と「青森」、「表」と「発表」）
+    - OTHER_MEANING_WORDS の言葉の始まりの部分（「赤」と「赤ちゃん」、「表」と「表す」）
     """
     word = text[start:end]
     before = text[start - 1] if start > 0 else " "
     after = text[end] if end < len(text) else " "
-    return not joined(before, word[0], len(word)) and not joined(after, word[-1], len(word))
+    if joined(before, word[0], len(word)) or joined(after, word[-1], len(word)):
+        return False
+    for longer in OTHER_MEANING_WORDS:
+        if longer.startswith(word) and text.startswith(longer, start):
+            return False  # 「赤ちゃん」の中の「赤」
+    return True
 
 
 def joined(neighbour, edge, word_length):

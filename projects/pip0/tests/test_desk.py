@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from pip0 import context, database, desk, rules
+from pip0 import context, database, desk, keystore, rules
 
 NOW = 1_793_235_600.0  # 2026-10-29 10:00（日本時間）
 DAY = 24 * 60 * 60
@@ -174,6 +174,127 @@ def test_equal_scores_put_recently_used_files_first(db, env):
     add_file(db, env, "予算_新しい.txt", mtime=NOW - 40 * DAY)
     ranked = desk.rank_files(db, slack_context(), NOW, env, rules)
     assert [item["name"] for item in ranked] == ["予算_新しい.txt", "予算_古い.txt"]
+
+
+@pytest.mark.parametrize("process, title", [
+    ("slack.exe", "予算の相談 (Channel) - 研究室 - Slack"),
+    ("chrome.exe", "予算の申請について - Google Chrome"),
+    ("winword.exe", "予算の見直し.docx - Word"),
+])
+def test_titles_with_particles_still_find_the_budget_file(db, env, process, title):
+    """助詞を含む題名でも、ひらがなの所で語を分けて、予算の文書を見つける（題名全体を1つの語として探さない）"""
+    add_file(db, env, "document (1).docx", title="2026年度 予算案", text="部門別の予算の内訳")
+    add_file(db, env, "memo.txt", text="関係のない文書")
+    current = context.parse_foreground({"process_name": process, "window_title": title}, rules)
+    ranked = desk.rank_files(db, current, NOW, env, rules)
+    assert [item["name"] for item in ranked] == ["document (1).docx"]
+    assert ranked[0]["reasons"] == ["タイトルに「予算」（+3）", "本文に「予算」（+2）"]
+
+
+def test_english_and_katakana_keywords_count_only_as_whole_words(db, env):
+    add_file(db, env, "handout.pdf", text="Agenda: room booking and the schedule")  # 「booking」の中の「book」
+    add_file(db, env, "グラフィックデザイン.pdf")  # 「グラフィック」の中の「グラフ」
+    add_file(db, env, "IMG_20261029.png")  # 長い数字の中の「2026」
+    add_file(db, env, "budget2026.xlsx")  # 英字と数字の間は区切り（「budget」と「2026」の2つの語）
+    chrome = context.parse_foreground({"process_name": "chrome.exe",
+                                       "window_title": "How to book the グラフ for Budget 2026 - Google Chrome"}, rules)
+    assert chrome["keywords"] == ["book", "グラフ", "Budget", "2026"]  # 「How」「to」「the」「for」は除く
+    ranked = desk.rank_files(db, chrome, NOW, dict(env, DESK_MAX_ITEMS=10), rules, limit=10)
+    assert {item["name"]: item["reasons"] for item in ranked} == {
+        "budget2026.xlsx": ["ファイル名に「Budget」（+3）", "ファイル名に「2026」（+3）"]}
+
+
+@pytest.mark.parametrize("process, title, file_name, text, reasons", [
+    # 中黒「・」でつないだ名前（同じ文書の別の版）
+    ("powerpnt.exe", "マーケティング・プラン.pptx - PowerPoint", "マーケティング・プラン_v2.pptx", None,
+     ["ファイル名に「マーケティング」（+3）", "ファイル名に「プラン」（+3）"]),
+    # 長音「ー」の有無だけが違う書き方
+    ("winword.exe", "ユーザ管理.docx - Word", "ユーザー一覧.xlsx", None, ["ファイル名に「ユーザ」（+3）"]),
+    ("chrome.exe", "サーバ・ネットワーク設定 - Google Chrome", "報告.docx",
+     "新しいサーバー・ネットワークの構成について", ["本文に「サーバ」（+2）", "本文に「ネットワーク」（+2）"]),
+    # 送り仮名のある語だけの会話名
+    ("slack.exe", "引き継ぎ (Channel) - 研究室 - Slack", "引き継ぎメモ.docx", None, ["ファイル名に「引き継ぎ」（+3）"]),
+    ("slack.exe", "振り返り (Channel) - 研究室 - Slack", "振り返り_第3回.pptx", None,
+     ["ファイル名に「振り返り」（+3）"]),
+])
+def test_katakana_with_dots_and_long_vowels_and_words_with_okurigana(db, env, process, title, file_name, text,
+                                                                    reasons):
+    add_file(db, env, file_name, text=text)
+    add_file(db, env, "関係なし.txt", text="関係のない文書")
+    current = context.parse_foreground({"process_name": process, "window_title": title}, rules)
+    ranked = desk.rank_files(db, current, NOW, env, rules)
+    assert [(item["name"], item["reasons"]) for item in ranked] == [(file_name, reasons)]
+
+
+# ---------------------------------------------------------------------- 本文の覚え書き（rank_files を軽くする）
+
+
+def statements_reading_text(conn, action):
+    """action() の間に DB へ送った命令のうち、本文（text_excerpt）の中身を読むもの
+
+    typeof(...) で本文の有無を見るだけの命令は、中身を読まないので数えない。
+    """
+    sent = []
+    conn.set_trace_callback(sent.append)
+    try:
+        action()
+    finally:
+        conn.set_trace_callback(None)
+    return [sql for sql in sent if "text_excerpt" in sql.replace("typeof(a.text_excerpt)", "")]
+
+
+def test_body_text_is_read_once_and_again_only_after_a_new_analysis(db, env):
+    ids = [add_file(db, env, f"report{number}.docx", text=f"第{number}四半期の予算") for number in range(5)]
+    db.execute("UPDATE analysis SET analysed_at = ?", (NOW - DAY,))
+    add_file(db, env, "IMG_0001.png")  # 本文のない解析結果は読まない
+
+    def rank():
+        return desk.rank_files(db, slack_context(), NOW, dict(env, DESK_MAX_ITEMS=10), rules, limit=10)
+
+    assert len(statements_reading_text(db, rank)) == 5      # 1回目：本文のある5件を読む
+    assert statements_reading_text(db, rank) == []          # 2回目からは、覚えた本文を使う（DB から読まない）
+    # 解析し直したファイル（analysed_at が変わった）だけを読み直し、新しい本文で点を付ける
+    db.execute("UPDATE analysis SET analysed_at = ?, text_excerpt = '関係のない文書' WHERE file_id = ?", (NOW, ids[0]))
+    assert len(statements_reading_text(db, rank)) == 1
+    names = [item["name"] for item in rank()]
+    assert "report0.docx" not in names and len(names) == 4
+
+
+def test_only_the_beginning_of_the_body_text_is_searched(db, env):
+    add_file(db, env, "early.txt", text="予算" + "あ" * 3000)
+    add_file(db, env, "late.txt", text="あ" * desk.TEXT_CHECK_CHARS + "予算")  # 調べる範囲の後ろにだけ「予算」
+    ranked = desk.rank_files(db, slack_context(), NOW, env, rules)
+    assert [item["name"] for item in ranked] == ["early.txt"]
+    assert ranked[0]["reasons"] == ["本文に「予算」（+2）"]
+
+
+def test_body_texts_are_read_a_few_at_a_time(db, env, monkeypatch):
+    """起動の直後でも、1回の計算で読む本文は TEXT_LOADS_PER_RANKING 件まで（新しいファイルから）。残りは次の回に読む"""
+    monkeypatch.setattr(desk, "TEXT_LOADS_PER_RANKING", 2)
+    for number in range(5):
+        add_file(db, env, f"memo{number}.txt", mtime=NOW - (100 + number) * DAY, text="予算の内訳")
+    db.execute("UPDATE analysis SET analysed_at = ?", (NOW - DAY,))
+    config = dict(env, DESK_MAX_ITEMS=10)
+    first = desk.rank_files(db, slack_context(), NOW, config, rules, limit=10)
+    assert [item["name"] for item in first] == ["memo0.txt", "memo1.txt"]  # 新しい2件の本文だけを読んだ
+    desk.rank_files(db, slack_context(), NOW, config, rules, limit=10)
+    third = desk.rank_files(db, slack_context(), NOW, config, rules, limit=10)
+    assert [item["name"] for item in third] == [f"memo{number}.txt" for number in range(5)]
+
+
+def test_remembered_texts_are_not_shared_between_databases(env, tmp_path):
+    first = database.open_encrypted(tmp_path / "a.db", keystore.new_key_hex())
+    second = database.open_encrypted(tmp_path / "b.db", keystore.new_key_hex())
+    try:
+        for conn, text in [(first, "予算の内訳"), (second, "関係のない文書")]:
+            add_file(conn, env, "report.docx", text=text)  # どちらも file_id は 1
+            conn.execute("UPDATE analysis SET analysed_at = ?", (NOW - DAY,))  # 同じ解析の日時
+        assert [item["name"] for item in desk.rank_files(first, slack_context(), NOW, env, rules)] == ["report.docx"]
+        assert desk.rank_files(second, slack_context(), NOW, env, rules) == []
+        assert [item["name"] for item in desk.rank_files(first, slack_context(), NOW, env, rules)] == ["report.docx"]
+    finally:
+        first.close()
+        second.close()
 
 
 def test_keywords_match_full_width_text(db, env):

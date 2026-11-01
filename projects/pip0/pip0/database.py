@@ -116,7 +116,10 @@ CREATE TABLE IF NOT EXISTS analysis (
     labels_json              TEXT,               -- 秘密度ラベル（Microsoft Purview）の名前
     sensitivity              TEXT NOT NULL DEFAULT 'unknown',  -- 'sensitive' | 'not_sensitive' | 'unknown'
     sensitivity_reasons_json TEXT,
-    error                    TEXT
+    error                    TEXT,
+    content_reasons_json     TEXT,               -- 読んだ文字の全体（ヘッダー等も）で見つけたもの [場所, 規則, 値]
+    content_rules_json       TEXT,               -- そのときの中身の規則（語、番号の検査）。規則を変えたかを確かめる
+    unread_json              TEXT                -- 読まなかった部分の説明（全体を読んだら []、記録なしは NULL）
 );
 
 -- 利用の記録（長期間未読の判定に使う。pip0 自身の読み取りは記録しない）
@@ -289,10 +292,30 @@ def creation_lock(folder, attempts=120):
 
 def ensure_schema(conn):
     conn.executescript(SCHEMA)
+    add_missing_analysis_columns(conn)
     row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
     if row is None:
         conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
         conn.execute("INSERT INTO meta (key, value) VALUES ('created_at', ?)", (str(time.time()),))
+
+
+# 後から analysis テーブルに加えた列（前の版の pip0 で作った DB には、開くときに加える）
+ANALYSIS_ADDED_COLUMNS = ["content_reasons_json", "content_rules_json", "unread_json"]
+
+
+def missing_analysis_columns(conn):
+    existing = [row[1] for row in conn.execute("PRAGMA table_info(analysis)").fetchall()]
+    return [name for name in ANALYSIS_ADDED_COLUMNS if name not in existing]
+
+
+def add_missing_analysis_columns(conn):
+    """前の版で作った DB の analysis テーブルに、後から加えた列を加える（値は空のまま）"""
+    if not missing_analysis_columns(conn):
+        return
+    # 同時に DB を開いたほかの pip0 のプロセスと、同じ列を2回加えないように、まとめて書く中で確かめ直す
+    with transaction(conn):
+        for name in missing_analysis_columns(conn):
+            conn.execute(f"ALTER TABLE analysis ADD COLUMN {name} TEXT")
 
 
 def check_encryption(conn):

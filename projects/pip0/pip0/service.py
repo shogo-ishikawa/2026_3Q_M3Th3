@@ -6,18 +6,23 @@ pip0 本体の「メインループ」です。pip0 シェル（C#）の知ら�
 判断の中身は、それぞれのモジュール（inflow.py、desk.py、hazard.py、vault.py など）にあります。
 このファイルは、それらをつなぐ役です。
 
-    pip0 シェル ──知らせ──▶ receive_event（シェルの読み取りのスレッド。順番待ちに入れるだけ）
+    pip0 シェル ──知らせ──▶ receive_event（シェルの読み取りのスレッド。順番待ちに入れるだけ。
+                                            前面のウィンドウの知らせは、最後の1つだけを残す）
     フォルダーの監視 ──知らせ──▶ file_events（watchdog のスレッド。順番待ちに入れるだけ）
                                       ▼
     step(now)：メインのスレッドが LOOP_SECONDS（0.1秒）ごとに呼ぶ
-      1. シェルの知らせ（handle_event）と、フォルダーの知らせ（handle_file_event）を、届いた順に処理する。
+      1. シェルの知らせ（handle_event。1回に SHELL_EVENTS_PER_STEP 件まで、キルスイッチ・ロック・シェルの終了・
+         ドラッグ・ミニドックの操作を先に）と、フォルダーの知らせ（handle_file_event）を処理する。
          pip0 シェルが落ちていれば、決めた間隔で起動し直す（本体は動き続ける）
-      2. 制御用のファイル（全復元の依頼、終了の依頼、停止の印）を確かめる
-      3. ダウンロードの完了を確かめ、M1 の提案を作り、ミニドックの時間を進める
-         （シェルが落ちていてミニドックが見えない間は、提案を待たせ、見えないまま自動で動かさない）
-      4. 浮上式デスク（M2）の再表示、ゴーストを開いた後の通常のファイルへの戻し（M4）など、時間で決まることを行う
-      5. 条件（電源接続中かつ3分間無操作）を満たせば、高負荷の処理（解析・退避）を1つだけワーカーのスレッドに渡す
-      6. 状態（ui.status）を、画面と CONTROL_DIR/service.status.json に知らせる
+      2. 制御用のファイル（全復元の依頼、終了の依頼、停止の印）を確かめ、全復元の依頼があれば全復元する
+      3. 前面のウィンドウの知らせ（最後の1つ）で作業文脈を読み、デスク（M2）の候補を選び直す（1回の step で1回だけ）
+      4. ダウンロードの完了を確かめ、M1 の提案を作り、ミニドックの時間を進める
+         （画面を見られない間（シェルが落ちている、画面がない、画面のロック中・スリープ中）は、提案を待たせ、
+         ミニドックの時間も止める。見えないまま自動で動かさない。ロック中・スリープ中は、状態の表示にも出す）
+      5. 浮上式デスク（M2）の再表示、ゴーストを開いた後の通常のファイルへの戻し（M4）など、時間で決まることを行う
+      6. 条件（電源接続中かつ3分間無操作）を満たせば、高負荷の処理（解析・退避）を1つだけワーカーのスレッドに渡す
+      7. 状態（ui.status）を、画面と CONTROL_DIR/service.status.json に知らせる
+    予定（次に確かめる時刻など）は時計の時刻で持つため、時計が戻されたら、戻った分だけ予定を早める（check_clock）。
 
 スレッドの約束（docs/design.md 5-1）
 - DB への書き込みは、メインのスレッドだけが行う。ワーカーのスレッド（1つだけ）は、解析（DB を使わない）と、
@@ -38,6 +43,7 @@ pip0 本体の「メインループ」です。pip0 シェル（C#）の知ら�
 """
 
 import logging
+import math
 import os
 import queue
 import statistics
@@ -64,7 +70,9 @@ STATUS_SECONDS = 2.0             # 状態（ui.status）を作り直す、最も
 STATUS_FILE_SECONDS = 5.0        # 状態のファイル（CONTROL_DIR/service.status.json）を書く、最も短い間隔
 EXPIRE_EVENTS_SECONDS = 3600.0   # 古いダウンロードの記録を期限切れにする間隔
 SHELL_RESTART_DELAYS = [2, 5, 15, 30, 60]  # pip0 シェルが終わったとき、起動し直すまでの秒数（失敗が続くと長くする）
+SHELL_STABLE_SECONDS = 60.0      # pip0 シェルがこの秒数以上動いてから終わったときだけ、起動し直しの待ち時間を戻す
 INIT_TIMEOUT_SECONDS = 30        # pip0 シェルの準備（init）の答えを待つ秒数
+SHELL_EVENTS_PER_STEP = 20       # 1回の step で処理するシェルの知らせの最大の数（残りは次の step で処理する）
 SHELL_REQUEST_TIMEOUT_SECONDS = 30  # ファイルを開く等の要求の答えを待つ秒数
 NOTIFY_DELETE_CHECK_SECONDS = 2.0   # 「ゴーストが削除された」の知らせの後、確かめるまで待つ秒数
 REOPEN_RETRY_SECONDS = 120.0     # 開いた後のゴーストを通常のファイルに戻せなかったとき（使用中など）の、やり直しの間隔
@@ -78,8 +86,10 @@ DESKS_KEPT = 10                  # デスクに出した候補を、何回分ま
 HELD_DOWNLOADS_KEPT = 50         # pip0 シェル（画面）が動いていない間に完了したダウンロードを、何件まで待たせるか
 ERROR_LOG_SECONDS = 60.0         # 同じ種類の予想外のエラーを、ログに書く最も短い間隔
 TEXT_MAX_CHARS = 300             # 画面と状態のファイルに出す理由の、最大の文字数
+NOTICE_MAX_CHARS = 255           # 知らせ（通知領域の吹き出し）に入る最大の文字数（全復元の終わりの知らせ）
 
 PROTOCOL_VERSION = 1             # docs/ipc-protocol.md の版
+SHELL_CAPABILITIES = ["cloud_files", "trash", "ui", "hooks"]  # init の答えの capabilities の名前（ipc-protocol.md 2節）
 SYNC_ROOT_DISPLAY_NAME = "pip0"  # エクスプローラーに出る同期ルートの名前
 MAX_WATCHED_ROOTS = 64           # init で知らせる「最近使ったファイル」の対象フォルダーの最大数
 
@@ -91,11 +101,30 @@ SHUTDOWN_REQUEST_NAME = "shutdown.request.json"
 ALREADY_RUNNING_REASON = "pip0 の常駐処理は、すでに動いています（2つ目は起動しません）"
 NO_SHELL_REASON = ("pip0 シェルなしで動いています（開発用の --no-shell）。"
                    "画面の表示、ゴースト、ごみ箱、作業文脈とドラッグの検知は使えません")
+NO_UI_REASON = ("pip0 シェルが画面を準備できませんでした。ミニドックを見せられないため、"
+                "ダウンロードの仕分け・改名の提案を待たせています"
+                "（ファイルは動かしません。pip0 を起動し直すと、もう一度試します）")
+SCREEN_HOLD_REASON = ("{why}のため、ダウンロードの仕分け・改名の提案を待たせています"
+                      "（{count} 件。ファイルは動かしません）。画面を使えるようになっても、この表示が続くときは、"
+                      "いったん画面をロックして（Windows キー＋L）解除してください")
+
+# 急いで処理するシェルの知らせ（キルスイッチと終了、画面のロック、シェルの終了、ドラッグの警告、ミニドックの操作）。
+# ほかの知らせより先に処理する（急ぐもの同士、それ以外同士の中では、届いた順）。
+# ミニドックの操作（マウスが乗った、ボタン）は、ほかの知らせの後ろで待つ間に、行の時間が尽きないように急ぐ
+URGENT_EVENTS = ["tray.command", "session.event", "shell.exited", "drag.started", "drag.target_changed", "drag.ended",
+                 "ui.mini_dock.interaction", "ui.mini_dock.action"]
+# 画面を見られなくなるセッションの出来事（session.event の kind）と、その終わり。
+# サインアウト（logoff）と Windows の終了（shutdown）は入れない。この知らせは終わりが始まったときに届き、
+# ほかのアプリが止めて取り消されても、取り消しの知らせは届かないため（本当に終われば、pip0 も終わる）
+SCREEN_LOCK_KINDS = ["lock"]       # 画面のロック（unlock まで）
+SCREEN_SLEEP_KINDS = ["suspend"]   # スリープ（resume まで）
 
 # 機能の名前（feature）と、画面に出す日本語の名前（★表示を変えたいときは、ここを直します）
 FEATURE_LABELS = {
     # pip0 本体（Python）が調べる機能
     "shell": "pip0 シェル（画面と OS 連携）",
+    "ui": "画面（ミニドック、デスク、警告の枠、通知）",  # init の答えの capabilities.ui（シェルとともに古くなる）
+    "screen": "ダウンロードの提案（ミニドック）",  # 画面のロック中・スリープ中だけ、待たせていることを出す
     "sync_root": "pip0 専用フォルダーの同期ルート（ゴーストの置き場所）",
     "folder_watcher": "フォルダーの監視（ダウンロードの完了）",
     "scan": "対象フォルダーの見直し（索引）",
@@ -112,7 +141,7 @@ FEATURE_LABELS = {
     "recent_items": "最近使ったファイル",
     "session_events": "ロック・スリープの検知",
 }
-CORE_FEATURES = ["shell", "sync_root", "folder_watcher", "scan", "vault_check", "service_loop"]
+CORE_FEATURES = ["shell", "ui", "screen", "sync_root", "folder_watcher", "scan", "vault_check", "service_loop"]
 
 
 # ----------------------------------------------------------------------
@@ -186,10 +215,20 @@ def connect_shell(link, platform, config, headless):
         return result
     result["ok"] = True
     result["shell_version"] = short_text(reply.get("shell_version")) or None
-    capabilities = reply.get("capabilities")
-    result["capabilities"] = capabilities if isinstance(capabilities, dict) else None
+    result["capabilities"] = known_capabilities(reply.get("capabilities"))
     result["sync_root"] = register_pip0_root(platform, config)
     return result
+
+
+def known_capabilities(value):
+    """init の答えの capabilities から、決まった名前（SHELL_CAPABILITIES）で、値が真偽値のものだけを取り出す
+
+    状態の表示（ui.status）にそのまま入るため、知らない名前や、JSON にできない値（1e400 から読んだ無限大など）は
+    入れない（1つでも入ると、状態の表示がすべて送れなくなる）。辞書でなければ None（分からない）。
+    """
+    if not isinstance(value, dict):
+        return None
+    return {name: value[name] for name in SHELL_CAPABILITIES if isinstance(value.get(name), bool)}
 
 
 class NoShellLink:
@@ -321,20 +360,48 @@ def read_status_file(config):
 def request_shutdown(config, now=None):
     """常駐処理に終了を依頼する（python -m pip0 shutdown）。{"ok", "reason"}
 
-    依頼のファイルは消さずに、次の依頼で書き換えます。常駐処理は、自分が起動した後の依頼（または、
-    自分の番号 instance が書かれた依頼）だけを受け付けるので、古い依頼で次の起動が止まることはありません。
+    依頼には、状態のファイルが「動いている」と書いている常駐処理の番号（instance）を書きます
+    （状態のファイルがない・「終わった」のときは、番号を書かない＝今動いている常駐処理あて）。
+    常駐処理は、自分の番号の依頼と番号のない依頼だけを受け付けます。読んだ依頼には「済み」の印（done）を書き、
+    ほかの番号の依頼は受け付けません。起動したときには、それより前の依頼に「済み」の印を書きます
+    （ファイルは消さずに、次の依頼で書き換えます）。時計の時刻は比べないので、時計が戻されても、
+    古い依頼で次の起動が止まることはありません。
     """
     now = time.time() if now is None else now
     path = control_file(config, SHUTDOWN_REQUEST_NAME)
     if path is None:
         return {"ok": False, "reason": "データフォルダー（DATA_DIR）が設定されていないため、依頼できません"}
     status = read_status_file(config) or {}
+    instance = status.get("instance") if status.get("running") is True else None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fsutil.atomic_write_json(path, {"at": now, "instance": status.get("instance")})
+        fsutil.atomic_write_json(path, {"at": now, "instance": instance})
     except OSError as error:
         return {"ok": False, "reason": f"終了の依頼を書けませんでした（{type(error).__name__}）"}
     return {"ok": True, "reason": ""}
+
+
+def read_shutdown_request(config):
+    """終了の依頼（shutdown.request.json）の辞書。なければ・読めなければ None"""
+    path = control_file(config, SHUTDOWN_REQUEST_NAME)
+    if path is None:
+        return None
+    try:
+        request = fsutil.read_json(path)
+    except (OSError, ValueError):
+        return None
+    return request if isinstance(request, dict) else None
+
+
+def mark_shutdown_request_done(config, request):
+    """読んだ終了の依頼に「済み」の印（done）を書く（同じ依頼で、二度と止まらないため。ファイルは消さない）"""
+    path = control_file(config, SHUTDOWN_REQUEST_NAME)
+    if path is None or request.get("done") is True:
+        return
+    try:
+        fsutil.atomic_write_json(path, dict(request, done=True))
+    except OSError as error:
+        logger.warning("終了の依頼に「済み」の印を書けませんでした（%s）", type(error).__name__)
 
 
 def short_text(value, max_chars=TEXT_MAX_CHARS):
@@ -346,6 +413,21 @@ def short_text(value, max_chars=TEXT_MAX_CHARS):
 
 def is_number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def finite_number(value):
+    """有限の数なら float にして返す。数でない・無限大・NaN・float にできない大きすぎる整数なら None
+
+    シェルの知らせの数は JSON から読むので、1e400（無限大になる）や 10**400 のような値も届きうる。
+    そのまま使うと、計算や JSON にするとき（ui.status など）にエラーになるため、ここで除く。
+    """
+    if not is_number(value):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
 
 
 # ----------------------------------------------------------------------
@@ -437,6 +519,13 @@ class Service:
         # ほかのスレッドから届く知らせ（入れるのはほかのスレッド、取り出すのはメインのスレッド）
         self.shell_events = queue.Queue()
         self.file_events = queue.Queue()
+        # 前面のウィンドウの知らせ（context.foreground）は、最後に届いた2つだけを持つ
+        # （タイトルが次々に変わるウィンドウでも、デスクの候補選びでメインループが詰まらないように）
+        self.foreground_lock = threading.Lock()
+        self.pending_foreground = []
+        # 順番待ちから取り出した、まだ処理していないシェルの知らせ（メインのスレッドだけが使う）
+        self.urgent_events = []   # URGENT_EVENTS の知らせ（先に処理する）
+        self.later_events = []    # それ以外
         # ワーカーのスレッドも見る合図
         self.kill_event = threading.Event()   # キルスイッチ：実行中の高負荷の処理を、次の区切りで止める
         self.stop_event = threading.Event()   # 終了：メインループと実行中の処理を止める
@@ -467,7 +556,10 @@ class Service:
         self.deletion_checks = {}         # 削除の知らせが届いたゴースト（項目ID）→ 確かめる時刻
         self.evacuation_queue = []        # 退避の候補（evacuation.find_candidates の結果）
         self.fed_event_ids = set()        # DownloadTracker に渡した、ブラウザー拡張の記録の id
-        self.held_downloads = []          # 画面が動いていない間に完了したダウンロード（画面が戻ったら提案する）
+        self.events_before_start = set()  # 起動の時点で結び付いていなかった、ブラウザー拡張の記録の id
+        self.held_downloads = []          # 画面を見られない間に完了したダウンロード（見られるようになったら提案する）
+        self.screen_locked = False        # 画面のロック中か（session.event の lock から unlock まで）
+        self.asleep = False               # スリープ中か（session.event の suspend から resume まで）
         self.error_logged_at = {}         # 予想外のエラーの種類 → 最後にログに書いた時刻
 
         # 全復元
@@ -482,12 +574,14 @@ class Service:
         self.shell_capabilities = None
         self.shell_failures = 0
         self.shell_restart_at = None
+        self.shell_up_since = None    # 今のシェルの準備（init）ができた時刻（動いていなければ None）
 
         # 予定と状態
         self.started = False
-        self.started_at = None
         self.started_wall = None
         self.instance_id = None
+        self.old_shutdown_request = None  # 起動の前からあった終了の依頼（「済み」の印を書けなくても、受け付けない）
+        self.last_step_at = None          # 前の step の時刻（時計が戻されたことに気づくため）
         self.stop_reason = ""
         self.automation_engaged = False
         self.next_control_poll = 0.0
@@ -573,9 +667,14 @@ class Service:
     def start_parts(self, now):
         """起動の中身（ロックを取った後）"""
         self.started = True
-        self.started_at = now
         self.started_wall = time.time()
         self.instance_id = uuid.uuid4().hex
+        # 起動の前に書かれた終了の依頼（前の常駐処理あて）には「済み」の印を書く
+        # （印を書けなかったときのために覚えておき、同じ依頼は受け付けない）
+        self.old_shutdown_request = read_shutdown_request(self.config)
+        if self.old_shutdown_request is not None:
+            mark_shutdown_request_done(self.config, self.old_shutdown_request)
+        self.last_step_at = now
         self.next_control_poll = now
         self.next_download_poll = now
         self.next_scan = now
@@ -587,9 +686,11 @@ class Service:
         if synced["loaded"] or synced["problems"]:
             logger.info("起動：保管庫の項目を読み直しました（新しく %d 件、問題 %d 件）",
                         synced["loaded"], len(synced["problems"]))
-        # 2. 前回「解析中」のまま終わった仕事を、待ちに戻す。古いダウンロードの記録を期限切れにする
+        # 2. 前回「解析中」のまま終わった仕事を、待ちに戻す。古いダウンロードの記録を期限切れにする。
+        #    残った記録（pip0 が動いていなかった間に、受け口が書いたもの）の id を覚える（poll_download_events）
         analysis_queue.reset_running(self.conn, now)
         provenance.expire_old_events(self.conn, now)
+        self.events_before_start = self.pending_event_ids()
         # 3. 自動処理が止まっているか（キルスイッチ）
         self.automation_engaged = killswitch.is_engaged(self.conn, self.config)
         if self.automation_engaged:
@@ -626,14 +727,20 @@ class Service:
         logger.info("常駐処理を始めました")
 
     def step(self, now=None):
-        """メインループの1回分（docs の上の 1〜6）"""
+        """メインループの1回分（docs の上の 1〜7）"""
         now = self.clock() if now is None else now
+        self.check_clock(now)
+        # 画面を見られない間は、ミニドックの時間を止める（遅れて届いたミニドックの知らせを処理する前に）
+        self.follow_screen(now)
         self.process_shell_events(now)
         self.process_file_events(now)
         self.collect_worker_results(now)
         self.restart_shell_if_due(now)  # 先に起動し直す（この後の表示が、新しいシェルに届くように）
         if now >= self.next_control_poll:
             self.poll_control_files(now)
+        if self.restore_requested and self.current_job is None and now >= self.restore_retry_at:
+            self.run_restore_all(now)
+        self.process_pending_foreground(now)  # 制御用のファイルと全復元の後に、1回だけ
         if now >= self.next_download_poll:
             self.poll_download_events(now)
         self.held_downloads.extend(self.tracker.ready(now))
@@ -649,11 +756,10 @@ class Service:
             for ready in ready_list:
                 self.propose(ready, now)
         self.held_downloads = self.held_downloads[-HELD_DOWNLOADS_KEPT:]
+        self.show_screen_hold(now)
         self.apply_dock_actions(self.dock.tick(now), now)
         self.apply_desk_actions(self.desk_controller.tick(now))
         self.run_due_vault_work(now)
-        if self.restore_requested and self.current_job is None and now >= self.restore_retry_at:
-            self.run_restore_all(now)
         if now >= self.next_scan:
             self.scan(now)
         if now >= self.next_evacuation_check:
@@ -706,6 +812,39 @@ class Service:
         self.stop_reason = reason
         self.stop_event.set()
 
+    def check_clock(self, now):
+        """時計が戻されたら（手で直した、時刻の同期で直った等）、戻った分だけ、予定の時刻を早める
+
+        予定（次に制御用のファイルを確かめる時刻、ミニドックの締め切りなど）は時計の時刻で持っているので、
+        そのままだと、時計が1時間戻ると、1時間のあいだ全復元の依頼も読まず、ダウンロードも扱わなくなるため。
+        早めるだけなので、残りの待ち時間は変わらない（時計が進んだときは、長い step と見分けられないので何もしない）。
+        """
+        last = self.last_step_at
+        self.last_step_at = now
+        if last is None or now >= last:
+            return
+        back = last - now
+        logger.warning("時計が %.1f 秒戻りました。予定の時刻を、同じだけ早めます", back)
+        self.next_control_poll -= back
+        self.next_download_poll -= back
+        self.next_scan -= back
+        self.next_evacuation_check -= back
+        self.next_expire -= back
+        self.restore_retry_at -= back
+        if self.shell_restart_at is not None:
+            self.shell_restart_at -= back
+        if self.shell_up_since is not None:
+            self.shell_up_since -= back
+        if self.last_status_at is not None:
+            self.last_status_at -= back
+        if self.last_status_file_at is not None:
+            self.last_status_file_at -= back
+        for plan in self.reopened.values():
+            plan["due"] -= back
+        for item_id in self.deletion_checks:
+            self.deletion_checks[item_id] -= back
+        self.dock.shift_times(back)
+
     def report_loop_error(self, error):
         """メインループの1回分で起きた予想外のエラーを記録する（同じ種類は ERROR_LOG_SECONDS に1回だけログに書く）"""
         kind = type(error).__name__
@@ -731,7 +870,13 @@ class Service:
 
         キルスイッチと終了だけは、メインのスレッドが知らせを取り出す前から効くように、合図を先に立てます
         （ワーカーの高負荷の処理は、次の区切り（1MB ごと）で止まります。DB と停止の印は、メインのスレッドが書きます）。
+        前面のウィンドウの知らせ（context.foreground）は、順番待ちに入れず、最後に届いた2つだけを持ちます
+        （それより前の、まだ処理していないものは捨てる。step が process_pending_foreground で処理する）。
         """
+        if isinstance(event, dict) and event.get("type") == "context.foreground":
+            with self.foreground_lock:
+                self.pending_foreground = self.pending_foreground[-1:] + [event]
+            return
         if isinstance(event, dict) and event.get("type") == "tray.command":
             payload = event.get("payload")
             if not isinstance(payload, dict):
@@ -748,20 +893,30 @@ class Service:
         if not result["ok"]:
             self.mark_shell_down(result["reason"], now)
             return False
-        self.shell_failures = 0
+        # 起動し直しの待ち時間（shell_failures）は、ここでは最初に戻さない。準備ができた直後に落ちるシェルを、
+        # 2秒ごとに起動し直し続けないため（SHELL_STABLE_SECONDS 動いた後に終わったときだけ戻す。on_shell_exited）
+        self.shell_up_since = now
         self.shell_version = result["shell_version"] or self.shell_version
         self.shell_capabilities = result["capabilities"]
         self.set_feature("shell", True, "")
+        if (self.shell_capabilities or {}).get("ui") is True:
+            self.set_feature("ui", True, "", source="shell")
+        else:
+            self.set_feature("ui", False, NO_UI_REASON, source="shell")
         self.set_feature("sync_root", result["sync_root"]["ok"], result["sync_root"]["reason"])
         self.resend_screen(now)
         return True
 
     def mark_shell_down(self, reason, now):
-        """シェルが使えないことを記録し、起動し直す時刻を決める"""
+        """シェルが使えないことを記録し、ミニドックの時間を止め、起動し直す時刻を決める"""
         self.set_feature("shell", False, reason)
         # シェルが知らせた機能の状態は、シェルとともに古くなるため、起動し直した後の知らせを待つ
         for feature in [name for name, entry in self.features.items() if entry["source"] == "shell"]:
             del self.features[feature]
+        self.shell_up_since = None
+        # ミニドックは、もう見えない（見えないまま時間切れにして、自動で実行しない）。
+        # 終わったシェルの画面の上にあったマウスの状態も忘れる（新しいシェルの画面では、まだ乗っていない）
+        self.dock.pause(now, pointer_gone=True)
         if isinstance(self.link, NoShellLink):
             return  # シェルなしで動かすと決めているので、起動し直さない
         delay = SHELL_RESTART_DELAYS[min(self.shell_failures, len(SHELL_RESTART_DELAYS) - 1)]
@@ -774,17 +929,17 @@ class Service:
         if self.stop_event.is_set():
             return
         self.shell_restart_at = None
-        if self.start_shell(now) and not self.features.get("vault_check", {}).get("ok", True):
+        if not self.start_shell(now):
+            return
+        # シェルが落ちていた間の、画面のロック・スリープの知らせは届いていない。
+        # M5 の消音を前のセッションから持ち越さないように、新しいセッションとして数え直す
+        self.start_new_hazard_session("pip0 シェルを起動し直したため")
+        if not self.features.get("vault_check", {}).get("ok", True):
             self.check_vault(now)  # シェルが動かず確かめられなかった項目を、確かめ直す
 
     def resend_screen(self, now):
         """シェルを起動し直したときに、表示中のミニドックとデスク、状態を送り直す"""
-        if self.dock.dock_id is not None:
-            # 古いシェルの上にマウスがあったまま終わった場合に備えて、時間を動かし直す
-            self.apply_dock_actions(self.dock.interaction(self.dock.dock_id, "leave", now), now)
-            payload = self.dock.payload(now)
-            if payload is not None:
-                self.ui.show_mini_dock(payload)
+        self.follow_screen(now)  # 画面を見られるなら、止めていたミニドックを、どの行も3秒以上にして送り直す
         if self.desk_controller.visible and self.desk_controller.shown_desk is not None:
             self.ui.show_desk(dict(self.desk_controller.shown_desk, desk_id=self.desk_controller.desk_id))
             self.ui.set_cursor_stream(True)
@@ -793,13 +948,60 @@ class Service:
     def screen_available(self):
         """ミニドックなどの画面を、ユーザーが見られるか
 
-        pip0 シェルが落ちて起動し直すまでの間は、ミニドックが見えないので、ダウンロードの提案（3秒後の自動の仕分け）を
-        待たせる（見えないまま自動で動かさない）。シェルを起動しないテスト（link が None）では待たせない。
-        画面なし（--no-shell）のときは、提案そのものをしない（step を参照）。
+        次の3つがそろったときだけ True（シェルを起動しないテスト（link が None）では、画面のロックだけを見る）。
+        - pip0 シェルが動いている
+        - シェルの準備（init）の答えで、画面が使える（capabilities の ui が true）
+        - 画面のロック中・スリープ中でない（session.event の lock・suspend から、unlock・resume まで）
+        見られない間は、ダウンロードの提案（3秒後の自動の仕分け）を待たせ、ミニドックの時間も止める
+        （見えないまま自動で動かさない）。画面なし（--no-shell）のときは、提案そのものをしない（step を参照）。
         """
+        if self.screen_locked or self.asleep:
+            return False
         if self.link is None:
             return True
-        return self.link.is_alive()
+        if not self.link.is_alive():
+            return False
+        return (self.shell_capabilities or {}).get("ui") is True
+
+    def follow_screen(self, now):
+        """画面を見られるかに合わせて、ミニドックの時間を止める・数え直す
+
+        見られない間は止め（時間切れの自動の実行も、順番待ちの行の表示も、しない）、また見られるようになったら、
+        どの行も少なくとも MINI_DOCK_SECONDS 秒にして表示し直す（inflow.MiniDock の pause と resume）。
+        """
+        if self.screen_available():
+            self.apply_dock_actions(self.dock.resume(now), now)
+        else:
+            self.dock.pause(now)
+
+    def show_screen_hold(self, now):
+        """画面のロック中・スリープ中は、ダウンロードの提案を待たせていることを、状態の表示に出す（知らせはしない）
+
+        ロック中・スリープ中でなければ、表示から外す。ロックの解除の知らせを受け取り損ねて（そのときに pip0 シェルが
+        落ちていた等）待たせたままになったときも、状態の画面と python -m pip0 status で分かるようにするため。
+        """
+        if self.screen_locked or self.asleep:
+            why = "画面のロック中" if self.screen_locked else "スリープ中"
+            # 待たせている提案：まだ出していないものと、止めているミニドックの行・順番待ち
+            count = len(self.held_downloads) + len(self.dock.rows) + len(self.dock.waiting)
+            self.set_feature("screen", False, SCREEN_HOLD_REASON.format(why=why, count=count), notify=False)
+        elif self.features.pop("screen", None) is not None:
+            self.update_status(now, force=True)
+
+    def start_new_hazard_session(self, why):
+        """M5 の「同じセッション」を新しく始める（消音をすべて消す）。why：ログに書く理由
+
+        ロック・スリープの知らせ（session.event）を受け取れなかったかもしれないときに使う
+        （pip0 シェルが落ちていた、シェルがその知らせを受け取れない）。前のセッションの消音を持ち越さないため。
+        """
+        if self.hazard_session.muted_pairs():
+            logger.info("M5 の消音を消し、新しいセッションとして数え直します（%s）", why)
+        self.hazard_session = hazard.HazardSession(self.config)
+
+    def session_events_unavailable(self):
+        """pip0 シェルが、画面のロック・スリープの知らせを受け取れないと知らせているなら True"""
+        entry = self.features.get("session_events")
+        return entry is not None and not entry["ok"]
 
     def ghosts_available(self):
         """ゴーストを作れる見込みがあるか（同期ルートが使え、シェルが動いている）。なければ退避を始めない
@@ -827,12 +1029,44 @@ class Service:
     # ==================================================================
 
     def process_shell_events(self, now):
+        """シェルの知らせを、1回の step で SHELL_EVENTS_PER_STEP 件まで処理する（急ぐ知らせを先に）
+
+        知らせが続けて届いても、step がこの後の仕事（制御用のファイル、全復元、ミニドック、状態の表示など）に
+        進めるように、1回に処理する数を決めている。残りは次の step で、続きから処理する。
+        """
+        # 1. 届いた知らせを順番待ちから取り出し、急ぐもの（URGENT_EVENTS）とそれ以外に分けて並べる
         while True:
             try:
                 event = self.shell_events.get_nowait()
             except queue.Empty:
+                break
+            if isinstance(event, dict) and event.get("type") in URGENT_EVENTS:
+                self.urgent_events.append(event)
+            else:
+                self.later_events.append(event)
+        # 2. 急ぐものを先に、決めた数まで処理する（急ぐもの同士、それ以外同士の中では、届いた順）
+        for _ in range(SHELL_EVENTS_PER_STEP):
+            if self.urgent_events:
+                event = self.urgent_events.pop(0)
+            elif self.later_events:
+                event = self.later_events.pop(0)
+            else:
                 return
             self.handle_event(event, now)
+
+    def process_pending_foreground(self, now):
+        """前面のウィンドウの知らせを処理する。デスクの候補選び（重い）は、最後の知らせの1回だけ
+
+        最後の1つ前の知らせは、作業文脈を読むだけにする（ファイルダイアログが開いたとき、同じアプリの直前の
+        文脈を引き継げるように。context.carry_over）。
+        """
+        with self.foreground_lock:
+            events = self.pending_foreground
+            self.pending_foreground = []
+        if len(events) == 2:
+            self.read_foreground(event_payload(events[0]))
+        if events:
+            self.handle_event(events[-1], now)
 
     def handle_event(self, event, now):
         """pip0 シェルの知らせ1つを処理する（docs/ipc-protocol.md 4節）。知らない知らせは無視する"""
@@ -842,8 +1076,7 @@ class Service:
         if handler is None:
             logger.debug("知らない知らせを無視しました")
             return
-        payload = event.get("payload")
-        handler(payload if isinstance(payload, dict) else {}, now)
+        handler(event_payload(event), now)
 
     def on_shell_ready(self, payload, now):
         self.shell_version = short_text(payload.get("shell_version")) or self.shell_version
@@ -862,6 +1095,8 @@ class Service:
         else:
             reason = f"pip0 シェルが終了しました（終了コード {code}）。しばらく後に起動し直します"
         logger.warning("pip0 シェルが終了しました（終了コード %s）", code)
+        if self.shell_up_since is not None and now - self.shell_up_since >= SHELL_STABLE_SECONDS:
+            self.shell_failures = 0  # しばらく動いていた：起動し直しの待ち時間を、最初（短い間隔）に戻す
         self.mark_shell_down(reason, now)
 
     def on_feature_status(self, payload, now):
@@ -870,24 +1105,38 @@ class Service:
         if not isinstance(feature, str) or not feature:
             return
         self.set_feature(feature, payload.get("ok") is True, short_text(payload.get("reason")), source="shell")
+        if feature == "session_events" and self.session_events_unavailable() and self.hazard_session.drag is None:
+            # 画面のロック・スリープの知らせを受け取れない：セッションの終わりが分からないので、消音を残さない
+            # （ドラッグの途中なら、そのドラッグが終わったときに消す。on_drag_ended）
+            self.start_new_hazard_session("ロック・スリープの知らせを受け取れないため")
 
     # --- M2 浮上式デスク ---
 
     def on_foreground(self, payload, now):
         """前面のウィンドウが変わった：作業文脈を読み、デスクの候補を出し直す（文脈はメモリーの中だけ）"""
-        parsed = context.parse_foreground(payload, self.rules)
-        if desk.is_pip0_window(parsed):
+        current = self.read_foreground(payload)
+        if current is None:
             return  # pip0 自身のウィンドウ（デスク、ミニドック）は、作業文脈として扱わない
-        current = context.carry_over(self.context, parsed)  # ファイルダイアログは、同じアプリの直前の文脈を引き継ぐ
-        self.context = current
         ranked = desk.rank_files(self.conn, current, now, self.config, self.rules)
         self.apply_desk_actions(self.desk_controller.on_context(current, ranked, now))
+
+    def read_foreground(self, payload):
+        """前面のウィンドウの知らせから作業文脈を読み、今の作業文脈にして返す。pip0 自身のウィンドウなら None"""
+        # ウィンドウの番号とダイアログの位置は、形の正しいものだけを使う（デスクの表示の指示に、そのまま入るため）
+        payload = dict(payload, hwnd=window_handle(payload.get("hwnd")),
+                       dialog_rect=screen_rect(payload.get("dialog_rect")))
+        parsed = context.parse_foreground(payload, self.rules)
+        if desk.is_pip0_window(parsed):
+            return None
+        # ファイルダイアログは、同じアプリの直前の文脈を引き継ぐ
+        self.context = context.carry_over(self.context, parsed)
+        return self.context
 
     def on_cursor_batch(self, payload, now):
         """マウスの位置の列：シェイクならデスクを隠す（デスクのつまみで操作中は数えない）"""
         if self.desk_handle_engaged or not self.desk_controller.visible:
             return
-        if self.shake_detector.feed(payload.get("samples")):
+        if self.shake_detector.feed(cursor_samples(payload.get("samples"))):
             self.apply_desk_actions(self.desk_controller.on_shake(now))
 
     def on_desk_handle(self, payload, now):
@@ -946,12 +1195,33 @@ class Service:
         dropped = payload.get("dropped_on_other_process") is True and not payload.get("reason")
         result = self.hazard_session.end_drag(payload.get("drag_id"), payload.get("target_process"), dropped, now)
         self.apply_hazard_actions(result["actions"])
+        if self.session_events_unavailable():
+            # 画面のロック・スリープの知らせを受け取れない間は、セッションの終わりが分からないので、消音しない
+            # （無期限の消音にしないため。ドラッグのたびに警告する）
+            self.start_new_hazard_session("ロック・スリープの知らせを受け取れないため")
 
     def on_session_event(self, payload, now):
-        """画面のロック・サインアウト・スリープ・Windows の終了（と、ロック解除・復帰）で、消音を消す"""
+        """画面のロック・サインアウト・スリープ・Windows の終了（と、ロック解除・復帰）で、消音を消す
+
+        画面のロック中とスリープ中は、画面を見られないものとして扱う（screen_available。ダウンロードの提案を待たせ、
+        ミニドックの時間を止める）。ロックしてからスリープした場合は、復帰（resume）してもロックを解除（unlock）
+        するまで、見られないままにする。サインアウトと Windows の終了は、取り消されることがあるので、画面の扱いは
+        変えない（SCREEN_LOCK_KINDS を参照。M5 の消音は、取り消されても消したままにする）。
+        """
         kind = payload.get("kind")
+        if kind in SCREEN_LOCK_KINDS:
+            self.screen_locked = True
+        elif kind == "unlock":
+            # ロックを解除した人は、画面の前にいる（スリープからの復帰の知らせを受け取り損ねていても、見られる）
+            self.screen_locked = False
+            self.asleep = False
+        elif kind in SCREEN_SLEEP_KINDS:
+            self.asleep = True
+        elif kind == "resume":
+            self.asleep = False
         if kind in hazard.SESSION_END_REASONS or kind in hazard.SESSION_START_REASONS:
             self.apply_hazard_actions(self.hazard_session.end_session(kind))
+        self.follow_screen(now)
 
     # --- M1 ミニドック ---
 
@@ -969,7 +1239,13 @@ class Service:
     def on_tray_command(self, payload, now):
         command = payload.get("command")
         if command == "kill_switch":
-            self.engage_kill_switch(now, "通知領域の「全復元（自動処理を止める）」", actor="user")
+            # 全復元の依頼のファイルを、押したときにすぐ書く（全復元が始まる前に pip0 が止まっても、
+            # 依頼が残り、resume は断られ、次の起動で全復元する）。書いた依頼は「受け付けた」にする
+            written = killswitch.request_restore_all(self.config, now=now)
+            if written["ok"]:
+                self.new_restore_request()
+            self.engage_kill_switch(now, "通知領域の「全復元（自動処理を止める）」", actor="user",
+                                    problem="" if written["ok"] else written["reason"])
         elif command == "resume":
             self.resume_from_tray(payload.get("confirmed") is True, now)
         elif command == "show_desk":
@@ -1008,9 +1284,9 @@ class Service:
 
     def on_cf_fetch(self, payload, now):
         """ゴーストが開かれて中身を渡した：応答時間を覚え、利用として記録する（pip0 自身の読み取りは数えない）"""
-        elapsed = payload.get("elapsed_ms")
-        if is_number(elapsed):
-            self.fetch_times.append({"elapsed_ms": float(elapsed), "result": payload.get("result")})
+        elapsed = finite_number(payload.get("elapsed_ms"))  # 無限大などは使わない（状態の表示を JSON にできなくなる）
+        if elapsed is not None:
+            self.fetch_times.append({"elapsed_ms": elapsed, "result": payload.get("result")})
             self.fetch_times = self.fetch_times[-FETCH_TIMES_KEPT:]
         if payload.get("result") != "served" or payload.get("by_pip0") is True:
             return
@@ -1018,8 +1294,7 @@ class Service:
         if file_id is None:
             return
         process_name = short_text(payload.get("process_name")) or None
-        detail = {"item_id": payload.get("item_id"), "by_pip0": False,
-                  "elapsed_ms": elapsed if is_number(elapsed) else None}
+        detail = {"item_id": payload.get("item_id"), "by_pip0": False, "elapsed_ms": elapsed}
         usage.record_usage(self.conn, file_id, "ghost_open", now, process_name=process_name, detail=detail)
 
     def on_cf_hydrated(self, payload, now):
@@ -1055,7 +1330,12 @@ class Service:
             value = payload.get("tracking_enabled")
             self.recent_items_enabled = value if value in (True, False) else None
         items = payload.get("items")
-        if isinstance(items, list) and items:
+        if not isinstance(items, list):
+            return
+        # 開いた時刻が有限の数の項目だけを使う（10**400 のような値は、記録するときにエラーになるため）
+        items = [item for item in items
+                 if isinstance(item, dict) and finite_number(item.get("opened_at")) is not None]
+        if items:
             usage.record_recent_items(self.conn, items, now)
 
     def file_id_for_item(self, item_id, path):
@@ -1151,6 +1431,8 @@ class Service:
         - 常駐処理の起動の後に届いた記録：DownloadTracker に渡す（完了の確認 → ミニドックの提案）
         - 起動より前（pip0 が動いていなかった間）に届いた記録：提案は出さず、由来だけを記録する
           （inflow.record_source_only。時間がたっていて、ユーザーがもう使っているかもしれないため）
+        起動より前の記録かは、起動の時点で覚えた記録の id（events_before_start）で見分ける
+        （受け取った時刻と比べると、時計が戻されたときに、起動の後の記録を取り違えるため）。
         """
         self.next_download_poll = now + self.config["DOWNLOAD_POLL_SECONDS"]
         rows = database.query_all(self.conn, "SELECT * FROM download_events WHERE state = 'pending' ORDER BY id")
@@ -1160,18 +1442,27 @@ class Service:
             if row["id"] in self.fed_event_ids:
                 continue
             self.fed_event_ids.add(row["id"])
-            if row["received_at"] < self.started_at:
+            if row["id"] in self.events_before_start:
                 inflow.record_source_only(self.conn, self.platform, row["filename"], row, self.config, self.rules,
                                           now)
             else:
                 self.tracker.add_browser_event(row, now)
-        self.fed_event_ids &= pending  # 結び付いた・期限切れになった記録は忘れる
+        # 結び付いた・期限切れになった記録は忘れる（消えた記録の id が、新しい記録に使い回されても取り違えない）
+        self.fed_event_ids &= pending
+        self.events_before_start &= pending
+
+    def pending_event_ids(self):
+        """まだどのファイルにも結び付いていない、ブラウザー拡張の記録の id の集合"""
+        rows = database.query_all(self.conn, "SELECT id FROM download_events WHERE state = 'pending'")
+        return {row["id"] for row in rows}
 
     def propose(self, ready, now):
         """ダウンロードの完了を確かめたファイルの提案を作り、ミニドックに出す（3秒は、提案を作り終えた時刻から数える）"""
         proposal = inflow.build_proposal(self.conn, self.platform, ready["path"], ready["download_event"],
                                          self.context, self.config, self.rules, now)
-        shown_at = self.clock()
+        # step の途中で時計が戻されても、この step の時刻（now）より前からは数えない（同じ step の dock.tick(now) で、
+        # 見せる前に時間切れにしないため。戻った分は、次の step の check_clock が締め切りを早めて合わせる）
+        shown_at = max(self.clock(), now)
         self.apply_dock_actions(self.dock.add(proposal, shown_at), shown_at)
 
     def apply_dock_actions(self, actions, now):
@@ -1277,28 +1568,38 @@ class Service:
 
         依頼のファイルは、ここでは外さず、全復元が終わった後に killswitch.restore_all が外します
         （受け付けた直後に止まっても、依頼が残り、次の起動で全復元するため）。同じ依頼は二度受け付けません。
+        応え終えた依頼のファイルが、外せずに残っていたとき（ほかのプロセスが開いていた等）は、ここで外し直します
+        （全復元はもう一度しない。残ったままだと、自動処理の再開を断り続けるため）。
         """
         request = killswitch.read_restore_request(self.config)
-        if request is None or request == self.accepted_restore_request:
+        if request is None:
+            return False
+        if killswitch.is_answered(self.config, request):
+            killswitch.take_restore_request(self.config, request)
+            return False
+        if request == self.accepted_restore_request:
             return False
         self.accepted_restore_request = request
         return True
 
     def shutdown_requested(self):
-        """終了の依頼のファイルが、この常駐処理あてなら True（起動より前の古い依頼は受け付けない）"""
-        path = control_file(self.config, SHUTDOWN_REQUEST_NAME)
-        if path is None:
+        """この常駐処理への終了の依頼があれば True。読んだ依頼には「済み」の印を書く
+
+        - 「済み」の依頼と、起動の前からあった依頼は受け付けない
+        - 依頼に常駐処理の番号（instance）が書かれていれば、自分の番号のときだけ受け付ける
+          （ほかの番号は、もう動いていない常駐処理あての古い依頼）
+        - 番号のない依頼は受け付ける（起動の後に書かれた、今動いている常駐処理あての依頼）
+        時計の時刻は比べない（時計が戻されても、古い依頼で止まらない）。
+        """
+        request = read_shutdown_request(self.config)
+        if request is None or request.get("done") is True or request == self.old_shutdown_request:
             return False
-        try:
-            request = fsutil.read_json(path)
-        except (OSError, ValueError):
+        mark_shutdown_request_done(self.config, request)
+        instance = request.get("instance")
+        if instance is not None and instance != self.instance_id:
+            logger.info("ほかの常駐処理あての、古い終了の依頼を受け付けませんでした")
             return False
-        if not isinstance(request, dict):
-            return False
-        if request.get("instance") == self.instance_id:
-            return True
-        at = request.get("at")
-        return is_number(at) and at >= self.started_wall
+        return True
 
     def heavy_work_stopped(self):
         """高負荷の処理を止めるべきなら True（終了、キルスイッチ）。ワーカーのスレッドからも呼ばれる
@@ -1309,8 +1610,11 @@ class Service:
             return True
         return killswitch.is_engaged(None, self.config)
 
-    def engage_kill_switch(self, now, reason, actor):
-        """キルスイッチ：すぐに自動処理を止め、ワーカーを次の区切りで止め、その後で全復元する"""
+    def engage_kill_switch(self, now, reason, actor, problem=""):
+        """キルスイッチ：すぐに自動処理を止め、ワーカーを次の区切りで止め、その後で全復元する
+
+        problem：知らせに添える注意（全復元の依頼のファイルを書けなかった理由など。なければ ""）
+        """
         self.kill_event.set()
         result = killswitch.engage(self.conn, self.config, reason, actor=actor, now=now)
         self.automation_engaged = True
@@ -1324,8 +1628,9 @@ class Service:
         self.apply_desk_actions(self.desk_controller.hide("kill_switch"))
         message = ("自動仕分け・自動改名・自動退避を止めました。退避したファイルを元の場所へ戻します"
                    "（進み具合は、通知領域の「状態」で見られます）。")
-        if not result["ok"] or result["reason"]:
-            message += "注意：" + short_text(result["reason"])
+        cautions = [text for text in (result["reason"], problem) if text]
+        if cautions:
+            message += "注意：" + short_text("。".join(cautions))
         self.ui.notify("全復元を始めます", message, "warning")
         self.update_status(now, force=True)
 
@@ -1352,7 +1657,8 @@ class Service:
         self.kill_event.set()
         if counts["finished"]:
             level = "info" if counts["failed"] == 0 and counts["missing"] == 0 else "warning"
-            self.ui.notify("全復元が終わりました", restore_summary(counts), level)
+            unrestored = vault.list_items(self.conn, vault.RESTORE_TARGET_STATES)  # 戻せなかった理由（last_error）
+            self.ui.notify("全復元が終わりました", restore_summary(counts, unrestored), level)
         else:
             if not self.stop_event.is_set():
                 self.restore_requested = True
@@ -1364,9 +1670,15 @@ class Service:
         self.update_status(self.clock(), force=True)
 
     def on_restore_progress(self, counts):
-        """全復元の1件ごとに呼ばれる：進み具合を画面に出す"""
+        """全復元の1件ごとに呼ばれる：進み具合を画面に出す
+
+        画面への表示や状態のファイルの失敗で、全復元を止めない（全復元は、この関数の外で続く）。
+        """
         self.restore_counts = dict(counts)
-        self.update_status(self.clock(), force=True)
+        try:
+            self.update_status(self.clock(), force=True)
+        except Exception as error:
+            logger.warning("全復元の進み具合を表示できませんでした（%s）。全復元は続けます", type(error).__name__)
 
     def check_vault(self, now):
         """保管庫の起動時の点検（vault.recover_incomplete）。確かめられなかった項目があれば、機能の状態に出す"""
@@ -1391,7 +1703,7 @@ class Service:
             return  # キルスイッチ：解析も退避も、再開まで始めない
         if not self.gate.may_run():
             return  # 電源接続中かつ3分間無操作、でなければ待つ
-        job = self.next_analysis_job(now) or self.next_evacuation_job()
+        job = self.next_analysis_job(now) or self.next_evacuation_job(now)
         if job is None:
             return
         if self.worker is None:
@@ -1415,13 +1727,24 @@ class Service:
             analysis_queue.mark(self.conn, task["id"], "running", now=now)
             return {"kind": "analyse", "task_id": task["id"], "file_id": task["file_id"], "path": row["path"]}
 
-    def next_evacuation_job(self):
-        """退避の候補から、次の1件を取り出す（ゴーストを作れないときは、取り出さずに待つ）"""
-        if not self.evacuation_queue or not self.ghosts_available():
-            return None
-        candidate = self.evacuation_queue.pop(0)
-        return {"kind": "evacuate", "file_id": candidate["file_id"], "path": candidate["path"],
-                "reasons": list(candidate["reasons"])}
+    def next_evacuation_job(self, now):
+        """退避の候補から、次の1件を取り出す（ゴーストを作れないときは、取り出さずに待つ）
+
+        候補は EVACUATE_CHECK_HOURS ごとに探すので、探した後に開かれた（使われた）かもしれない。
+        渡す直前に、そのファイルの最終アクセス日時を記録し直してから、退避してよいかを判定し直し
+        （evacuation.explain）、もう対象でなければ候補から外す。
+        """
+        while self.evacuation_queue and self.ghosts_available():
+            candidate = self.evacuation_queue.pop(0)
+            self.record_access_times(file_id=candidate["file_id"])
+            check = evacuation.explain(self.conn, self.platform, candidate["path"], now, self.config, self.rules,
+                                       self.recent_items_enabled)
+            if not check["eligible"]:
+                logger.info("退避の候補を外しました（候補を探した後に使われた、など）")
+                continue
+            return {"kind": "evacuate", "file_id": candidate["file_id"], "path": candidate["path"],
+                    "reasons": list(candidate["reasons"])}
+        return None
 
     def run_job(self, job):
         """高負荷の処理を1つ行う（ワーカーのスレッドで呼ばれる。start_threads=False なら step の中）"""
@@ -1492,20 +1815,22 @@ class Service:
         if self.evacuation_queue:
             logger.info("自動退避の候補：%d 件", len(self.evacuation_queue))
 
-    def record_access_times(self):
+    def record_access_times(self, file_id=None):
         """pip0 専用フォルダーのファイルの最終アクセス日時を、利用の記録に加える（更新が有効なドライブだけ）
 
         usage.tracking_sources は、最終アクセス日時を「閲覧を確かめる手段」として数えます。
         その日時を記録しておかないと、読んだだけ（変更していない）のファイルを、長期間未読と判定してしまうため、
-        候補を探す前に記録します。
+        候補を探す前と、候補を退避する直前（file_id で1つだけ）に記録します。
         pip0 自身の読み取り（解析・ハッシュ・コピー）は、最終アクセス日時を変えない開き方で行います（platform）。
         """
-        rows = database.query_all(
-            self.conn,
-            "SELECT f.id, f.path, (SELECT max(u.at) FROM usage_events AS u "
-            "WHERE u.file_id = f.id AND u.kind = 'access_time') AS last_access "
-            "FROM files AS f WHERE f.location_kind = 'pip0_root' AND f.status = 'present'",
-        )
+        sql = ("SELECT f.id, f.path, (SELECT max(u.at) FROM usage_events AS u "
+               "WHERE u.file_id = f.id AND u.kind = 'access_time') AS last_access "
+               "FROM files AS f WHERE f.location_kind = 'pip0_root' AND f.status = 'present'")
+        params = ()
+        if file_id is not None:
+            sql += " AND f.id = ?"
+            params = (file_id,)
+        rows = database.query_all(self.conn, sql, params)
         for row in rows:
             if self.platform.access_time_reliable(row["path"]) is not True:
                 continue
@@ -1542,15 +1867,18 @@ class Service:
     # 機能の状態と、状態の表示
     # ==================================================================
 
-    def set_feature(self, feature, ok, reason, source="core"):
-        """機能の状態を記録する。使えなくなったら理由を知らせる（失敗を成功として記録しない）"""
+    def set_feature(self, feature, ok, reason, source="core", notify=True):
+        """機能の状態を記録する。使えなくなったら理由を知らせる（失敗を成功として記録しない）
+
+        notify：False なら、使えなくなっても知らせず、状態の表示にだけ出す（画面のロック中に提案を待たせている等）
+        """
         old = self.features.get(feature)
         entry = {"feature": feature, "ok": bool(ok), "reason": short_text(reason),
                  "label": FEATURE_LABELS.get(feature, feature), "source": source}
         self.features[feature] = entry
         if old == entry:
             return
-        if not ok and (old is None or old["ok"]):
+        if notify and not ok and (old is None or old["ok"]):
             self.newly_failed.append(entry)
         logger.info("機能の状態：%s は %s", feature, "使えます" if ok else "使えません")
         if self.started:
@@ -1659,14 +1987,65 @@ def valid_item_id(value):
     return item_id if vault.is_valid_item_id(item_id) else None
 
 
-def restore_summary(counts):
-    """全復元の件数を、知らせの文にする"""
-    text = (f"戻した {counts['restored']} 件、すでに戻っていた {counts['already']} 件、"
-            f"衝突 {counts['conflict']} 件（元の場所に別のファイルがあったため、"
-            f"横に「(pip0復元)」の名前で戻しました）、"
-            f"開いた後の編集を残した {counts['local_newer']} 件、ゴーストが見つからない {counts['missing']} 件、"
-            f"失敗 {counts['failed']} 件。")
-    if counts["failed"] or counts["missing"]:
-        text += "戻せなかった項目の中身は、保管庫に残っています（python -m pip0 vault list）。"
-    text += "自動処理は止まったままです（再開は通知領域の「自動処理を再開」）。"
+def event_payload(event):
+    """知らせの payload（辞書でなければ空の辞書）"""
+    payload = event.get("payload")
+    return payload if isinstance(payload, dict) else {}
+
+
+def window_handle(value):
+    """ウィンドウの番号（0 以上の整数で、64 ビットに入るもの）。形が違えば None"""
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value < 2 ** 64:
+        return value
+    return None
+
+
+def screen_rect(value):
+    """画面の上の位置 {"left", "top", "right", "bottom"}（どれも有限の数）。形が違えば None"""
+    if not isinstance(value, dict):
+        return None
+    rect = {}
+    for key in ("left", "top", "right", "bottom"):
+        if finite_number(value.get(key)) is None:
+            return None
+        rect[key] = value[key]
+    return rect
+
+
+def cursor_samples(samples):
+    """マウスの位置の列のうち、[ミリ秒, x, y] の形で、どれも有限の数のものだけを返す（形が違えば空のリスト）"""
+    if not isinstance(samples, list):
+        return []
+    result = []
+    for sample in samples:
+        if not isinstance(sample, list) or len(sample) < 3:
+            continue
+        if all(finite_number(value) is not None for value in sample[:3]):
+            result.append(sample)
+    return result
+
+
+def restore_summary(counts, unrestored=None):
+    """全復元の件数を、知らせの文にする
+
+    unrestored：まだ戻していない項目（vault_items の行）。戻せなかった理由（last_error）を添える。
+    通知の吹き出しは 255 文字ほどで切れるので、戻せなかった項目があれば、その件数と理由から書く。
+    """
+    text = (f"戻した {counts['restored']}・戻っていた {counts['already']}・"
+            f"横に「(pip0復元)」で戻した {counts['conflict']}・編集を残した {counts['local_newer']}・"
+            f"見つからない {counts['missing']}・失敗 {counts['failed']} 件。自動処理は止まったままです")
+    if not counts["failed"] and not counts["missing"]:
+        return text + "（再開は通知領域の「自動処理を再開」）。"
+    text = (f"戻せなかった項目が {counts['failed'] + counts['missing']} 件あります（中身は保管庫に残っています。"
+            "項目ごとの理由は python -m pip0 vault list）。" + text + "。")
+    reasons = []
+    for item in unrestored or []:
+        if item["last_error"] and item["last_error"] not in reasons:
+            reasons.append(item["last_error"])
+    if reasons:
+        # 理由は最後に、吹き出しに入るだけ載せる（理由の中に、することが書いてある）
+        label = "理由：" if len(reasons) == 1 else f"理由（ほかに {len(reasons) - 1} 種類）："
+        room = NOTICE_MAX_CHARS - len(text) - len(label)
+        if room > 0:
+            text += label + short_text(reasons[0], room)
     return text

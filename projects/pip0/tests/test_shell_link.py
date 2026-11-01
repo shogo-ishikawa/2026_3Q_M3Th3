@@ -177,6 +177,17 @@ def test_messages_that_cannot_be_sent_are_refused_before_sending(make_link):
     assert link.request("echo", {"ok": True}) == {"ok": True}
 
 
+def test_an_event_with_values_json_cannot_hold_is_dropped_and_counted(make_link):
+    # 画面への知らせ1つに無限大などが入っても、例外にせず数えて捨てる（常駐処理のメインループと全復元を止めない）
+    link, _ = started(make_link)
+    assert link.send_event("ui.status", {"ghost_open": {"last_ms": float("inf")}}) is False
+    assert link.send_event("ui.status", {"value": float("nan")}) is False
+    assert link.send_event("ui.status", {"value": object()}) is False
+    assert link.counters()["dropped_events"] == 3
+    assert link.send_event("test.note", {"n": 2}) is True  # その後の知らせは送れる
+    assert {"type": "test.note", "payload": {"n": 2}} in link.request("events_seen")["events"]
+
+
 # ----------------------------------------------------------------------
 # 知らせ
 # ----------------------------------------------------------------------
@@ -256,6 +267,7 @@ def test_stderr_goes_to_the_debug_log_truncated_and_is_never_parsed(make_link, c
 def test_crash_fails_pending_requests_and_reports_the_exit(make_link):
     link, recorder = started(make_link)
     assert isinstance(link.process_id(), int)  # 動いているシェルのプロセス番号
+    assert link.generation() == 1  # この ShellLink で 1 回目に起動したシェル
     outcome = {}
 
     def wait_for_slow_answer():
@@ -283,10 +295,11 @@ def test_crash_fails_pending_requests_and_reports_the_exit(make_link):
     assert link.send_event("ui.notify", {"title": "t", "message": "m", "level": "info"}) is False
     assert link.counters()["dropped_events"] == 1
 
-    # 落ちたシェルは、同じ ShellLink でもう一度起動できる
+    # 落ちたシェルは、同じ ShellLink でもう一度起動できる。起動の回は、プロセス番号と違い使い回さない
     assert link.start() == {"ok": True, "reason": ""}
     recorder.wait_for("shell.ready", number=2)
     assert link.request("echo", {"again": True}) == {"again": True}
+    assert link.generation() == 2
 
 
 def test_clean_stop_sends_quit_and_reports_the_exit(make_link):

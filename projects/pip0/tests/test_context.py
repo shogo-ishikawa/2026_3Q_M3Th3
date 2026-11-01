@@ -6,7 +6,9 @@ Slack・Edge・Office のタイトルの形は、実機で確かめたもので�
 
 import logging
 
-from pip0 import context, rules
+import pytest
+
+from pip0 import context, rules, search
 
 NOW = 1_793_235_600.0  # 2026-10-29 10:00（日本時間）
 
@@ -204,7 +206,78 @@ def test_extract_keywords_splits_mixed_tokens():
     assert context.extract_keywords("予算2026", rules) == ["予算", "2026"]
     assert context.extract_keywords("budget2026", rules) == ["budget", "2026"]
     assert context.extract_keywords("データ分析", rules) == ["データ", "分析"]
-    assert context.extract_keywords("打ち合わせ", rules) == ["打ち合わせ"]  # 漢字とひらがなの間では分けない
+    assert context.extract_keywords("打ち合わせ", rules) == ["打ち合わせ"]  # KEEP_WHOLE_WORDS の語は分けない
+
+
+@pytest.mark.parametrize("text, words", [
+    ("予算の相談", ["予算", "相談"]),
+    ("予算の申請について", ["予算", "申請"]),
+    ("予算の見直し", ["予算", "見直"]),
+    ("議事録とメモ", ["議事録", "メモ"]),
+])
+def test_extract_keywords_skips_hiragana_like_the_search(env, text, words):
+    """助詞・送り仮名（ひらがな）で語を分ける。検索（search.parse_query）の内容の語と同じ分け方"""
+    assert context.extract_keywords(text, rules) == words
+    cues = search.parse_query(text, NOW, env, rules)["cues"]
+    assert [cue["word"] for cue in cues if cue["type"] == "keyword"] == words
+
+
+def test_extract_keywords_keeps_listed_words_with_hiragana():
+    assert context.extract_keywords("打ち合わせの議事録", rules) == ["打ち合わせ", "議事録"]
+    assert context.extract_keywords("定例打ち合わせ（第3回）", rules) == ["定例", "打ち合わせ"]
+    assert context.extract_keywords("お知らせ", rules) == ["お知らせ"]
+    assert context.extract_keywords("まとめ", rules) == []  # 一覧にない、ひらがなだけの語は残らない
+
+
+@pytest.mark.parametrize("text, words", [
+    ("引き継ぎ", ["引き継ぎ"]),                  # 分けると「引」「継」だけになる語は、分けない
+    ("振り返り_第3回", ["振り返り"]),
+    ("引き継ぎメモ", ["引き継ぎ", "メモ"]),
+    ("個人データの取り扱い", ["個人", "データ", "取り扱い"]),  # 前に付いた「の」は除く
+    ("Pythonの書き方", ["Python", "書き方"]),
+    ("新しい予算案", ["予算案"]),                 # 2文字以上の語が残るときは、ひらがなの所で分ける
+])
+def test_extract_keywords_keeps_words_with_okurigana(text, words):
+    assert context.extract_keywords(text, rules) == words
+
+
+def test_middle_dot_separates_words_everywhere():
+    # 中黒「・」（半角の「･」も）は、語を分けるときも、1つの語として探すときも、区切り
+    assert context.character_type("・") == "other" and context.character_type("ー") == "katakana"
+    assert context.split_words("マーケティング・プラン") == ["マーケティング", "プラン"]
+    assert context.split_words("ﾏｰｹﾃｨﾝｸﾞ･ﾌﾟﾗﾝ") == ["マーケティング", "プラン"]
+    assert context.find_word("データ・サイエンス", "データ") == 0
+
+
+def test_english_function_words_are_not_context_words():
+    assert context.extract_keywords("How to book a meeting room", rules) == ["book", "meeting", "room"]
+    assert context.extract_keywords("The art of data", rules) == ["art", "data"]
+    edge = parse("msedge.exe", "Budget planning and 2 more pages - Microsoft Edge")
+    assert edge["keywords"] == ["Budget", "planning"]
+
+
+def test_whole_word_search_for_the_desk():
+    def found(text, word):
+        return context.contains_whole_word(context.prepare_text(text), context.search_forms(word))
+
+    assert not found("Agenda: room booking", "book")       # 英字が続く
+    assert not found("there and other", "the")
+    assert not found("グラフィックデザイン", "グラフ")       # カタカナが続く
+    assert not found("IMG_20261029", "2026")               # 数字が続く
+    assert found("budget2026.xlsx", "Budget") and found("budget2026.xlsx", "2026")  # 英字と数字の間は区切り
+    assert found("FY2026 report", "2026") and found("book: 3 copies", "book")
+    assert found("予算案の内訳", "予算")                      # 漢字の語は、ほかの漢字に続いていても数える
+    assert found("ＢＯＯＫ ｃｌｕｂ", "book") and not found("ＢＯＯＫＩＮＧ", "book")  # 全角の英字
+    assert found("booking のあとで book", "book")           # 1つ目は語の一部でも、2つ目を見つける
+    assert not found("", "book") and not found(None, "book")
+    # 中黒「・」は区切り（カタカナの続きではない）
+    assert found("マーケティング・プラン_v2.pptx", "マーケティング")
+    assert found("マーケティング・プラン_v2.pptx", "プラン")
+    assert found("データ･サイエンス", "データ")               # 半角の「･」
+    # カタカナの語の後ろの長音「ー」は、書き方の違い（「ユーザ」と「ユーザー」）。その後ろにカタカナが続けば別の語
+    assert found("ユーザー一覧.xlsx", "ユーザ") and found("新しいサーバー・ネットワーク", "サーバ")
+    assert found("コンピューター室の予約", "コンピュータ") and found("サーバー", "サーバ")
+    assert not found("データーベース", "データ") and not found("ユーザーズガイド", "ユーザ")
 
 
 def test_extract_keywords_drops_short_words_and_stop_words_and_keeps_order():
