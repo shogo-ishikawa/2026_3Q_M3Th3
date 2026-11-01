@@ -352,6 +352,86 @@ def test_only_files_in_the_downloads_folder(env, platform):
     assert watcher.DownloadTracker(config, rules, platform).add_browser_event(browser_row(elsewhere, 10), NOW) is False
 
 
+def test_extract_all_into_a_subfolder_is_not_a_download(env, platform):
+    """エクスプローラーの「すべて展開」：既定の展開先は Downloads\\<zip の名前>\\ で、中身はダウンロードではない"""
+    tracker = watcher.DownloadTracker(env, rules, platform)
+    archive = make_file(env["DOWNLOADS_DIR"] / "第1週資料.zip")  # これはダウンロード（直下）
+    tracker.observe(event("created", archive), NOW)
+    folder = env["DOWNLOADS_DIR"] / "第1週資料"
+    extracted = [make_file(folder / "lecture_slides.pdf"), make_file(folder / "document.docx"),
+                 make_file(folder / "docs" / "第1回_講義資料.pdf"), make_file(folder / "scan0001.pdf")]
+    tracker.observe(event("created", folder, is_dir=True), NOW + 1)
+    for path in extracted:
+        tracker.observe(event("created", path), NOW + 1)
+        tracker.observe(event("modified", path), NOW + 1)
+    assert tracker.ready(NOW + 1) == []
+    results = tracker.ready(NOW + 100)
+    assert [r["path"] for r in results] == [str(archive)]
+    assert tracker.candidates == {}
+    assert tracker.ready(NOW + 200) == []
+
+
+def collect_until(events, matches, timeout=10.0):
+    """キューから知らせを読み、matches に合うものが届くまでの知らせを、すべてリストで返す"""
+    deadline = time.monotonic() + timeout
+    seen = []
+    while time.monotonic() < deadline:
+        try:
+            item = events.get(timeout=0.1)
+        except queue.Empty:
+            continue
+        seen.append(item)
+        if matches(item):
+            return seen
+    raise AssertionError(f"知らせが届きませんでした（届いたもの：{[(e['kind'], e['path']) for e in seen]}）")
+
+
+def test_folder_moved_into_downloads_is_not_a_download(env, platform, tmp_path):
+    """フォルダーを Downloads へ移すと、watchdog は中のファイルごとに created を知らせる（本物の watchdog で確かめる）"""
+    staging = tmp_path / "USB" / "授業"
+    inner = make_file(staging / "report" / "report.docx")
+    make_file(staging / "IMG_0001.png")
+    events = queue.Queue()
+    folder_watcher = watcher.FolderWatcher([(env["DOWNLOADS_DIR"], "downloads")], events)
+    assert folder_watcher.start()["ok"] is True
+    try:
+        moved_in = env["DOWNLOADS_DIR"] / "授業"
+        os.rename(staging, moved_in)
+        inner_now = moved_in / "report" / "report.docx"
+        seen = collect_until(events, lambda e: e["kind"] == "created" and e["path"] == str(inner_now))
+    finally:
+        folder_watcher.stop()
+    assert inner.exists() is False and inner_now.exists() is True
+    tracker = watcher.DownloadTracker(env, rules, platform)
+    for item in seen:
+        tracker.observe(item, NOW)
+    assert tracker.ready(NOW) == []
+    assert tracker.ready(NOW + 100) == []
+    assert tracker.candidates == {}
+
+
+def test_file_in_a_subfolder_needs_a_browser_record_for_that_path(env, platform):
+    """サブフォルダーへの保存（「名前を付けて保存」など）は、その場所を名指しした拡張機能の記録があるときだけ完了とする"""
+    tracker = watcher.DownloadTracker(env, rules, platform)
+    folder = env["DOWNLOADS_DIR"] / "授業"
+    saved = make_file(folder / "report.pdf")
+    neighbour = make_file(folder / "notes.pdf")  # 同じフォルダーにある、記録のないファイル
+    tracker.observe(event("created", saved), NOW)
+    tracker.observe(event("created", neighbour), NOW)
+    row = browser_row(saved, 10)
+    assert tracker.add_browser_event(row, NOW + 0.5) is True
+    assert tracker.ready(NOW + 0.6) == [
+        {"path": str(saved), "completed_at": NOW + 0.6, "via": "browser_extension", "download_event": row},
+    ]
+    assert tracker.ready(NOW + 100) == []
+
+    other_size = make_file(folder / "slides.pdf", b"0123456789abcdef")
+    tracker.add_browser_event(browser_row(other_size, 999, event_id=2), NOW + 100)
+    assert tracker.ready(NOW + 129) == []
+    assert tracker.ready(NOW + 131) == []  # 大きさが違う記録しかない：直下なら大きさの安定で判断するが、ここでは外す
+    assert tracker.candidates == {}
+
+
 def test_empty_file_needs_a_browser_record(env, platform):
     tracker = watcher.DownloadTracker(env, rules, platform)
     path = make_file(env["DOWNLOADS_DIR"] / "placeholder.pdf", b"")

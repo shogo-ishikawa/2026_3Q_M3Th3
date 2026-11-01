@@ -11,8 +11,10 @@
 1. 拡張機能の記録がある：そのパスのファイルが報告どおりの大きさで、途中の名前（.crdownload 等）でなく、
    ほかのプロセスが使っていない（排他的に開ける）とき。そろわなければ最大 DOWNLOAD_BROWSER_WAIT_SECONDS 秒待ち、
    その後は 2. の決まりで判断する。
-2. 記録がない：途中の名前でなく、大きさと更新日時が DOWNLOAD_STABLE_SECONDS 秒変わらず、
-   拡張機能の記録を DOWNLOAD_EVENT_WAIT_SECONDS 秒以上待ち、ほかのプロセスが使っていないとき。
+2. 記録がない：ダウンロードフォルダーの直下にあり、途中の名前でなく、大きさと更新日時が DOWNLOAD_STABLE_SECONDS 秒
+   変わらず、拡張機能の記録を DOWNLOAD_EVENT_WAIT_SECONDS 秒以上待ち、ほかのプロセスが使っていないとき。
+   サブフォルダーの中のファイルは、記録がなければ完了としない（「すべて展開」でできた Downloads\\<zip の名前>\\ や、
+   移動・コピーしたフォルダーの中身は、ダウンロードではないため）。
 """
 
 import logging
@@ -199,7 +201,8 @@ class DownloadTracker:
       （pip0 自身の移動・改名の知らせは、SelfChangeRegistry で除いてから渡す）
     - add_browser_event(row, now)：ブラウザー拡張の記録（download_events の行の辞書）を渡す
     - ready(now)：完了を確かめられたファイルのリストを受け取る。同じファイル（パス・大きさ・更新日時）は1回だけ返す
-    対象は、ダウンロードフォルダー（DOWNLOADS_DIR）の中のファイルだけです。
+    対象は、ダウンロードフォルダー（DOWNLOADS_DIR）の直下のファイルと、拡張機能の記録がそのパスを名指ししている
+    サブフォルダーの中のファイルだけです。
     """
 
     def __init__(self, config, rules, platform):
@@ -218,17 +221,18 @@ class DownloadTracker:
         - deleted：候補から外す
         - modified：候補を新しく作らない（すでにあるファイルの編集は、ダウンロードではないため）。
           候補の大きさと更新日時は、ready で確かめ直す
+        監視の知らせだけで候補にするのは、ダウンロードフォルダーの直下のファイルだけです（_add_candidate）。
         """
         if event.get("is_dir"):
             return
         kind = event.get("kind")
         if kind == "created":
-            self._add_candidate(event.get("path"), now)
+            self._add_candidate(event.get("path"), now, from_browser=False)
         elif kind == "moved":
             was_candidate = self._forget(event.get("path"))
             old_name = os.path.basename(event.get("path") or "")
             if was_candidate is not None or is_partial_download_name(old_name):
-                self._add_candidate(event.get("dest_path"), now)
+                self._add_candidate(event.get("dest_path"), now, from_browser=False)
         elif kind == "deleted":
             self._forget(event.get("path"))
 
@@ -236,8 +240,9 @@ class DownloadTracker:
         """ブラウザー拡張の記録（download_events の行）を、そのパスの候補に結び付ける。結び付けたら True
 
         ダウンロードフォルダーの外や、途中の名前の記録は扱わない（False）。
+        サブフォルダーの中のパスでも、記録がそのパスを名指ししているので候補にする（「名前を付けて保存」で選んだ場合など）。
         """
-        candidate = self._add_candidate(row.get("filename"), now)
+        candidate = self._add_candidate(row.get("filename"), now, from_browser=True)
         if candidate is None:
             return False
         old_event = candidate["browser_event"]
@@ -267,14 +272,20 @@ class DownloadTracker:
 
     # --- ここから下は、このクラスの中だけで使う関数 ---
 
-    def _add_candidate(self, path, now):
-        """path を候補にして、候補の辞書を返す。候補にしないファイルなら None"""
+    def _add_candidate(self, path, now, from_browser):
+        """path を候補にして、候補の辞書を返す。候補にしないファイルなら None
+
+        from_browser：拡張機能の記録から呼ぶときは True、フォルダーの監視の知らせから呼ぶときは False。
+        監視の知らせだけでは、ダウンロードフォルダーの直下のファイルしか候補にしない。
+        """
         if not path or not self._inside_downloads(path):
             return None
         if is_temporary_download_name(os.path.basename(path), self.rules):
             return None  # ダウンロード途中・一時ファイルの名前は、候補にしない
         key = provenance.normalise_path(path)
         if key not in self.candidates:
+            if not from_browser and not self._directly_in_downloads(path):
+                return None  # サブフォルダーの中（展開・コピーしたフォルダーなど）は、記録がなければ候補にしない
             self.candidates[key] = {
                 "path": os.fspath(path),
                 "added_at": now,
@@ -294,6 +305,13 @@ class DownloadTracker:
     def _inside_downloads(self, path):
         downloads = self.config.get("DOWNLOADS_DIR")
         return downloads is not None and scanner.is_under(path, downloads)
+
+    def _directly_in_downloads(self, path):
+        """path がダウンロードフォルダーの直下（サブフォルダーの中ではない）にあれば True"""
+        downloads = self.config.get("DOWNLOADS_DIR")
+        if downloads is None:
+            return False
+        return provenance.same_path(os.path.dirname(os.fspath(path)), downloads)
 
     def _check(self, candidate, now):
         """候補を1つ確かめ、("wait", None)、("drop", None)、("ready", 結果の辞書) のどれかを返す"""
@@ -328,6 +346,10 @@ class DownloadTracker:
                 return "wait", None
             if not size_matches:
                 event = None  # 大きさが報告と違う：この記録は、今のファイルのものとは言えない
+
+        if event is None and not self._directly_in_downloads(path):
+            # サブフォルダーの中のファイルは、そのパスを名指しした記録（大きさも合うもの）がなければ完了としない
+            return "drop", None
 
         # 2. 記録がない（または待ってもそろわない）：大きさと更新日時が安定したかで決める
         stable_for = now - candidate["stable_since"]

@@ -63,6 +63,10 @@ def local_time(monkeypatch):
     "無題", "名称未設定 2", "新規 Microsoft Word 文書", "scan_001", "スキャン",
     "0f8fad5b-d9cb-469f-a165-70867728950e", "a3f5c2e1b4d69780", "20261029101010",
     "Screenshot 2026-10-29 101010", "スクリーンショット 2026-10-29 10.10.10",
+    # 同じ名前があるときの「 (2)」や、編集した写真の「~2」が付いても、機械の付けた名前のまま
+    "IMG_0001 (1)", "IMG_0001~2", "無題 (2)", "新規 Microsoft Excel ワークシート (2)", "新しいテキスト ドキュメント",
+    "新しいビットマップ イメージ", "Scan 2026-10-29", "scan0001 (2)", "スキャン_0001",
+    "Screenshot (3)", "スクリーンショット (12)", "Screenshot 2026-10-29 at 10.10.10 AM",
 ])
 def test_meaningless_names(stem):
     meaningless, pattern = naming.is_meaningless(stem, rules)
@@ -72,9 +76,25 @@ def test_meaningless_names(stem):
 
 @pytest.mark.parametrize("stem", [
     "2026年度 予算案", "議事録_第3回", "report_final", "budget", "downloads_list", "IMG", "12345", "",
+    # 意味不明な名前と同じ語で始まるが、人が語を足した、意味のある名前
+    "scanner_manual", "Scandinavia_trip_itinerary", "scanned_contract_signed", "スキャン結果_予算2026",
+    "scan_2026_予算", "新規顧客リスト", "新しい予算案_v2", "新規事業計画書", "新しいフォルダーの使い方",
+    "無題の議事録メモ", "名称未設定の企画", "IMG_2041_予算グラフ", "DSC0001_卒業式_集合写真",
+    "PXL_20261029_101010123_卒業式", "IMGUR_tips", "Screenshot 2026-10-30 予算比較", "Screenshot of 予算",
+    "スクリーンショット_予算比較", "image_processing_report", "download_policy", "untitled_document_policy",
 ])
 def test_meaningful_names(stem):
     assert naming.is_meaningless(stem, rules) == (False, None)
+
+
+@pytest.mark.parametrize("original_name", ["新規顧客リスト.xlsx", "IMG_2041_予算グラフ.png", "scanner_manual.pdf"])
+def test_meaningful_names_with_default_prefixes_are_not_renamed(env, original_name):
+    """解析してもタイトルがなく、送信元が分かる場合でも、意味のある名前を「内容不明」に変えない"""
+    analysis = {"status": "done", "kind": "document", "title": None}
+    result = propose(env, original_name, light=None, analysis=analysis)
+    assert result["status"] == "keep"
+    assert result["rename"] is False
+    assert result["new_name"] is None
 
 
 # ---------------------------------------------------------------------- 名前を組み立てる
