@@ -79,7 +79,7 @@ def reset_running(conn, now=None):
 
 def requeue_for_rule_changes(conn, rules, now=None):
     """中身の規則（rules.py の SENSITIVE_CONTENT_KEYWORDS など）が、解析したときと違う文書を、
-    解析し直す順番待ちに入れる（起動時に呼ぶ）。入れた件数を返す
+    解析し直す順番待ちに入れる（起動時と定期的な見直しで呼ぶ）。対象の件数を返す
 
     解析のときに読んだ文字の全体は保存しないため、規則に加えた語などは、解析し直すまで本文の先頭でしか
     調べられず、その文書は「未判定」になります（sensitivity.new_rules_reason）。規則の記録がない、

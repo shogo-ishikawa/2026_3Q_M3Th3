@@ -11,8 +11,6 @@ import json
 import os
 import re
 import tempfile
-import time
-from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -20,28 +18,18 @@ import pytest
 from pip0 import config as config_module
 from pip0 import database, demo_data, hazard, keystore, rules, search, sensitivity, timeutil
 from pip0.platform_fake import FakePlatform
-
-
-def set_timezone(tz):
-    if tz is None:
-        os.environ.pop("TZ", None)
-    else:
-        os.environ["TZ"] = tz
-    time.tzset()
+from timezone_helpers import LocalDatetime as datetime, TOKYO, in_timezone
 
 
 def tokyo_now():
-    return datetime(2026, 10, 29, 10, 0).timestamp()  # 木曜日（TZ=Asia/Tokyo のときに呼ぶ）
+    return datetime(2026, 10, 29, 10, 0).timestamp()  # 木曜日（in_timezone(TOKYO) の中で呼ぶ）
 
 
 @pytest.fixture(autouse=True)
-def tokyo(monkeypatch):
+def tokyo():
     """日付の表示と「先週」の範囲が、どの環境でも同じになるように、日本時間で動かす"""
-    monkeypatch.setenv("TZ", "Asia/Tokyo")
-    time.tzset()
-    yield
-    monkeypatch.undo()
-    time.tzset()
+    with in_timezone(TOKYO):
+        yield
 
 
 def build(target, now, week_starts_on=0):
@@ -60,14 +48,12 @@ def build(target, now, week_starts_on=0):
 @pytest.fixture(scope="module")
 def demo(tmp_path_factory):
     """1回だけ作るデモのデータ（このファイルのテストで共有する）"""
-    saved = os.environ.get("TZ")
-    set_timezone("Asia/Tokyo")
-    try:
+    with in_timezone(TOKYO):
         data = build(tmp_path_factory.mktemp("module") / "demo", tokyo_now())
-        yield data
-        data["conn"].close()
-    finally:
-        set_timezone(saved)
+        try:
+            yield data
+        finally:
+            data["conn"].close()
 
 
 def run(demo, text):

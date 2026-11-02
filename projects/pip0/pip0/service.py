@@ -686,9 +686,11 @@ class Service:
         if synced["loaded"] or synced["problems"]:
             logger.info("起動：保管庫の項目を読み直しました（新しく %d 件、問題 %d 件）",
                         synced["loaded"], len(synced["problems"]))
-        # 2. 前回「解析中」のまま終わった仕事を、待ちに戻す。古いダウンロードの記録を期限切れにする。
+        # 2. 前回「解析中」の仕事と、中身の規則が変わった文書を待ちに戻す（まだ中身は読まない）。
+        #    古いダウンロードの記録を期限切れにする。
         #    残った記録（pip0 が動いていなかった間に、受け口が書いたもの）の id を覚える（poll_download_events）
         analysis_queue.reset_running(self.conn, now)
+        analysis_queue.requeue_for_rule_changes(self.conn, self.rules, now)
         provenance.expire_old_events(self.conn, now)
         self.events_before_start = self.pending_event_ids()
         # 3. 自動処理が止まっているか（キルスイッチ）
@@ -1683,11 +1685,25 @@ class Service:
     def check_vault(self, now):
         """保管庫の起動時の点検（vault.recover_incomplete）。確かめられなかった項目があれば、機能の状態に出す"""
         summary = vault.recover_incomplete(self.conn, self.platform, self.config, now=now)
-        unresolved = summary["unresolved"] + len(summary["problems"])
-        if unresolved:
-            self.set_feature("vault_check", False,
-                             f"確かめられなかった項目が {unresolved} 件あります"
-                             "（pip0 シェルが動いていない等。シェルが動いたら確かめ直します）")
+        if summary["unresolved"] or summary["problems"]:
+            # 同じ項目が両方に含まれることがあるので、単純に足して「項目数」としない。
+            text = (f"確かめられない途中の項目：{summary['unresolved']} 件。"
+                    f"復元情報の問題：{len(summary['problems'])} 件。")
+            reasons = [problem.get("reason") for problem in summary["problems"]]
+            if summary["unresolved"]:
+                reasons += [row["last_error"] for row in
+                            vault.list_items(self.conn, ["copying", "ghosting", "restoring"])]
+            shown = []
+            for reason in reasons:
+                if not isinstance(reason, str) or not reason:
+                    continue
+                # 詳細の理由には退避時の実パスが付くことがある。状態のファイルへは出さない。
+                reason = short_text(reason.split("（manifest.json の", 1)[0], max_chars=100)
+                if reason not in shown:
+                    shown.append(reason)
+            text += "／".join(shown[:2])
+            text += "。詳細は python -m pip0 vault list で確かめてください。"
+            self.set_feature("vault_check", False, text)
         else:
             self.set_feature("vault_check", True, "")
 
@@ -1850,6 +1866,9 @@ class Service:
         else:
             self.set_feature("scan", totals["ok"], totals["reason"])
         self.requeue_skipped_analyses(now)
+        # 前の解析を残して再解析する文書も、使用中等で読めなかったら、この間隔で再試行する。
+        # 今の規則で解析済みの文書は対象にならず、待ち・実行中の仕事を重複して作らない。
+        analysis_queue.requeue_for_rule_changes(self.conn, self.rules, now)
         self.apply_deferred_renames(now)
 
     def requeue_skipped_analyses(self, now):

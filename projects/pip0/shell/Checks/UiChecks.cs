@@ -172,6 +172,21 @@ internal static class UiChecks
         string longName = new string('長', 1000);
         MiniDockContent? longContent = MiniDockContent.Parse(Parse("{\"dock_id\": 1, \"rows\": [{\"entry_id\": 1, \"file_name\": \"" + longName + "\"}]}"), out _, out _);
         Program.Check(longContent is not null && longContent.Rows[0].FileName.Length <= 300 && longContent.Rows[0].FileName.EndsWith("…", StringComparison.Ordinal), "長すぎる名前は切って「…」を付ける");
+
+        // 「開く」は本体が行を消さず、表示し直しもしない。その後も「そのまま」等を選べる必要がある。
+        var opened = new MiniDockActionState();
+        Program.Check(opened.TryBegin("open") && !opened.Pending, "「開く」の後も行の操作を止めない");
+        Program.Check(opened.TryBegin("keep") && opened.Pending, "開いた後に「そのまま」を選べる");
+        Program.Check(!opened.TryBegin("keep") && !opened.TryBegin("open"), "決定を送った行は、次の表示まで操作を重複して送らない");
+        foreach (string decision in new[] { "accept", "alternative", "keep" })
+        {
+            var rowActions = new MiniDockActionState();
+            Program.Check(rowActions.TryBegin("open") && rowActions.TryBegin(decision) && rowActions.Pending,
+                "開いた後に仕分けの決定を送れる：" + decision);
+        }
+        var unknownAction = new MiniDockActionState();
+        Program.Check(!unknownAction.TryBegin("unexpected") && !unknownAction.Pending && unknownAction.TryBegin("keep"),
+            "知らない操作は送らず、行を操作できる状態のままにする");
     }
 
     private static void DeskChecks()

@@ -96,7 +96,7 @@ dotnet publish Pip0Shell.csproj -c Release -r win-x64 --self-contained true -p:P
 
 - 主モニターの作業領域（タスクバーを除く範囲）の右下に出します。幅 380（100% のとき）。
 - 1つのダウンロードが1行：ファイル名、状態（「仕分け先の候補なし」「解析待ち」）、仕分け先、新しい名前、理由、作業中のアプリ。ボタンは「提案どおり」（候補がない行では押せない）、別の仕分け先（`alternatives` の数だけ）、「そのまま」、「開く」。
-- ボタンを押すと `ui.mini_dock.action {"dock_id", "entry_id", "action": "accept"/"alternative"/"keep"/"open", "alternative_index"}` を送り、その行のボタンを押せなくします。行を消す・閉じるのは本体からの次の `ui.mini_dock.show` / `ui.mini_dock.close` です。「開く」のときも同じですが、本体は「開く」では行を残し、表示し直さないため、その行のボタンは押せないまま残ります（直す必要がある。[docs/status.md](../docs/status.md) の7節）。
+- ボタンを押すと `ui.mini_dock.action {"dock_id", "entry_id", "action": "accept"/"alternative"/"keep"/"open", "alternative_index"}` を送ります。「提案どおり」「別の仕分け先」「そのまま」は決定を重複して送らないよう、その行のボタンを押せなくします。行を消す・閉じるのは本体からの次の `ui.mini_dock.show` / `ui.mini_dock.close` です。「開く」は行を残し、ほかのボタンも引き続き押せます。この操作の画面上の確認は、Windows 11 の実機で行ってください。
 - マウスが乗った・離れたら `ui.mini_dock.interaction {"dock_id", "state": "enter"/"leave"}`。残り時間を止める・数え直すのは本体です。シェルは残り時間を表示しません（本体が止めたり数え直したりするため、シェルの表示とずれないように）。
 - `ui.mini_dock.close` は、表示中の `dock_id` と同じときだけ閉じます。
 
@@ -192,6 +192,8 @@ UTF-8 で1行ずつ書きます。**ファイル名・パス・URL・ファイ�
 ## 確かめたこと・確かめていないこと
 
 ### Linux の開発環境で実際に確かめたこと
+
+以下は初期実装時（2026-11-01まで）の記録です。2026-11-02 にミニドックの「開く」後の操作を修正し、チェックを7件追加しましたが、今回の環境には .NET SDK がなく、**その差分を含むビルドとチェックは未実施**です。293件成功という記録を、修正後の確認結果とは扱いません（[docs/verification.md](../docs/verification.md) の6節）。
 
 - `dotnet build Pip0Shell.csproj -c Release`：エラー 0、警告 0（常駐UI・入力・作業文脈を加えた後も、レビューの指摘を直した後も）。
 - `dotnet publish … -r win-x64 --self-contained true -p:PublishSingleFile=true`：Windows 用の実行ファイル（PE32+、GUI、x86-64、約 73 MB）が1つできること。

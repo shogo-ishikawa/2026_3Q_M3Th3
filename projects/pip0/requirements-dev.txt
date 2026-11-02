@@ -1,3 +1,5 @@
 # テストを動かすときだけ使うライブラリ
 # 導入：python -m pip install -r requirements.txt -r requirements-dev.txt
 pytest==9.2.0
+# Windows でも、夏時間のある地域を zoneinfo で検証するための IANA タイムゾーンデータ
+tzdata==2025.2

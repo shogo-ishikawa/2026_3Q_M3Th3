@@ -6,10 +6,12 @@
 import json
 import time
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from pip0 import naming, rules, safe_names, timeutil
+from timezone_helpers import TOKYO, in_timezone
 
 NOW = 1_793_235_600.0  # 2026-10-29 10:00（日本時間）
 SLACK = {"label": "Slack", "kind": "browser_extension",
@@ -37,21 +39,6 @@ def image_analysis(colours, colourful_ratio=0.2, visual_kind="chart", chart_scor
 
 def propose(env, original_name, light=None, source=SLACK, analysis=None, completed_at=NOW):
     return naming.propose_name(original_name, light, source, completed_at, analysis, env, rules)
-
-
-@pytest.fixture
-def local_time(monkeypatch):
-    """端末の現地時刻（タイムゾーン）を切り替える。Windows には time.tzset がないので、そこでは飛ばす"""
-    if not hasattr(time, "tzset"):
-        pytest.skip("タイムゾーンの切り替え（time.tzset）がない環境です")
-
-    def use(tz):
-        monkeypatch.setenv("TZ", tz)
-        time.tzset()
-
-    yield use
-    monkeypatch.undo()
-    time.tzset()
 
 
 # ---------------------------------------------------------------------- 意味の分からない名前
@@ -292,19 +279,19 @@ def test_failed_or_unsupported_analysis_counts_as_finished(env, status):
     assert result["new_name"].endswith("_内容不明_Slack.zip")
 
 
-def test_date_is_the_local_date_around_midnight_in_tokyo(env, local_time):
-    local_time("Asia/Tokyo")
-    just_before = datetime(2026, 10, 29, 23, 59, 59).timestamp()  # 世界標準時では 2026-10-29 14:59:59
-    just_after = datetime(2026, 10, 30, 0, 0, 0).timestamp()     # 世界標準時では、まだ 2026-10-29
-    before = propose(env, "download.pdf", light=pdf_title("予算案"), completed_at=just_before)
-    after = propose(env, "download.pdf", light=pdf_title("予算案"), completed_at=just_after)
+def test_date_is_the_local_date_around_midnight_in_tokyo(env):
+    just_before = datetime(2026, 10, 29, 23, 59, 59, tzinfo=TOKYO).timestamp()  # 世界標準時では 2026-10-29 14:59:59
+    just_after = datetime(2026, 10, 30, 0, 0, 0, tzinfo=TOKYO).timestamp()     # 世界標準時では、まだ 2026-10-29
+    with in_timezone(TOKYO):
+        before = propose(env, "download.pdf", light=pdf_title("予算案"), completed_at=just_before)
+        after = propose(env, "download.pdf", light=pdf_title("予算案"), completed_at=just_after)
     assert before["new_name"] == "2026-10-29_予算案_Slack.pdf"
     assert after["new_name"] == "2026-10-30_予算案_Slack.pdf"
     assert time.strftime("%Y-%m-%d", time.gmtime(just_after)) == "2026-10-29"
 
 
-def test_date_follows_the_device_time_zone(env, local_time):
-    local_time("America/New_York")
+def test_date_follows_the_device_time_zone(env):
     completed_at = 1_793_286_000.0  # 日本時間の 2026-10-30 0:00 は、ニューヨークでは 2026-10-29 11:00
-    result = propose(env, "download.pdf", light=pdf_title("予算案"), completed_at=completed_at)
+    with in_timezone(ZoneInfo("America/New_York")):
+        result = propose(env, "download.pdf", light=pdf_title("予算案"), completed_at=completed_at)
     assert result["parts"]["date"] == "2026-10-29"

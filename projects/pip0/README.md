@@ -50,9 +50,9 @@ pip0 本体（Python、pip0\）  ◀──標準入出力（JSON の1行ずつ�
 
 pip0 の判断の処理（仕分け、改名、検索、機密の判定、退避と復元の手順、全復元）は、Windows の機能の代わりに「代役」（`platform_fake.py`）を使って、Windows 以外でも試せます。
 
-- Python は 3.11 以上が必要です。確かめたのは、Linux の Python 3.11・3.12・3.13 だけです。3.13 をすすめます（Windows への導入で使う版と同じです）。
+- Python は 3.11 以上が必要です。初期版は Linux の Python 3.11・3.12・3.13 で確認し、2026-11-02 の修正後は Linux の 3.12.14 で確認しました。Windows への導入で使う版は3.13です。
 - 3.14 以降は確かめていません。3.15 では、暗号化DB のライブラリ sqlcipher3（0.6.4）に、ビルド済みの部品（wheel）がありません。pip がソースからビルドしようとするため、C のコンパイラーなどがない PC では入りません。
-- macOS と、Windows の普通の Python では、まだ動かしていません。Windows の Python では、今は自動テストの一部が動きません（下の注意）。
+- macOS と、Windows の普通の Python では、まだ動かしていません。Windows にない `time.tzset` へのテストの依存は修正しましたが、Windows 実機での全件確認は残っています（下の注意）。
 
 **準備**：先に `python3 --version`（Windows は `py -3.13 --version`）で、3.11 以上の Python があるかを確かめます（古ければ python.org から入れます）。ライブラリは、このフォルダーの中に作る仮想環境（`.venv`）に入れます。`.venv` は Git に登録されません。PC の Python に直接入れようとすると、Linux や macOS では「externally-managed-environment」というエラーで止まることがあります。
 
@@ -93,9 +93,9 @@ python -m pip0 demo
 python -m pytest
 ```
 
-Linux の Python 3.11・3.12・3.13 で、すべて成功することを確かめています（件数は [docs/verification.md](docs/verification.md) の5節）。
+初期版は Linux の Python 3.11・3.12・3.13 で全件成功しました（[docs/verification.md](docs/verification.md) の5節）。2026-11-02 の修正後は Linux の Python 3.12.14 で **1322件すべて成功**し、`time.tzset` をなくした状態でも同じ結果でした（同6節）。修正後の3.11・3.13では、まだ実行し直していません。
 
-> **Windows の Python での注意**：今の自動テストは、Windows の Python では最後まで動きません。`tests/test_base.py`、`tests/test_demo_data.py`、`tests/test_desk.py`、`tests/test_search.py` が、タイムゾーンを切り替えるために、Windows にない `time.tzset` を使っているためです（Linux で `time.tzset` をなくしてまねたところ、168 件がエラーか失敗になりました）。直すまでは、自動テストを Linux で動かしてください（macOS と、Windows の WSL では確かめていません）。ほかのテストのファイルも、Windows では動かしていません。
+> **Windows の Python での確認**：タイムゾーンのテストは、Windows にない `time.tzset` で OS の設定を切り替える方法から、テスト用の明示したタイムゾーンを使う方法へ修正しました。夏時間の確認も残し、地域の情報は `requirements-dev.txt` の `tzdata` を使います。Linux で `time.tzset` をなくした確認は [docs/verification.md](docs/verification.md) の6節にあります。これは Windows 実機での全件実行の代わりではありません。macOS と Windows の WSL も未確認です。
 
 - 代役で確かめたことは、Windows で確かめたことにはなりません。代役は Windows の動きをまねるだけです。
 - 常駐処理（`serve`）、ごみ箱への削除（`delete`）、ゴーストの復元など、Windows の機能が要るコマンドは、Windows 以外では理由を表示して終わります（終了コード 2）。

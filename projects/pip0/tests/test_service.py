@@ -11,11 +11,12 @@ import json
 import os
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from pypdf import PdfWriter
 
-from pip0 import analysis_queue, database, killswitch, provenance, rules, service, timeutil, vault
+from pip0 import analysis_queue, database, killswitch, provenance, rules, scanner, sensitivity, service, timeutil, vault
 from pip0.ui import RecordingUi
 
 T0 = 1_793_235_600.0          # 2026-10-29 10:00（日本時間、木曜日）
@@ -397,6 +398,86 @@ def test_locked_file_analysis_is_retried_at_the_next_scan(resident, config, plat
     clock.advance(1)
     resident.step()  # 解析する
     assert database.query_one(db, "SELECT status FROM analysis WHERE file_id = ?", (file_id,))["status"] == "done"
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["changed-rules", "legacy-analysis"])
+def test_start_reanalyses_old_content_rules_only_when_heavy_work_is_allowed(
+        config, platform, db, ui, clock, legacy):
+    # 保存した本文の先頭にはない語を規則に加える。前の解析を残したまま、全体の再解析を待たせる。
+    config = dict(config, TEXT_MAX_CHARS=20)
+    path = make_file(Path(config["PIP0_ROOT"]) / "通常の文書.txt", text="普通の本文です。\n" * 50 + "新しい検出語")
+    file_id = scanner.upsert_file(db, platform, path, "pip0_root", clock())["file_id"]
+    result = analysis_queue.analyse_file(path, platform, config, rules, lambda: True)
+    analysis_queue.store_result(db, file_id, path, result, config, rules, clock())
+    task = database.query_one(db, "SELECT id FROM tasks WHERE file_id = ?", (file_id,))
+    analysis_queue.mark(db, task["id"], "done", now=clock())
+    if legacy:
+        db.execute("UPDATE analysis SET content_rules_json = NULL WHERE file_id = ?", (file_id,))
+    values = {name: getattr(rules, name) for name in dir(rules) if name.isupper()}
+    values["SENSITIVE_CONTENT_KEYWORDS"] = list(rules.SENSITIVE_CONTENT_KEYWORDS) + ["新しい検出語"]
+    edited = SimpleNamespace(**values)
+    old = database.query_one(db, "SELECT * FROM analysis WHERE file_id = ?", (file_id,))
+    assert "新しい検出語" not in old["text_excerpt"]
+    assert sensitivity.overall(path, old, config, edited)["level"] == "unknown"
+    svc = service.Service(config, edited, platform, ui, db, clock=clock, start_threads=False)
+    assert svc.start()["ok"]
+    try:
+        assert analysis_queue.pending_count(db, "analyse") == 1
+        for power, idle in [("ac", 179), ("battery", 600), ("unknown", 600)]:
+            platform.power, platform.idle_seconds = power, idle
+            clock.advance(config["THROTTLE_CHECK_SECONDS"] + 1)
+            svc.step()
+            assert database.query_one(db, "SELECT analysed_at FROM analysis WHERE file_id = ?",
+                                      (file_id,))["analysed_at"] == old["analysed_at"]
+        platform.power, platform.idle_seconds = "ac", 600
+        clock.advance(config["THROTTLE_CHECK_SECONDS"] + 1)
+        svc.step()
+        fresh = database.query_one(db, "SELECT * FROM analysis WHERE file_id = ?", (file_id,))
+        assert fresh["analysed_at"] > old["analysed_at"]
+        assert sensitivity.overall(path, fresh, config, edited)["level"] == "sensitive"
+        assert analysis_queue.pending_count(db, "analyse") == 0
+        # 解析済みのものは、次の見直しでも同じ仕事を増やさない。
+        svc.scan(clock.advance(config["SCAN_MINUTES"] * 60 + 1))
+        assert analysis_queue.pending_count(db, "analyse") == 0
+    finally:
+        svc.shutdown()
+    again = service.Service(config, edited, platform, ui, db, clock=clock, start_threads=False)
+    assert again.start()["ok"]
+    try:
+        assert analysis_queue.pending_count(db, "analyse") == 0
+    finally:
+        again.shutdown()
+
+
+def test_reanalysis_of_old_rules_retries_after_a_locked_file_is_released(config, platform, db, ui, clock):
+    path = make_file(Path(config["PIP0_ROOT"]) / "使用中の文書.txt", text="通常の本文です。\n" * 20)
+    file_id = scanner.upsert_file(db, platform, path, "pip0_root", clock())["file_id"]
+    result = analysis_queue.analyse_file(path, platform, config, rules, lambda: True)
+    analysis_queue.store_result(db, file_id, path, result, config, rules, clock())
+    task = database.query_one(db, "SELECT id FROM tasks WHERE file_id = ?", (file_id,))
+    analysis_queue.mark(db, task["id"], "done", now=clock())
+    db.execute("UPDATE analysis SET content_rules_json = NULL WHERE file_id = ?", (file_id,))
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    original_open = platform.open_for_analysis
+    try:
+        def locked(_path):
+            raise PermissionError("使用中")
+        platform.open_for_analysis = locked
+        platform.idle_seconds = 600
+        clock.advance(config["THROTTLE_CHECK_SECONDS"] + 1)
+        svc.step()
+        assert database.query_one(db, "SELECT state FROM tasks WHERE id = ?", (task["id"],))["state"] == "failed"
+        assert database.query_one(db, "SELECT status FROM analysis WHERE file_id = ?", (file_id,))["status"] == "done"
+        platform.open_for_analysis = original_open
+        clock.advance(config["SCAN_MINUTES"] * 60 + 1)
+        svc.step()
+        assert database.query_one(db, "SELECT content_rules_json FROM analysis WHERE file_id = ?",
+                                  (file_id,))["content_rules_json"] is not None
+        assert analysis_queue.pending_count(db, "analyse") == 0
+    finally:
+        platform.open_for_analysis = original_open
+        svc.shutdown()
 
 
 # ---------------------------------------------------------------------- M2 浮上式デスクとシェイク
@@ -1430,6 +1511,40 @@ def test_no_evacuation_is_started_when_the_sync_root_cannot_be_used(config, plat
             svc.step()
         assert vault.list_items(db) == []  # 保管庫へコピーもしない
         assert old.exists() and str(old) not in platform.ghosts
+    finally:
+        svc.shutdown()
+
+
+def test_vault_check_explains_changed_root_without_exposing_the_old_path(config, platform, db, ui, clock, tmp_path):
+    path = make_file(Path(config["PIP0_ROOT"]) / "保管した文書.txt")
+    item_id = evacuated(db, platform, config, path)
+    other_root = tmp_path / "different-root"
+    other_root.mkdir()
+    changed = dict(config, PIP0_ROOT=other_root)
+    svc = make_service(changed, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    try:
+        reason = svc.features["vault_check"]["reason"]
+        assert "PIP0_ROOT" in reason and "外にある項目" in reason
+        assert "元に戻してから全復元" in reason
+        assert "シェルが動いたら" not in reason
+        assert str(config["PIP0_ROOT"]) not in json.dumps(service.read_status_file(changed), ensure_ascii=False)
+        assert vault.content_path(config, item_id).exists()
+    finally:
+        svc.shutdown()
+
+
+def test_vault_check_explains_invalid_recovery_information(config, platform, db, ui, clock):
+    item_dir = Path(config["VAULT_DIR"]) / "items" / ("a" * 32)
+    item_dir.mkdir(parents=True)
+    (item_dir / "manifest.json").write_text("{", encoding="utf-8")
+    svc = make_service(config, platform, db, ui, clock)
+    assert svc.start()["ok"]
+    try:
+        reason = svc.features["vault_check"]["reason"]
+        assert "manifest.json を読めません" in reason
+        assert "シェルが動いたら" not in reason
+        assert "vault list" in reason
     finally:
         svc.shutdown()
 

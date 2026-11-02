@@ -835,8 +835,9 @@ function Write-NextSteps([string]$Dir, [string]$ExtensionDir, $Info) {
     Write-Step ('       powershell -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $Dir 'scripts\network-policy.ps1') + '" -Apply -InstallDir "' + $Dir + '"')
     Write-Step '  3. pip0 を起動する（次のファイルをダブルクリック）'
     Write-Step ('       ' + (Join-Path $Dir 'scripts\start-pip0.cmd'))
-    Write-Step ('  4. pip0 フォルダー（' + $pip0Root + '）を登録する（PowerShell で）')
-    Write-Step ('       & "' + $python + '" -I -m pip0 register-root')
+    Write-Step ('  4. 起動時に pip0 フォルダー（' + $pip0Root + '）が自動で登録されます。PowerShell で結果を確かめます。')
+    Write-Step ('       & "' + $python + '" -I -m pip0 status')
+    Write-Step '       同期ルートの登録に失敗していれば、表示された理由を確かめてください（未登録のまま退避はしません）。'
     Write-Host ''
     Write-Step ('  サインイン時の自動起動（任意）：powershell -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $Dir 'scripts\autostart.ps1') + '" -Enable')
     Write-Step ('  全復元（画面が動かないとき）　：' + (Join-Path $Dir 'scripts\restore-all.cmd') + ' をダブルクリック')

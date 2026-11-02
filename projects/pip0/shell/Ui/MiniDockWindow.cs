@@ -15,7 +15,8 @@ namespace Pip0Shell.Ui;
 /// - 枠のない最前面のウィンドウで、前面には出ません（ShowActivated = false、WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW）。
 ///   ボタンを押しても、作業中のアプリからキーボードの入力先を奪いません。
 /// - 1つのダウンロードが1行：ファイル名、仕分け先、新しい名前、理由、ボタン（提案どおり／別の仕分け先／そのまま／開く）。
-///   ボタンを押すと ui.mini_dock.action を送り、その行のボタンを押せなくします（行を消すのは本体からの次の表示）。
+///   仕分けを決めるボタンを押すと ui.mini_dock.action を送り、その行のボタンを押せなくします（行を消すのは本体からの次の表示）。
+///   「開く」は行を残すので、ほかのボタンも引き続き押せます。
 /// - マウスが乗った・離れたら ui.mini_dock.interaction（"enter" / "leave"）を送ります（本体が残り時間を止める・数え直す）。
 /// - 行は ui.mini_dock.show のたびに、届いた内容で置き換えます。いつ閉じるかは本体が決めます。
 /// </summary>
@@ -138,11 +139,19 @@ internal sealed class MiniDockWindow : Window
         }
 
         var all = new List<Button>();
+        var actionState = new MiniDockActionState();
         void Send(string action, long? alternativeIndex)
         {
-            foreach (Button button in all)
+            if (!actionState.TryBegin(action))
             {
-                button.IsEnabled = false; // 2回押されないように。行は本体からの次の表示で置き換わる
+                return;
+            }
+            if (actionState.Pending)
+            {
+                foreach (Button button in all)
+                {
+                    button.IsEnabled = false; // 仕分けの決定を2回送らない。行は本体からの次の表示で置き換わる
+                }
             }
             SendAction(row, action, alternativeIndex);
         }

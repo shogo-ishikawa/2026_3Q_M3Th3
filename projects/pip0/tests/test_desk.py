@@ -6,11 +6,10 @@
 ファイルの中身は読まないので、索引の行だけを作ります（実際のファイルは作りません）。
 """
 
-import time
-
 import pytest
 
 from pip0 import context, database, desk, keystore, rules
+from timezone_helpers import LocalDatetime as datetime, TOKYO, in_timezone
 
 NOW = 1_793_235_600.0  # 2026-10-29 10:00（日本時間）
 DAY = 24 * 60 * 60
@@ -44,13 +43,10 @@ def add_file(db, env, name, *, status="present", mtime=NOW - 100 * DAY, analysis
 
 
 @pytest.fixture(autouse=True)
-def tokyo(monkeypatch):
+def tokyo():
     """理由の文の日付（現地時刻）が、どの環境でも同じになるように、日本時間で動かす"""
-    monkeypatch.setenv("TZ", "Asia/Tokyo")
-    time.tzset()
-    yield
-    monkeypatch.undo()
-    time.tzset()
+    with in_timezone(TOKYO):
+        yield
 
 
 @pytest.fixture
@@ -140,7 +136,7 @@ def test_recency_follows_the_same_rule_as_usage_last_use(db, env):
         points = 1 if days <= 7 else 0.5
         assert ranked[file_id]["score"] == points
         label = usage.USAGE_KIND_LABELS[last["kind"]]
-        assert f"（{time.strftime('%Y-%m-%d', time.localtime(last['at']))}、{label}）" in ranked[file_id]["reasons"][0]
+        assert f"（{datetime.fromtimestamp(last['at']).strftime('%Y-%m-%d')}、{label}）" in ranked[file_id]["reasons"][0]
     assert ranked[ids[3]]["reasons"] == ["7日以内に使用・変更（2026-10-27、ゴーストを開いた記録）（+1）"]
 
 

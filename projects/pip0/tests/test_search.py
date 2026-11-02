@@ -7,24 +7,20 @@
 
 import json
 import logging
-import time
-from datetime import datetime
 
 import pytest
 
 from pip0 import database, rules, search
+from timezone_helpers import LocalDatetime as datetime, TOKYO, in_timezone
 
 DAY = 24 * 60 * 60
 
 
 @pytest.fixture(autouse=True)
-def tokyo(monkeypatch):
+def tokyo():
     """「先週」と日付の表示が、どの環境でも同じになるように、日本時間で動かす"""
-    monkeypatch.setenv("TZ", "Asia/Tokyo")
-    time.tzset()
-    yield
-    monkeypatch.undo()
-    time.tzset()
+    with in_timezone(TOKYO):
+        yield
 
 
 def local(*args):

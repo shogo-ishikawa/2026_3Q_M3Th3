@@ -2,25 +2,20 @@
 
 import os
 import time
-from datetime import datetime
+from datetime import datetime as SystemDatetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from pip0 import config as config_module
 from pip0 import database, keystore, timeutil
-
-
-def set_timezone(monkeypatch, tz):
-    monkeypatch.setenv("TZ", tz)
-    time.tzset()
+from timezone_helpers import LocalDatetime as datetime, TOKYO, in_timezone
 
 
 @pytest.fixture
-def tokyo(monkeypatch):
-    set_timezone(monkeypatch, "Asia/Tokyo")
-    yield
-    monkeypatch.undo()
-    time.tzset()
+def tokyo():
+    with in_timezone(TOKYO):
+        yield
 
 
 # ---------------------------------------------------------------------- 設定
@@ -162,18 +157,32 @@ def test_fixed_words_inside_longer_words_are_not_used(tokyo):
     assert timeutil.find_period("資料おととい", now_ts)["word"] == "おととい"
 
 
-def test_period_follows_daylight_saving_time(monkeypatch):
+def test_period_follows_daylight_saving_time():
     # 夏時間のある地域でも、現地の0時を境にする（ニューヨークは 2026-11-01 に夏時間が終わる）
-    set_timezone(monkeypatch, "America/New_York")
-    try:
+    with in_timezone(ZoneInfo("America/New_York")):
         now_ts = datetime(2026, 11, 4, 12, 0).timestamp()
         period = timeutil.find_period("先週", now_ts)
         assert datetime.fromtimestamp(period["start"]) == datetime(2026, 10, 26, 0, 0)
         assert datetime.fromtimestamp(period["end"]) == datetime(2026, 11, 2, 0, 0)
         assert period["end"] - period["start"] == 7 * 24 * 3600 + 3600  # 夏時間の終わりで1時間長い
-    finally:
-        monkeypatch.undo()
-        time.tzset()
+
+
+@pytest.mark.parametrize("now", [
+    SystemDatetime(2026, 10, 29, 10),
+    SystemDatetime(2026, 11, 4, 12),
+    SystemDatetime(2027, 1, 1, 0, 30),
+])
+def test_period_and_conversions_use_the_actual_os_local_time(now):
+    # ここでは datetime を差し替えない。Windows を含め、その OS の現地時刻変換を本物で通す。
+    assert timeutil.datetime is SystemDatetime
+    now_ts = now.timestamp()
+    assert timeutil.to_local(now_ts) == SystemDatetime.fromtimestamp(now_ts)
+    assert timeutil.from_local(now) == now_ts
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday() + 7)
+    end = start + timedelta(days=7)
+    period = timeutil.find_period("先週", now_ts)
+    assert period["start"] == start.timestamp()
+    assert period["end"] == end.timestamp()
 
 
 class WindowsLikeDatetime(datetime):

@@ -22,6 +22,33 @@ internal sealed record MiniDockRow(
 }
 
 /// <summary>
+/// 1行のボタンの状態。「開く」は行を残すので、その後も仕分けの操作を受け付けます。
+/// 仕分けを決める操作は、本体から次の表示が届くまで1回だけ送ります。
+/// </summary>
+internal sealed class MiniDockActionState
+{
+    public bool Pending { get; private set; }
+
+    public bool TryBegin(string action)
+    {
+        if (Pending)
+        {
+            return false;
+        }
+        if (action == "open")
+        {
+            return true;
+        }
+        if (action is not ("accept" or "alternative" or "keep"))
+        {
+            return false;
+        }
+        Pending = true;
+        return true;
+    }
+}
+
+/// <summary>
 /// ui.mini_dock.show の payload を読んだもの（docs/ipc-protocol.md の3節）。
 /// {"dock_id", "rows": [{"entry_id", "file_name", "status", "dest_label", "new_name", "reasons", "alternatives", "context_label", "remaining_seconds"}]}
 ///
