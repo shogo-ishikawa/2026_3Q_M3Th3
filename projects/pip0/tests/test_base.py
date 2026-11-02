@@ -1,0 +1,366 @@
+"""基盤（設定、時刻、暗号化DB、鍵）のテスト"""
+
+import os
+import time
+from datetime import datetime as SystemDatetime, timedelta
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from pip0 import config as config_module
+from pip0 import database, keystore, timeutil
+from timezone_helpers import LocalDatetime as datetime, TOKYO, in_timezone
+
+
+@pytest.fixture
+def tokyo():
+    with in_timezone(TOKYO):
+        yield
+
+
+# ---------------------------------------------------------------------- 設定
+
+
+def test_config_rejects_vault_inside_pip0_root(tmp_path):
+    config = config_module.load_config(
+        overrides={"PIP0_ROOT": tmp_path / "pip0", "DATA_DIR": tmp_path / "data",
+                   "VAULT_DIR": tmp_path / "pip0" / "vault", "DOWNLOADS_DIR": tmp_path / "dl"},
+        read_user_file=False,
+    )
+    assert any("保管庫" in message for message in config["CONFIG_ERRORS"])
+
+
+def test_config_reads_user_file_and_ignores_unknown_keys(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "config.json").write_text('{"MINI_DOCK_SECONDS": 5, "NO_SUCH_KEY": 1}', encoding="utf-8")
+    config = config_module.load_config(overrides={"DATA_DIR": data_dir})
+    assert config["MINI_DOCK_SECONDS"] == 5
+    assert any("NO_SUCH_KEY" in message for message in config["CONFIG_WARNINGS"])
+    assert config["DB_PATH"] == data_dir.resolve() / "pip0.db"
+
+
+@pytest.mark.parametrize("encoding", ["utf-8-sig", "utf-16"])  # メモ帳・PowerShell 5.1 が作る BOM 付きのファイル
+def test_config_reads_user_file_with_a_bom(tmp_path, encoding):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "config.json").write_text('{"AUTO_EVACUATE_ENABLED": false}', encoding=encoding)
+    config = config_module.load_config(overrides={"DATA_DIR": data_dir})
+    assert config["AUTO_EVACUATE_ENABLED"] is False
+    assert config["CONFIG_WARNINGS"] == []
+
+
+def test_broken_config_file_is_reported_and_defaults_are_kept(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "config.json").write_bytes(b'{"AUTO_EVACUATE_ENABLED": fa')
+    config = config_module.load_config(overrides={"DATA_DIR": data_dir})
+    assert config["AUTO_EVACUATE_ENABLED"] is True
+    assert any("config.json を読めませんでした" in message for message in config["CONFIG_WARNINGS"])
+
+
+# ---------------------------------------------------------------------- 時刻
+
+
+def test_last_week_is_monday_to_sunday_in_local_time(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()  # 木曜日
+    period = timeutil.find_period("先週の予算資料", now_ts)
+    assert period["word"] == "先週"
+    assert datetime.fromtimestamp(period["start"]) == datetime(2026, 10, 19, 0, 0)
+    assert datetime.fromtimestamp(period["end"]) == datetime(2026, 10, 26, 0, 0)
+    assert "2026-10-19（月）〜2026-10-25（日）" in period["label"]
+    assert period["span"] == (0, 2)
+
+
+def test_week_can_start_on_sunday(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    period = timeutil.find_period("先週", now_ts, week_starts_on=6)
+    assert datetime.fromtimestamp(period["start"]) == datetime(2026, 10, 18, 0, 0)
+
+
+def test_relative_days_and_kanji_numbers(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    period = timeutil.find_period("三日前にもらった", now_ts)
+    assert datetime.fromtimestamp(period["start"]) == datetime(2026, 10, 26, 0, 0)
+    period = timeutil.find_period("2か月前", now_ts)
+    assert datetime.fromtimestamp(period["start"]) == datetime(2026, 8, 1, 0, 0)
+    assert timeutil.find_period("予算資料", now_ts) is None
+
+
+def local_range(period):
+    return datetime.fromtimestamp(period["start"]), datetime.fromtimestamp(period["end"])
+
+
+@pytest.mark.parametrize("text, word, start, end", [
+    ("一昨年の予算", "一昨年", datetime(2024, 1, 1), datetime(2025, 1, 1)),    # 「昨年」（2025年）ではない
+    ("おととしの予算", "おととし", datetime(2024, 1, 1), datetime(2025, 1, 1)),
+    ("先々月の議事録", "先々月", datetime(2026, 8, 1), datetime(2026, 9, 1)),
+    ("1ヵ月前の資料", "1ヵ月前", datetime(2026, 9, 1), datetime(2026, 10, 1)),  # 小さい「ヵ」
+    ("先月の予算", "先月", datetime(2026, 9, 1), datetime(2026, 10, 1)),
+    ("昨年の予算", "昨年", datetime(2025, 1, 1), datetime(2026, 1, 1)),
+])
+def test_words_for_two_years_and_two_months_ago(tokyo, text, word, start, end):
+    period = timeutil.find_period(text, datetime(2026, 10, 29, 10, 0).timestamp())
+    assert period["word"] == word
+    assert local_range(period) == (start, end)
+
+
+@pytest.mark.parametrize("text, word, start, end", [
+    # 月ごとの区切りの言葉（「今月度の請求書」）は、暦の月と同じ範囲（「今年度」のような別の範囲にはしない）
+    ("今月度の請求書", "今月度", datetime(2026, 10, 1), datetime(2026, 11, 1)),
+    ("先月度の売上", "先月度", datetime(2026, 9, 1), datetime(2026, 10, 1)),
+    ("先々月度の予算", "先々月度", datetime(2026, 8, 1), datetime(2026, 9, 1)),
+])
+def test_month_words_with_do_are_calendar_months(tokyo, text, word, start, end):
+    period = timeutil.find_period(text, datetime(2026, 10, 29, 10, 0).timestamp())
+    assert period["word"] == word and period["span"] == (0, len(word))
+    assert local_range(period) == (start, end)
+
+
+@pytest.mark.parametrize("now, words, start, end", [
+    # 4月始まりの年度（FISCAL_YEAR_START_MONTH = 4、日本の大学・官公庁）
+    (datetime(2026, 10, 29, 10, 0), ["今年度"], datetime(2026, 4, 1), datetime(2027, 4, 1)),
+    (datetime(2026, 10, 29, 10, 0), ["昨年度", "前年度"], datetime(2025, 4, 1), datetime(2026, 4, 1)),
+    # 1〜3月は、前の年の4月に始まった年度の中
+    (datetime(2027, 2, 10, 10, 0), ["今年度"], datetime(2026, 4, 1), datetime(2027, 4, 1)),
+    (datetime(2027, 3, 31, 23, 59), ["昨年度"], datetime(2025, 4, 1), datetime(2026, 4, 1)),
+    (datetime(2027, 4, 1, 0, 0), ["今年度"], datetime(2027, 4, 1), datetime(2028, 4, 1)),
+])
+def test_fiscal_year_words_start_in_april(tokyo, now, words, start, end):
+    for word in words:
+        period = timeutil.find_period(f"{word}の予算資料", now.timestamp())
+        assert period["word"] == word
+        assert local_range(period) == (start, end)
+        assert period["span"] == (0, 3)
+
+
+def test_fiscal_year_start_month_can_be_changed(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    period = timeutil.find_period("今年度", now_ts, fiscal_year_start_month=1)  # 暦の年と同じ
+    assert local_range(period) == (datetime(2026, 1, 1), datetime(2027, 1, 1))
+    period = timeutil.find_period("昨年度", now_ts, fiscal_year_start_month=9)
+    assert local_range(period) == (datetime(2025, 9, 1), datetime(2026, 9, 1))
+
+
+def test_fixed_words_inside_longer_words_are_not_used(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    # 前の漢字や後ろの「度」とつながった言葉は、その時期として扱わない（黙って違う時期にしない）
+    assert timeutil.find_period("一昨年度の資料", now_ts) is None   # 一昨年＋度、一＋昨年度、一＋昨年
+    assert timeutil.find_period("日本日報", now_ts) is None         # 「日本日報」の中の「本日」
+    assert timeutil.find_period("昨今日本の経済", now_ts) is None   # 「昨今日本」の中の「今日」
+    # 別の言葉の中の「本日」は飛ばし、その後ろにある「本日」を使う
+    period = timeutil.find_period("日本日報の本日の記事", now_ts)
+    assert period["word"] == "本日" and period["span"] == (5, 7)
+    # 後ろに「末」などが続くのは、その時期の中のこと（そのまま使う）
+    assert timeutil.find_period("先月末の請求書", now_ts)["word"] == "先月"
+    # ひらがなの言葉は、前が漢字でも別の言葉にならない
+    assert timeutil.find_period("資料おととい", now_ts)["word"] == "おととい"
+
+
+def test_period_follows_daylight_saving_time():
+    # 夏時間のある地域でも、現地の0時を境にする（ニューヨークは 2026-11-01 に夏時間が終わる）
+    with in_timezone(ZoneInfo("America/New_York")):
+        now_ts = datetime(2026, 11, 4, 12, 0).timestamp()
+        period = timeutil.find_period("先週", now_ts)
+        assert datetime.fromtimestamp(period["start"]) == datetime(2026, 10, 26, 0, 0)
+        assert datetime.fromtimestamp(period["end"]) == datetime(2026, 11, 2, 0, 0)
+        assert period["end"] - period["start"] == 7 * 24 * 3600 + 3600  # 夏時間の終わりで1時間長い
+
+
+@pytest.mark.parametrize("now", [
+    SystemDatetime(2026, 10, 29, 10),
+    SystemDatetime(2026, 11, 4, 12),
+    SystemDatetime(2027, 1, 1, 0, 30),
+])
+def test_period_and_conversions_use_the_actual_os_local_time(now):
+    # ここでは datetime を差し替えない。Windows を含め、その OS の現地時刻変換を本物で通す。
+    assert timeutil.datetime is SystemDatetime
+    now_ts = now.timestamp()
+    assert timeutil.to_local(now_ts) == SystemDatetime.fromtimestamp(now_ts)
+    assert timeutil.from_local(now) == now_ts
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday() + 7)
+    end = start + timedelta(days=7)
+    period = timeutil.find_period("先週", now_ts)
+    assert period["start"] == start.timestamp()
+    assert period["end"] == end.timestamp()
+
+
+class WindowsLikeDatetime(datetime):
+    """Windows の Python のように、1970年より前の時刻を変換できない datetime（OSError を出す）"""
+
+    @classmethod
+    def fromtimestamp(cls, ts, tz=None):
+        if ts < 0:
+            raise OSError(22, "Invalid argument")
+        return super().fromtimestamp(ts, tz)
+
+    def timestamp(self):
+        if self.year < 1970:
+            raise OSError(22, "Invalid argument")
+        return super().timestamp()
+
+
+def test_dates_before_1970_work_even_where_the_os_cannot_convert_them(tokyo, monkeypatch):
+    monkeypatch.setattr(timeutil, "datetime", WindowsLikeDatetime)
+    # 最終更新日時が 1601年（FILETIME の 0）や 1969年のファイルも、日付の文字にできる（長期間未読の判定を止めない）
+    assert timeutil.local_date_str(-11_644_473_600) == "1601-01-01"
+    assert timeutil.local_date_str(-24 * 3600) == "1969-12-31"
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    period = timeutil.find_period("700か月前の資料", now_ts)
+    assert period["start"] < 0 and period["end"] > period["start"]
+    assert "1968-06-01" in period["label"]
+
+
+def test_impossibly_old_relative_dates_are_not_periods(tokyo):
+    now_ts = datetime(2026, 10, 29, 10, 0).timestamp()
+    assert timeutil.find_period("999999日前の資料", now_ts) is None
+    assert timeutil.find_period("99999999か月前", now_ts) is None
+    assert timeutil.local_date_str(10 ** 20) == "9999-12-31"
+
+
+# ---------------------------------------------------------------------- 暗号化DB
+
+
+def test_database_is_encrypted_on_disk_including_wal(env, key_store):
+    conn = database.open_database(env, keystore=key_store)
+    marker = "PLAINTEXT_MARKER_予算資料_0123456789"
+    database.set_setting(conn, "marker", marker)
+    database.log_operation(conn, "test", actor="system", status="done", reasons=[marker])
+    # 接続を開いたまま（WAL が残っている状態）で、ファイルの中身を調べる
+    files = [p for p in env["DB_PATH"].parent.iterdir() if p.name.startswith("pip0.db")]
+    assert any(p.name.endswith("-wal") for p in files)
+    for path in files:
+        raw = path.read_bytes()
+        assert marker.encode("utf-8") not in raw
+        assert b"PLAINTEXT_MARKER" not in raw
+        assert b"SQLite format 3" not in raw[:16]
+    assert database.check_encryption(conn)["temp_store"] == 2
+    conn.close()
+
+
+def test_database_needs_the_right_key(env):
+    store = keystore.MemoryKeystore()
+    conn = database.open_database(env, keystore=store)
+    database.set_setting(conn, "x", "1")
+    conn.close()
+    with pytest.raises(database.DatabaseKeyError):
+        database.open_encrypted(env["DB_PATH"], keystore.new_key_hex())
+    # 鍵がない（OS の鍵保管機構から消えた）ときは、新しい鍵を作らずに止まる
+    with pytest.raises(keystore.KeyMissing):
+        database.open_database(env, keystore=keystore.MemoryKeystore())
+    conn = database.open_database(env, keystore=store)
+    assert database.get_setting(conn, "x") == "1"
+    conn.close()
+
+
+def test_plain_sqlite_cannot_read_the_database(env, key_store):
+    import sqlite3
+
+    conn = database.open_database(env, keystore=key_store)
+    database.set_setting(conn, "x", "1")
+    conn.close()
+    with pytest.raises(sqlite3.DatabaseError):
+        sqlite3.connect(env["DB_PATH"]).execute("SELECT * FROM settings_kv").fetchall()
+
+
+def test_missing_sqlcipher_does_not_fall_back_to_plain_sqlite(env, key_store, monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name.startswith("sqlcipher3"):
+            raise ImportError("no sqlcipher3")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    with pytest.raises(database.EncryptionUnavailable):
+        database.open_database(env, keystore=key_store)
+    assert not env["DB_PATH"].exists()
+
+
+def test_os_keystore_refuses_plaintext_backends(monkeypatch):
+    import keyring
+    from keyring.backends import fail
+
+    monkeypatch.setattr(keyring, "get_keyring", lambda: fail.Keyring())
+    with pytest.raises(keystore.KeystoreUnavailable):
+        keystore.OsKeystore()
+
+
+class CredentialError(Exception):
+    """pywin32-ctypes の error の代わり（OSError の仲間ではない）"""
+
+    def __init__(self, winerror):
+        super().__init__(winerror, "CredRead", "ログオン セッションが存在しません")
+        self.winerror = winerror
+
+
+def test_credential_manager_errors_become_keystore_unavailable(monkeypatch):
+    import keyring
+
+    # Windows の資格情報マネージャー（WinVaultKeyring）の代わり。名前は本物と同じにする
+    fake_backend_class = type("WinVaultKeyring", (), {
+        "__module__": "keyring.backends.Windows",
+        "persist": None,
+        "get_password": lambda self, service, username: (_ for _ in ()).throw(CredentialError(1312)),
+        "set_password": lambda self, service, username, value: (_ for _ in ()).throw(CredentialError(1312)),
+        "delete_password": lambda self, service, username: (_ for _ in ()).throw(
+            keyring.errors.PasswordDeleteError("ありません")),
+    })
+    backend = fake_backend_class()
+    monkeypatch.setattr(keyring, "get_keyring", lambda: backend)
+    store = keystore.OsKeystore()
+    assert backend.persist == "local machine"  # 鍵をこの PC の外へ持ち出さない
+    with pytest.raises(keystore.KeystoreUnavailable, match="1312"):
+        store.get_key()
+    with pytest.raises(keystore.KeystoreUnavailable):
+        store.set_key("0" * 64)
+    store.delete_key()  # もともと鍵がないときは、何もしない
+
+
+def test_transaction_rolls_back_on_error(db):
+    with pytest.raises(RuntimeError):
+        with database.transaction(db):
+            database.set_setting(db, "a", "1")
+            raise RuntimeError("途中で失敗")
+    assert database.get_setting(db, "a") is None
+
+
+def test_first_creation_by_two_processes_makes_only_one_key(env):
+    # 受け口（ブラウザーが起動）と常駐処理が、初めて同時に DB を作る場面をまねる
+    import threading
+
+    class SlowKeystore(keystore.MemoryKeystore):
+        def get_key(self):
+            value = super().get_key()
+            time.sleep(0.05)  # 確かめてから作るまでの間に、もう一方が割り込めるようにする
+            return value
+
+    shared = SlowKeystore()
+    results = []
+
+    def open_once():
+        conn = database.open_database(env, keystore=shared)
+        database.set_setting(conn, "opened", "1")
+        results.append(conn)
+
+    threads = [threading.Thread(target=open_once) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len(results) == 2
+    for conn in results:
+        conn.close()
+    conn = database.open_encrypted(env["DB_PATH"], shared.get_key())  # 保管された鍵で読める
+    assert database.get_setting(conn, "opened") == "1"
+    conn.close()
+
+
+def test_wal_and_journal_files_stay_in_data_dir(env, key_store):
+    conn = database.open_database(env, keystore=key_store)
+    database.set_setting(conn, "x", "1")
+    names = sorted(os.listdir(env["DB_PATH"].parent))
+    assert all(name.startswith("pip0.db") for name in names)
+    conn.close()

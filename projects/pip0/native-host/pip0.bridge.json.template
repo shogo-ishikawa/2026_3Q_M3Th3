@@ -1,0 +1,9 @@
+{
+  "name": "pip0.bridge",
+  "description": "pip0 のブラウザー連携の受け口。拡張機能「pip0 連携」からダウンロードの記録を受け取り、この PC の pip0 の暗号化DB に保存します。",
+  "path": "pip0-native-host.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://jfaghnlhhcojgeodhjalkchddhphnmhi/"
+  ]
+}

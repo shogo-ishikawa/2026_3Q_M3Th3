@@ -1,0 +1,77 @@
+# pip0 専用の Python（Windows 11、CPython 3.13、64 ビット）に入れるライブラリの一覧（版とハッシュを固定）
+#
+# scripts\install.ps1 が、PC に別に入れた Python 3.13 の pip で、導入先の runtime\Lib\site-packages に入れます。
+#   py -3.13 -I -m pip install --no-deps --only-binary=:all: --require-hashes
+#       --platform win_amd64 --python-version 3.13 --implementation cp --abi cp313
+#       --target <導入先>\runtime\Lib\site-packages -r requirements-windows-cp313.txt
+#   --no-deps        ：依存ライブラリを自動では足さない。そのため、Windows で要る間接の依存も、下にすべて書いています
+#   --require-hashes ：ダウンロードした wheel の SHA-256 が下の値と違えば、何も入れずに止まります
+#   --only-binary    ：ビルド済みの wheel だけを使い、PC の上でソースからビルドしません
+#
+# requirements.txt（開発・テスト用。直接使う5つ）との関係
+#   直接使うもの（版は requirements.txt と同じ）：sqlcipher3、keyring、watchdog、pillow、pypdf
+#   keyring が Windows で使うもの：pywin32-ctypes、jaraco.classes、jaraco.functools、jaraco.context、more-itertools
+#   Windows では使わないもの：SecretStorage と jeepney（条件が sys_platform == "linux"）、
+#                             importlib_metadata（Python 3.12 未満だけ）、backports.tarfile（同じく 3.12 未満だけ）
+#
+# 作り方（2026-10-30。Linux の pip 26.2.2 で作成）
+#   1. 空の作業フォルダーへ、Windows・CPython 3.13 用の wheel をダウンロードする
+#        pip download --no-deps --platform win_amd64 --python-version 3.13 --only-binary=:all: --implementation cp
+#            -d <空のフォルダー> sqlcipher3==0.6.4 keyring==25.7.0 ...（下の10個）
+#   2. 各 wheel の .dist-info/METADATA の Requires-Dist を、Windows の条件（sys_platform == "win32"、
+#      python_version == "3.13"）で確かめ、必要な依存がすべて下にあり、版の条件を満たすことを確かめる
+#      （pip download の依存の解決は、sys_platform を実行している OS（Linux）で判断するため、
+#       そのままでは pywin32-ctypes が抜け、Linux 用の SecretStorage 等が入ってしまいます）
+#   3. 各 wheel の SHA-256 を計算する（Linux：sha256sum、Windows：Get-FileHash -Algorithm SHA256）
+#      PyPI の JSON API（https://pypi.org/pypi/<名前>/<版>/json）の sha256 とも一致することを確かめました
+#   4. 確かめ方：別の空のフォルダーへ、この一覧でダウンロードし直す（ハッシュが1つでも違えば失敗します）
+#        pip download --no-deps --require-hashes --platform win_amd64 --python-version 3.13
+#            --only-binary=:all: --implementation cp -d <別の空のフォルダー> -r requirements-windows-cp313.txt
+#   各版の Windows・CPython 3.13・64 ビットで使える wheel は、どれも1つだけでした（下のファイル名）。
+#
+# 版を上げるときは、requirements.txt と、この一覧の両方を直し、上の手順でハッシュを作り直してください。
+# 入手元はすべて PyPI（https://pypi.org/project/<名前>/）。ライセンスは各行の上に書いています。
+
+# ---- pip0 が直接使うもの ----
+
+# 暗号化DB（SQLCipher 4 を組み込んだ版）。ライセンス：zlib（SQLCipher は BSD 形式）
+# sqlcipher3-0.6.4-cp313-cp313-win_amd64.whl
+sqlcipher3==0.6.4 --hash=sha256:f81a6a794a9f29ef5b2c7aaf355127efe85a0906bf14a062c20bd9157ab452ee
+
+# DB の鍵を Windows の資格情報マネージャーに保存する。ライセンス：MIT
+# keyring-25.7.0-py3-none-any.whl
+keyring==25.7.0 --hash=sha256:be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f
+
+# フォルダーの変更の監視（ReadDirectoryChangesW）。ライセンス：Apache-2.0
+# watchdog-6.0.0-py3-none-win_amd64.whl
+watchdog==6.0.0 --hash=sha256:cbafb470cf848d93b5d013e2ecb245d4aa1c8fd0504e863ccefa32445359d680
+
+# 画像の色・形の解析。ライセンス：MIT-CMU（HPND）
+# pillow-13.0.0-cp313-cp313-win_amd64.whl
+pillow==13.0.0 --hash=sha256:9dda0788a9932776a75d8bcc020076edc308ce2508b51f6739a45e3158b3fc42
+
+# PDF のタイトルと本文の取り出し。ライセンス：BSD-3-Clause
+# pypdf-6.21.4-py3-none-any.whl
+pypdf==6.21.4 --hash=sha256:33e4fb41ca352810eb4e9838aa0d82d6888a5f8bf682f43e99cce5faa666255c
+
+# ---- keyring が Windows で使うもの（間接の依存） ----
+
+# 資格情報マネージャーの API（win32cred）を ctypes で呼ぶ。keyring の条件：sys_platform == "win32"。ライセンス：BSD-3-Clause
+# pywin32_ctypes-0.2.3-py3-none-any.whl
+pywin32-ctypes==0.2.3 --hash=sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8
+
+# keyring の部品。ライセンス：MIT
+# jaraco.classes-3.4.0-py3-none-any.whl
+jaraco.classes==3.4.0 --hash=sha256:f662826b6bed8cace05e7ff873ce0f9283b5c924470fe664fff1c2f00f581790
+
+# keyring の部品。ライセンス：MIT
+# jaraco_functools-4.6.0-py3-none-any.whl
+jaraco.functools==4.6.0 --hash=sha256:99e3dc0060c5cbe8fcd1cdb36258e2a65ca40f1566b2033b12abb1bb44dd3c30
+
+# keyring の部品。ライセンス：MIT
+# jaraco_context-6.1.2-py3-none-any.whl
+jaraco.context==6.1.2 --hash=sha256:bf8150b79a2d5d91ae48629d8b427a8f7ba0e1097dd6202a9059f29a36379535
+
+# jaraco.classes と jaraco.functools の部品。ライセンス：MIT
+# more_itertools-11.2.1-py3-none-any.whl
+more-itertools==11.2.1 --hash=sha256:35a7377edd1dd6608dcb2cdf534ded55ea32d49448875ad042cd3f879fb1ded0

@@ -1,0 +1,13 @@
+{
+  "name": "pip0-browser-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "pip0 連携（Chrome／Edge 共通の拡張機能）。テストは Node.js 22 以上の node --test だけで動き、追加のライブラリは要りません。",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

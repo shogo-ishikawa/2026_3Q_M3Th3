@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    pip0 シェル（C#）：Windows の機能を使う部分（Cloud Files API、ごみ箱、通知領域アイコン）。
+    確認用のビルド：dotnet build -c Release
+    配布用のビルド（dotnet publish、1つの exe にまとめる）のコマンドは README.md にあります。
+    （XML の注釈の中には、ハイフン2つを続けて書けないため、ここには書いていません）
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Windows 以外（授業の Linux 環境など）でも、Windows 向けにビルドできるようにする -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>Pip0Shell</RootNamespace>
+    <AssemblyName>Pip0Shell</AssemblyName>
+    <!-- Core/ShellInfo.cs の Version と同じ値にする -->
+    <Version>0.1.0</Version>
+    <Product>pip0</Product>
+    <Description>pip0 シェル（Windows の OS 連携と常駐UI）</Description>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 配布物に含める UI の翻訳を、日本語と英語に絞る -->
+    <SatelliteResourceLanguages>ja;en</SatelliteResourceLanguages>
+    <!-- 1つの exe にまとめるとき、WPF の部品（ネイティブの DLL）も含め、圧縮する（約 170 MB → 約 70 MB） -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Checks/ は、Windows 以外でも動かせる確認用の別のプログラム（配布物に含めない） -->
+    <Compile Remove="Checks/**" />
+    <None Remove="Checks/**" />
+    <EmbeddedResource Remove="Checks/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Win32 API の宣言を生成する（Microsoft、MIT ライセンス）。実行時には不要 -->
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.183">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

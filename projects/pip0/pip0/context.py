@@ -1,0 +1,668 @@
+"""作業文脈の読み取り（M2 作業連動・浮上式デスク）
+
+pip0 シェル（C#）は、前面のウィンドウが変わったときと、そのタイトルが変わったときに、
+context.foreground の知らせ（プロセス名、ウィンドウタイトル、ファイルダイアログかどうか等）を本体へ送ります。
+このモジュールは、その知らせを「作業文脈」の辞書に直します（parse_foreground）。
+
+- アプリの名前と種類：rules.APP_RULES（プロセス名の小文字 → 表示名と種類）
+- Slack デスクトップアプリ：ウィンドウタイトルが rules.SLACK_TITLE_PATTERNS のどれかに一致したときだけ、
+  会話名（チャンネル名・相手）を読み取ります。一致しなければ「チャット相手：取得不可」とし、推測しません。
+  ほかのチャットのアプリ（Teams など）は、タイトルの形を確かめていないため「取得不可」です
+- Chrome／Edge：タイトルの末尾（rules.BROWSER_TITLE_SUFFIXES）を除いた、ページの題名
+- Word／Excel／PowerPoint など：タイトルの「 - Word」などの前にある、文書の名前
+- 文脈の語（keywords）：会話名・ページ題名・文書名から extract_keywords で取り出した語。
+  浮上式デスクの順位（desk.py）と、M1 の仕分け先（inflow.py）に使います
+
+ウィンドウタイトルは、その場で使うだけです。DB にもログにも書きません（このモジュールは DB を使いません）。
+画面の画像は取得しません。
+
+語の分け方（split_words）と、語を探す関数（find_word、take_words、contains_word）は、検索（search.py）でも使います。
+長い本文を速く調べる部品（prepare_text、search_forms、contains_whole_word）は、浮上式デスク（desk.py）でも使います。
+"""
+
+import os
+import re
+import unicodedata
+
+# 文脈の辞書の項目（docs/design.md 6-5 の約束に、document_name、dialog_rect、inaccessible を足したもの）
+CONTEXT_KEYS = ["app", "category", "process", "window_title", "page_title", "document_name", "conversation",
+                "conversation_kind", "workspace", "partner_status", "partner_reason", "keywords",
+                "is_file_dialog", "dialog_hwnd", "dialog_rect", "inaccessible", "at"]
+
+# チャット相手（partner_status）の理由
+PARTNER_UNAVAILABLE_REASON = "このウィンドウタイトルからは、チャット相手を読み取れません（取得不可）"
+INACCESSIBLE_REASON = "管理者として動くアプリなどのため、ウィンドウの内容を読み取れません（取得不可）"
+NOT_CHAT_REASON = "チャットのアプリではありません"
+
+# 会話の種類（rules.SLACK_KIND_MAP の値）の表示名
+CONVERSATION_KIND_LABELS = {"channel": "チャンネル", "dm": "DM"}
+
+# ★文脈の語として残す、最も短い文字数
+MIN_KEYWORD_CHARS = 2
+
+# ★ひらがなを含んでいても、分けずに1つの語として残す語（ほかの語は、ひらがなの所で分けます）。
+#   ひらがなの所で分けると、漢字が1文字ずつになって語として残らないもの（「打ち合わせ」→「打」「合」）を書きます。
+#   その語だけの題名（「打ち合わせ」「引き継ぎ」）は、ここに書かなくても分けません（split_at_hiragana）。
+#   ここに書くと、ほかの語に続けて書かれたとき（「定例打ち合わせ」「会議の打ち合わせ」）も、1つの語として残ります。
+#   rules.SORT_RULES の context_keywords に、ひらがなを含む語を足すときは、ここにも足してください
+#   （文書のアプリでは、仕分け先の文脈語を、この文脈の語と比べるため）
+KEEP_WHOLE_WORDS = ["打ち合わせ", "問い合わせ", "申し込み", "締め切り", "お知らせ"]
+
+# ★文書のアプリのタイトルで、文書名に付くことがある状態の表示（取り除く）。実機の Office では確かめていません
+DOCUMENT_TITLE_MARKERS = ["[互換モード]", "[Compatibility Mode]", "[読み取り専用]", "[Read-Only]",
+                          "[保護ビュー]", "[Protected View]"]
+
+# 画面に出す説明（summary_label）の、会話名などの部分の最大の文字数
+LABEL_DETAIL_MAX_CHARS = 30
+
+# 空白・記号・括弧・区切りの文字（「・」「_」「-」「|」など）。\W は「文字・数字以外」、_ も区切りにする
+WORD_SEPARATORS = re.compile(r"[\W_]+")
+
+# カタカナの範囲（「゠」〜「ヿ」）にあるが、カタカナではなく区切りの記号として扱う文字（中黒「・」と「゠」）。
+# 「マーケティング・プラン」は「マーケティング」と「プラン」の2つの語（WORD_SEPARATORS と同じ分け方）
+KATAKANA_SEPARATORS = "゠・"
+
+# カタカナの語の後ろに付くことがある長音の印。「サーバ」と「サーバー」、「ユーザ」と「ユーザー」は、同じ語の書き方の違い
+LONG_VOWEL_MARK = "ー"
+
+# ★別の意味の、より長い言葉。この言葉の中の「赤」「表」は、色や表（スプレッドシート）として数えない。
+#   1文字の漢字の語に、ひらがなが続く言葉を書きます（漢字が続く「青森」「発表」は、書かなくても数えません）。
+#   「赤の」「赤だけ」「青ばかり」「表より」などは、色や表として数えます
+OTHER_MEANING_WORDS = ["赤ちゃん", "赤ん坊", "表す", "表し", "表さ", "表せ", "表れ", "表わ"]
+
+
+# ----------------------------------------------------------------------
+# 入口：シェルの知らせ → 作業文脈の辞書
+# ----------------------------------------------------------------------
+
+
+def parse_foreground(event, rules):
+    """context.foreground の知らせ（payload の辞書）を、作業文脈の辞書にする
+
+    返す辞書（CONTEXT_KEYS）
+    - app、category：rules.APP_RULES の表示名と種類（"chat"、"browser"、"document" など）。知らないアプリは None と "other"
+    - process：プロセス名（小文字）
+    - window_title：ウィンドウタイトル（メモリーの中だけで使う。保存しない）
+    - page_title：ブラウザーのページの題名、document_name：文書のアプリの文書名
+    - conversation、conversation_kind（"channel"/"dm"）、workspace：Slack の会話（読めたときだけ）
+    - partner_status："ok"（会話名を読めた）、"unavailable"（チャットのアプリだが読めない）、"not_applicable"（チャット以外）
+    - keywords：文脈の語のリスト
+    - is_file_dialog、dialog_hwnd、dialog_rect：開く・保存のダイアログのとき、その位置
+    - inaccessible：管理者として動くアプリなど、内容を読めないウィンドウなら True
+    """
+    process = str(event.get("process_name") or "").strip().lower()
+    app_rule = rules.APP_RULES.get(process)
+    context = {
+        "app": app_rule["label"] if app_rule else None,
+        "category": app_rule["category"] if app_rule else "other",
+        "process": process or None,
+        "window_title": event.get("window_title") or None,
+        "page_title": None,
+        "document_name": None,
+        "conversation": None,
+        "conversation_kind": None,
+        "workspace": None,
+        "partner_status": "not_applicable",
+        "partner_reason": NOT_CHAT_REASON,
+        "keywords": [],
+        "is_file_dialog": event.get("is_file_dialog") is True,
+        "dialog_hwnd": None,
+        "dialog_rect": None,
+        "inaccessible": event.get("inaccessible") is True,
+        "at": event.get("at"),
+    }
+    if context["is_file_dialog"]:
+        context["dialog_hwnd"] = event.get("hwnd")
+        context["dialog_rect"] = event.get("dialog_rect")
+
+    if context["inaccessible"]:
+        # 管理者として動くアプリなど：アプリの名前だけ分かる。タイトルは読まない
+        context["partner_status"] = "unavailable"
+        context["partner_reason"] = INACCESSIBLE_REASON
+        return context
+
+    title = str(context["window_title"] or "").strip()
+    category = context["category"]
+    if category == "chat":
+        read_chat_title(context, title, rules)
+    elif context["is_file_dialog"]:
+        # ダイアログのタイトル（「開く」など）は、作業の内容を表さないので読まない（carry_over を参照）
+        pass
+    elif category == "browser":
+        context["page_title"] = page_title_of(title, rules)
+        context["keywords"] = extract_keywords(context["page_title"], rules)
+    elif category == "document":
+        context["document_name"] = document_name_of(title, rules)
+        context["keywords"] = extract_keywords(context["document_name"], rules)
+    else:
+        # エクスプローラー（フォルダー名）、メール、知らないアプリ：タイトルの語をそのまま使う
+        context["keywords"] = extract_keywords(remove_app_suffix(title, context["app"]), rules)
+    return context
+
+
+def read_chat_title(context, title, rules):
+    """チャットのアプリのタイトルから、会話名を読む。読めなければ「取得不可」にする（推測しない）
+
+    ★今はタイトルの形を確かめた Slack だけを読みます。ほかのアプリを読むには、rules.py に規則を足して、ここを直します。
+    """
+    patterns = rules.SLACK_TITLE_PATTERNS if context["app"] == "Slack" else []
+    if not context["is_file_dialog"]:
+        for pattern in patterns:
+            match = re.match(pattern, title)
+            if match is None:
+                continue
+            groups = match.groupdict()
+            conversation = tidy(groups.get("conversation"))
+            if not conversation:
+                continue
+            kind = groups.get("kind")
+            context["conversation"] = conversation
+            context["conversation_kind"] = rules.SLACK_KIND_MAP.get(kind) if kind else None
+            context["workspace"] = tidy(groups.get("workspace")) or None
+            context["partner_status"] = "ok"
+            context["partner_reason"] = ""
+            context["keywords"] = extract_keywords(conversation, rules)
+            return
+    context["partner_status"] = "unavailable"
+    context["partner_reason"] = PARTNER_UNAVAILABLE_REASON
+
+
+def page_title_of(title, rules):
+    """ブラウザーのタイトルから、末尾のブラウザー名を除いたページの題名。空なら None
+
+    Edge のタイトルには見えない文字（U+200B）が入ることがあるため、rules.BROWSER_TITLE_SUFFIXES には
+    その文字を含むものと含まないものの両方があります。
+    """
+    for suffix in rules.BROWSER_TITLE_SUFFIXES:
+        if title.endswith(suffix):
+            title = title[:-len(suffix)]
+            break
+    return tidy(title) or None
+
+
+def document_name_of(title, rules):
+    """文書のアプリのタイトル（「予算案.docx - Word」）から、文書名（「予算案」）を取り出す。読めなければ None
+
+    最後の「 - 」から後ろをアプリの名前として除き、状態の表示（[互換モード] など）、
+    保存していない印（先頭の *）、拡張子（rules.FILE_KINDS にあるもの）を除きます。
+    """
+    if " - " not in title:
+        return None  # 「Word」だけのタイトル（起動画面など）には、文書名がない
+    name = title.rsplit(" - ", 1)[0]
+    for marker in DOCUMENT_TITLE_MARKERS:
+        name = name.replace(marker, "")
+    name = tidy(name).lstrip("*").strip()
+    stem, ext = os.path.splitext(name)
+    if stem and ext.lower() in rules.FILE_KINDS:
+        name = stem
+    return name or None
+
+
+def remove_app_suffix(title, app_label):
+    """「予算 - エクスプローラー」のように、末尾にアプリの表示名があれば除く"""
+    if app_label and title.endswith(" - " + app_label):
+        return title[:-len(" - " + app_label)]
+    return title
+
+
+def tidy(text):
+    """見えない書式用の文字（U+200B など）を除き、空白をまとめる"""
+    if text is None:
+        return ""
+    kept = []
+    for ch in str(text):
+        if unicodedata.category(ch) != "Cf":
+            kept.append(ch)
+    return " ".join("".join(kept).split())
+
+
+# ----------------------------------------------------------------------
+# 文脈の語
+# ----------------------------------------------------------------------
+
+
+def extract_keywords(text, rules):
+    """会話名・ページ題名・文書名から、文脈の語のリストを取り出す（形態素解析は使わない簡単な方法）
+
+    1. split_words で語に分ける（空白・記号・括弧・区切りで分け、「予算2026」は「予算」と「2026」に分ける。
+       ひらがなは、検索と同じく語の区切りとして読み飛ばす：「予算の相談」→「予算」「相談」。
+       KEEP_WHOLE_WORDS の語（「打ち合わせ」）と、分けると2文字以上の語が残らない語（「引き継ぎ」）は分けない。
+       検索の言葉（search.parse_query）では、これらの語もひらがなの所で分けます）
+    2. MIN_KEYWORD_CHARS（2）文字未満の語と、rules.CONTEXT_STOP_WORDS の語（「Slack」「the」など）を除く
+    3. 同じ語（大文字・小文字の違いだけのものを含む）は、最初の1つだけを残す。順番は元の文のまま
+    """
+    if not text:
+        return []
+    stop = stop_word_set(rules)
+    keywords = []
+    seen = set()
+    for word in split_words(text, KEEP_WHOLE_WORDS):
+        key = fold(word)
+        if len(word) < MIN_KEYWORD_CHARS or key in stop or key in seen:
+            continue
+        seen.add(key)
+        keywords.append(word)
+    return keywords
+
+
+def stop_word_set(rules):
+    """rules.CONTEXT_STOP_WORDS を、split_words と同じ方法で分けた語の集合にする（「New Tab」→ new、tab）"""
+    stop = set()
+    for phrase in rules.CONTEXT_STOP_WORDS:
+        for word in split_words(phrase):
+            stop.add(fold(word))
+    return stop
+
+
+def split_words(text, keep_words=()):
+    """文字列を語に分ける（★語の分け方を変えたいときは、ここを直します）
+
+    1. 全角の英数字を半角に、半角カナを全角にそろえる（NFKC）
+    2. 空白・記号・括弧・区切りの文字で分ける
+    3. keep_words の語（「打ち合わせ」など）は、分けずにそのまま1つの語にする
+    4. 文字の種類（数字、英字、カタカナ、それ以外）が変わる所で分ける（split_by_character_type）
+    5. 漢字とひらがなのまとまりは、ひらがなの所で分け、ひらがなの部分は捨てる（split_at_hiragana）
+       （ひらがなは助詞や送り仮名として読み飛ばす。検索の search.take_hiragana と同じ考え方）。
+       ただし、分けると2文字以上の語が残らないまとまり（「引き継ぎ」→「引」「継」）は、分けずに1つの語にする
+       例：「予算2026」→「予算」「2026」、「2026年度予算WG」→「2026」「年度予算」「WG」、
+           「予算の申請について」→「予算」「申請」、「引き継ぎメモ」→「引き継ぎ」「メモ」
+    """
+    keep = [normalise(word) for word in keep_words if word]
+    words = []
+    for piece in WORD_SEPARATORS.split(normalise(text)):
+        rest = piece
+        while rest:
+            index, kept = first_kept_word(rest, keep)
+            if kept is None:
+                words.extend(split_by_character_type(rest))
+                break
+            words.extend(split_by_character_type(rest[:index]))  # 残す語の前の部分
+            words.append(kept)
+            rest = rest[index + len(kept):]                         # 残す語の後ろの部分を、続けて分ける
+    return words
+
+
+def first_kept_word(text, keep_words):
+    """text の中で最初に出てくる keep_words の語 (位置, 語)。なければ (-1, None)"""
+    best_index = -1
+    best_word = None
+    for word in keep_words:
+        index = text.find(word)
+        if index >= 0 and (best_word is None or index < best_index):
+            best_index = index
+            best_word = word
+    return best_index, best_word
+
+
+def split_by_character_type(piece):
+    """文字の種類が変わる所で分ける（数字・英字・カタカナ・それ以外のまとまり）
+
+    漢字とひらがなのまとまり（"text"）は、split_at_hiragana で、さらにひらがなの所で分けます。
+    """
+    parts = []
+    current = ""
+    current_group = None
+    for ch in piece:
+        group = split_group(ch)
+        if current and group != current_group:
+            parts.append(current)
+            current = ""
+        current += ch
+        current_group = group
+    if current:
+        parts.append(current)
+    words = []
+    for part in parts:
+        if split_group(part[0]) == "text":
+            words.extend(split_at_hiragana(part))
+        else:
+            words.append(part)
+    return words
+
+
+def split_group(ch):
+    """split_by_character_type で使う、文字のまとまり（漢字・ひらがな・記号などは "text" のまとまり）"""
+    kind = character_type(ch)
+    if kind in ("digit", "latin", "katakana"):
+        return kind
+    return "text"
+
+
+def split_at_hiragana(part):
+    """漢字とひらがなのまとまりを、ひらがなの所で分ける。ひらがなは助詞や送り仮名として捨てる
+
+    例：「予算の相談」→「予算」「相談」、「予算の見直し」→「予算」「見直」
+    分けると MIN_KEYWORD_CHARS（2）文字以上の語が1つも残らないときは、送り仮名のある1つの語とみなして、
+    最初の漢字から後ろを分けずに残す（「引き継ぎ」→「引き継ぎ」、「の書き方」→「書き方」）。
+    ひらがなだけのまとまり（「について」）は、語として残さない。
+    """
+    pieces = []
+    current = ""
+    for ch in part:
+        if character_type(ch) == "hiragana":
+            if current:
+                pieces.append(current)
+            current = ""
+        else:
+            current += ch
+    if current:
+        pieces.append(current)
+    if not pieces:
+        return []  # ひらがなだけ
+    for word in pieces:
+        if len(word) >= MIN_KEYWORD_CHARS:
+            return pieces  # 2文字以上の語が残る（「予算」「相談」）
+    start = 0
+    while character_type(part[start]) == "hiragana":
+        start += 1  # 前に付いたひらがな（「の書き方」の「の」）は除く
+    return [part[start:]]
+
+
+def character_type(ch):
+    """1文字の種類："digit"（数字）、"latin"（英字）、"hiragana"、"katakana"、"kanji"、"other"（それ以外）
+
+    カタカナの範囲にある区切りの記号（KATAKANA_SEPARATORS の「・」など）は "other" にします。
+    """
+    if ch.isascii() and ch.isdigit():
+        return "digit"
+    if ch.isascii() and ch.isalpha():
+        return "latin"
+    if "ぁ" <= ch <= "ゟ":
+        return "hiragana"
+    if ch in KATAKANA_SEPARATORS:
+        return "other"
+    if "゠" <= ch <= "ヿ":
+        return "katakana"  # 長音の「ー」も含む
+    if "一" <= ch <= "鿿" or ch in "々〆":
+        return "kanji"
+    return "other"
+
+
+# ----------------------------------------------------------------------
+# 比べる・探す（search.py でも使う）
+# ----------------------------------------------------------------------
+
+
+def normalise(text):
+    """比べる前に文字の形をそろえる（全角の英数字を半角に、半角カナを全角に。NFKC）"""
+    return unicodedata.normalize("NFKC", str(text or ""))
+
+
+def fold(text):
+    """比べるための形：normalise したうえで、英字の大文字・小文字の違いも無くす"""
+    return normalise(text).casefold()
+
+
+def to_fullwidth(text):
+    """半角の英数字・記号を、全角にする（「2026」→「２０２６」）"""
+    converted = []
+    for ch in text:
+        if "!" <= ch <= "~":
+            converted.append(chr(ord(ch) + 0xFEE0))
+        else:
+            converted.append(ch)
+    return "".join(converted)
+
+
+def has_case(text):
+    """英字のように、大文字・小文字の区別がある文字を含めば True（「予算」「2026」は False）"""
+    return text.upper() != text.lower()
+
+
+def prepare_text(text, fold_case=True):
+    """何度も語を探す文（本文など）を、先に1回だけ直しておく
+
+    fold_case が True なら、英字の大文字・小文字をそろえる（casefold）。探す語がすべて「予算」「2026」のように
+    大文字・小文字のない語なら、そろえなくても結果は同じなので、False にして手間を省けます。
+    """
+    text = str(text or "")
+    return text.casefold() if fold_case else text
+
+
+def search_forms(word):
+    """語を探すときの形のリスト：比べるための形（fold）と、その英数字を全角にした形（「2026」→「２０２６」）
+
+    日本語だけの語（「予算」）は、全角にしても同じなので、1つだけにします（同じ本文を2回探さないため）。
+    """
+    needle = fold(word)
+    if not needle:
+        return []
+    full = to_fullwidth(needle)
+    return [needle] if full == needle else [needle, full]
+
+
+def contains_prepared(prepared_text, forms):
+    """prepare_text で直した文の中に、search_forms で作った形のどれかがあれば True"""
+    if not prepared_text:
+        return False
+    for form in forms:
+        if form in prepared_text:
+            return True
+    return False
+
+
+def contains_whole_word(prepared_text, forms):
+    """contains_prepared と同じく探すが、英字・数字・カタカナの語は「1つの語として」あるときだけ True
+
+    浮上式デスク（desk.py）で使います。
+
+    前後に同じ種類の文字が続く所は、より長い別の語の一部なので数えない
+    （「booking」の中の「book」、「there」の中の「the」、「グラフィック」の中の「グラフ」、「20261029」の中の「2026」）。
+    英字と数字は別の種類（「budget2026」の中の「budget」と「2026」は数える。split_words の分け方と同じ）。
+    中黒「・」は区切り（「マーケティング・プラン」の中の「マーケティング」は数える）。
+    カタカナの語のすぐ後ろの長音「ー」は、書き方の違いとして数える（「サーバー」の中の「サーバ」）。
+    漢字の語は、前後に漢字が続いていても数える（「予算案」の中の「予算」）。
+    「BudgetPlan」のように、大文字で区切った名前の中の語（budget）は数えない。
+    """
+    if not prepared_text:
+        return False
+    for form in forms:
+        start = prepared_text.find(form)
+        while start >= 0:
+            end = start + len(form)
+            if not continues_into_longer_word(prepared_text, start, end):
+                return True
+            start = prepared_text.find(form, start + 1)
+    return False
+
+
+def continues_into_longer_word(text, start, end):
+    """text[start:end] の語が、前か後ろの同じ種類の文字（英字・数字・カタカナ）と続いていれば True
+
+    カタカナで終わる語のすぐ後ろの長音「ー」は、語の書き方の違いとして語に含めてから、その後ろを調べる
+    （「サーバー・ネットワーク」の中の「サーバ」は続いていない。「データーベース」の中の「データ」は続いている）。
+    """
+    if start > 0 and continues_with(text[start], text[start - 1]):
+        return True
+    if end < len(text) and normalise(text[end]) == LONG_VOWEL_MARK and word_kind(text[end - 1]) == "katakana":
+        end += 1  # 「サーバー」の「ー」
+    return end < len(text) and continues_with(text[end - 1], text[end])
+
+
+def continues_with(edge, neighbour):
+    """語の端の文字 edge と隣の文字 neighbour が、どちらも英字、どちらも数字、どちらもカタカナなら True"""
+    kind = word_kind(edge)
+    if kind not in ("latin", "digit", "katakana"):
+        return False  # 漢字・ひらがなで終わる語は、隣の文字を調べない
+    return word_kind(neighbour) == kind
+
+
+def word_kind(ch):
+    """character_type と同じ。ただし全角の英数字（「Ａ」「１」）は、半角と同じ種類にする"""
+    if not ch.isascii():
+        ch = normalise(ch)[:1]
+    return character_type(ch)
+
+
+def contains_word(text, word):
+    """text の中に word があれば True（英字の大文字・小文字と、英数字の全角・半角の違いは無視する）
+
+    長い本文（解析した本文は最大2万文字）でも速く調べられるように、
+    - 本文の側は NFKC で直さず、探す語を半角と全角の2つの形にして探す（search_forms）
+    - 本文の大文字・小文字をそろえるのは、探す語に英字などがあるときだけ（prepare_text）
+    同じ本文で多くの語を探すときは、prepare_text と search_forms を先に1回ずつ作り、contains_prepared で調べます。
+    """
+    if not text or not word:
+        return False
+    return contains_prepared(prepare_text(text, has_case(fold(word))), search_forms(word))
+
+
+def ascii_lower(text):
+    """英字（A〜Z）だけを小文字にする。文字数が変わらないので、見つけた位置をそのまま使える"""
+    return text.translate(ASCII_LOWER_TABLE)
+
+
+ASCII_LOWER_TABLE = {code: code + 32 for code in range(ord("A"), ord("Z") + 1)}
+
+
+def find_word(text, word):
+    """text の中で word が「1つの語として」現れる最初の位置。なければ -1（英字の大文字・小文字は区別しない）
+
+    前後の文字とつながって、より長い語の一部になっているものは数えません（stands_alone）。
+    例：「グラフィック」の中の「グラフ」、「Online」の中の「line」、「青森」「赤ちゃん」の中の「青」「赤」は数えない。
+    """
+    if not word:
+        return -1
+    haystack = ascii_lower(text)
+    needle = ascii_lower(word)
+    start = haystack.find(needle)
+    while start >= 0:
+        if stands_alone(text, start, start + len(needle)):
+            return start
+        start = haystack.find(needle, start + 1)
+    return -1
+
+
+def stands_alone(text, start, end):
+    """text[start:end] の語が、前後の文字とつながった、より長い語の一部でなければ True
+
+    ★つながっているとみなす組（ここを変えると、検索の言葉の見つけ方が変わります）
+    - 英数字どうし（「LINE」と「Online」）
+    - カタカナどうし（「グラフ」と「グラフィック」）、ひらがなどうし（「の」と「きのこ」）
+    - 1文字の漢字の語と、漢字（「青」と「青森」、「表」と「発表」）
+    - OTHER_MEANING_WORDS の言葉の始まりの部分（「赤」と「赤ちゃん」、「表」と「表す」）
+    """
+    word = text[start:end]
+    before = text[start - 1] if start > 0 else " "
+    after = text[end] if end < len(text) else " "
+    if joined(before, word[0], len(word)) or joined(after, word[-1], len(word)):
+        return False
+    for longer in OTHER_MEANING_WORDS:
+        if longer.startswith(word) and text.startswith(longer, start):
+            return False  # 「赤ちゃん」の中の「赤」
+    return True
+
+
+def joined(neighbour, edge, word_length):
+    """隣の文字 neighbour と、語の端の文字 edge が、1つの語としてつながっているなら True"""
+    neighbour_type = character_type(neighbour)
+    edge_type = character_type(edge)
+    if edge_type in ("digit", "latin"):
+        return neighbour_type in ("digit", "latin")
+    if edge_type in ("katakana", "hiragana"):
+        return neighbour_type == edge_type
+    if edge_type == "kanji" and word_length == 1:
+        return neighbour_type == "kanji"
+    return False
+
+
+def blank_out(text, start, end):
+    """text の start〜end の部分を、同じ文字数の空白に置き換える（見つけた語を、残りの文から消す）"""
+    return text[:start] + " " * (end - start) + text[end:]
+
+
+def take_words(text, words, whole_word=True):
+    """text の中から words の語を探して取り除く。(見つけた語のリスト, 残りの文) を返す
+
+    - 長い語から順に探す（「青い」を「青」より先に見つけるため）
+    - whole_word が True なら find_word（語の一部は数えない）、False なら単純な部分一致で探す
+    - 見つけた語のリストは、文の中に出てきた順。残りの文では、見つけた所を空白にする
+    """
+    found = []
+    # 長い語から順に（同じ長さなら文字の順に。結果が毎回同じになるように）
+    for word in sorted(set(normalise(word) for word in words), key=lambda item: (-len(item), item)):
+        if not word:
+            continue
+        while True:
+            if whole_word:
+                index = find_word(text, word)
+            else:
+                index = ascii_lower(text).find(ascii_lower(word))
+            if index < 0:
+                break
+            found.append((index, word))
+            text = blank_out(text, index, index + len(word))
+    found.sort()
+    return [word for _, word in found], text
+
+
+# ----------------------------------------------------------------------
+# ファイルダイアログと、画面に出す説明
+# ----------------------------------------------------------------------
+
+
+def carry_over(previous, current):
+    """ファイルダイアログ（開く・保存）が前面になったとき、同じアプリの直前の文脈を引き継ぐ
+
+    ダイアログのタイトルは「開く」などで、会話名やページ題名を読めないためです。
+    previous が、同じプロセスの、ダイアログでない文脈のときだけ引き継ぎます。それ以外は current をそのまま返します。
+    ダイアログの位置（dialog_hwnd、dialog_rect）とタイトルは current のものを使います。
+    """
+    if not current or not current.get("is_file_dialog") or not previous:
+        return current
+    if previous.get("is_file_dialog") or previous.get("process") != current.get("process"):
+        return current
+    if previous.get("inaccessible"):
+        return current
+    merged = dict(current)
+    for key in ["page_title", "document_name", "conversation", "conversation_kind", "workspace",
+                "partner_status", "partner_reason"]:
+        merged[key] = previous.get(key)
+    merged["keywords"] = list(previous.get("keywords") or [])
+    return merged
+
+
+def summary_label(context):
+    """画面に出す、作業文脈の短い説明（例：「Slack（予算2026）」）。DB とログには書かない"""
+    if not context:
+        return "作業中のアプリ：不明"
+    app = context.get("app") or app_name_from_process(context.get("process")) or "名前の分からないアプリ"
+    if context.get("inaccessible"):
+        detail = "内容を読み取れません"
+    elif context.get("conversation"):
+        detail = context["conversation"]
+    elif context.get("category") == "chat":
+        detail = "チャット相手：取得不可"
+    else:
+        detail = context.get("page_title") or context.get("document_name")
+    label = f"{app}（{shorten(detail, LABEL_DETAIL_MAX_CHARS)}）" if detail else app
+    if context.get("is_file_dialog"):
+        label += "・ファイルダイアログ"
+    return label
+
+
+def partner_label(context):
+    """チャット相手の表示（例：「チャット相手：予算2026（チャンネル）」）。チャット以外は None"""
+    if not context or context.get("category") != "chat":
+        return None
+    if context.get("partner_status") != "ok":
+        return "チャット相手：取得不可"
+    kind = CONVERSATION_KIND_LABELS.get(context.get("conversation_kind"))
+    name = shorten(context.get("conversation"), LABEL_DETAIL_MAX_CHARS)
+    return f"チャット相手：{name}（{kind}）" if kind else f"チャット相手：{name}"
+
+
+def app_name_from_process(process):
+    """「notepad++.exe」→「notepad++」。分からなければ None"""
+    if not process:
+        return None
+    name = process[:-4] if process.endswith(".exe") else process
+    return name or None
+
+
+def shorten(text, max_chars):
+    """長い文字列を max_chars 文字までにする（切ったときは最後を「…」にする）"""
+    text = " ".join(str(text or "").split())
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars - 1] + "…"

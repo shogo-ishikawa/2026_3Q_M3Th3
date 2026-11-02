@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "pip0 連携",
+  "version": "0.1.0",
+  "description": "ダウンロードが完了したとき、ダウンロード元のURL（? 以降と # 以降を除く）と開始時に表示していたタブを、この PC の pip0 だけへ渡します。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtIaJT8nAUBcH076c30siVhrHh9XzCWF8YhMwAxAHXUZ+PxqsgDvNMjg7yexthHhH2XQwJYZLO97fr7nPvHbTqoHgX0OGCo/WB/BspxtFrRevtsqCpJGlNm63jP//dWs0TF/OR5Z/hCiWerXjxA2vyX6URTOXriPKIxDSTqphN+FwixUyokpKxUD1ImKb/0C6L5oI+ThyPS2zg85WC03EgzfIGCBahZWrjk7z42B2vuVdEUpmdxp59/6lT8iEx4Z1LsDbC3azjYpinpqH9vRS8XKKb2d2XPXkIwJZlfLz8luBO7iDweKuBsvkK3GuE+erxAlMrYA/S5Eq50Sr/4s3KQIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": ["downloads", "nativeMessaging", "tabs", "storage"],
+  "incognito": "not_allowed",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "pip0 連携（クリックすると、pip0 の受け口に接続できるかを確かめます）"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'none'"
+  }
+}

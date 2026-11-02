@@ -1,0 +1,9 @@
+[project]
+name = "pip0"
+version = "0.1.0"
+description = "デバイス内のファイル整理アシスタント（Windows 11 用の初期コード）"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
