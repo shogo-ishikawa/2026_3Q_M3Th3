@@ -359,6 +359,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\
 | `install.ps1`：「pip0 シェル（Pip0Shell.exe）が見つかりません」 | シェルをビルドしていない | `build-shell.ps1` を実行するか、`-ShellPublishDir` でビルド済みのフォルダーを指定する |
 | `install.ps1`：「pip0 が動いています」「前の導入の名前を変えられません」 | pip0、pip0 から開いたアプリ、ブラウザー（受け口）、導入先を開いているエクスプローラー・コマンド プロンプトが、ファイルを使っている | pip0 を終了し、それらのアプリとウィンドウを閉じてから、もう一度実行する |
 | Pip0Shell.exe が止められる、「Windows によって PC が保護されました」 | 自分でビルドした exe にコード署名がない。スマート アプリ コントロールが有効な PC では、署名のないアプリが止められることがある | 設定を変えるかどうかは、PC の持ち主が判断する（pip0 は変えない）。教員がビルドした同じものを使う場合も同じ |
+| pip0 の起動時に「allowed_executables に pip0 シェルの実行ファイルを入れてください」と出る | 旧版が Windows でシェルの実行ファイルを照合できなかった | pip0 を終了し、修正版の `install.ps1` で上書き導入する。導入済みのシェルは `-ShellPublishDir "$env:LOCALAPPDATA\Programs\pip0\shell"` で再利用できる |
 | 起動しても通知領域にアイコンが出ない | 起動時のエラー（画面のない Python なので、表示されない） | コマンド プロンプトで `"%LOCALAPPDATA%\Programs\pip0\runtime\python.exe" -I -m pip0 serve` を実行し、エラーを読む。`status` も見る |
 | 拡張機能のアイコンに「!」 | 受け口の未登録、ID の違い、導入先の不足、ポリシー | [native-host/README.md](../native-host/README.md) の「よくあるエラー」。管理下のブラウザーは 5-4 |
 | ゴーストを開くと「クラウド ファイル プロバイダーが実行されていません」 | pip0 が動いていない | pip0 を起動する。または全復元（7節） |

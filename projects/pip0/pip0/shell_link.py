@@ -122,6 +122,8 @@ class ShellLink:
             options = {}
             if sys.platform == "win32":
                 options["creationflags"] = subprocess.CREATE_NO_WINDOW   # コンソールの窓を出さない
+                # netguard がコマンド文字列から推測せず、登録済みの実行ファイルを照合できるようにする。
+                options["executable"] = self.command[0]
             try:
                 process = subprocess.Popen(
                     self.command,
@@ -591,8 +593,8 @@ def close_quietly(stream):
 def start_failure_reason(error):
     """シェルを起動できなかった理由（日本語。パスは含めない）"""
     if isinstance(error, NetworkBlocked):
-        return ("外部コマンドの起動の禁止（netguard）で止められました。"
-                "netguard.install の allowed_executables に pip0 シェルの実行ファイルを入れてください")
+        return (f"pip0 シェルの実行ファイルを照合できず、起動を止めました（{error.event}）。"
+                "導入した pip0 の版と SHELL_EXE の設定を確かめてください")
     if isinstance(error, FileNotFoundError):
         return "pip0 シェルの実行ファイルが見つかりません（設定の SHELL_EXE と、導入の手順を確かめてください）"
     if isinstance(error, PermissionError):
