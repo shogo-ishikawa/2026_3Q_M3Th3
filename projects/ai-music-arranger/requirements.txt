@@ -1,0 +1,6 @@
+librosa>=0.11,<0.12
+soundfile>=0.13,<0.14
+pretty_midi>=0.2.10,<0.3
+ipywidgets>=8.1,<9
+matplotlib>=3.9,<4
+yt-dlp[default]
