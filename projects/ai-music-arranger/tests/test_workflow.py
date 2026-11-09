@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import colab_app
 import setup_environment
 from audio_input import AudioInputError
-from music_core import Note
+from music_core import Note, DEMO_NAMES
 
 
 def prepare_app(tmp_path, monkeypatch):
@@ -107,8 +107,10 @@ def test_notebook_is_valid_self_contained_and_unexecuted():
             ast.parse(cell.source)
     assert "widgets" not in notebook.metadata
     source_form = next(cell.source for cell in notebook.cells if cell.id == "prepare-source")
-    assert 'input_source = "デモ音源" #@param ["デモ音源", "YouTube", "PCの音源"]' in source_form
+    assert 'input_source = "URLがあればYouTube" #@param ["URLがあればYouTube", "YouTube", "PCの音源", "デモ音源"]' in source_form
     assert 'youtube_url = "" #@param {type:"string"}' in source_form
+    demo_line = next(line for line in source_form.splitlines() if line.startswith("demo_song = "))
+    assert json.loads(demo_line.split("#@param", 1)[1].strip()) == list(DEMO_NAMES)
     assert "colab_app.launch_app" not in "\n".join(sources)
 
 

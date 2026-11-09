@@ -185,3 +185,67 @@ def test_real_pitch_analysis_recognises_a_simple_a_note():
     assert np.median([note.pitch for note in notes]) == 69
     assert sum(note.end - note.start for note in notes) >= 0.7
 
+
+@pytest.mark.parametrize("name", core.DEMO_NAMES)
+def test_each_demo_is_finite_audible_reproducible_and_complete(name):
+    info = core.get_demo_info(name)
+    duration = info["duration_seconds"]
+    assert 0.2 <= duration <= 60
+    assert info["bpm"] > 0 and info["key"] in core.NOTE_NAMES
+    assert info["description"] and info["source"] and info["copyright"]
+    audio = core.make_demo(duration=duration, demo_name=name)
+    assert audio.dtype == np.float32
+    assert len(audio) == round(duration * core.SAMPLE_RATE)
+    assert np.isfinite(audio).all() and np.max(np.abs(audio)) > .1
+    np.testing.assert_array_equal(audio, core.make_demo(duration=duration, demo_name=name))
+
+
+def test_default_demo_and_explicit_pop_keep_the_existing_length_and_sound():
+    default = core.make_demo()
+    assert len(default) == 12 * core.SAMPLE_RATE
+    np.testing.assert_array_equal(default, core.make_demo(demo_name="オリジナル（ポップ）"))
+    slower = core.make_demo(demo_name="オリジナル（ゆったり）")
+    assert not np.array_equal(default, slower)
+
+
+def _pitch_at(audio, seconds):
+    """実際に合成した音の短い区間を、周波数からMIDI音高へ戻す。"""
+    sr = core.SAMPLE_RATE
+    segment = audio[round((seconds + .08) * sr):round((seconds + .28) * sr)]
+    frequencies = np.fft.rfftfreq(len(segment), d=1 / sr)
+    frequency = frequencies[np.argmax(abs(np.fft.rfft(segment * np.hanning(len(segment)))))]
+    return round(float(core.librosa.hz_to_midi(frequency)))
+
+
+@pytest.mark.parametrize("name,pitches", [
+    ("きらきら星（冒頭）", [60, 60, 67, 67, 69, 69, 67, 65]),
+    ("歓喜の歌（冒頭）", [64, 64, 65, 67, 67, 65, 64, 62]),
+])
+def test_familiar_demo_openings_match_the_named_tune(name, pitches):
+    info = core.get_demo_info(name)
+    audio = core.make_demo(duration=info["duration_seconds"], demo_name=name)
+    demo = core.DEMO_CATALOGUE[name]
+    start = 0.0
+    recovered = []
+    for beats in demo["beats"][:len(pitches)]:
+        recovered.append(_pitch_at(audio, start))
+        start += beats * 60 / info["bpm"]
+    assert recovered == pitches
+    assert info["source_url"].startswith("https://www.mutopiaproject.org/")
+
+
+def test_ode_preserves_dotted_rhythm_and_cadence():
+    demo = core.DEMO_CATALOGUE["歓喜の歌（冒頭）"]
+    assert demo["beats"][12:15] == (1.5, .5, 2)
+    assert demo["pitches"][-3:] == (62, 60, 60)
+    assert sum(demo["beats"]) * 60 / demo["bpm"] == core.get_demo_info("歓喜の歌（冒頭）")["duration_seconds"]
+
+
+def test_unknown_demo_and_invalid_sample_rate_are_rejected():
+    with pytest.raises(ValueError, match="一覧"):
+        core.make_demo(demo_name="unknown")
+    with pytest.raises(ValueError, match="一覧"):
+        core.get_demo_info("unknown")
+    with pytest.raises(ValueError, match="サンプリング周波数"):
+        core.make_demo(sr=-1)
+
