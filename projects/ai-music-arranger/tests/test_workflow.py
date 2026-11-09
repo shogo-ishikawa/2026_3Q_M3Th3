@@ -1,6 +1,6 @@
 """画面をまたぐ状態管理と、実際の保存ファイルを確認する。"""
 from pathlib import Path
-from dataclasses import asdict
+import ast
 import json
 import sys
 import zipfile
@@ -89,14 +89,27 @@ def test_notebook_is_valid_self_contained_and_unexecuted():
     notebook = nbformat.read(project / "ai_music_arranger.ipynb", as_version=4)
     nbformat.validate(notebook)
     sources = [cell.source for cell in notebook.cells if cell.cell_type == "code"]
-    assert len(sources) == 5
-    assert sources[0] == (project / "setup_environment.py").read_text()
-    for filename in ["audio_input.py", "music_core.py", "colab_app.py"]:
-        assert f"%%writefile {filename}\n" + (project / filename).read_text() in sources
+    assert len(sources) == 7
+    assert sources[0].split("\n", 1)[1] == (project / "setup_environment.py").read_text()
+    for filename, source in zip(["audio_input.py", "music_core.py", "notebook_session.py"], sources[1:4]):
+        tree = ast.parse(source)
+        embedded = next(ast.literal_eval(node.value) for node in tree.body
+                        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "module_code" for t in node.targets))
+        assert embedded == (project / filename).read_text()
+        assert "%%writefile" not in source
     for cell in notebook.cells:
         if cell.cell_type == "code":
             assert not cell.outputs and cell.execution_count is None
+            assert cell.source.startswith("#@title ")
+            assert 'display-mode: "form"' in cell.source.splitlines()[0]
+            assert cell.metadata["cellView"] == "form"
+            assert not cell.metadata.get("collapsed", False)
+            ast.parse(cell.source)
     assert "widgets" not in notebook.metadata
+    source_form = next(cell.source for cell in notebook.cells if cell.id == "prepare-source")
+    assert 'input_source = "デモ音源" #@param ["デモ音源", "YouTube", "PCの音源"]' in source_form
+    assert 'youtube_url = "" #@param {type:"string"}' in source_form
+    assert "colab_app.launch_app" not in "\n".join(sources)
 
 
 def test_setup_rerun_stays_in_same_directory_and_updates_youtube(tmp_path, monkeypatch):

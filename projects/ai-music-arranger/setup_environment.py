@@ -114,9 +114,7 @@ def setup_environment():
     runtime = supported_js_runtime()
     print(f"YouTube 用実行環境: {runtime or '未準備（操作マニュアルの対処方法を参照）'}")
 
-    if in_colab:
-        from google.colab import output
-        output.enable_custom_widget_manager()
+    # 操作はColab標準フォームなので、追加のウィジェット描画設定は不要です。
     os.chdir(runtime_dir)
     if str(runtime_dir.resolve()) not in sys.path:
         sys.path.insert(0, str(runtime_dir.resolve()))

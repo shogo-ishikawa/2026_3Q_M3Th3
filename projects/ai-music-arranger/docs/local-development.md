@@ -4,10 +4,10 @@
 
 ## 配布ZIPの置き方
 
-`ai-music-arranger_v1.0.0.zip` を展開すると、`v1.0.0` フォルダーができます。Macでは、次の場所へ置いて作業できます。
+`ai-music-arranger_v1.0.1.zip` を展開すると、`v1.0.1` フォルダーができます。Macでは、次の場所へ置いて作業できます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.1
 ```
 
 この配布フォルダーは、授業リポジトリの `projects/ai-music-arranger/` に対応しています。
@@ -17,11 +17,11 @@
 Pythonファイルを変更した場合は、次のコマンドで、そのコードをNotebookにも反映します。Notebookはプログラムを内包しているため、この手順を省くとPythonファイルとNotebookの内容が異なります。
 
 ```bash
-cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.0
+cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.1
 python3 tools/build_notebook.py
 ```
 
-出力と実行番号を消したNotebookが生成されます。Notebook上だけで試した変更を公開版に戻す場合は、対応する `.py` に変更を反映してから再生成します。
+全コードセルを `@title` とフォーム表示のメタデータで折りたたみ、出力と実行番号を消したNotebookが生成されます。セル3〜5には入力・生成・保存の標準フォームを埋め込みます。Notebook上だけで試した変更を公開版に戻す場合は、対応する `.py` に変更を反映してから再生成します。
 
 ## HTTPSで授業リポジトリへ反映する
 
@@ -41,7 +41,7 @@ rsync -av \
   --exclude '.git/' --exclude 'dist/' --exclude '__pycache__/' \
   --exclude '.pytest_cache/' --exclude 'music_work/' \
   --exclude '.ai_music_arranger_runtime/' --exclude '.venv/' \
-  /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.0/ \
+  /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.1/ \
   projects/ai-music-arranger/
 git diff -- projects/ai-music-arranger/
 git status --short
@@ -64,6 +64,6 @@ python tools/build_notebook.py
 python -m pytest -q tests
 ```
 
-ローカルJupyterで操作する場合は、同じ仮想環境へJupyterLabを導入し、Notebookを開きます。通常の利用者がこの環境を準備する必要はありません。
+Colab標準フォームはColab上で表示されます。ローカルJupyterではコード内の変数を編集して実行するか、従来の `colab_app.py` を読み込んでウィジェット版を使います。通常の利用者はColabで操作してください。
 
 配布ZIPを作り直す場合は `python tools/build_release.py` を実行します。音源、生成音声、アップロード元の資料は配布ZIPに含めません。

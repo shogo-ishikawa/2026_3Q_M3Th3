@@ -1,9 +1,17 @@
-"""公開用Notebookを再生成。ソースを内包し、単体でもColabで実行できます。"""
-
+"""コードを内包した、Colab標準フォームの公開Notebookを作ります。"""
 from pathlib import Path
 import json
 
 PROJECT = Path(__file__).resolve().parents[1]
+TITLES = {
+    "environment-setup": "1. 環境を準備する",
+    "audio-input": "2-a. 音源の取り込みを読み込む",
+    "music-core": "2-b. 解析と伴奏生成を読み込む",
+    "notebook-session": "2-c. 再生と保存を読み込む",
+    "prepare-source": "3. 音源を選んで読み込む",
+    "generate-arrangement": "4. アレンジを生成する",
+    "save-results": "5. 結果を保存する",
+}
 
 
 def markdown(text):
@@ -11,125 +19,175 @@ def markdown(text):
 
 
 def code(text, cell_id):
-    return {"cell_type": "code", "metadata": {}, "id": cell_id,
-            "execution_count": None, "outputs": [], "source": text.splitlines(keepends=True)}
+    header = f'#@title {TITLES[cell_id]} {{ display-mode: "form" }}\n'
+    return {"cell_type": "code", "metadata": {"cellView": "form"}, "id": cell_id,
+            "execution_count": None, "outputs": [], "source": (header + text).splitlines(keepends=True)}
+
+
+def module_cell(filename, cell_id):
+    source = (PROJECT / filename).read_text()
+    # %%writefile は先頭の @title と併用できないので、Pythonで保存する。
+    literal = "r'''" + source + "'''" if "'''" not in source and source.endswith("\n") else repr(source)
+    body = ("from pathlib import Path\nmodule_code = " + literal + "\n"
+            + f'Path("{filename}").write_text(module_code, encoding="utf-8")\n'
+            + f'print("{TITLES[cell_id]}：完了")\n')
+    return code(body, cell_id)
 
 
 def build():
     cells = [
         markdown("""
-# AI作曲アレンジ — 音を聴き、設定を変え、伴奏を作ろう
+# AI作曲アレンジ（v1.0.1）
 
-**YouTube・手持ちの音声・デモ音源から、コード伴奏とドラムを加えて聴き比べる教材です。**
+**YouTube・PCの音源・デモ音源から、コード伴奏とドラムを加えて聴き比べる教材です。**
 
 2026年度3Q（月3木3クラス）の学生2名による作品をもとに、公開用に整理・改良しました。
-音源を解析し、ボタンや選択欄で音作りを試せる、元の作品の工夫を引き継いでいます。
+音源を解析し、設定を変えながら音作りを試せる、元の作品の工夫を引き継いでいます。
 
 ## 最初の操作
 
-1. Google Colabで開き、編集・保存する場合は「ファイル → ドライブにコピーを保存」を選びます。
-2. 「ランタイム → すべてのセルを実行」で、下の **1 → 2 → 3** を実行します。CPUのままで使えます。
-3. 最後の操作画面で **「デモ音源を用意」→「音源を解析」→「アレンジを生成」** と進みます。
-4. 原曲・追加パート・ミックスを聴き比べ、WAVとMIDIをダウンロードします。
+1. **1 → 2-a → 2-b → 2-c** の左の ▶ を順に押します。CPUのままで使えます。
+2. **セル3** の `input_source` で「デモ音源」を選び、セル3の ▶ を押します。
+3. **セル4** の ▶ を押します。原曲・追加パート・ミックスの再生欄が表示されます。
+4. 保存したい場合は、**セル5** で形式を選んで ▶ を押します。
 
-初回の準備や解析には数分かかることがあります。左の実行マークが止まるまで待ってください。
-Notebook内に全コードを収録しているので、このファイルだけでも実行できます。
+YouTubeを使う場合は、セル3の `input_source` を「YouTube」に変え、`youtube_url` へURLを入力します。
+**各セルの入力欄を変更した後は、そのセルの ▶ を押して反映してください。**
 
-[詳しい操作マニュアル](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/docs/manual.md)
+コードは `@title` で折りたたんでいます。コードを読みたい場合は、セルのメニューから
+「コードを表示」を選べます。フォームの入力欄と、実行後の再生欄は表示したまま使います。
+
+初回の準備や解析には数分かかる場合があります。実行マークが止まるまで待ってください。
+[操作マニュアル](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/docs/manual.md)
 ／ [コードと改良内容](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/ai-music-arranger)
 
-### できることと、結果の読み方
+### 結果の読み方
 
-- YouTube URLから、開始位置と長さ（3〜60秒）を指定して音声を取得できます。
-- BPMとキーを推定し、pYINで連続した音の高さを音符に変換します。推定は耳で確かめ、修正できます。
-- キー・スケール・楽器・各パートの音量を変えて、規則に基づく伴奏を作ります。
-- 「AI作曲アレンジ」という作品名を引き継いでいますが、大規模な音楽生成AIやLSTMは使いません。
-  ボーカルと伴奏を分離したり、原曲のコード進行を正確に認識したりする機能ではありません。
-- BPMは追加パートの速さを変えます。原曲の再生速度は変わりません。
-- 試聴は内蔵の簡易音源です。MIDIの音色は再生ソフトによって異なります。
+- pYINは音の高さを推定します。ボーカルと伴奏を分離する処理ではありません。
+- キーとテンポの推定は目安です。原曲を聴きながら手動で調整できます。
+- 伴奏は音階とリズムの規則で生成します。LSTMや大規模な音楽生成AIは使いません。
+- BPMを変更すると、追加する伴奏の速さが変わります。原曲の速さは変わりません。
+- 音色は内蔵の簡易音源です。MIDIは再生ソフトによって響きが変わります。
 
 音源は、自分で制作したものや利用が認められたものを使ってください。
-YouTube側の接続制限で取得できない場合もあります。失敗時には理由を表示し、別の音源を選べます。
 """),
         markdown("""
 ## 1. 環境を準備する
 
-左の ▶ を押します。音声解析ライブラリ、FFmpeg、YouTube取得に使う実行環境を確認します。
-このセルは通常、接続したランタイムごとに1回だけ実行します。APIキーやGPUは不要です。
-YouTube用の追加準備に失敗した場合は、その案内を確認してください。デモとファイル入力は試せます。
+▶ を押すと、音声解析ライブラリ、FFmpeg、YouTube取得用の実行環境を準備します。
+ランタイムに接続するたびに1回実行してください。APIキーやGPUは不要です。
 """),
         code((PROJECT / "setup_environment.py").read_text(), "environment-setup"),
         markdown("""
-## 2. プログラムを読み込む（3つのセル）
+## 2. プログラムを読み込む
 
-続く3つのセルは、役割ごとに分けたPythonコードを作業用フォルダーへ保存します。
-**3つとも上から順に実行**してください。実行すると `Writing ...py` と表示されます。
-
-初めて使うときは、コードを変更せずに進めて構いません。
-処理を学ぶ場合は、まず音の間隔を並べた `SCALE_DEFS`、チェックボックスに対応する `if`、
-音符を並べる `for`、処理をまとめた `def` を探してみてください。
+**2-a → 2-b → 2-c** の3つを順に実行します。各セルに「完了」と出たら次へ進みます。
+Notebookに全コードが入っているので、別のPythonファイルをダウンロードする必要はありません。
 
 ### 2-a. 音源の取り込み
+"""),
+        module_cell("audio_input.py", "audio-input"),
+        markdown("### 2-b. 音源の解析と伴奏生成"),
+        module_cell("music_core.py", "music-core"),
+        markdown("### 2-c. 再生と保存"),
+        module_cell("notebook_session.py", "notebook-session"),
+        markdown("""
+## 3. 音源を選んで読み込む
 
-YouTubeのURLを確認し、指定した区間だけを取り込みます。失敗したときは、前の音源を保持します。
+下のフォームで選び、このセルの ▶ を押します。初めて使う場合は「デモ音源」のままで試せます。
+
+| 入力欄 | 指定する内容 |
+| --- | --- |
+| `input_source` | デモ音源、YouTube、PCの音源から選択 |
+| `youtube_url` | YouTubeを選んだときの動画URL |
+| `start_seconds` | YouTube・PC音源の何秒目から使うか |
+| `duration_seconds` | 取り込む長さ。3〜60秒 |
+
+デモは12秒固定です。PCの音源を選ぶと、実行後にファイル選択が表示されます。
+音源が読み込まれると原曲の再生欄と、推定BPM・キーが表示されます。
+"""),
+        code('''#@markdown 音源の種類を選んでください。まずは「デモ音源」で試せます。
+input_source = "デモ音源" #@param ["デモ音源", "YouTube", "PCの音源"]
+youtube_url = "" #@param {type:"string"}
+#@markdown YouTube・PC音源に使う区間です。デモでは使用しません。
+start_seconds = 0 #@param {type:"number"}
+duration_seconds = 20 #@param {type:"number"}
+
+from notebook_session import NotebookSession
+if "music_session" not in globals() or not isinstance(music_session, NotebookSession):
+    music_session = NotebookSession()
+source_ready = music_session.prepare_source(input_source, youtube_url=youtube_url,
+                                            start=start_seconds, duration=duration_seconds)
+''', "prepare-source"),
+        markdown("""
+## 4. アレンジを生成する
+
+最初は下の初期設定のまま ▶ を押してください。再生欄と音符の図が表示されます。
+`auto_tempo`・`auto_key_scale`・`auto_beat` がオンの間は、セル3の推定値を使います。
+手動で値を指定したい項目だけ、対応するチェックを外してください。
+
+音量を0にすると、そのパートは聴こえなくなります。`humanise` は0〜1で揺らぎの強さを指定します。
+**設定を変えたら、このセルを再実行して聴き比べます。** セル5は最後に生成した結果を保存します。
+"""),
+        code('''#@markdown **テンポと拍の位置**：自動をオンにすると、手動入力値ではなく推定値を使います。
+auto_tempo = True #@param {type:"boolean"}
+bpm = 120 #@param {type:"number"}
+auto_beat = True #@param {type:"boolean"}
+beat_offset = 0.0 #@param {type:"number"}
+#@markdown **キー・スケール・音色**：手動で長調と短調を比べるときは auto_key_scale をオフにします。
+auto_key_scale = True #@param {type:"boolean"}
+root = "C" #@param ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+scale = "major" #@param ["major", "natural_minor", "harmonic_minor", "dorian", "mixolydian", "pentatonic"]
+instrument = "Electric Piano" #@param ["Electric Piano", "Acoustic Grand Piano", "Acoustic Guitar", "Electric Guitar", "Strings", "Synth Lead", "Music Box"]
+#@markdown **加えるパート**：必要な音だけをオンにしてください。
+add_chords = True #@param {type:"boolean"}
+add_drums = True #@param {type:"boolean"}
+add_melody = True #@param {type:"boolean"}
+#@markdown **音量（0〜1.5）と揺らぎ**：原曲を0にすると、加えた音だけを聴けます。
+original_gain = 0.7 #@param {type:"slider", min:0, max:1.5, step:0.05}
+chord_gain = 0.6 #@param {type:"slider", min:0, max:1.5, step:0.05}
+drum_gain = 0.8 #@param {type:"slider", min:0, max:1.5, step:0.05}
+melody_gain = 0.6 #@param {type:"slider", min:0, max:1.5, step:0.05}
+humanise = 0.0 #@param {type:"slider", min:0, max:1, step:0.1}
+seed = 42 #@param {type:"integer"}
+
+if "music_session" not in globals():
+    print("先にセル3で音源を読み込んでください。")
+else:
+    music_session.generate(auto_tempo=auto_tempo, bpm=bpm, auto_beat=auto_beat,
+                           beat_offset=beat_offset, auto_key_scale=auto_key_scale,
+                           root=root, scale=scale, instrument=instrument,
+                           add_chords=add_chords, add_drums=add_drums, add_melody=add_melody,
+                           original_gain=original_gain, chord_gain=chord_gain,
+                           drum_gain=drum_gain, melody_gain=melody_gain,
+                           humanise=humanise, seed=seed)
+''', "generate-arrangement"),
+        markdown("""
+## 5. 結果を保存する
+
+形式を選び、▶ を押します。「ZIP一式」にはミックス・追加パートのWAV、MIDI、設定が入ります。
+WAVは音声、MIDIは音符データです。MIDIには原曲の録音は含まれません。
+ランタイムを切断する前に、残したい結果を自分のPCへ保存してください。
+"""),
+        code('''save_format = "ZIP一式" #@param ["ZIP一式", "ミックスWAV", "MIDI", "追加パートWAV"]
+
+if "music_session" not in globals():
+    print("先にセル3で音源を読み込み、セル4で生成してください。")
+else:
+    music_session.download(save_format)
+''', "save-results"),
+        markdown("""
+## 設定を一つずつ変えて確かめる
+
+- `auto_key_scale` をオフにし、Cのmajorとnatural_minorを比べます。
+- `add_drums` をオフにし、リズムの印象がどう変わるかを聴きます。
+- `original_gain` を0にし、追加されたパートだけを聴きます。
+- 同じ音源・設定・seedでhumaniseを変え、時刻や強弱の違いを比べます。
+
+コードを読むときは、`SCALE_DEFS` の辞書、`if` の条件、音を並べる `for`、処理をまとめる `def` を探してみましょう。
+公開・配布するNotebookは実行出力を消し、URLやファイル名などの個人情報も確認してください。
 """),
     ]
-    for filename, cell_id in [("audio_input.py", "audio-input"),
-                              ("music_core.py", "music-core"),
-                              ("colab_app.py", "colab-app")]:
-        if filename == "music_core.py":
-            cells.append(markdown("""
-### 2-b. 解析と伴奏生成
-
-テンポ・キー・音の高さを推定し、コードとドラムを並べます。
-伴奏の規則を変更したいときは、このセルにある `chord_pitches` や `progression` を読んでみましょう。
-"""))
-        if filename == "colab_app.py":
-            cells.append(markdown("""
-### 2-c. ボタンで操作する画面
-
-音源の取り込み、解析、アレンジ、保存をつなぎます。
-音源や設定を変えた際の結果の更新も、このコードで管理しています。
-"""))
-        cells.append(code(f"%%writefile {filename}\n" + (PROJECT / filename).read_text(), cell_id))
-    cells.extend([
-        markdown("""
-## 3. 操作画面を開く
-
-左の ▶ を押すと操作画面が表示されます。まずは画面の①から、デモ音源で試してみましょう。
-画面を作り直したい場合も、このセルを再実行できます（前の操作状態はリセットされます）。
-"""),
-        code("""import importlib
-import audio_input, music_core, colab_app
-
-# セル2でコードを変更した場合も、その内容を読み直します。
-for module in (audio_input, music_core, colab_app):
-    importlib.reload(module)
-
-from IPython.display import display
-app = colab_app.launch_app()
-display(app)
-""", "launch-panel"),
-        markdown("""
-## 4. 設定を一つずつ変えて確かめる
-
-1. デモで「原曲」を0、「メロディ」をオフにし、コードとドラムだけを聴きます。
-2. キーをCに固定し、スケールを長調から自然短音階へ変えます。和音の響きはどう変わりますか。
-3. ドラムをオフにして、ありの場合と比べます。リズムの印象はどう変わりますか。
-4. 「ゆらぎの強さ」を変え、同じ乱数シードと異なる乱数シードで生成して比べます。
-5. 単音のはっきりした音源と多重奏の音源で、メロディの音符の取り出しやすさを比べます。
-
-変更した値と、聴いて分かったことをメモしてみましょう。
-設定を変えた後は「アレンジを生成」を押して、新しい結果に更新します。
-
-### 保存時の注意
-
-WAVは実際に聴ける音声、MIDIは音の高さ・長さ・楽器などの演奏情報です。
-MIDIには原曲の録音は含まれません。ランタイムを切断すると作業ファイルが消えるため、
-残したい結果は画面のダウンロードボタンで自分のPCに保存してください。
-公開・再配布するNotebookでは「編集 → 出力をすべて消去」を行い、URLやファイル名なども確認しましょう。
-"""),
-    ])
     for i, cell in enumerate(cells):
         cell.setdefault("id", f"guide-{i:02d}")
     notebook = {"cells": cells, "nbformat": 4, "nbformat_minor": 5,
@@ -138,7 +196,7 @@ MIDIには原曲の録音は含まれません。ランタイムを切断する�
                              "colab": {"name": "ai_music_arranger.ipynb", "provenance": []}}}
     output = PROJECT / "ai_music_arranger.ipynb"
     output.write_text(json.dumps(notebook, ensure_ascii=False, indent=1) + "\n")
-    print(f"Created {output.name}: {len(cells)} cells; outputs and execution counts cleared")
+    print(f"Created {output.name}: {len(cells)} cells; {len(TITLES)} folded code cells")
 
 
 if __name__ == "__main__":
