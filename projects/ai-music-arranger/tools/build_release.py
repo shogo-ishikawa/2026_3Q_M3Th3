@@ -12,7 +12,7 @@ def build():
     files = [PROJECT / name for name in (
         "VERSION", "README.md", "requirements.txt", "requirements-dev.txt",
         "ai_music_arranger.ipynb", "setup_environment.py", "music_core.py",
-        "audio_input.py", "colab_app.py", ".gitignore",
+        "audio_input.py", "colab_app.py", "notebook_session.py", ".gitignore",
     )]
     for folder, pattern in [("docs", "*.md"), ("tests", "*.py"), ("tools", "*.py")]:
         files.extend(sorted((PROJECT / folder).glob(pattern)))
