@@ -103,6 +103,60 @@ def test_failed_download_preserves_previous_file(tmp_path, monkeypatch, failure)
     assert not list(tmp_path.glob("youtube-*"))
 
 
+@pytest.mark.parametrize("diagnostic,expected", [
+    ("No module named yt_dlp", "取得ツールの準備"),
+    ("No supported JavaScript runtime could be found", "取得ツールの準備"),
+    ("ffprobe or ffmpeg not found", "取得ツールの準備"),
+    ("Private video. Sign in if you have access", "公開状態や地域"),
+    ("This video is unavailable", "公開状態や地域"),
+    ("The uploader has not made this video available in your country", "公開状態や地域"),
+    ("Sign in to confirm you're not a bot", "ログインや追加の確認"),
+    ("Sign in to confirm your age", "ログインや追加の確認"),
+    ("HTTP Error 429: Too Many Requests", "一時的に制限"),
+    ("HTTP Error 403: Forbidden; ffmpeg exited with code 1", "接続を拒否"),
+    ("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed", "安全な接続"),
+    ("Unable to download webpage: Temporary failure in name resolution", "接続できません"),
+    ("The read operation timed out", "接続できません"),
+    ("ERROR: Postprocessing: Conversion failed!", "音声に変換できません"),
+    ("Invalid data found when processing input", "音声に変換できません"),
+    ("An unexpected downloader failure", "URLと動画の公開状態"),
+])
+def test_download_errors_explain_failure_without_exposing_diagnostics(tmp_path, monkeypatch,
+                                                                    diagnostic, expected):
+    _mock_runtime(monkeypatch)
+    private_detail = "https://media.example.test/audio?token=private-token /home/private-name/audio.wav"
+    monkeypatch.setattr(audio, "_run_process", lambda *a, **kw: SimpleNamespace(
+        returncode=1, stdout="", stderr=diagnostic + "\n" + private_detail))
+    target = tmp_path / "input.wav"
+    target.write_bytes(b"previous successful input")
+    with pytest.raises(audio.AudioInputError) as error:
+        audio.download_youtube(f"https://youtu.be/{VIDEO_ID}", target, duration=3)
+    message = str(error.value)
+    assert expected in message
+    assert diagnostic not in message
+    assert not any(value in message for value in ("http", "private-token", "private-name"))
+    assert target.read_bytes() == b"previous successful input"
+
+
+def test_downloaded_but_undecodable_audio_uses_youtube_guidance(tmp_path, monkeypatch):
+    _mock_runtime(monkeypatch)
+    def fake_run(command, **kwargs):
+        if "yt_dlp" in command:
+            output = Path(command[command.index("-o") + 1].replace("%(ext)s", "wav"))
+            output.write_text("<html>Site Unavailable</html>")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(returncode=1, stdout=b"", stderr=b"private decoder diagnostic")
+    monkeypatch.setattr(audio, "_run_process", fake_run)
+    target = tmp_path / "input.wav"
+    target.write_bytes(b"previous successful input")
+    with pytest.raises(audio.AudioInputError) as error:
+        audio.download_youtube(f"https://youtu.be/{VIDEO_ID}", target, duration=3)
+    assert "取得した音声を読み込めません" in str(error.value)
+    assert "WAV・MP3" not in str(error.value)
+    assert "private" not in str(error.value)
+    assert target.read_bytes() == b"previous successful input"
+
+
 @pytest.mark.parametrize("version,expected", [("v22.1.0", True), ("v20.19.0", False), ("v24.0.1", True)])
 def test_node_version_requirement(monkeypatch, version, expected):
     monkeypatch.setattr(audio.shutil, "which", lambda name: "/bin/node" if name == "node" else None)

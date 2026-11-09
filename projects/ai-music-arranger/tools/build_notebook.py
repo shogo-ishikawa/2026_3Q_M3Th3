@@ -37,45 +37,34 @@ def module_cell(filename, cell_id):
 def build():
     cells = [
         markdown("""
-# AI作曲アレンジ（v1.0.1）
+# AI作曲アレンジ（v1.0.2）
 
-**YouTube・PCの音源・デモ音源から、コード伴奏とドラムを加えて聴き比べる教材です。**
+好きな音源に伴奏やドラムを加えてみましょう。音色や音量を変えると、同じメロディでも雰囲気が変わります。
 
 2026年度3Q（月3木3クラス）の学生2名による作品をもとに、公開用に整理・改良しました。
-音源を解析し、設定を変えながら音作りを試せる、元の作品の工夫を引き継いでいます。
 
 ## 最初の操作
 
 1. **1 → 2-a → 2-b → 2-c** の左の ▶ を順に押します。CPUのままで使えます。
-2. **セル3** の `input_source` で「デモ音源」を選び、セル3の ▶ を押します。
+2. **セル3** でYouTubeのURLを貼るか、デモの曲を選んで ▶ を押します。
 3. **セル4** の ▶ を押します。原曲・追加パート・ミックスの再生欄が表示されます。
 4. 保存したい場合は、**セル5** で形式を選んで ▶ を押します。
 
-YouTubeを使う場合は、セル3の `input_source` を「YouTube」に変え、`youtube_url` へURLを入力します。
-**各セルの入力欄を変更した後は、そのセルの ▶ を押して反映してください。**
+セル3は、URLがあればYouTube、空欄ならデモを使います。設定を変えた後は、そのセルをもう一度実行してください。
 
-コードは `@title` で折りたたんでいます。コードを読みたい場合は、セルのメニューから
-「コードを表示」を選べます。フォームの入力欄と、実行後の再生欄は表示したまま使います。
+コードは折りたたんであります。読みたいときはセルのメニューから「コードを表示」を選べます。
 
 初回の準備や解析には数分かかる場合があります。実行マークが止まるまで待ってください。
 [操作マニュアル](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/docs/manual.md)
 ／ [コードと改良内容](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/ai-music-arranger)
-
-### 結果の読み方
-
-- pYINは音の高さを推定します。ボーカルと伴奏を分離する処理ではありません。
-- キーとテンポの推定は目安です。原曲を聴きながら手動で調整できます。
-- 伴奏は音階とリズムの規則で生成します。LSTMや大規模な音楽生成AIは使いません。
-- BPMを変更すると、追加する伴奏の速さが変わります。原曲の速さは変わりません。
-- 音色は内蔵の簡易音源です。MIDIは再生ソフトによって響きが変わります。
 
 音源は、自分で制作したものや利用が認められたものを使ってください。
 """),
         markdown("""
 ## 1. 環境を準備する
 
-▶ を押すと、音声解析ライブラリ、FFmpeg、YouTube取得用の実行環境を準備します。
-ランタイムに接続するたびに1回実行してください。APIキーやGPUは不要です。
+▶ を押して準備が終わるまで待ちます。初回は数分かかることがあります。
+APIキーやGPUは不要です。
 """),
         code((PROJECT / "setup_environment.py").read_text(), "environment-setup"),
         markdown("""
@@ -94,22 +83,19 @@ Notebookに全コードが入っているので、別のPythonファイルをダ
         markdown("""
 ## 3. 音源を選んで読み込む
 
-下のフォームで選び、このセルの ▶ を押します。初めて使う場合は「デモ音源」のままで試せます。
+**YouTubeならURLを貼って ▶ を押します。** URLを空欄にすると、`demo_song` で選んだ曲を使います。
+デモには「きらきら星」「歓喜の歌」もあります。まずは聴き慣れた曲で試してみてください。
 
-| 入力欄 | 指定する内容 |
-| --- | --- |
-| `input_source` | デモ音源、YouTube、PCの音源から選択 |
-| `youtube_url` | YouTubeを選んだときの動画URL |
-| `start_seconds` | YouTube・PC音源の何秒目から使うか |
-| `duration_seconds` | 取り込む長さ。3〜60秒 |
-
-デモは12秒固定です。PCの音源を選ぶと、実行後にファイル選択が表示されます。
-音源が読み込まれると原曲の再生欄と、推定BPM・キーが表示されます。
+PCのファイルを使うときは `input_source` を「PCの音源」に変えて実行します。
+YouTube・PC音源は開始位置と長さを指定できます。たとえば開始30秒・長さ20秒なら、30〜50秒の区間を使います。
 """),
-        code('''#@markdown 音源の種類を選んでください。まずは「デモ音源」で試せます。
-input_source = "デモ音源" #@param ["デモ音源", "YouTube", "PCの音源"]
+        code('''#@markdown **YouTubeを使う：** 動画のURLを貼り、左の ▶ を押してください。
 youtube_url = "" #@param {type:"string"}
-#@markdown YouTube・PC音源に使う区間です。デモでは使用しません。
+#@markdown 通常は「URLがあればYouTube」のままでOKです。
+input_source = "URLがあればYouTube" #@param ["URLがあればYouTube", "YouTube", "PCの音源", "デモ音源"]
+#@markdown **デモで試す：** URLを空欄にして曲を選びます。
+demo_song = "オリジナル（ポップ）" #@param ["オリジナル（ポップ）", "オリジナル（ゆったり）", "きらきら星（冒頭）", "歓喜の歌（冒頭）"]
+#@markdown **使う区間：** YouTube・PC音源の開始位置と長さです。デモは曲ごとの長さで再生します。
 start_seconds = 0 #@param {type:"number"}
 duration_seconds = 20 #@param {type:"number"}
 
@@ -117,24 +103,25 @@ from notebook_session import NotebookSession
 if "music_session" not in globals() or not isinstance(music_session, NotebookSession):
     music_session = NotebookSession()
 source_ready = music_session.prepare_source(input_source, youtube_url=youtube_url,
-                                            start=start_seconds, duration=duration_seconds)
+                                            start=start_seconds, duration=duration_seconds,
+                                            demo_song=demo_song)
 ''', "prepare-source"),
         markdown("""
 ## 4. アレンジを生成する
 
-最初は下の初期設定のまま ▶ を押してください。再生欄と音符の図が表示されます。
-`auto_tempo`・`auto_key_scale`・`auto_beat` がオンの間は、セル3の推定値を使います。
-手動で値を指定したい項目だけ、対応するチェックを外してください。
+最初はそのまま ▶ を押してみましょう。原曲・追加パート・ミックスを聴き比べられます。
+慣れたらドラムを外したり、楽器を変えたりしてみてください。
 
-音量を0にすると、そのパートは聴こえなくなります。`humanise` は0〜1で揺らぎの強さを指定します。
-**設定を変えたら、このセルを再実行して聴き比べます。** セル5は最後に生成した結果を保存します。
+手動でテンポやキーを変えるときは、対応する `auto_…` のチェックを外します。
+テンポが変わるのは追加する伴奏だけです。原曲の速さは変わりません。
+メロディ抽出は音の高さを拾う処理なので、歌声だけを分離するものではありません。
 """),
-        code('''#@markdown **テンポと拍の位置**：自動をオンにすると、手動入力値ではなく推定値を使います。
+        code('''#@markdown **テンポと拍の位置**：自分で調整したい項目だけ、自動設定のチェックを外します。
 auto_tempo = True #@param {type:"boolean"}
 bpm = 120 #@param {type:"number"}
 auto_beat = True #@param {type:"boolean"}
 beat_offset = 0.0 #@param {type:"number"}
-#@markdown **キー・スケール・音色**：手動で長調と短調を比べるときは auto_key_scale をオフにします。
+#@markdown **キー・音階・音色**：長調と短調を聴き比べるときは auto_key_scale をオフにします。
 auto_key_scale = True #@param {type:"boolean"}
 root = "C" #@param ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 scale = "major" #@param ["major", "natural_minor", "harmonic_minor", "dorian", "mixolydian", "pentatonic"]
@@ -143,7 +130,7 @@ instrument = "Electric Piano" #@param ["Electric Piano", "Acoustic Grand Piano",
 add_chords = True #@param {type:"boolean"}
 add_drums = True #@param {type:"boolean"}
 add_melody = True #@param {type:"boolean"}
-#@markdown **音量（0〜1.5）と揺らぎ**：原曲を0にすると、加えた音だけを聴けます。
+#@markdown **音量と揺らぎ**：original_gain を0にすると、加えた音だけを聴けます。
 original_gain = 0.7 #@param {type:"slider", min:0, max:1.5, step:0.05}
 chord_gain = 0.6 #@param {type:"slider", min:0, max:1.5, step:0.05}
 drum_gain = 0.8 #@param {type:"slider", min:0, max:1.5, step:0.05}
@@ -177,15 +164,14 @@ else:
     music_session.download(save_format)
 ''', "save-results"),
         markdown("""
-## 設定を一つずつ変えて確かめる
+## こんな聴き比べもできます
 
 - `auto_key_scale` をオフにし、Cのmajorとnatural_minorを比べます。
 - `add_drums` をオフにし、リズムの印象がどう変わるかを聴きます。
 - `original_gain` を0にし、追加されたパートだけを聴きます。
-- 同じ音源・設定・seedでhumaniseを変え、時刻や強弱の違いを比べます。
+- `humanise` を少し上げ、演奏のタイミングや強弱を揺らしてみます。
 
-コードを読むときは、`SCALE_DEFS` の辞書、`if` の条件、音を並べる `for`、処理をまとめる `def` を探してみましょう。
-公開・配布するNotebookは実行出力を消し、URLやファイル名などの個人情報も確認してください。
+変更したらセル4を実行して聴き比べます。気に入ったらセル5で保存しましょう。
 """),
     ]
     for i, cell in enumerate(cells):

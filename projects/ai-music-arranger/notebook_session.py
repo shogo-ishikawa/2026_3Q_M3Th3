@@ -14,9 +14,10 @@ from IPython.display import Audio, HTML, display
 from audio_input import AudioInputError, download_youtube, load_audio_file
 from music_core import (
     SAMPLE_RATE, ArrangementConfig, analyse_audio, arrange, extract_melody, make_demo,
+    DEMO_NAMES, get_demo_info,
 )
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
@@ -48,15 +49,27 @@ class NotebookSession:
         path.write_bytes(content)
         return load_audio_file(path, start=start, duration=duration, sr=SAMPLE_RATE)
 
-    def prepare_source(self, kind="デモ音源", youtube_url="", start=0, duration=20, uploaded=None):
+    def prepare_source(self, kind="URLがあればYouTube", youtube_url="", start=0, duration=20,
+                       uploaded=None, demo_song=DEMO_NAMES[0]):
         """取得と解析が両方成功した場合にだけ、現在の音源を置き換えます。"""
         self._invalidate_result()
-        print("音源を用意しています。処理が終わるまでお待ちください。")
+        print("音源を用意しています。少しお待ちください。")
         try:
+            if kind == "URLがあればYouTube":
+                if not isinstance(youtube_url, str):
+                    raise AudioInputError("YouTubeのURLを文字で入力してください。")
+                kind = "YouTube" if youtube_url.strip() else "デモ音源"
+            demo_info = None
             if kind == "デモ音源":
-                audio = make_demo(duration=12, sr=SAMPLE_RATE)
+                demo_info = get_demo_info(demo_song)
+                if isinstance(youtube_url, str) and youtube_url.strip():
+                    print("「デモ音源」が選ばれています。YouTubeを使うときは音源の選び方を変更してください。")
+                print(f"今回のデモ：{demo_info['title']}")
+                audio = make_demo(duration=demo_info["duration_seconds"], sr=SAMPLE_RATE,
+                                  demo_name=demo_song)
                 source_start = 0
             elif kind == "YouTube":
+                print(f"YouTubeの指定区間（{start}秒から{duration}秒分）を取得します。")
                 with tempfile.TemporaryDirectory(dir=self.work_dir) as temporary:
                     path = download_youtube(youtube_url, Path(temporary) / "input.wav",
                                             start=start, duration=duration)
@@ -84,6 +97,11 @@ class NotebookSession:
                 audio = audio / peak
             print("テンポとキーを解析しています。初回は少し時間がかかります。")
             analysis = analyse_audio(audio, SAMPLE_RATE)
+            if demo_info is not None:
+                # デモは演奏条件が分かるため、伴奏も同じテンポ・調にそろえます。
+                analysis.update(bpm=demo_info["bpm"], key=demo_info["key"],
+                                scale=demo_info["scale"], beat_offset=0.0,
+                                note="デモのテンポとキーに合わせています。")
         except (AudioInputError, ValueError) as error:
             print("準備できませんでした：" + str(error))
             if self.state["audio"] is not None:
@@ -98,9 +116,13 @@ class NotebookSession:
                           source_revision=self.state["source_revision"] + 1,
                           source=dict(kind=kind, start_seconds=source_start,
                                       duration_seconds=round(len(audio) / SAMPLE_RATE, 3)))
+        if demo_info is not None:
+            self.state["source"]["demo_song"] = demo_song
+        source_label = demo_info["title"] if demo_info else kind
+        analysis_label = "テンポ" if demo_info else "推定テンポ"
         display(HTML(
-            f"<h3>音源の準備ができました</h3><p>{escape(kind)} / {len(audio) / SAMPLE_RATE:.1f}秒<br>"
-            f"推定テンポ：{analysis['bpm']:.1f} BPM / キー：{escape(analysis['key'])} / "
+            f"<h3>音源の準備ができました</h3><p>{escape(source_label)} / {len(audio) / SAMPLE_RATE:.1f}秒<br>"
+            f"{analysis_label}：{analysis['bpm']:.1f} BPM / キー：{escape(analysis['key'])} / "
             f"スケール：{escape(analysis['scale'])}<br>{escape(analysis.get('note', ''))}</p>"
         ))
         display(Audio(audio, rate=SAMPLE_RATE, normalize=False))

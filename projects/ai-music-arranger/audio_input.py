@@ -142,6 +142,50 @@ def load_audio_file(path, start=0.0, duration=20.0, sr=SAMPLE_RATE):
     return samples
 
 
+def _youtube_error_message(stderr):
+    """診断文は表示せず、分かった原因だけを短い案内に置き換えます。"""
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", errors="replace")
+    detail = str(stderr or "").casefold()
+    if any(text in detail for text in (
+            "no module named yt_dlp", "no module named 'yt_dlp'",
+            "no supported javascript runtime", "ffmpeg not found",
+            "ffprobe or ffmpeg not found")):
+        return "取得ツールの準備ができていません。セル1を実行してから、もう一度試してください。"
+    if any(text in detail for text in (
+            "private video", "video is private", "video unavailable", "this video is unavailable",
+            "video has been removed", "not available in your country",
+            "not available in your region", "not made this video available")):
+        return "この動画は公開状態や地域などの制限で取得できません。別の動画で試してください。"
+    if any(text in detail for text in (
+            "sign in", "log in", "login required", "authentication required",
+            "not a bot", "confirm your age", "age-restricted", "http error 401", "http 401")):
+        return "YouTubeからログインや追加の確認を求められました。別の音源で試してください。"
+    if any(text in detail for text in (
+            "http error 429", "http 429", "too many requests", "rate limit")):
+        return "取得が一時的に制限されています。少し時間をおいて、セル3を実行してください。"
+    if any(text in detail for text in (
+            "http error 403", "http 403", "403 forbidden", "access denied",
+            "request blocked")):
+        return "音声の配信先から接続を拒否されました。時間をおいて試すか、別の音源を選んでください。"
+    if any(text in detail for text in (
+            "certificate_verify_failed", "certificate verify failed",
+            "ssl error", "ssl:", "tls handshake")):
+        return "YouTubeへの安全な接続を確認できませんでした。接続環境を確認してから、もう一度試してください。"
+    if any(text in detail for text in (
+            "timed out", "timeout", "name or service not known",
+            "temporary failure in name resolution", "unable to resolve",
+            "network is unreachable", "connection refused", "connection reset",
+            "remote end closed connection")):
+        return "YouTubeへ接続できませんでした。接続を確認し、もう一度試してください。"
+    if any(text in detail for text in (
+            "postprocessing:", "post-processing:", "ffmpeg exited",
+            "ffmpeg returned", "invalid data found when processing input",
+            "error opening input", "audio conversion failed")):
+        return "取得したデータを音声に変換できませんでした。別の動画や短い区間で試してください。"
+    return "YouTubeから音声を取得できませんでした。URLと動画の公開状態を確認し、もう一度試してください。"
+
+
 def download_youtube(url, destination, start=0.0, duration=20.0):
     """指定区間をYouTubeから取得し、22050 Hz・モノラルWAVとして保存。
 
@@ -180,8 +224,11 @@ def download_youtube(url, destination, start=0.0, duration=20.0):
             raise AudioInputError("YouTube取得を開始できません。環境セットアップをやり直してください。") from None
         source = staging / "source.wav"
         if result.returncode != 0 or not source.is_file():
-            raise AudioInputError("YouTubeから取得できませんでした。動画の公開状態とURLを確認し、セットアップを再実行してから試してください。YouTube側で接続を拒否される場合は、お手持ちの音源でも操作できます。")
-        samples = load_audio_file(source, start=0.0, duration=duration)
+            raise AudioInputError(_youtube_error_message(result.stderr))
+        try:
+            samples = load_audio_file(source, start=0.0, duration=duration)
+        except AudioInputError:
+            raise AudioInputError("取得した音声を読み込めませんでした。短い区間や別の動画で試してください。") from None
         converted = staging / "validated.wav"
         try:
             sf.write(converted, samples, SAMPLE_RATE, subtype="PCM_16")

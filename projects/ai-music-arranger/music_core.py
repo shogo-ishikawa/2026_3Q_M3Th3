@@ -24,6 +24,60 @@ INSTRUMENTS = {"Electric Piano": 4, "Acoustic Grand Piano": 0,
                "Acoustic Guitar": 24, "Electric Guitar": 27,
                "Strings": 48, "Synth Lead": 80, "Music Box": 10}
 
+# 音の高さはMIDI番号、長さは四分音符を1とした拍数です。
+# 有名曲も既存の録音は使わず、保護期間の終了した旋律をここで演奏します。
+DEMO_CATALOGUE = {
+    "オリジナル（ポップ）": {
+        "title": "オリジナル（ポップ）", "bpm": 120, "key": "C", "scale": "major",
+        "description": "短い音が続く、明るい練習用メロディです。",
+        "duration_seconds": 12.0,
+        "source": "この教材で作成したオリジナルの旋律。",
+        "copyright": "教材用に作成した旋律をプログラムで合成。外部の録音は使用していません。",
+        "pitches": (60, 64, 67, 72, 65, 64, 62, 60, 60, 64, 65, 69, 67, 65, 62, 60),
+        "beats": (1,) * 16,
+    },
+    "オリジナル（ゆったり）": {
+        "title": "オリジナル（ゆったり）", "bpm": 80, "key": "C", "scale": "major",
+        "description": "長く伸ばす音を入れた、ゆったりしたメロディです。",
+        "duration_seconds": 12.0,
+        "source": "この教材で作成したオリジナルの旋律。",
+        "copyright": "教材用に作成した旋律をプログラムで合成。外部の録音は使用していません。",
+        "pitches": (60, 64, 67, 64, 65, 69, 67, 65, 64, 62, 60),
+        "beats": (1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 3),
+    },
+    "きらきら星（冒頭）": {
+        "title": "きらきら星（冒頭）", "bpm": 100, "key": "C", "scale": "major",
+        "description": "おなじみの旋律で、音の高さや長さを確かめられます。",
+        "duration_seconds": 9.6,
+        "source": "フランス民謡 Ah! vous dirai-je, maman の主題を、ハ長調の単音に簡略化。",
+        "source_url": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2236",
+        "copyright": "保護期間が終了した主題を演奏。既存の録音や歌詞は使用していません。",
+        "pitches": (60, 60, 67, 67, 69, 69, 67, 65, 65, 64, 64, 62, 62, 60),
+        "beats": (1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2),
+    },
+    "歓喜の歌（冒頭）": {
+        "title": "歓喜の歌（冒頭）", "bpm": 120, "key": "C", "scale": "major",
+        "description": "ベートーヴェンの旋律です。伴奏や音色を変えて聴き比べてみましょう。",
+        "duration_seconds": 16.0,
+        "source": "L. van Beethoven, Symphony No. 9, Op. 125（1824年）の主題をハ長調で演奏。",
+        "source_url": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=528",
+        "copyright": "保護期間が終了した主題を演奏。既存の録音や歌詞は使用していません。",
+        "pitches": (64, 64, 65, 67, 67, 65, 64, 62, 60, 60, 62, 64, 64, 62, 62,
+                    64, 64, 65, 67, 67, 65, 64, 62, 60, 60, 62, 64, 62, 60, 60),
+        "beats": (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5, .5, 2,
+                  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5, .5, 2),
+    },
+}
+DEMO_NAMES = tuple(DEMO_CATALOGUE)
+
+
+def get_demo_info(demo_name=DEMO_NAMES[0]):
+    """画面に表示するデモの説明と、フレーズを聴ける推奨時間を返します。"""
+    if demo_name not in DEMO_CATALOGUE:
+        raise ValueError("デモ音源を一覧から選んでください。")
+    return {name: value for name, value in DEMO_CATALOGUE[demo_name].items()
+            if name not in {"pitches", "beats"}}
+
 
 @dataclass(frozen=True)
 class Note:
@@ -76,19 +130,26 @@ def _validate(config):
         raise ValueError("乱数シードは0〜4294967295の整数にしてください。")
 
 
-def make_demo(duration=12.0, sr=SAMPLE_RATE):
-    """外部の曲を使わない、C長調・120 BPMの短い動作確認用フレーズ。"""
+def make_demo(duration=12.0, sr=SAMPLE_RATE, demo_name=DEMO_NAMES[0]):
+    """選んだ旋律を演奏する。指定時間を超える場合は切り、短ければ繰り返す。"""
     if not isinstance(duration, (int, float)) or not math.isfinite(duration) or not 0.2 <= duration <= 60:
         raise ValueError("デモの長さは0.2〜60秒にしてください。")
+    get_demo_info(demo_name)
+    _audio(np.zeros(1), sr)
     y = np.zeros(round(duration * sr))
-    _audio(y, sr)
-    pitches = [60, 64, 67, 72, 65, 64, 62, 60, 60, 64, 65, 69, 67, 65, 62, 60]
-    for i, start in enumerate(np.arange(0, duration, 0.5)):
-        left, right = round(start * sr), min(len(y), round((start + 0.45) * sr))
+    demo = DEMO_CATALOGUE[demo_name]
+    beat_seconds = 60 / demo["bpm"]
+    start, index = 0.0, 0
+    while start < duration:
+        note_index = index % len(demo["pitches"])
+        note_length = beat_seconds * demo["beats"][note_index]
+        left, right = round(start * sr), min(len(y), round((start + note_length * .9) * sr))
         t = np.arange(right - left) / sr
-        freq = librosa.midi_to_hz(pitches[i % len(pitches)])
+        freq = librosa.midi_to_hz(demo["pitches"][note_index])
         envelope = np.minimum(t / 0.012, 1) * np.minimum((len(t) / sr - t) / 0.035, 1)
         y[left:right] += 0.4 * envelope * np.exp(-1.5 * t) * np.sin(2 * np.pi * freq * t)
+        start += note_length
+        index += 1
     return y.astype(np.float32)
 
 
