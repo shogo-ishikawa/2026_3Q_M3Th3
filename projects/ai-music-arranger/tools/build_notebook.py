@@ -54,7 +54,7 @@ print("プログラムの準備ができました。セル3で音源を選んで
 def build():
     cells = [
         markdown("""
-# AI作曲アレンジ（v1.0.3）
+# AI作曲アレンジ（v1.0.4）
 
 好きな音源に伴奏やドラムを加えてみましょう。音色や音量を変えると、同じメロディでも雰囲気が変わります。
 
@@ -75,7 +75,6 @@ def build():
 [操作マニュアル](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/docs/manual.md)
 ／ [コードと改良内容](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/ai-music-arranger)
 
-音源は、自分で制作したものや利用が認められたものを使ってください。
 """),
         markdown("""
 ## 1. 環境を準備する
@@ -102,6 +101,10 @@ YouTube・PC音源は開始位置と長さを指定できます。たとえば�
 
 YouTubeから取れないときは、公式配布元のMP3を「PCの音源」で読み込めます。
 フリー音源でも接続が制限される場合があります。
+
+**音源を選ぶ前に：** 「フリー音源」も条件は曲ごとに違います。制作者の公式配布ページで、編曲・公開・クレジットの条件を確認しましょう。
+曲の利用許可とYouTubeからの自動取得の許可は別です。公式の配布方法を優先し、取得方法もサービスの利用規約に従ってください。
+[フリー音源を使う際の注意と記載例](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/docs/manual.md#youtubeのフリー音源を使う前に)
 """),
         code('''#@markdown **YouTubeを使う：** 動画のURLを貼り、左の ▶ を押してください。
 youtube_url = "" #@param {type:"string"}
@@ -169,6 +172,9 @@ else:
 形式を選び、▶ を押します。「ZIP一式」にはミックス・追加パートのWAV、MIDI、設定が入ります。
 WAVは音声、MIDIは音符データです。MIDIには原曲の録音は含まれません。
 ランタイムを切断する前に、残したい結果を自分のPCへ保存してください。
+
+**公開する前に：** 原曲を重ねたミックスWAVやZIPは、音声ファイルの配布や編曲が認められているか確認しましょう。
+抽出した旋律を使うMIDIや追加パートWAVも、元の曲の利用条件と必要なクレジットを確認してください。
 """),
         code('''save_format = "ZIP一式" #@param ["ZIP一式", "ミックスWAV", "MIDI", "追加パートWAV"]
 
