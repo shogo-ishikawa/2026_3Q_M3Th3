@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f4ec">
+  <meta name="description" content="くじを引いて、確率のふしぎを体験。1000回チャレンジと設定比較で何度でも遊べる、学生作品から生まれたくじ引きシミュレーション。">
+  <title>くじびきラボ</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='10' width='56' height='44' rx='12' fill='%23245d56'/%3E%3Ctext x='32' y='43' font-size='36' text-anchor='middle'%3E★%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="masthead wrap">
+    <a class="brand" href="./" aria-label="くじびきラボ ホーム"><span class="brand-mark" aria-hidden="true">✳</span><span>くじびきラボ<small>LOTTERY LAB</small></span></a>
+    <div class="header-actions"><button id="sound-toggle" class="quiet" type="button" aria-pressed="false">音：オフ</button><a href="#guide">遊び方 <span aria-hidden="true">↗</span></a></div>
+  </header>
+
+  <main class="wrap">
+    <section class="intro">
+      <p class="eyebrow">ひとつの乱数から、いろんな結果。</p>
+      <h1>次のくじは、<br class="mobile-only">なにが出る？</h1>
+      <p>1回ずつ楽しんでも、まとめて引いても。<br>設定を変えて、1000回の運だめしをしてみよう。</p>
+      <div class="intro-stamp" aria-hidden="true"><span>TRY YOUR</span><b>LUCK!</b><span>くり返すほど、おもしろい</span></div>
+    </section>
+
+    <nav class="view-tabs" aria-label="遊び方を選ぶ">
+      <button type="button" id="play-tab" class="active" aria-pressed="true" aria-controls="play-view">くじを引く</button>
+      <button type="button" id="compare-tab" aria-pressed="false" aria-controls="compare-view">設定を比べる <span aria-hidden="true">↗</span></button>
+    </nav>
+
+    <section id="play-view" aria-labelledby="play-tab">
+      <div class="play-layout">
+        <section class="draw-panel" aria-label="くじ引き">
+          <div class="panel-top"><span class="tag">1000回チャレンジ</span><label class="setting-label" for="setting">設定 <select id="setting"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option></select></label></div>
+          <div id="ticket" class="ticket" data-result="ready">
+            <span class="ticket-serial" id="ticket-serial">TICKET / 0000</span>
+            <span id="result-icon" class="result-icon" aria-hidden="true">?</span>
+            <h2 id="result-name">最初のくじを引こう</h2>
+            <p id="result-detail">1回 3 pt · 当選するとポイント獲得</p>
+            <span class="ticket-caption">どの結果も、毎回まっさらな抽選。</span>
+          </div>
+          <div class="draw-actions"><button type="button" class="primary draw-button" id="draw-one" data-draw="1"><span>くじを引く</span><b aria-hidden="true">↗</b></button><button type="button" class="secondary draw-button" data-draw="10">10回</button><button type="button" class="secondary draw-button" data-draw="100">100回</button></div>
+          <div class="quick-actions"><button id="draw-rest" type="button" class="text-button">1000回までまとめて引く</button><span>仮想ポイントで遊ぶ確率実験</span></div>
+          <p id="batch-note" class="batch-note" role="status" aria-live="polite">まずは「くじを引く」を押してみましょう。</p>
+          <div class="progress-label"><span><b id="game-count">0</b> / 1000 回</span><span id="progress-message">あと1000回</span></div>
+          <progress id="game-progress" value="0" max="1000" aria-label="チャレンジの進み具合">0 / 1000</progress>
+          <div class="round-footer"><span id="seed-label"></span><button id="new-round" type="button" class="text-button">新しく始める <span aria-hidden="true">↻</span></button></div>
+        </section>
+
+        <div class="stats-column">
+          <section class="score-panel" aria-label="今回の記録">
+            <p class="eyebrow">今回のポイント</p>
+            <div class="balance"><strong id="balance">50</strong><span>pt</span></div>
+            <div class="score-row"><span>スタートからの増減</span><strong id="net">±0 pt</strong></div>
+            <div class="score-row"><span>BIG / REG</span><strong><span id="big-count">0</span> / <span id="reg-count">0</span> 回</strong></div>
+            <p class="small-note">初期50 ptから開始。マイナスになっても最後まで引けます。</p>
+          </section>
+          <section class="chart-panel" aria-labelledby="chart-heading">
+            <div class="section-heading"><h2 id="chart-heading">ポイントの足あと</h2><span class="unit">pt</span></div>
+            <svg id="history-chart" class="line-chart" viewBox="0 0 500 235" role="img" aria-label="今回のポイント推移"></svg>
+            <div class="chart-legend"><span><i class="legend-line"></i>今回の結果</span><span><i class="legend-line dashed"></i>理論上の平均</span></div>
+            <p class="small-note">平均の線は目安。短い回数では大きく離れることもあります。</p>
+          </section>
+        </div>
+      </div>
+
+      <section class="collection-section" aria-labelledby="collection-heading">
+        <div class="section-heading"><div><p class="eyebrow">何回目でそろうかな</p><h2 id="collection-heading">当選コレクション <span id="collection-count">0 / 7</span></h2></div><span class="section-aside">新しく始めても、見つけた役は残ります。</span></div>
+        <div id="collection" class="collection-grid"></div>
+      </section>
+
+      <section class="previous-section" aria-labelledby="previous-heading">
+        <div class="section-heading"><h2 id="previous-heading">前のチャレンジ</h2><button type="button" class="text-button" id="export-csv">今回の記録をCSVに</button></div>
+        <div id="previous-runs" class="previous-runs"><p class="empty-note">「新しく始める」で、今の結果がここに残ります。</p></div>
+      </section>
+    </section>
+
+    <section id="compare-view" hidden aria-labelledby="compare-tab">
+      <div class="comparison-intro"><div><p class="eyebrow">同じ設定でも、結果はいろいろ</p><h2>6つの設定を、何度も試そう。</h2><p>1回の結果だけでは分かりにくい違いを、繰り返して比べます。</p></div><span class="comparison-decoration" aria-hidden="true">≈</span></div>
+      <form id="comparison-form" class="comparison-form">
+        <label>1試行のくじの回数<select id="compare-games"><option value="100">100回</option><option value="1000" selected>1000回</option><option value="5000">5000回</option></select></label>
+        <label>設定ごとの試行数<select id="compare-runs"><option value="10">10回</option><option value="50" selected>50回</option><option value="100">100回</option></select></label>
+        <button type="submit" class="primary" id="compare-button">比べてみる <span aria-hidden="true">↗</span></button>
+      </form>
+      <p id="comparison-status" class="small-note" role="status">「比べてみる」を押すたび、新しい乱数で実験します。</p>
+      <div id="comparison-results" hidden>
+        <section class="comparison-chart-panel"><div class="section-heading"><h3>平均ポイントの推移</h3><span class="unit">pt</span></div><svg id="comparison-chart" class="line-chart" viewBox="0 0 900 300" role="img" aria-label="全設定の平均ポイント推移"></svg><div id="comparison-legend" class="chart-legend"></div></section>
+        <div class="table-scroll"><table class="comparison-table"><caption>各試行の最終収支を比べます（単位：pt）</caption><thead><tr><th scope="col">設定</th><th scope="col">平均収支</th><th scope="col">最小〜最大</th><th scope="col">プラスの割合</th><th scope="col">理論上の平均収支</th></tr></thead><tbody id="comparison-body"></tbody></table></div>
+        <p class="small-note">最小〜最大は今回の試行で出た範囲です。同じ試行では全設定に同じ乱数列を使います。理論上の平均が高くても、毎回ポイントが増えるとは限りません。</p>
+      </div>
+    </section>
+
+    <section id="guide" class="guide-section">
+      <details><summary><span class="summary-symbol" aria-hidden="true">?</span> はじめての遊び方 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content guide-steps"><div><span>01</span><h3>好きな設定で引く</h3><p>まずはそのまま「くじを引く」。1回3 ptを使い、出た役のポイントを受け取ります。</p></div><div><span>02</span><h3>1000回まで試す</h3><p>10回・100回ならすぐ進めます。大きな当たりやポイントの増減を見てみましょう。</p></div><div><span>03</span><h3>もう一度、比べる</h3><p>「新しく始める」で再挑戦。設定を変えると新しいチャレンジが始まります。</p></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">%</span> 当選確率とポイント <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>元の学生作品の確率と配当を使っています。1回につき当たる役は1つです。外れが続いても次の当選確率は変わりません。</p><div class="table-scroll"><table id="probability-table"><caption>現在の設定の確率</caption><thead><tr><th scope="col">役</th><th scope="col">当選確率</th><th scope="col">獲得ポイント</th><th scope="col">今回の回数</th></tr></thead><tbody></tbody></table></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">&lt;/&gt;</span> Pythonで仕組みを見てみる <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>学生作品の「乱数でくじを引き、設定による違いを比べる」という発想を受け継いでいます。Python版では確率や配当を変えながら、<code>for</code>・<code>if</code>・辞書・関数の役割を確かめられます。</p><div class="guide-links"><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/lottery-lab/lottery_lab.ipynb" target="_blank" rel="noopener">Colabで開く ↗</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/lottery-lab" target="_blank" rel="noopener">コードと説明書 ↗</a></div></div></details>
+    </section>
+
+    <footer class="footer"><div><b>くじびきラボ</b><p>2026年度3Q 月3木3クラスの学生作品をもとに改良しました。</p></div><div class="footer-tools"><p>コレクションと直近5件の結果を、このブラウザに保存します。</p><button id="clear-records" type="button" class="text-button">保存した記録を消す</button><span id="storage-note" role="status"></span></div></footer>
+  </main>
+  <div id="confetti" aria-hidden="true"></div>
+  <noscript><p class="noscript">このアプリを遊ぶには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
