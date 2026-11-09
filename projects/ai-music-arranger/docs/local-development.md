@@ -4,10 +4,10 @@
 
 ## 配布ZIPの置き方
 
-`ai-music-arranger_v1.0.2.zip` を展開すると、`v1.0.2` フォルダーができます。Macでは、次の場所へ置いて作業できます。
+`ai-music-arranger_v1.0.3.zip` を展開すると、`v1.0.3` フォルダーができます。Macでは、次の場所へ置いて作業できます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.2
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.3
 ```
 
 この配布フォルダーは、授業リポジトリの `projects/ai-music-arranger/` に対応しています。
@@ -17,11 +17,11 @@
 Pythonファイルを変更した場合は、次のコマンドで、そのコードをNotebookにも反映します。Notebookはプログラムを内包しているため、この手順を省くとPythonファイルとNotebookの内容が異なります。
 
 ```bash
-cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.2
+cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.3
 python3 tools/build_notebook.py
 ```
 
-全コードセルを `@title` とフォーム表示のメタデータで折りたたみ、出力と実行番号を消したNotebookが生成されます。セル3〜5には入力・生成・保存の標準フォームを埋め込みます。Notebook上だけで試した変更を公開版に戻す場合は、対応する `.py` に変更を反映してから再生成します。
+全コードセルを `@title` とフォーム表示のメタデータで折りたたみ、出力と実行番号を消したNotebookが生成されます。セル2に3つのプログラムをまとめ、1回の実行で読み込みます。セル3〜5には入力・生成・保存の標準フォームを埋め込みます。Notebook上だけで試した変更を公開版に戻す場合は、対応する `.py` に変更を反映してから再生成します。
 
 ## HTTPSで授業リポジトリへ反映する
 
@@ -41,7 +41,7 @@ rsync -av \
   --exclude '.git/' --exclude 'dist/' --exclude '__pycache__/' \
   --exclude '.pytest_cache/' --exclude 'music_work/' \
   --exclude '.ai_music_arranger_runtime/' --exclude '.venv/' \
-  /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.2/ \
+  /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.3/ \
   projects/ai-music-arranger/
 git diff -- projects/ai-music-arranger/
 git status --short
