@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f4ec">
+  <meta name="description" content="くじを引いて、確率のふしぎを体験。1000回チャレンジと設定比較で何度でも遊べる、学生作品から生まれたくじ引きシミュレーション。">
+  <title>くじびきラボ</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='10' width='56' height='44' rx='12' fill='%23245d56'/%3E%3Ctext x='32' y='43' font-size='36' text-anchor='middle'%3E★%3C/text%3E%3C/svg%3E">
+  <style>
+@charset "UTF-8";
+:root{--paper:#f6f4ec;--ink:#243e3a;--muted:#6e7970;--green:#245d56;--green-light:#e7eee6;--orange:#e87950;--line:#dddfd3;--white:#fffefa;--gold:#f7c867;--shadow:0 8px 30px #243e3a07;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:var(--ink);background:var(--paper);font-synthesis:none}
+*{box-sizing:border-box}body{margin:0}button,select{font:inherit}button,a,select{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:disabled{cursor:default;opacity:.45}a{color:var(--green);text-underline-offset:4px}button:focus-visible,a:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--orange);outline-offset:5px}button{border:0}button,a{touch-action:manipulation}.wrap{width:min(1180px,calc(100% - 64px));margin:auto}.masthead{height:108px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font-weight:800;font-size:20px;letter-spacing:.02em}.brand-mark{font-size:41px;line-height:1;color:var(--orange)}.brand small{display:block;font-size:9px;letter-spacing:.19em;margin-top:5px}.header-actions{display:flex;align-items:center;gap:28px;font-size:13px}.header-actions a{text-decoration:none}.quiet{background:transparent;color:var(--ink);padding:9px 13px;border:1px solid var(--line);border-radius:30px;font-size:12px}.quiet[aria-pressed=true]{background:var(--green);color:white}.intro{position:relative;padding:50px 0 35px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--green);margin:0 0 14px}.intro h1{font-size:clamp(32px,4vw,49px);letter-spacing:.04em;line-height:1.5;margin:0 0 14px;font-weight:800}.intro>p:last-of-type{font-size:14px;line-height:1.95;color:var(--muted);margin:0}.intro-stamp{position:absolute;right:30px;top:54px;transform:rotate(10deg);border:2px solid var(--orange);outline:1px dashed var(--orange);outline-offset:6px;color:var(--orange);border-radius:50%;width:152px;height:152px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px}.intro-stamp span{font-size:10px;letter-spacing:.07em}.intro-stamp span:last-child{font-size:8px}.intro-stamp b{font-size:35px;font-family:Georgia,serif;font-style:italic}.mobile-only{display:none}.view-tabs{display:flex;gap:32px;border-bottom:1px solid var(--line);margin-bottom:28px}.view-tabs button{background:transparent;padding:15px 4px;color:var(--muted);font-size:14px;border-bottom:3px solid transparent;margin-bottom:-1px;font-weight:700}.view-tabs button.active{color:var(--green);border-color:var(--green)}.view-tabs button span{margin-left:18px}.play-layout{display:grid;grid-template-columns:1.08fr 1fr;gap:24px}.draw-panel{border-radius:18px;background:var(--white);border:1px solid var(--line);padding:26px 30px 18px;box-shadow:var(--shadow)}.panel-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.tag{font-size:11px;letter-spacing:.03em;color:var(--green);background:var(--green-light);padding:7px 11px;border-radius:5px}.setting-label{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}select{background:var(--white);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 24px 7px 9px;cursor:pointer}.ticket{position:relative;min-height:242px;border-radius:12px;background:#f3e8d4;text-align:center;padding:20px 12px 16px;overflow:hidden;border:1px solid #e7d9bd;transition:background .25s}.ticket::before,.ticket::after{content:"";position:absolute;top:50%;height:22px;width:22px;border-radius:50%;background:var(--white);border:1px solid #e7d9bd;transform:translateY(-50%)}.ticket::before{left:-12px}.ticket::after{right:-12px}.ticket-serial{display:block;color:#9c8b6f;font-size:9px;letter-spacing:.18em;text-align:left;padding-left:9px}.result-icon{font-size:67px;height:91px;line-height:1.35;display:block;font-family:system-ui,sans-serif;font-weight:700;color:#ac8f63}.ticket h2{font-size:22px;font-weight:800;margin:0 0 7px;letter-spacing:.05em}.ticket p{margin:0 0 17px;font-size:12px;color:#7d765f}.ticket-caption{font-size:9px;letter-spacing:.04em;color:#99896c;border-top:1px dashed #c8b695;padding-top:10px;display:block;margin:0 20px}.ticket[data-result=BIG]{background:#ffd47e}.ticket[data-result=REG]{background:#f7cca8}.ticket[data-result=grape]{background:#eee3f4}.ticket[data-result=cherry]{background:#f7e0dc}.ticket[data-result=replay]{background:#e0eeea}.ticket[data-result=bell],.ticket[data-result=clown]{background:#faf0c6}.ticket.drawing .result-icon{animation:draw-pop .4s ease-out}.ticket.celebrate .result-icon{animation:wobble .5s ease-in-out 2}.draw-actions{display:grid;grid-template-columns:1fr 78px 78px;gap:10px;margin-top:20px}.primary{background:var(--green);color:var(--white);font-weight:700;border-radius:8px;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:26px;box-shadow:0 3px 0 #153f38;transition:background .15s,transform .15s}.primary:hover:not(:disabled){background:#31756b}.primary:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #153f38}.primary b{font-size:23px;font-weight:400}.secondary{color:var(--green);background:var(--green-light);border:1px solid #d7e1d4;border-radius:8px;font-size:13px;font-weight:700}.secondary:hover:not(:disabled){background:#d7e5d5}.quick-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:15px}.text-button{background:transparent;padding:3px 0;color:var(--green);font-size:11px;text-decoration:underline;text-underline-offset:4px}.text-button:hover{color:var(--orange)}.quick-actions>span{font-size:9px;color:var(--muted)}.batch-note{font-size:11px;line-height:1.7;color:var(--muted);min-height:36px;margin:14px 0 12px}.progress-label{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);align-items:center;margin-bottom:6px}.progress-label b{color:var(--ink);font-size:14px}progress{width:100%;height:5px;border:0;border-radius:9px;display:block;overflow:hidden;background:var(--green-light);color:var(--orange)}progress::-webkit-progress-bar{background:var(--green-light)}progress::-webkit-progress-value{background:var(--orange);border-radius:9px}progress::-moz-progress-bar{background:var(--orange)}.round-footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px}.round-footer>span{font-size:9px;color:#939c91}.stats-column{display:grid;grid-template-rows:auto 1fr;gap:20px}.score-panel{padding:24px 28px;border-radius:16px;background:var(--green-light)}.score-panel .eyebrow{margin-bottom:4px}.balance{display:flex;align-items:baseline;gap:10px}.balance strong{font-family:Georgia,"Yu Mincho",serif;font-size:64px;line-height:1.25;font-weight:400;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.balance span{font-size:14px}.score-row{display:flex;justify-content:space-between;gap:15px;font-size:11px;line-height:1.7;margin-top:11px}.score-row strong{font-size:14px;font-variant-numeric:tabular-nums}.positive{color:#167963}.negative{color:#b25339}.small-note{font-size:10px;line-height:1.85;color:var(--muted);margin:15px 0 0}.chart-panel{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:22px 24px 18px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}.section-heading h2,.section-heading h3{margin:0;font-size:15px;font-weight:700}.unit{font-size:10px;color:var(--muted)}.line-chart{width:100%;height:auto;display:block;overflow:visible}.chart-legend{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-size:9px;color:var(--muted);margin-top:2px}.chart-legend>span{display:flex;gap:6px;align-items:center}.legend-line{width:17px;height:0;border-top:2px solid var(--green);display:inline-block}.legend-line.dashed{border-top:2px dashed #a6b0a1}.chart-panel .small-note{text-align:center;margin-top:10px;font-size:9px}.collection-section{padding-top:32px;margin-top:3px}.collection-section .eyebrow{margin-bottom:7px;font-size:9px}.collection-section h2{font-size:17px}.collection-section h2 span{font-weight:400;font-size:12px;margin-left:10px;color:var(--muted)}.section-aside{font-size:10px;color:var(--muted)}.collection-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-top:18px}.collection-card{position:relative;min-height:119px;padding:15px 5px 12px;background:var(--white);border:1px solid var(--line);border-radius:10px;text-align:center}.collection-card.locked{background:transparent;border-style:dashed}.collection-card .collect-icon{font-size:28px;display:block;height:41px;font-family:system-ui,sans-serif}.collection-card.locked .collect-icon{filter:grayscale(1);opacity:.24}.collection-card b{display:block;font-size:11px}.collection-card>small{font-size:9px;color:var(--muted);display:block;margin-top:6px}.collection-card .found-check{position:absolute;right:8px;top:7px;color:var(--green);font-size:10px}.previous-section{margin-top:34px}.previous-runs{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:15px}.previous-run{padding:16px;background:#eaece2;border-radius:9px}.previous-run p{font-size:10px;margin:0 0 7px;color:var(--muted)}.previous-run b{font-size:18px}.previous-run small{display:block;color:var(--muted);font-size:9px;margin-top:8px}.empty-note{grid-column:1/-1;font-size:11px;color:var(--muted);padding:22px 0;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);margin:0}.guide-section{margin-top:44px;border-top:1px solid var(--line);scroll-margin-top:20px}details{border-bottom:1px solid var(--line)}summary{list-style:none;cursor:pointer;font-size:13px;padding:22px 0;display:flex;align-items:center;gap:15px}summary::-webkit-details-marker{display:none}.summary-symbol{font-size:13px;display:inline-flex;width:24px;justify-content:center;color:var(--green)}.summary-plus{margin-left:auto;font-size:17px;font-weight:400;color:var(--muted)}details[open] .summary-plus{transform:rotate(45deg)}.details-content{padding:0 24px 25px 39px;font-size:12px;line-height:1.9}.details-content>p{margin:0 0 18px}.guide-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}.guide-steps>div>span{font-size:11px;color:var(--orange);font-weight:700}.guide-steps h3{font-size:13px;margin:5px 0 8px}.guide-steps p{font-size:11px;margin:0;color:var(--muted)}.guide-links{display:flex;flex-wrap:wrap;gap:24px}.guide-links a{font-size:12px}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:right;font-variant-numeric:tabular-nums;font-size:12px}caption{text-align:left;font-size:10px;color:var(--muted);padding:12px 0}th,td{border-bottom:1px solid var(--line);padding:11px 14px;white-space:nowrap}th{font-weight:500;color:var(--muted);font-size:10px}th:first-child,td:first-child{text-align:left}.footer{display:flex;justify-content:space-between;gap:25px;padding:30px 0 40px}.footer b{font-size:12px}.footer p{font-size:9px;color:var(--muted);line-height:1.8;margin:7px 0 0}.footer-tools{text-align:right}.footer-tools .text-button{font-size:9px;margin-top:8px}.footer-tools>span{display:block;font-size:9px;color:var(--muted);margin-top:7px}.comparison-intro{display:flex;justify-content:space-between;align-items:center;margin:38px 0 25px}.comparison-intro h2{font-size:26px;margin:0 0 12px}.comparison-intro p:last-child{font-size:12px;color:var(--muted)}.comparison-decoration{font-family:Georgia,serif;font-size:110px;line-height:.6;color:#bccebf;padding:0 25px 20px}.comparison-form{display:flex;align-items:flex-end;gap:18px;background:var(--green-light);border-radius:12px;padding:24px}.comparison-form label{font-size:11px;display:flex;flex-direction:column;gap:10px;flex:1}.comparison-form select{padding:12px}.comparison-form .primary{font-size:13px;padding:14px 26px}.comparison-chart-panel{margin-top:26px;padding:26px;background:var(--white);border:1px solid var(--line);border-radius:12px}.comparison-table{margin-top:18px}.comparison-table td:first-child{font-weight:700}.comparison-table caption{font-size:11px}#confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:10}#confetti i{position:absolute;width:8px;height:15px;top:-20px;background:var(--orange);animation:fall 1.7s ease-in forwards}.noscript{padding:30px;background:#ffd47e;text-align:center}[hidden]{display:none!important}
+@keyframes draw-pop{0%{transform:translateY(8px) scale(.6);opacity:.2}70%{transform:translateY(-4px) scale(1.1)}100%{transform:none;opacity:1}}@keyframes wobble{25%{transform:rotate(-9deg)}75%{transform:rotate(9deg)}}@keyframes fall{to{transform:translate3d(var(--drift),105vh,0) rotate(540deg);opacity:.1}}
+@media(min-width:1400px){.intro{padding-top:56px;padding-bottom:40px}.ticket{min-height:255px}.result-icon{height:100px;line-height:1.5}}
+@media(max-width:900px){.wrap{width:calc(100% - 40px)}.play-layout{gap:16px;grid-template-columns:1fr 1fr}.draw-panel{padding:20px}.draw-actions{grid-template-columns:1fr 60px 60px;gap:7px}.primary{padding:14px 14px;font-size:13px}.quick-actions{align-items:flex-start;flex-direction:column;gap:9px}.ticket h2{font-size:19px}.ticket-caption{margin:0 8px;font-size:8px}.score-panel{padding:22px}.balance strong{font-size:54px}.collection-grid{gap:7px}.section-aside{display:none}.chart-panel{padding:18px 16px}.chart-legend{gap:10px}.previous-run{padding:12px}.intro-stamp{right:16px}.footer{flex-direction:column;gap:15px}.footer-tools{text-align:left}}
+@media(max-width:650px){.wrap{width:calc(100% - 32px)}.masthead{height:82px}.brand{font-size:17px;gap:8px}.brand-mark{font-size:32px}.brand small{font-size:8px}.header-actions{gap:13px;font-size:11px}.quiet{font-size:10px;padding:7px 10px}.intro{padding:32px 0 24px}.intro .eyebrow{font-size:9px;margin-bottom:10px}.intro h1{font-size:35px;line-height:1.4;letter-spacing:.025em;margin-bottom:14px}.mobile-only{display:block}.intro>p:last-of-type{font-size:11px;line-height:1.9}.intro-stamp{width:98px;height:98px;right:7px;top:45px;gap:3px;outline-offset:4px}.intro-stamp b{font-size:23px}.intro-stamp span{font-size:7px}.intro-stamp span:last-child{font-size:6px}.view-tabs{gap:24px;margin-bottom:18px}.view-tabs button{font-size:12px;padding:13px 2px}.play-layout{grid-template-columns:1fr;gap:16px}.draw-panel{padding:20px 20px 17px}.ticket{min-height:232px}.ticket h2{font-size:22px}.draw-actions{grid-template-columns:1fr 72px 72px;gap:9px}.primary{font-size:14px;padding:14px 18px}.quick-actions{flex-direction:row;gap:8px;align-items:center}.quick-actions>span{font-size:8px}.quick-actions .text-button{font-size:10px}.batch-note{min-height:34px}.stats-column{grid-template-columns:1fr;gap:16px}.score-panel{padding:20px 24px;position:relative}.score-panel .balance strong{font-size:54px}.score-row{margin-top:7px}.chart-panel{padding:22px}.line-chart{max-height:235px}.section-heading h2{font-size:14px}.collection-section{padding-top:25px}.collection-grid{grid-template-columns:repeat(4,1fr);gap:8px;margin-top:15px}.collection-card{min-height:108px;padding:12px 4px}.collection-card .collect-icon{font-size:25px;height:37px}.collection-card b{font-size:10px}.previous-runs{grid-template-columns:repeat(2,1fr);gap:8px}.previous-run:first-child{grid-column:1/-1}.previous-run{padding:15px}.previous-run p{font-size:10px}.previous-run b{font-size:19px}.previous-section{margin-top:27px}.previous-section .text-button{font-size:10px}.guide-section{margin-top:30px}.guide-steps{grid-template-columns:1fr;gap:23px}.details-content{padding-left:14px;padding-right:6px;font-size:11px}.guide-steps p{font-size:11px}.guide-links{gap:18px}.comparison-intro{margin:28px 0 20px}.comparison-intro h2{font-size:20px;line-height:1.6}.comparison-intro p:last-child{font-size:11px;line-height:1.8}.comparison-decoration{display:none}.comparison-form{padding:19px;display:grid;grid-template-columns:1fr 1fr;gap:18px 12px}.comparison-form .primary{grid-column:1/-1;justify-content:center;padding:14px}.comparison-chart-panel{padding:20px 12px}.comparison-chart-panel .section-heading{padding:0 7px}.comparison-table{font-size:11px}th,td{padding:10px 12px}.footer p{font-size:9px}.score-row strong{font-size:13px}.chart-panel .small-note{font-size:9px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+</style>
+</head>
+<body>
+  <header class="masthead wrap">
+    <a class="brand" href="./" aria-label="くじびきラボ ホーム"><span class="brand-mark" aria-hidden="true">✳</span><span>くじびきラボ<small>LOTTERY LAB</small></span></a>
+    <div class="header-actions"><button id="sound-toggle" class="quiet" type="button" aria-pressed="false">音：オフ</button><a href="#guide">遊び方 <span aria-hidden="true">↗</span></a></div>
+  </header>
+
+  <main class="wrap">
+    <section class="intro">
+      <p class="eyebrow">ひとつの乱数から、いろんな結果。</p>
+      <h1>次のくじは、<br class="mobile-only">なにが出る？</h1>
+      <p>1回ずつ楽しんでも、まとめて引いても。<br>設定を変えて、1000回の運だめしをしてみよう。</p>
+      <div class="intro-stamp" aria-hidden="true"><span>TRY YOUR</span><b>LUCK!</b><span>くり返すほど、おもしろい</span></div>
+    </section>
+
+    <nav class="view-tabs" aria-label="遊び方を選ぶ">
+      <button type="button" id="play-tab" class="active" aria-pressed="true" aria-controls="play-view">くじを引く</button>
+      <button type="button" id="compare-tab" aria-pressed="false" aria-controls="compare-view">設定を比べる <span aria-hidden="true">↗</span></button>
+    </nav>
+
+    <section id="play-view" aria-labelledby="play-tab">
+      <div class="play-layout">
+        <section class="draw-panel" aria-label="くじ引き">
+          <div class="panel-top"><span class="tag">1000回チャレンジ</span><label class="setting-label" for="setting">設定 <select id="setting"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option></select></label></div>
+          <div id="ticket" class="ticket" data-result="ready">
+            <span class="ticket-serial" id="ticket-serial">TICKET / 0000</span>
+            <span id="result-icon" class="result-icon" aria-hidden="true">?</span>
+            <h2 id="result-name">最初のくじを引こう</h2>
+            <p id="result-detail">1回 3 pt · 当選するとポイント獲得</p>
+            <span class="ticket-caption">どの結果も、毎回まっさらな抽選。</span>
+          </div>
+          <div class="draw-actions"><button type="button" class="primary draw-button" id="draw-one" data-draw="1"><span>くじを引く</span><b aria-hidden="true">↗</b></button><button type="button" class="secondary draw-button" data-draw="10">10回</button><button type="button" class="secondary draw-button" data-draw="100">100回</button></div>
+          <div class="quick-actions"><button id="draw-rest" type="button" class="text-button">1000回までまとめて引く</button><span>仮想ポイントで遊ぶ確率実験</span></div>
+          <p id="batch-note" class="batch-note" role="status" aria-live="polite">まずは「くじを引く」を押してみましょう。</p>
+          <div class="progress-label"><span><b id="game-count">0</b> / 1000 回</span><span id="progress-message">あと1000回</span></div>
+          <progress id="game-progress" value="0" max="1000" aria-label="チャレンジの進み具合">0 / 1000</progress>
+          <div class="round-footer"><span id="seed-label"></span><button id="new-round" type="button" class="text-button">新しく始める <span aria-hidden="true">↻</span></button></div>
+        </section>
+
+        <div class="stats-column">
+          <section class="score-panel" aria-label="今回の記録">
+            <p class="eyebrow">今回のポイント</p>
+            <div class="balance"><strong id="balance">50</strong><span>pt</span></div>
+            <div class="score-row"><span>スタートからの増減</span><strong id="net">±0 pt</strong></div>
+            <div class="score-row"><span>BIG / REG</span><strong><span id="big-count">0</span> / <span id="reg-count">0</span> 回</strong></div>
+            <p class="small-note">初期50 ptから開始。マイナスになっても最後まで引けます。</p>
+          </section>
+          <section class="chart-panel" aria-labelledby="chart-heading">
+            <div class="section-heading"><h2 id="chart-heading">ポイントの足あと</h2><span class="unit">pt</span></div>
+            <svg id="history-chart" class="line-chart" viewBox="0 0 500 235" role="img" aria-label="今回のポイント推移"></svg>
+            <div class="chart-legend"><span><i class="legend-line"></i>今回の結果</span><span><i class="legend-line dashed"></i>理論上の平均</span></div>
+            <p class="small-note">平均の線は目安。短い回数では大きく離れることもあります。</p>
+          </section>
+        </div>
+      </div>
+
+      <section class="collection-section" aria-labelledby="collection-heading">
+        <div class="section-heading"><div><p class="eyebrow">何回目でそろうかな</p><h2 id="collection-heading">当選コレクション <span id="collection-count">0 / 7</span></h2></div><span class="section-aside">新しく始めても、見つけた役は残ります。</span></div>
+        <div id="collection" class="collection-grid"></div>
+      </section>
+
+      <section class="previous-section" aria-labelledby="previous-heading">
+        <div class="section-heading"><h2 id="previous-heading">前のチャレンジ</h2><button type="button" class="text-button" id="export-csv">今回の記録をCSVに</button></div>
+        <div id="previous-runs" class="previous-runs"><p class="empty-note">「新しく始める」で、今の結果がここに残ります。</p></div>
+      </section>
+    </section>
+
+    <section id="compare-view" hidden aria-labelledby="compare-tab">
+      <div class="comparison-intro"><div><p class="eyebrow">同じ設定でも、結果はいろいろ</p><h2>6つの設定を、何度も試そう。</h2><p>1回の結果だけでは分かりにくい違いを、繰り返して比べます。</p></div><span class="comparison-decoration" aria-hidden="true">≈</span></div>
+      <form id="comparison-form" class="comparison-form">
+        <label>1試行のくじの回数<select id="compare-games"><option value="100">100回</option><option value="1000" selected>1000回</option><option value="5000">5000回</option></select></label>
+        <label>設定ごとの試行数<select id="compare-runs"><option value="10">10回</option><option value="50" selected>50回</option><option value="100">100回</option></select></label>
+        <button type="submit" class="primary" id="compare-button">比べてみる <span aria-hidden="true">↗</span></button>
+      </form>
+      <p id="comparison-status" class="small-note" role="status">「比べてみる」を押すたび、新しい乱数で実験します。</p>
+      <div id="comparison-results" hidden>
+        <section class="comparison-chart-panel"><div class="section-heading"><h3>平均ポイントの推移</h3><span class="unit">pt</span></div><svg id="comparison-chart" class="line-chart" viewBox="0 0 900 300" role="img" aria-label="全設定の平均ポイント推移"></svg><div id="comparison-legend" class="chart-legend"></div></section>
+        <div class="table-scroll"><table class="comparison-table"><caption>各試行の最終収支を比べます（単位：pt）</caption><thead><tr><th scope="col">設定</th><th scope="col">平均収支</th><th scope="col">最小〜最大</th><th scope="col">プラスの割合</th><th scope="col">理論上の平均収支</th></tr></thead><tbody id="comparison-body"></tbody></table></div>
+        <p class="small-note">最小〜最大は今回の試行で出た範囲です。同じ試行では全設定に同じ乱数列を使います。理論上の平均が高くても、毎回ポイントが増えるとは限りません。</p>
+      </div>
+    </section>
+
+    <section id="guide" class="guide-section">
+      <details><summary><span class="summary-symbol" aria-hidden="true">?</span> はじめての遊び方 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content guide-steps"><div><span>01</span><h3>好きな設定で引く</h3><p>まずはそのまま「くじを引く」。1回3 ptを使い、出た役のポイントを受け取ります。</p></div><div><span>02</span><h3>1000回まで試す</h3><p>10回・100回ならすぐ進めます。大きな当たりやポイントの増減を見てみましょう。</p></div><div><span>03</span><h3>もう一度、比べる</h3><p>「新しく始める」で再挑戦。設定を変えると新しいチャレンジが始まります。</p></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">%</span> 当選確率とポイント <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>元の学生作品の確率と配当を使っています。1回につき当たる役は1つです。外れが続いても次の当選確率は変わりません。</p><div class="table-scroll"><table id="probability-table"><caption>現在の設定の確率</caption><thead><tr><th scope="col">役</th><th scope="col">当選確率</th><th scope="col">獲得ポイント</th><th scope="col">今回の回数</th></tr></thead><tbody></tbody></table></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">&lt;/&gt;</span> Pythonで仕組みを見てみる <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>学生作品の「乱数でくじを引き、設定による違いを比べる」という発想を受け継いでいます。Python版では確率や配当を変えながら、<code>for</code>・<code>if</code>・辞書・関数の役割を確かめられます。</p><div class="guide-links"><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/lottery-lab/lottery_lab.ipynb" target="_blank" rel="noopener">Colabで開く ↗</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/lottery-lab" target="_blank" rel="noopener">コードと説明書 ↗</a></div></div></details>
+    </section>
+
+    <footer class="footer"><div><b>くじびきラボ</b><p>2026年度3Q 月3木3クラスの学生作品をもとに改良しました。</p></div><div class="footer-tools"><p>コレクションと直近5件の結果を、このブラウザに保存します。</p><button id="clear-records" type="button" class="text-button">保存した記録を消す</button><span id="storage-note" role="status"></span></div></footer>
+  </main>
+  <div id="confetti" aria-hidden="true"></div>
+  <noscript><p class="noscript">このアプリを遊ぶには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
+  <script type="module">
+// 学生作品の確率と配当を引き継ぐ、画面から独立した抽選処理です。
+const OUTCOMES = Object.freeze([
+  { id: 'BIG', name: 'BIG', icon: '★', payout: 252 },
+  { id: 'REG', name: 'REG', icon: '◆', payout: 96 },
+  { id: 'grape', name: 'ブドウ', icon: '🍇', payout: 8 },
+  { id: 'cherry', name: 'チェリー', icon: '🍒', payout: 2 },
+  { id: 'replay', name: 'リプレイ', icon: '↻', payout: 3 },
+  { id: 'bell', name: 'ベル', icon: '🔔', payout: 14 },
+  { id: 'clown', name: 'ピエロ', icon: '🃏', payout: 10 },
+  { id: 'miss', name: 'ハズレ', icon: '·', payout: 0 },
+].map(Object.freeze));
+
+const SETTINGS = Object.freeze([1, 2, 3, 4, 5, 6]);
+const BONUS_DENOMINATORS = Object.freeze([
+  [273.1, 439.8], [269.7, 399.6], [269.7, 331.0],
+  [259.0, 315.1], [259.0, 255.0], [255.0, 255.0],
+]);
+
+function integer(value, name, min, max) {
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    throw new RangeError(`${name}は${min}〜${max}の整数で指定してください。`);
+  }
+  return value;
+}
+
+function validateSetting(setting) {
+  return integer(setting, '設定', 1, 6);
+}
+
+function probabilities(setting) {
+  validateSetting(setting);
+  const bonus = BONUS_DENOMINATORS[setting - 1];
+  const values = [1 / bonus[0], 1 / bonus[1],
+    1 / (setting === 6 ? 5.79 : 6.05), 1 / 35.6, 1 / 7.3, 1 / 1024, 1 / 1024];
+  values.push(1 - values.reduce((total, value) => total + value, 0));
+  return OUTCOMES.map((outcome, index) => ({ ...outcome, probability: values[index] }));
+}
+
+function expectedDelta(setting, cost = 3) {
+  integer(cost, '1回の消費ポイント', 0, 10000);
+  return probabilities(setting).reduce((total, row) => total + row.probability * row.payout, 0) - cost;
+}
+
+// Mulberry32。seedが同じなら同じ抽選列になり、0も有効なseedです。
+function createRng(seed) {
+  integer(seed, '乱数の種', 0, 0xffffffff);
+  let state = seed;
+  return function random() {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = Math.imul(state ^ (state >>> 15), state | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function freshSeed() {
+  if (globalThis.crypto?.getRandomValues) {
+    return globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+  }
+  return Math.floor(Math.random() * 4294967296);
+}
+
+function createSession({ setting = 6, initialPoints = 50, cost = 3,
+  seed = freshSeed(), targetGames = 1000 } = {}) {
+  validateSetting(setting);
+  integer(initialPoints, '初期ポイント', 0, 1000000);
+  integer(cost, '1回の消費ポイント', 0, 10000);
+  integer(targetGames, '抽選回数', 1, 5000);
+  const rng = createRng(seed);
+  return {
+    setting, initialPoints, cost, seed, targetGames,
+    games: 0, balance: initialPoints, spent: 0, earned: 0,
+    counts: Object.fromEntries(OUTCOMES.map(row => [row.id, 0])),
+    history: [initialPoints], last: null, rng,
+  };
+}
+
+function selectOutcome(rows, randomValue) {
+  if (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1) {
+    throw new RangeError('乱数は0以上1未満である必要があります。');
+  }
+  let cumulative = 0;
+  for (const outcome of rows) {
+    cumulative += outcome.probability;
+    if (randomValue < cumulative) return outcome;
+  }
+  // 小数の丸めで総和が1をわずかに下回っても、残りはハズレです。
+  return rows[rows.length - 1];
+}
+
+function draw(session, count = 1) {
+  integer(count, '今回引く回数', 1, 5000);
+  if (!session || typeof session.rng !== 'function') {
+    throw new TypeError('createSessionで抽選を準備してください。');
+  }
+  const rows = probabilities(session.setting);
+  const length = Math.min(count, session.targetGames - session.games);
+  const results = [];
+  for (let index = 0; index < length; index += 1) {
+    const outcome = selectOutcome(rows, session.rng());
+    session.games += 1;
+    session.spent += session.cost;
+    session.earned += outcome.payout;
+    session.balance += outcome.payout - session.cost;
+    session.counts[outcome.id] += 1;
+    session.history.push(session.balance);
+    const result = { id: outcome.id, name: outcome.name, payout: outcome.payout,
+      balance: session.balance, game: session.games };
+    session.last = result;
+    results.push(result);
+  }
+  return results;
+}
+
+function compareSettings({ games = 1000, runs = 50, seed = 42,
+  initialPoints = 50, cost = 3 } = {}) {
+  integer(games, '1セットの抽選回数', 1, 5000);
+  integer(runs, '繰り返すセット数', 1, 100);
+  integer(seed, '乱数の種', 0, 0xffffffff);
+  integer(initialPoints, '初期ポイント', 0, 1000000);
+  integer(cost, '1回の消費ポイント', 0, 10000);
+  return SETTINGS.map(setting => {
+    const rows = probabilities(setting);
+    const meanHistory = new Array(games + 1).fill(0);
+    meanHistory[0] = initialPoints;
+    let totalNet = 0;
+    let minNet = Infinity;
+    let maxNet = -Infinity;
+    let positives = 0;
+    for (let run = 0; run < runs; run += 1) {
+      // 各設定で同じrunの乱数列を使い、確率設定の違いを比較します。
+      const random = createRng((seed + run) >>> 0);
+      let balance = initialPoints;
+      for (let game = 1; game <= games; game += 1) {
+        balance += selectOutcome(rows, random()).payout - cost;
+        meanHistory[game] += balance / runs;
+      }
+      const net = balance - initialPoints;
+      totalNet += net;
+      minNet = Math.min(minNet, net);
+      maxNet = Math.max(maxNet, net);
+      if (net > 0) positives += 1;
+    }
+    return { setting, meanNet: totalNet / runs, minNet, maxNet,
+      positiveRate: positives / runs, expectedNet: games * expectedDelta(setting, cost), meanHistory };
+  });
+}
+
+
+const $ = selector => document.querySelector(selector);
+const nf = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 1 });
+const fineNumber = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 3 });
+const signed = (value, formatter = nf) => `${value > 0 ? '+' : value < 0 ? '−' : '±'}${formatter.format(Math.abs(value))}`;
+const colourClass = value => value > 0 ? 'positive' : value < 0 ? 'negative' : '';
+const STORAGE_KEY = 'lottery-lab-v1';
+const COLOURS = ['#8a9d91', '#a77c65', '#8486ad', '#39949b', '#d49b35', '#245d56'];
+let session = createSession();
+let sessionRecorded = false;
+let busy = false;
+let sound = false;
+let audioContext;
+let collection = Object.fromEntries(OUTCOMES.filter(row => row.id !== 'miss').map(row => [row.id, 0]));
+let previous = [];
+
+// 保存するのは役の発見数と直近の集計だけ。名前や外部サービスは使いません。
+try {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+  if (saved && typeof saved === 'object') {
+    for (const id of Object.keys(collection)) {
+      if (Number.isSafeInteger(saved.collection?.[id]) && saved.collection[id] >= 0) collection[id] = saved.collection[id];
+    }
+    if (Array.isArray(saved.previous)) {
+      previous = saved.previous.filter(row => row && Number.isInteger(row.setting) && row.setting >= 1 && row.setting <= 6
+        && Number.isInteger(row.games) && row.games > 0 && row.games <= 1000
+        && Number.isSafeInteger(row.net) && Number.isSafeInteger(row.seed)
+        && Number.isInteger(row.bonus) && row.bonus >= 0).slice(0, 5);
+    }
+  }
+} catch {
+  $('#storage-note').textContent = 'このブラウザでは記録を保存できません。遊ぶことはできます。';
+}
+
+function saveRecords() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ collection, previous })); }
+  catch { $('#storage-note').textContent = '記録を保存できませんでした。この画面では続けて遊べます。'; }
+}
+
+function drawChart(element, series, { width = 500, height = 235, maxGames, description }) {
+  const margin = { left: 51, right: 15, top: 17, bottom: 32 };
+  const plotW = width - margin.left - margin.right;
+  const plotH = height - margin.top - margin.bottom;
+  let low = Infinity, high = -Infinity;
+  for (const row of series) for (const value of row.values) { low = Math.min(low, value); high = Math.max(high, value); }
+  const pad = Math.max(12, (high - low) * .12);
+  low = Math.floor((low - pad) / 10) * 10;
+  high = Math.ceil((high + pad) / 10) * 10;
+  const x = index => margin.left + index / maxGames * plotW;
+  const y = value => margin.top + (high - value) / (high - low) * plotH;
+  let content = `<title>${description}</title><desc>横軸はくじの回数、縦軸は所持ポイントです。</desc>`;
+  for (let step = 0; step <= 4; step++) {
+    const value = low + (high - low) * step / 4;
+    const at = y(value);
+    content += `<line x1="${margin.left}" y1="${at}" x2="${width - margin.right}" y2="${at}" stroke="#e4e7dc"/><text x="${margin.left - 9}" y="${at + 4}" text-anchor="end" fill="#7c877c" font-size="11">${nf.format(value)}</text>`;
+  }
+  for (let step = 0; step <= 4; step++) {
+    const value = Math.round(maxGames * step / 4);
+    content += `<text x="${x(value)}" y="${height - 10}" text-anchor="middle" fill="#7c877c" font-size="11">${value}${step === 4 ? '回' : ''}</text>`;
+  }
+  // 5000点でも画面上では600点程度へ間引き、末尾は必ず残します。
+  for (const row of series) {
+    const stride = Math.max(1, Math.floor(row.values.length / 600));
+    const points = [];
+    row.values.forEach((value, index) => {
+      if (index % stride === 0 || index === row.values.length - 1) points.push(`${x(index).toFixed(2)},${y(value).toFixed(2)}`);
+    });
+    content += `<polyline fill="none" stroke="${row.colour}" stroke-width="${row.dashed ? 1.8 : 2.3}" ${row.dashed ? 'stroke-dasharray="5 5"' : ''} stroke-linejoin="round" stroke-linecap="round" points="${points.join(' ')}"/>`;
+    if (!row.dashed) content += `<circle cx="${x(row.values.length - 1)}" cy="${y(row.values.at(-1))}" r="3.3" fill="${row.colour}"/>`;
+  }
+  element.innerHTML = content;
+}
+
+function renderCollection() {
+  const found = Object.values(collection).filter(count => count > 0).length;
+  $('#collection-count').textContent = `${found} / 7`;
+  $('#collection').innerHTML = OUTCOMES.filter(row => row.id !== 'miss').map(row => {
+    const count = collection[row.id];
+    return `<div class="collection-card ${count ? '' : 'locked'}" aria-label="${row.name} ${count ? `発見済み 累計${count}回` : 'まだ出ていません'}"><span class="collect-icon" aria-hidden="true">${row.icon}</span><b>${row.name}</b><small>${count ? `累計 ${nf.format(count)} 回` : 'まだ出ていません'}</small>${count ? '<span class="found-check" aria-hidden="true">✓</span>' : ''}</div>`;
+  }).join('');
+}
+
+function renderPrevious() {
+  $('#previous-runs').innerHTML = previous.length ? previous.map(row => `<article class="previous-run"><p>設定${row.setting} · ${row.games}回</p><b class="${colourClass(row.net)}">${signed(row.net)} <small style="display:inline">pt</small></b><small>BIG / REG 合計${row.bonus}回</small></article>`).join('') : '<p class="empty-note">「新しく始める」で、今の結果がここに残ります。</p>';
+}
+
+function renderSession() {
+  const net = session.balance - session.initialPoints;
+  $('#balance').textContent = nf.format(session.balance);
+  $('#net').textContent = `${signed(net)} pt`;
+  $('#net').className = colourClass(net);
+  $('#game-count').textContent = nf.format(session.games);
+  $('#big-count').textContent = session.counts.BIG;
+  $('#reg-count').textContent = session.counts.REG;
+  $('#game-progress').value = session.games;
+  const done = session.games === session.targetGames;
+  $('#progress-message').textContent = done ? '1000回、完走！' : `あと${nf.format(session.targetGames - session.games)}回`;
+  $('#seed-label').textContent = `今回の乱数の種：${session.seed}`;
+  $('#draw-one span').textContent = done ? 'もう一度遊ぶ' : 'くじを引く';
+  for (const button of document.querySelectorAll('.draw-button')) button.disabled = busy || (done && button.id !== 'draw-one');
+  $('#draw-rest').disabled = busy || done;
+  $('#export-csv').disabled = busy || !session.games;
+  $('#setting').disabled = busy;
+  $('#new-round').disabled = busy;
+  const delta = expectedDelta(session.setting, session.cost);
+  drawChart($('#history-chart'), [
+    { values: session.history.map((_, index) => session.initialPoints + delta * index), colour: '#a6b0a1', dashed: true },
+    { values: session.history, colour: '#245d56' },
+  ], { maxGames: Math.max(50, session.games), description: `設定${session.setting}、${session.games}回。所持${session.balance}ポイント、収支${signed(net)}ポイント。` });
+  $('#probability-table caption').textContent = `設定${session.setting} · 理論上の1回あたりの平均収支 ${signed(delta, fineNumber)} pt`;
+  $('#probability-table tbody').innerHTML = probabilities(session.setting).map(row => `<tr><td>${row.name}</td><td>${nf.format(row.probability * 100)}%${row.id !== 'miss' ? `（約1/${nf.format(1 / row.probability)}）` : ''}</td><td>${row.payout} pt</td><td>${session.counts[row.id]} 回</td></tr>`).join('');
+}
+
+function archiveSession() {
+  if (session.games && !sessionRecorded) {
+    previous.unshift({ setting: session.setting, games: session.games, net: session.balance - session.initialPoints, seed: session.seed, bonus: session.counts.BIG + session.counts.REG });
+    previous = previous.slice(0, 5);
+    sessionRecorded = true;
+    saveRecords();
+  }
+}
+
+function newRound() {
+  if (busy) return;
+  archiveSession();
+  session = createSession({ setting: Number($('#setting').value) });
+  sessionRecorded = false;
+  $('#ticket').dataset.result = 'ready';
+  $('#ticket').classList.remove('drawing', 'celebrate');
+  $('#ticket-serial').textContent = 'TICKET / 0000';
+  $('#result-icon').textContent = '?';
+  $('#result-name').textContent = '最初のくじを引こう';
+  $('#result-detail').textContent = '1回 3 pt · 当選するとポイント獲得';
+  $('#batch-note').textContent = '新しいチャレンジです。同じ設定でも結果は変わります。';
+  renderSession();
+  renderPrevious();
+}
+
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const container = $('#confetti');
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < 30; i++) {
+    const piece = document.createElement('i');
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.setProperty('--drift', `${Math.random() * 180 - 90}px`);
+    piece.style.background = ['#e87950', '#f7c867', '#8aaf9d', '#eac4b2'][i % 4];
+    piece.style.animationDelay = `${Math.random() * .25}s`;
+    fragment.append(piece);
+  }
+  container.replaceChildren(fragment);
+  setTimeout(() => container.replaceChildren(), 2300);
+}
+
+async function chime(bonus) {
+  if (!sound) return;
+  try {
+    const Constructor = window.AudioContext || window.webkitAudioContext;
+    audioContext ||= new Constructor();
+    await audioContext.resume();
+    const notes = bonus ? [523.25, 659.25, 783.99] : [440];
+    notes.forEach((frequency, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      const start = audioContext.currentTime + index * .1;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(.045, start + .01);
+      gain.gain.exponentialRampToValueAtTime(.001, start + .18);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + .2);
+    });
+  } catch {
+    sound = false;
+    $('#sound-toggle').textContent = '音：オフ';
+    $('#sound-toggle').setAttribute('aria-pressed', 'false');
+    $('#storage-note').textContent = 'このブラウザでは効果音を使えません。';
+  }
+}
+
+async function play(count) {
+  if (busy) return;
+  if (session.games === session.targetGames) { newRound(); return; }
+  busy = true;
+  renderSession();
+  $('#ticket').classList.remove('drawing', 'celebrate');
+  $('#result-icon').textContent = '✳';
+  $('#result-name').textContent = 'くじを開いています';
+  $('#result-detail').textContent = 'なにが出るかな…';
+  await new Promise(resolve => setTimeout(resolve, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260));
+  const results = draw(session, count);
+  const counts = Object.fromEntries(OUTCOMES.map(row => [row.id, 0]));
+  const discoveries = [];
+  for (const result of results) {
+    counts[result.id]++;
+    if (result.id !== 'miss') {
+      if (!collection[result.id]) discoveries.push(result.name);
+      collection[result.id]++;
+    }
+  }
+  const best = results.reduce((choice, row) => row.payout > choice.payout ? row : choice, results.at(-1));
+  const outcome = OUTCOMES.find(row => row.id === best.id);
+  $('#ticket').dataset.result = best.id;
+  $('#ticket-serial').textContent = `TICKET / ${String(best.game).padStart(4, '0')}`;
+  $('#result-icon').textContent = outcome.icon;
+  $('#result-name').textContent = best.id === 'BIG' ? 'BIG！' : best.name;
+  $('#result-detail').textContent = best.id === 'miss' ? '今回は 0 pt。次のくじはどうかな？' : `${best.payout} pt 獲得！`;
+  $('#ticket').classList.add('drawing');
+  const bonus = counts.BIG + counts.REG > 0;
+  if (bonus) { $('#ticket').classList.add('celebrate'); confetti(); }
+  void chime(bonus);
+  const parts = OUTCOMES.filter(row => row.id !== 'miss' && counts[row.id]).map(row => `${row.name}×${counts[row.id]}`);
+  const done = session.games === session.targetGames;
+  let note = results.length === 1 ? `${session.games}回目の結果です。` : `${results.length}回分：${parts.length ? parts.join(' / ') : 'すべてハズレ'}。表示は獲得ポイントが一番大きいくじです。`;
+  if (discoveries.length) note += ` ${discoveries.join('・')}を初めて発見！`;
+  if (done) note += ` 1000回達成！収支は${signed(session.balance - session.initialPoints)} ptでした。もう一度遊んでみましょう。`;
+  $('#batch-note').textContent = note;
+  busy = false;
+  if (done) archiveSession();
+  saveRecords();
+  renderSession();
+  renderCollection();
+  renderPrevious();
+}
+
+for (const button of document.querySelectorAll('[data-draw]')) button.addEventListener('click', () => void play(Number(button.dataset.draw)));
+$('#draw-rest').addEventListener('click', () => void play(session.targetGames - session.games));
+$('#new-round').addEventListener('click', newRound);
+$('#setting').addEventListener('change', newRound);
+$('#sound-toggle').addEventListener('click', () => {
+  sound = !sound;
+  $('#sound-toggle').textContent = `音：${sound ? 'オン' : 'オフ'}`;
+  $('#sound-toggle').setAttribute('aria-pressed', String(sound));
+  if (sound) void chime(false);
+});
+
+for (const name of ['play', 'compare']) {
+  $(`#${name}-tab`).addEventListener('click', () => {
+    for (const view of ['play', 'compare']) {
+      $(`#${view}-tab`).classList.toggle('active', view === name);
+      $(`#${view}-tab`).setAttribute('aria-pressed', String(view === name));
+      $(`#${view}-view`).hidden = view !== name;
+    }
+  });
+}
+
+$('#comparison-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = $('#compare-button');
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = '比べています…';
+  const games = Number($('#compare-games').value);
+  const runs = Number($('#compare-runs').value);
+  $('#comparison-status').textContent = `各設定で${nf.format(games)}回のくじを${runs}試行ずつ引いています…`;
+  await new Promise(resolve => setTimeout(resolve, 30));
+  try {
+    const seed = createSession().seed;
+    const rows = compareSettings({ games, runs, seed });
+    $('#comparison-results').hidden = false;
+    drawChart($('#comparison-chart'), rows.map((row, index) => ({ values: row.meanHistory, colour: COLOURS[index] })), { width: 900, height: 300, maxGames: games, description: `${games}回を${runs}試行ずつ行った全設定の平均ポイント` });
+    $('#comparison-legend').innerHTML = rows.map((row, index) => `<span><i class="legend-line" style="border-color:${COLOURS[index]}"></i>設定${row.setting}</span>`).join('');
+    $('#comparison-body').innerHTML = rows.map(row => `<tr><td>設定 ${row.setting}</td><td class="${colourClass(row.meanNet)}">${signed(row.meanNet)}</td><td>${signed(row.minNet)} 〜 ${signed(row.maxNet)}</td><td>${nf.format(row.positiveRate * 100)}%</td><td>${signed(row.expectedNet)}</td></tr>`).join('');
+    $('#comparison-status').textContent = `${nf.format(games)}回 × ${runs}試行 × 6設定を実験しました。乱数の種：${seed}`;
+  } catch (error) { $('#comparison-status').textContent = error.message; }
+  finally {
+    button.disabled = false;
+    button.textContent = 'もう一度比べる ↗';
+  }
+});
+
+$('#export-csv').addEventListener('click', () => {
+  if (!session.games) return;
+  const rows = [['setting', 'seed', 'game', 'balance', 'net'], ...session.history.map((balance, game) => [session.setting, session.seed, game, balance, balance - session.initialPoints])];
+  const blob = new Blob(['\ufeff', rows.map(row => row.join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `lottery-setting${session.setting}-${session.seed}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$('#clear-records').addEventListener('click', () => {
+  if (!confirm('コレクションと前のチャレンジの記録を消しますか？ 今回のくじはそのまま続けられます。')) return;
+  for (const id of Object.keys(collection)) collection[id] = 0;
+  previous = [];
+  saveRecords();
+  renderCollection();
+  renderPrevious();
+  $('#storage-note').textContent = '保存した記録を消しました。';
+});
+
+renderSession();
+renderCollection();
+renderPrevious();
+
+</script>
+</body>
+</html>
