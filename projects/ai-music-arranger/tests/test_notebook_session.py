@@ -39,7 +39,7 @@ def test_native_demo_manual_generation_exports_actual_audio_and_tempo(session):
     with zipfile.ZipFile(paths["arrangement_results.zip"]) as zipped:
         assert set(zipped.namelist()) == {"mixed.wav", "accompaniment.wav", "arrangement.mid", "settings.json", "README.txt"}
         settings = json.loads(zipped.read("settings.json"))
-        assert settings["version"] == "1.0.3"
+        assert settings["version"] == "1.0.4"
         assert settings["source"]["kind"] == "デモ音源"
         assert "http" not in json.dumps(settings)
 

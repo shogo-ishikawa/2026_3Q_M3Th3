@@ -17,7 +17,7 @@ from music_core import (
     DEMO_NAMES, get_demo_info,
 )
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
@@ -184,7 +184,19 @@ class NotebookSession:
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
             for name, path in paths.items():
                 zipped.write(path, arcname=name)
-            zipped.writestr("README.txt", "AI作曲アレンジ\n\nmixed.wav：原曲と追加パートのミックス\naccompaniment.wav：追加パートだけ\narrangement.mid：追加パートの音符\nsettings.json：今回の設定\n\nMIDIには原曲の録音を含みません。ミックスの公開・共有は音源の利用条件を確認してください。\n")
+            zipped.writestr("README.txt", (
+                "AI作曲アレンジ\n\n"
+                "mixed.wav：原曲と追加パートのミックス\n"
+                "accompaniment.wav：追加パートだけ\n"
+                "arrangement.mid：追加パートの音符\n"
+                "settings.json：今回の設定\n\n"
+                "公開・配布する前に\n"
+                "原曲を重ねたミックスWAVは、編曲や音声だけの配布が認められているか確認してください。\n"
+                "MIDIには元の録音は入りませんが、抽出した旋律を使うMIDIや追加パートWAVも元の曲の条件を確認してください。\n"
+                "「フリー音源」も条件は曲ごとに違います。指定されたクレジットを記載しましょう。\n"
+                "注意事項とクレジット例：\n"
+                "https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/docs/manual.md#youtubeのフリー音源を使う前に\n"
+            ))
         paths["arrangement_results.zip"] = archive
         return paths
 

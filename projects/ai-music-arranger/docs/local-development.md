@@ -4,10 +4,10 @@
 
 ## 配布ZIPの置き方
 
-`ai-music-arranger_v1.0.3.zip` を展開すると、`v1.0.3` フォルダーができます。Macでは、次の場所へ置いて作業できます。
+`ai-music-arranger_v1.0.4.zip` を展開すると、`v1.0.4` フォルダーができます。Macでは、次の場所へ置いて作業できます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.3
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.4
 ```
 
 この配布フォルダーは、授業リポジトリの `projects/ai-music-arranger/` に対応しています。
@@ -17,7 +17,7 @@
 Pythonファイルを変更した場合は、次のコマンドで、そのコードをNotebookにも反映します。Notebookはプログラムを内包しているため、この手順を省くとPythonファイルとNotebookの内容が異なります。
 
 ```bash
-cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.3
+cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.4
 python3 tools/build_notebook.py
 ```
 
@@ -41,7 +41,7 @@ rsync -av \
   --exclude '.git/' --exclude 'dist/' --exclude '__pycache__/' \
   --exclude '.pytest_cache/' --exclude 'music_work/' \
   --exclude '.ai_music_arranger_runtime/' --exclude '.venv/' \
-  /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.3/ \
+  /Users/shogo/Dropbox/share_data/open_material/misc/apps/ai-music-arranger/v1.0.4/ \
   projects/ai-music-arranger/
 git diff -- projects/ai-music-arranger/
 git status --short
