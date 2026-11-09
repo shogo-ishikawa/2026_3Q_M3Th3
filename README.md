@@ -10,6 +10,7 @@
 | --- | --- |
 | `projects/` | 各学生・グループのコード、教材、説明書 |
 | `projects/recipe-suggester/` | 条件に合わせて料理とレシピを提案する教材の作成先 |
+| `projects/ai-music-arranger/` | 音源を解析し、伴奏・ドラム・抽出メロディを重ねるColab教材 |
 | `projects/pip0/` | デバイス内のファイル整理アシスタント「pip0」（グループの作品の初期コード） |
 | `CLAUDE.md` | Claude Codeなどで開発する際の共通方針 |
 
@@ -39,3 +40,9 @@ AIにコード作成を手伝ってもらう際も、自分たちが変更した
 - APIキー、パスワード、学籍番号などの個人情報は登録しないでください。
 - 他者のコードやデータを利用する場合は、利用条件と出典を確認し、作品の説明書に記載してください。
 - ノートブックを登録する前に、個人情報や秘密情報を含む出力が残っていないか確認してください。
+
+## 公開用に整理した学生作品
+
+| 作品 | 概要 | 起動・使い方 |
+| --- | --- | --- |
+| [AI作曲アレンジ](projects/ai-music-arranger/) | YouTube・音声ファイル・デモ音源から、コード伴奏とドラムを加えて聴き比べる教材 | [Colabで開く](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/ai_music_arranger.ipynb) ／ [操作マニュアル](projects/ai-music-arranger/docs/manual.md) |

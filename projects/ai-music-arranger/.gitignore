@@ -1,0 +1,7 @@
+music_work/
+.ai_music_arranger_runtime/
+*.wav
+*.mp3
+*.mid
+*.midi
+*.zip
