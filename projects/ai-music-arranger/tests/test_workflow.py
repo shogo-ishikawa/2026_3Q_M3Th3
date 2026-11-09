@@ -2,6 +2,7 @@
 from pathlib import Path
 import ast
 import json
+import subprocess
 import sys
 import zipfile
 
@@ -89,14 +90,16 @@ def test_notebook_is_valid_self_contained_and_unexecuted():
     notebook = nbformat.read(project / "ai_music_arranger.ipynb", as_version=4)
     nbformat.validate(notebook)
     sources = [cell.source for cell in notebook.cells if cell.cell_type == "code"]
-    assert len(sources) == 7
+    assert len(sources) == 5
     assert sources[0].split("\n", 1)[1] == (project / "setup_environment.py").read_text()
-    for filename, source in zip(["audio_input.py", "music_core.py", "notebook_session.py"], sources[1:4]):
-        tree = ast.parse(source)
-        embedded = next(ast.literal_eval(node.value) for node in tree.body
-                        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "module_code" for t in node.targets))
-        assert embedded == (project / filename).read_text()
-        assert "%%writefile" not in source
+    combined = next(cell for cell in notebook.cells if cell.id == "load-programs")
+    tree = ast.parse(combined.source)
+    embedded = next(ast.literal_eval(node.value) for node in tree.body
+                    if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "module_sources" for t in node.targets))
+    assert set(embedded) == {"audio_input.py", "music_core.py", "notebook_session.py"}
+    for filename, source in embedded.items():
+        assert source == (project / filename).read_text()
+    assert "%%writefile" not in combined.source
     for cell in notebook.cells:
         if cell.cell_type == "code":
             assert not cell.outputs and cell.execution_count is None
@@ -112,6 +115,41 @@ def test_notebook_is_valid_self_contained_and_unexecuted():
     demo_line = next(line for line in source_form.splitlines() if line.startswith("demo_song = "))
     assert json.loads(demo_line.split("#@param", 1)[1].strip()) == list(DEMO_NAMES)
     assert "colab_app.launch_app" not in "\n".join(sources)
+
+
+def test_combined_program_cell_loads_and_refreshes_all_modules(tmp_path):
+    project = Path(__file__).resolve().parents[1]
+    notebook = nbformat.read(project / "ai_music_arranger.ipynb", as_version=4)
+    source = next(cell.source for cell in notebook.cells if cell.id == "load-programs")
+    # Fresh process: neither the project directory nor a widget renderer is needed.
+    script = '''import builtins, importlib, sys
+from pathlib import Path
+original_import = builtins.__import__
+def no_widgets(name, *args, **kwargs):
+    if name == "ipywidgets" or name.startswith("ipywidgets."):
+        raise ImportError("Widget renderer disabled for this check")
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = no_widgets
+sys.path.insert(0, str(Path.cwd()))
+source = SOURCE
+namespace = {}
+first = source.replace("class NotebookSession:", "RELOAD_MARKER = 'first'\\n\\nclass NotebookSession:")
+exec(first, namespace)
+for name in ("audio_input", "music_core", "notebook_session"):
+    module = importlib.import_module(name)
+    assert Path(module.__file__).resolve().parent == Path.cwd()
+assert importlib.import_module("notebook_session").RELOAD_MARKER == "first"
+namespace["music_session"] = object()
+# A same-size source update must not reuse a timestamp-based pyc cache.
+second = first.replace("RELOAD_MARKER = 'first'", "RELOAD_MARKER = 'other'")
+exec(second, namespace)
+assert importlib.import_module("notebook_session").RELOAD_MARKER == "other"
+assert "music_session" not in namespace
+assert "ipywidgets" not in sys.modules
+'''.replace("SOURCE", repr(source), 1)
+    result = subprocess.run([sys.executable, "-c", script], cwd=tmp_path,
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_setup_rerun_stays_in_same_directory_and_updates_youtube(tmp_path, monkeypatch):

@@ -17,7 +17,7 @@ from music_core import (
     DEMO_NAMES, get_demo_info,
 )
 
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 

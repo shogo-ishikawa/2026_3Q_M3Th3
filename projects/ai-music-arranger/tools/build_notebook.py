@@ -5,9 +5,7 @@ import json
 PROJECT = Path(__file__).resolve().parents[1]
 TITLES = {
     "environment-setup": "1. 環境を準備する",
-    "audio-input": "2-a. 音源の取り込みを読み込む",
-    "music-core": "2-b. 解析と伴奏生成を読み込む",
-    "notebook-session": "2-c. 再生と保存を読み込む",
+    "load-programs": "2. プログラムを読み込む",
     "prepare-source": "3. 音源を選んで読み込む",
     "generate-arrangement": "4. アレンジを生成する",
     "save-results": "5. 結果を保存する",
@@ -24,20 +22,39 @@ def code(text, cell_id):
             "execution_count": None, "outputs": [], "source": (header + text).splitlines(keepends=True)}
 
 
-def module_cell(filename, cell_id):
-    source = (PROJECT / filename).read_text()
-    # %%writefile は先頭の @title と併用できないので、Pythonで保存する。
-    literal = "r'''" + source + "'''" if "'''" not in source and source.endswith("\n") else repr(source)
-    body = ("from pathlib import Path\nmodule_code = " + literal + "\n"
-            + f'Path("{filename}").write_text(module_code, encoding="utf-8")\n'
-            + f'print("{TITLES[cell_id]}：完了")\n')
-    return code(body, cell_id)
+def program_cell():
+    # 3つのプログラムを内包し、1回の実行で保存・読み込みまで行う。
+    # %%writefile は先頭の @title と併用できないので、通常のPythonを使う。
+    entries = []
+    for filename in ("audio_input.py", "music_core.py", "notebook_session.py"):
+        source = (PROJECT / filename).read_text()
+        literal = "r'''" + source + "'''" if "'''" not in source and source.endswith("\n") else repr(source)
+        entries.append(f"    {filename!r}: {literal},\n")
+    body = ("from pathlib import Path\nimport importlib\nimport importlib.util\nimport sys\n\n"
+            + "module_sources = {\n" + "".join(entries) + "}\n\n"
+            + '''for filename, source in module_sources.items():
+    path = Path(filename)
+    path.write_text(source, encoding="utf-8")
+    # 同じセルを再実行したときも、今保存したコードを読みます。
+    Path(importlib.util.cache_from_source(str(path))).unlink(missing_ok=True)
+
+for filename in reversed(module_sources):
+    sys.modules.pop(Path(filename).stem, None)
+importlib.invalidate_caches()
+for filename in module_sources:
+    importlib.import_module(Path(filename).stem)
+
+# 読み込み直したコードで、次のセルから新しく音源を扱います。
+globals().pop("music_session", None)
+print("プログラムの準備ができました。セル3で音源を選んでください。")
+''')
+    return code(body, "load-programs")
 
 
 def build():
     cells = [
         markdown("""
-# AI作曲アレンジ（v1.0.2）
+# AI作曲アレンジ（v1.0.3）
 
 好きな音源に伴奏やドラムを加えてみましょう。音色や音量を変えると、同じメロディでも雰囲気が変わります。
 
@@ -45,7 +62,7 @@ def build():
 
 ## 最初の操作
 
-1. **1 → 2-a → 2-b → 2-c** の左の ▶ を順に押します。CPUのままで使えます。
+1. **セル1 → セル2** の左の ▶ を順に押します。CPUのままで使えます。
 2. **セル3** でYouTubeのURLを貼るか、デモの曲を選んで ▶ を押します。
 3. **セル4** の ▶ を押します。原曲・追加パート・ミックスの再生欄が表示されます。
 4. 保存したい場合は、**セル5** で形式を選んで ▶ を押します。
@@ -70,16 +87,10 @@ APIキーやGPUは不要です。
         markdown("""
 ## 2. プログラムを読み込む
 
-**2-a → 2-b → 2-c** の3つを順に実行します。各セルに「完了」と出たら次へ進みます。
-Notebookに全コードが入っているので、別のPythonファイルをダウンロードする必要はありません。
-
-### 2-a. 音源の取り込み
+▶ を1回押すと、音源の取り込み・解析・再生に使うプログラムをまとめて読み込みます。
+準備ができたらセル3へ進みましょう。
 """),
-        module_cell("audio_input.py", "audio-input"),
-        markdown("### 2-b. 音源の解析と伴奏生成"),
-        module_cell("music_core.py", "music-core"),
-        markdown("### 2-c. 再生と保存"),
-        module_cell("notebook_session.py", "notebook-session"),
+        program_cell(),
         markdown("""
 ## 3. 音源を選んで読み込む
 
@@ -88,6 +99,9 @@ Notebookに全コードが入っているので、別のPythonファイルをダ
 
 PCのファイルを使うときは `input_source` を「PCの音源」に変えて実行します。
 YouTube・PC音源は開始位置と長さを指定できます。たとえば開始30秒・長さ20秒なら、30〜50秒の区間を使います。
+
+YouTubeから取れないときは、公式配布元のMP3を「PCの音源」で読み込めます。
+フリー音源でも接続が制限される場合があります。
 """),
         code('''#@markdown **YouTubeを使う：** 動画のURLを貼り、左の ▶ を押してください。
 youtube_url = "" #@param {type:"string"}
