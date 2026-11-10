@@ -27,7 +27,7 @@
 
 ## 現在のプロジェクト
 
-- [料理・レシピ提案](recipe-suggester/)：教員が用意した初期コード（Google Colab 用のノートブック `recipe_suggester.ipynb`）です。
+- [献立ノート](recipe-suggester/)：アレルゲン・食材の除外を優先し、食事の記録を使って献立を提案するブラウザ教材です。材料・作り方・買い物リストを表示します。Pythonで処理を学べるColab版と、従来の初期教材もあります。
 - [pip0](pip0/)：グループが考えたファイル整理アシスタントの初期コードです（Windows 11 用。Python の本体、C# の画面と OS 連携、ブラウザー拡張）。Windows 以外でも、ダミーデータのデモ（`python -m pip0 demo`）と自動テストを試せます。
 
 - [AI作曲アレンジ](ai-music-arranger/)：学生2名の提出作品をもとに、公開用に整理・改良したColab教材です。YouTube取得、音源解析、伴奏・ドラム生成、WAV・MIDI保存を試せます。

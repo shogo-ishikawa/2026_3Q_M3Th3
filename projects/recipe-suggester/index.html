@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="避けたい食材と最近の食事を確認し、材料と作り方まで見られる献立づくり。記録はブラウザー内に保存します。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <title>献立ノート｜食べた記録から、次の献立へ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header page-width">
+    <a class="brand" href="./"><span class="brand-symbol" aria-hidden="true">◒</span><span>献立ノート<small>KONDATE NOTE</small></span></a>
+    <nav aria-label="ページ内メニュー"><a href="#planner">献立づくり</a><a href="#recipes">レシピ</a><a href="#history">食事の記録</a></nav>
+  </header>
+  <main class="page-width">
+    <section class="hero">
+      <div><p class="eyebrow">毎日のごはんを、少し考えやすく</p><h1>今日は、何を作ろう。</h1><p class="hero-copy">避けたい食材を確認して、最近の食事に偏らない献立を。<br>材料と作り方も、一緒に見られます。</p></div>
+      <div class="hero-note"><span class="small-label">このアプリでできること</span><p><strong id="recipe-total">—</strong>品のレシピから<br>主菜・副菜・汁物を組み合わせます。</p><span>記録はこのブラウザー内に保存。外部には送信しません。</span></div>
+    </section>
+
+    <div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
+    <div class="planner-layout" id="planner">
+      <aside class="settings-panel" aria-labelledby="settings-title">
+        <p class="eyebrow">まずは条件を確認</p><h2 id="settings-title">献立の設定</h2>
+        <form id="planner-form">
+          <div class="setting-section">
+            <label for="start-date">最初の日<input id="start-date" type="date" required></label>
+            <div class="field-pair"><label for="plan-days">日数<select id="plan-days"><option value="1">1日分</option><option value="2">2日分</option><option value="3" selected>3日分</option><option value="4">4日分</option><option value="5">5日分</option><option value="6">6日分</option><option value="7">7日分</option></select></label><label for="servings">人数<select id="servings"><option value="1">1人分</option><option value="2" selected>2人分</option><option value="3">3人分</option><option value="4">4人分</option><option value="5">5人分</option><option value="6">6人分</option><option value="7">7人分</option><option value="8">8人分</option></select></label></div>
+            <p class="field-note">夕食の献立を作ります。</p>
+          </div>
+          <fieldset class="setting-section"><legend>アレルギーで避ける食材 <span id="allergen-count" class="count-label">0件</span></legend><p class="field-note">選んだ食材を含む登録レシピを除きます。候補がなくても、この条件は外しません。</p><div id="required-allergens" class="choice-grid"></div><details class="allergen-details"><summary>ほかのアレルギー食材を選ぶ</summary><div id="other-allergens" class="choice-grid"></div></details></fieldset>
+          <div class="setting-section"><label for="ingredient-search">追加で避ける食材</label><input id="ingredient-search" type="search" placeholder="例：トマト、しめじ" autocomplete="off"><p class="field-note">登録食材から選びます。選んだ食材と、その食材から作ると登録された材料を除きます。</p><div id="ingredient-selections" class="selected-ingredients"></div><div id="ingredient-options" class="ingredient-options"></div></div>
+          <p class="allergy-note">加工品・調味料は商品によって原材料が異なります。表示される材料と商品の原材料表示を確認してください。製造・調理中の混入は判定できません。</p>
+          <button class="button-primary generate-button" type="submit">この条件で献立を作る <span aria-hidden="true">↗</span></button>
+        </form>
+      </aside>
+
+      <section class="plan-section" aria-labelledby="plan-title">
+        <div class="section-heading"><div><p class="eyebrow">食べる予定を立てる</p><h2 id="plan-title">これからの献立</h2></div><span id="plan-date-label" class="date-label">夕食の提案</span></div>
+        <div class="history-summary"><div class="summary-heading"><h3>直近7日間の記録</h3><a href="#history">記録を追加する</a></div><p id="history-summary-text">まだ食事の記録がありません。記録なしでも献立を作れます。</p><div id="group-summary" class="group-summary"></div><p class="field-note">食品群を含むと記録した食事の回数です。量・カロリー・栄養の充足率は計算していません。未記録の食事は含みません。</p></div>
+        <div id="plan-output" aria-live="polite"><div class="empty-plan"><span class="empty-mark" aria-hidden="true">◒</span><h3>次のごはんを、ここから。</h3><p>左の条件を確認して「献立を作る」を押してください。<br>食事の記録があれば、主な食材や料理の重複も考慮します。</p><div class="meal-parts"><span>主菜</span><span>副菜</span><span>汁物</span><span>必要に応じて主食</span></div></div></div>
+        <details id="shopping-section" class="shopping-section" hidden><summary>この献立の買い物リスト</summary><p class="field-note">設定した人数分の使用量を合計します。購入する袋・パック数や価格は計算しません。</p><div id="shopping-list"></div><button id="copy-shopping" class="button-secondary" type="button">リストをコピー</button><p id="copy-status" class="field-note" role="status"></p></details>
+      </section>
+    </div>
+
+    <section class="recipe-section section-space" id="recipes" aria-labelledby="recipes-title">
+      <div class="section-heading"><div><p class="eyebrow">作り方も、ここで確認</p><h2 id="recipes-title">レシピを探す</h2></div><p id="eligible-count" class="muted"></p></div>
+      <div class="recipe-tools"><div id="role-filters" class="role-filters" aria-label="料理の区分"><button type="button" data-role="all" aria-pressed="true">すべて</button><button type="button" data-role="main" aria-pressed="false">主菜</button><button type="button" data-role="side" aria-pressed="false">副菜</button><button type="button" data-role="soup" aria-pressed="false">汁物</button><button type="button" data-role="staple" aria-pressed="false">主食</button></div><label class="search-field" for="recipe-search"><span class="sr-only">料理名や材料で検索</span><input id="recipe-search" type="search" placeholder="料理名・材料で検索"></label></div>
+      <p class="field-note">現在のアレルギー・除外食材の条件を反映しています。</p><div id="recipe-grid" class="recipe-grid"></div><div class="more-recipes"><button id="more-recipes" class="button-secondary" type="button" hidden>もっと見る</button></div>
+    </section>
+
+    <section class="history-section section-space" id="history" aria-labelledby="history-title">
+      <div class="section-heading"><div><p class="eyebrow">覚えている食事だけでも</p><h2 id="history-title">食べたものを記録する</h2></div><span id="history-count" class="muted">0件の記録</span></div>
+      <p class="section-copy">外食や手作りの食事も記録できます。料理を選ぶか、食べたものの名前と内容を入力してください。分からない項目は空欄で構いません。</p>
+      <div class="history-layout"><form id="history-form" class="history-form"><div class="field-pair"><label for="history-date">食べた日<input id="history-date" type="date" required></label><label for="history-meal">食事<select id="history-meal"><option value="breakfast">朝食</option><option value="lunch">昼食</option><option value="dinner" selected>夕食</option><option value="snack">間食</option></select></label></div><label for="history-recipe">このアプリのレシピから選ぶ（任意）<select id="history-recipe"><option value="">選択せずに入力する</option></select></label><label for="history-note">料理名・メモ<input id="history-note" type="text" maxlength="300" placeholder="例：焼き魚定食、昨日のカレー"></label><fieldset><legend>含まれていたもの（分かる範囲で）</legend><div id="history-groups" class="history-choices"></div></fieldset><fieldset><legend>主な食材（任意）</legend><div id="history-proteins" class="history-choices"></div></fieldset><button class="button-primary" type="submit">食事を記録する</button></form><div class="history-records"><div id="history-list"></div><button id="more-history" type="button" class="button-secondary" hidden>前の記録を見る</button></div></div>
+      <div class="data-actions"><div><h3>記録を手元に残す</h3><p>端末を変えるときは、設定と食事の記録をJSONファイルで保存できます。アレルギーの設定も含むため、共有先に注意してください。</p></div><div class="data-buttons"><button id="export-records" class="button-secondary" type="button">記録を保存する</button><button id="import-records" class="button-secondary" type="button">記録を読み込む</button><input id="import-file" type="file" accept=".json,application/json" hidden><button id="clear-history" class="button-text danger" type="button">食事の記録をすべて削除</button></div></div>
+    </section>
+
+    <details class="about-section section-space"><summary>献立の選び方と、この教材について</summary><div class="about-copy"><p>選んだアレルギー食材と追加の除外食材に合わないレシピを、最初に候補から外します。そのうえで、最近食べた料理の重複や主な食材、野菜を含む料理の組み合わせを考えて提案します。候補がない場合は条件を勝手に緩めず、お知らせします。</p><p>食事のバランスは食品群と料理の種類から考える目安です。分量ごとの栄養計算や、個人に必要な栄養量の判定は行いません。主食・主菜・副菜に加え、果物や乳製品なども食事全体で考えてください。</p><p>学生作品<a href="https://cish25155-prog.github.io/SmartChef/">「AI献立スマートシェフ」</a>の献立づくりのアイデアをもとに、授業用に再構成しました。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/meal_planner.ipynb">同じレシピデータで学ぶPython版をColabで開く</a>と、条件の確認や献立の選び方を試せます。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/recipe_suggester.ipynb">従来の初期教材</a>も残しています。</p><p><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/manual.md">使い方</a> · <a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/sources.md">データと出典</a> · <a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/recipe-suggester">コードを見る</a></p></div></details>
+  </main>
+  <footer class="site-footer page-width"><a href="../../">学生作品ギャラリーへ</a><span>献立ノート · 今日の食事を、次の献立へ。</span></footer>
+
+  <dialog id="recipe-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><div><p id="dialog-meta" class="eyebrow"></p><h2 id="dialog-title"></h2></div><button id="close-dialog" class="close-dialog" type="button" aria-label="レシピを閉じる">×</button></div><div id="dialog-content"></div></dialog>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
