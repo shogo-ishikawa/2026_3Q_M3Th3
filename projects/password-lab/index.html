@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>パスワードラボ</title>
+<style>
+:root{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#16334d;background:#f3f7fb}*{box-sizing:border-box}body{max-width:920px;margin:auto;padding:70px 24px}a{color:#255da8;text-underline-offset:4px}header{padding-bottom:28px;border-bottom:1px solid #cbd6e1}small{letter-spacing:.1em;color:#5c7490}h1{font-size:clamp(32px,7vw,56px);margin:18px 0}p{line-height:1.9}.intro{max-width:640px;color:#526a7e}.actions{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:28px 0}.launch{background:#245da8;color:white;text-decoration:none;padding:16px 22px;border-radius:9px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:30px 0}article{background:white;border:1px solid #d5dfe8;border-radius:14px;padding:24px}article h2{font-size:19px}article p{font-size:14px;color:#526a7e}.note{padding:16px 20px;border-left:4px solid #e09b36;background:#fffbf2;font-size:14px}footer{font-size:13px;margin-top:35px;line-height:2}a:focus-visible{outline:3px solid #e09b36;outline-offset:5px}@media(max-width:600px){body{padding-top:36px}.grid{grid-template-columns:1fr}}
+</style>
+<header><small>計算科学基礎 · 計算と情報セキュリティ</small><h1>パスワードラボ</h1><p class="intro">あと1文字長ければ、探す時間はどれくらい変わる？<br>実験用の文字列を作り、探し方とCPU・GPUの違いを比べましょう。</p>
+<div class="actions"><a class="launch" href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/password-lab/password_lab.ipynb">Colabで実験する ↗</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/password-lab/docs/manual.md">使い方</a></div>
+<p class="note">実際に使っているパスワードは入力せず、デモや実験用の文字列を使ってください。</p></header>
+<main><div class="grid">
+<article><h2>予想して探す？ 全部試す？</h2><p>辞書、単語の変形、形式のヒント、総当たり。実際に試した件数と時間を比べます。</p></article>
+<article><h2>同じ計算を、もっと速く</h2><p>Python・Numba・並列CPU・GPUで同じSHA-256の照合を実行。使える方式から最も速いものを選びます。</p></article>
+<article><h2>終わらない探索を見積もる</h2><p>短い実測から総当たりの時間を推定。人が考えた単語とランダムな文字列の違いも考えます。</p></article>
+<article><h2>保存方式にも理由がある</h2><p>SHA-256とPBKDF2を別に測り、1回の推測にかかる負担の違いを確かめます。</p></article>
+</div><p>セル1から5まで順に実行します。GPUがなくても利用できます。表示する時間は教材の実験条件での結果で、実サービスの突破時間を表すものではありません。</p>
+<p><a href="dist/password-lab_v1.0.0.zip" download>一式をZIPでダウンロード（v1.0.0）</a></p></main>
+<footer><a href="../../">学生作品ギャラリーへ</a> · <a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/password-lab">コードを見る</a></footer>
+</html>
