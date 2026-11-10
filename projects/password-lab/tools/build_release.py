@@ -3,8 +3,8 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.0.0"
-EXCLUDES = {"dist", "__pycache__", ".pytest_cache", ".git"}
+VERSION = "1.1.0"
+EXCLUDES = {"dist", "__pycache__", ".pytest_cache", ".git", ".venv", "node_modules"}
 
 
 def build():
