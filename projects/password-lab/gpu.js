@@ -1,6 +1,8 @@
 // Optional WebGPU backend for the classroom's local, bounded SHA-256 experiment.
 // Only printable ASCII, an eight-byte salt and one SHA-256 block are supported.
 // This is deliberately not an interface for accounts, remote services or hash files.
+import {planSearchSpace} from './engine.js';
+
 const BATCH_SIZE = 4096;
 const MAX_ATTEMPTS = 1_000_000;
 const NOT_FOUND = 0xffffffff;
@@ -262,4 +264,61 @@ export async function runGPU({
     for (const buffer of buffers) buffer.destroy();
     device?.destroy();
   }
+}
+
+/**
+ * Search the attacker's entire length range in short-to-long order. Preparation
+ * and self-tests run for each length; displayed search time excludes that work.
+ * Neither the alphabet nor the length range is inferred from the target hash.
+ */
+export async function runGPUPlan(options) {
+  const {plan, maxAttempts = MAX_ATTEMPTS, timeLimitMs = 1500, onProgress, signal} = options;
+  const total = planSearchSpace(plan);
+  if (!Number.isFinite(maxAttempts) || maxAttempts < 1 || !Number.isFinite(timeLimitMs) || timeLimitMs <= 0) {
+    throw new RangeError('A positive finite attempt and time budget is required.');
+  }
+  if (options.mode && options.mode !== 'sha256') {
+    return {status:'unavailable', attempts:0, elapsedMs:0, setupMs:0, rate:0, label:'WebGPU',
+      error:'WebGPUではSHA-256の探索を実行できます。PBKDF2はCPUで実行します。'};
+  }
+  if (plan.kind === 'structure') {
+    return {status:'unavailable', attempts:0, elapsedMs:0, setupMs:0, rate:0, label:'WebGPU',
+      error:'決まっている部分を使う探索はCPUで実行します。'};
+  }
+  const cap = Math.min(MAX_ATTEMPTS, Math.floor(maxAttempts));
+  const timeBudget = Math.min(5000, timeLimitMs);
+  let attempts = 0;
+  let elapsedMs = 0;
+  let setupMs = 0;
+  let label = 'WebGPU';
+  const stats = () => ({attempts, elapsedMs, setupMs, label,
+    rate:elapsedMs > 0 ? attempts * 1000 / elapsedMs : 0,
+    estimateBasis:'短い文字数から順に照合した候補全体の実測速度',
+    setupNote:'文字数ごとにGPUを準備し、準備時間は探索時間と分けて表示します。'});
+  for (let length = plan.minLength; length <= plan.maxLength; length++) {
+    if (signal?.aborted) return {status:'cancelled', ...stats()};
+    if (attempts >= cap || elapsedMs >= timeBudget) return {status:'budget', ...stats()};
+    const beforeAttempts = attempts;
+    const beforeElapsed = elapsedMs;
+    const result = await runGPU({...options, alphabet:plan.alphabet, length,
+      maxAttempts:cap - attempts, timeLimitMs:timeBudget - elapsedMs,
+      onProgress:progress => {
+        const completedAttempts = beforeAttempts + progress.attempts;
+        const completedMs = beforeElapsed + progress.elapsedMs;
+        onProgress?.({...progress, attempts:completedAttempts, elapsedMs:completedMs,
+          rate:completedMs > 0 ? completedAttempts * 1000 / completedMs : 0,
+          total:total.toString(), limit:cap, length});
+      },
+    });
+    attempts += result.attempts;
+    elapsedMs += result.elapsedMs;
+    setupMs += result.setupMs ?? 0;
+    label = result.label;
+    if (result.status === 'found') {
+      return {...result, ...stats(), foundLength:length,
+        rankAttempts:beforeAttempts + result.rankAttempts};
+    }
+    if (result.status !== 'exhausted') return {...result, ...stats()};
+  }
+  return {status:'exhausted', ...stats()};
 }

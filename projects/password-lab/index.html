@@ -32,17 +32,38 @@
 
         <div class="generator">
           <div class="generator-heading"><h3>自動でつくる</h3><label for="length">文字数 <input type="number" id="length" min="1" max="32" value="12" inputmode="numeric"></label></div>
-          <fieldset class="character-options"><legend>使える文字の種類</legend><label><input type="checkbox" id="use-digits" checked><span>数字 <small>0–9</small></span></label><label><input type="checkbox" id="use-lower" checked><span>小文字 <small>a–z</small></span></label><label><input type="checkbox" id="use-upper"><span>大文字 <small>A–Z</small></span></label><label><input type="checkbox" id="use-symbols"><span>記号 <small>! # …</small></span></label></fieldset>
+          <fieldset class="character-options"><legend>生成するときに使える文字</legend><label><input type="checkbox" id="use-digits" checked><span>数字 <small>0–9</small></span></label><label><input type="checkbox" id="use-lower" checked><span>小文字 <small>a–z</small></span></label><label><input type="checkbox" id="use-upper"><span>大文字 <small>A–Z</small></span></label><label><input type="checkbox" id="use-symbols"><span>記号 <small>! # …</small></span></label></fieldset>
           <button class="button button-secondary" id="generate" type="button">この条件で生成 <span aria-hidden="true">↻</span></button>
           <p class="field-help">選んだ種類の文字からランダムに選びます。すべての種類が含まれるとは限りません。</p>
         </div>
+
+        <section class="attack-settings" aria-labelledby="attack-title">
+          <h3 id="attack-title">探す側は、何を知っている？</h3>
+          <p class="field-help">文字列を作る条件とは別に選びます。選ばなかった情報は探索に使いません。</p>
+          <label class="field-label" for="attack-knowledge">探索に使う情報</label>
+          <select id="attack-knowledge"><option value="none">手がかりなし</option><option value="charset">文字の種類・文字数を指定</option><option value="structure">文字の並び・一部を指定</option></select>
+          <div id="charset-fields" hidden>
+            <fieldset class="character-options"><legend>候補として試す文字の種類</legend><label><input type="checkbox" id="attack-digits" checked><span>数字 <small>0–9</small></span></label><label><input type="checkbox" id="attack-lower"><span>小文字 <small>a–z</small></span></label><label><input type="checkbox" id="attack-upper"><span>大文字 <small>A–Z</small></span></label><label><input type="checkbox" id="attack-symbols"><span>記号 <small>! # …</small></span></label></fieldset>
+            <label class="inline-check"><input type="checkbox" id="length-known"> 文字数も分かっている</label>
+            <div id="known-length-fields" hidden><label class="compact-field" for="attack-length">分かっている文字数 <input id="attack-length" type="number" min="1" max="32" value="6" inputmode="numeric"></label></div>
+          </div>
+          <div id="unknown-length-fields"><label class="compact-field" for="search-max-length">試す文字数の上限 <input id="search-max-length" type="number" min="1" max="32" value="6" inputmode="numeric"></label><p class="field-help">文字数が不明なので、1文字からこの長さまで短い順に試します。「手がかりなし」では数字・大小英字・記号の94種類を使います。</p></div>
+          <div id="structure-fields" hidden>
+            <div class="hint-examples"><span>並びの例</span><button type="button" id="hint-mixed">小文字4文字＋数字4文字</button><button type="button" id="hint-prefix">sakura＋数字4文字</button></div>
+            <label class="field-label" for="known-prefix">分かっている先頭の文字 <span class="optional">空欄でもOK</span></label><input class="text-field" id="known-prefix" type="text" maxlength="32" placeholder="例：sakura" autocomplete="off" spellcheck="false">
+            <div class="hint-block"><label for="first-group">続く文字の種類 <select id="first-group"><option value="digits">数字</option><option value="lower" selected>小文字</option><option value="upper">大文字</option><option value="letters">英字（大小）</option><option value="alnum">英数字</option><option value="symbols">記号</option><option value="all">すべての94種類</option><option value="none">使わない</option></select></label><label for="first-count">文字数 <input id="first-count" type="number" min="0" max="32" value="4" inputmode="numeric"></label></div>
+            <div class="hint-block"><label for="second-group">その次の文字の種類 <select id="second-group"><option value="none">使わない</option><option value="digits" selected>数字</option><option value="lower">小文字</option><option value="upper">大文字</option><option value="letters">英字（大小）</option><option value="alnum">英数字</option><option value="symbols">記号</option><option value="all">すべての94種類</option></select></label><label for="second-count">文字数 <input id="second-count" type="number" min="0" max="32" value="4" inputmode="numeric"></label></div>
+            <label class="field-label" for="known-suffix">分かっている末尾の文字 <span class="optional">空欄でもOK</span></label><input class="text-field" id="known-suffix" type="text" maxlength="32" placeholder="例：!" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="attack-preview" aria-live="polite"><span>今回、試す範囲</span><strong id="attack-preview">半角94種類・1〜6文字</strong><p id="attack-candidates"></p></div>
+        </section>
 
         <div class="run-settings">
           <label class="field-label" for="hash-mode">照合に使う計算</label><select id="hash-mode"><option value="sha256">SHA-256（高速な照合の教材）</option><option value="pbkdf2">PBKDF2（照合を重くする教材・1万回）</option></select>
           <label class="field-label" for="budget">各方式を試す時間の上限</label><select id="budget"><option value="1000">1秒</option><option value="2000" selected>2秒</option><option value="4000">4秒</option></select>
           <div class="gpu-option"><label><input type="checkbox" id="use-gpu"> GPUでも総当たりを試す</label><span id="gpu-status">利用できるか確認します</span></div>
         </div>
-        <p id="assumptions" class="assumptions">文字数と文字の種類が分かっている条件で、候補を探します。</p>
+        <p id="assumptions" class="assumptions">指定した探索範囲で辞書・規則・総当たりを試します。</p>
         <div class="run-actions"><button class="button button-primary" id="run" type="button">試してみる <span aria-hidden="true">→</span></button><button class="button button-stop" id="stop" type="button" disabled>停止</button></div>
         <p id="error" class="error" role="alert"></p>
         <p id="status" class="status" role="status" aria-live="polite">まずは例のまま、試してみましょう。</p>
@@ -53,10 +74,10 @@
         <div class="panel summary-panel">
           <div class="section-heading"><span class="step-number">02</span><h2 id="result-title">結果を見てみよう</h2><span class="small-tag">この端末で実験</span></div>
           <p class="result-label">今回の照合条件での目安</p><h3 id="verdict" class="verdict">どの方法が先に見つかる？</h3><p id="result-summary" class="result-summary">辞書・よくある規則・総当たりで、同じ文字列を探します。</p>
-          <div class="space-summary"><span>総当たりの候補数</span><strong id="space-value">—</strong><small>文字の種類数の「文字数」乗です</small></div>
+          <div class="space-summary"><span>指定した範囲の候補数</span><strong id="space-value">—</strong><small id="space-note">選んだ文字の種類・文字数・並びから計算します</small></div>
           <dl class="metrics"><div><dt>平均の推定時間</dt><dd id="average-time">—</dd></div><div><dt>全候補を調べる推定時間</dt><dd id="worst-time">—</dd></div></dl>
           <p class="rate-note">CPUの照合速度 <strong id="cpu-rate">未計測</strong></p>
-          <p class="field-help">平均は、候補から均等に選んだ文字列を探す場合の目安です。辞書や規則で先に見つかることもあります。</p>
+          <p class="field-help" id="estimate-basis">平均は、指定範囲の全候補が同じ確率で正解になる仮定です。範囲の外にある文字列の所要時間は表しません。</p>
         </div>
         <div class="panel method-panel">
           <div class="mini-heading"><h3>探し方を比べる</h3><span>実際に照合した結果</span></div>
@@ -66,11 +87,12 @@
       </section>
     </div>
 
-    <section class="panel sensitivity-panel" aria-labelledby="sensitivity-title"><div class="section-heading"><span class="step-number">03</span><h2 id="sensitivity-title">あと1文字、増やしたら？</h2></div><p class="section-copy">同じ文字の種類・同じ照合速度で、長さだけを変えた総当たりの推定です。</p><div class="table-wrap"><table><thead><tr><th scope="col">長さ</th><th scope="col">候補数</th><th scope="col">平均の推定時間</th></tr></thead><tbody id="sensitivity"><tr class="empty-row"><td colspan="3">実験後に、文字数ごとの違いを表示します。</td></tr></tbody></table></div></section>
+    <section class="panel sensitivity-panel" id="sensitivity-panel" aria-labelledby="sensitivity-title"><div class="section-heading"><span class="step-number">03</span><h2 id="sensitivity-title">探索範囲を変えると？</h2></div><p class="section-copy" id="sensitivity-copy">文字の種類と照合速度をそろえ、試す文字数の範囲を変えた推定です。</p><div class="table-wrap"><table><thead><tr><th scope="col">試す文字数</th><th scope="col">候補数</th><th scope="col">平均の推定時間</th></tr></thead><tbody id="sensitivity"><tr class="empty-row"><td colspan="3">実験後に、探索範囲ごとの違いを表示します。</td></tr></tbody></table></div></section>
 
     <section class="reading-section" id="guide" aria-labelledby="guide-title"><p class="eyebrow">はじめての使い方</p><h2 id="guide-title">3つのステップで試せます。</h2><ol class="guide-steps"><li><span>1</span><div><h3>入力する・生成する</h3><p>まずは例を選び、慣れたら文字数や文字の種類を変えてみましょう。</p></div></li><li><span>2</span><div><h3>短い時間だけ探索</h3><p>「試してみる」を押します。途中で停止しても大丈夫です。</p></div></li><li><span>3</span><div><h3>実測と推定を比べる</h3><p>見つかった方法と照合数を確認し、長くしたときの時間を比べます。</p></div></li></ol></section>
 
     <section class="faq-section" aria-label="実験の読み方">
+      <details><summary>「手がかりなし」と、情報がある場合の違いは？</summary><div class="detail-body"><p>「手がかりなし」は数字・大小英字・記号の94種類を使い、1文字から指定した上限まで探します。上限は実験の範囲で、正解の文字数ではありません。</p><p>文字種や文字数を知っていれば、その情報を指定できます。「文字の並び・一部を指定」では「小文字4文字＋数字4文字」「sakura＋数字4文字」などを選択欄で組み立てます。予想が外れていれば、その範囲を調べても見つかりません。入力した正解から探索条件を自動では取り出しません。</p></div></details>
       <details><summary>「見つかった」と「推定」はどう違う？</summary><div class="detail-body"><p>実際に候補を計算して一致したときだけ「発見」と表示します。時間内に見つからなかった場合は、測った照合速度から必要な時間を推定します。</p><p>長い文字列を最後まで探し続ける必要はありません。実測値と推定値は分けて読みましょう。</p></div></details>
       <details><summary>辞書・規則・総当たりとは？</summary><div class="detail-body"><p><strong>辞書</strong>は、よく使われる単語や文字列から探します。<strong>規則</strong>は、単語に数字や記号を付けるなど、ありがちな形を試します。<strong>総当たり</strong>は、決めた文字の種類と長さで、すべての組合せを順番に調べます。</p><p>候補を試す順番で、見つかるまでの時間は変わります。この教材の小さな辞書で見つからなくても、他の辞書で見つかる可能性があります。</p></div></details>
       <details><summary>実際のサービスでも、この時間で破られる？</summary><div class="detail-body"><p>この実験は、保存された照合用データを手元で何度でも試せる「オフライン」の条件です。実際のログイン画面には、回数制限や多要素認証など、別の仕組みがあります。</p><p>また、保存方式や設定、使う装置によって速度は大きく変わります。SHA-256の1回計算は比較用の教材で、パスワード保存に適した方式ではありません。PBKDF2の1万回も、この教材で違いを体験するための設定です。</p></div></details>

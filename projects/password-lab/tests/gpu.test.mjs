@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { detectGPU, runGPU } from '../gpu.js';
+import { detectGPU, runGPU, runGPUPlan } from '../gpu.js';
+import {buildAttackPlan} from '../engine.js';
 
 const hash = text => createHash('sha256').update(text).digest('hex');
 const input = (password = '07') => ({
@@ -21,7 +22,7 @@ async function withNavigator(value, action) {
 
 // A deterministic fake device tests host orchestration and byte layouts. It
 // deliberately does not claim to execute or validate WGSL on actual hardware.
-function fakeGPU({ compilationError = false, badSelfTest = false, scopeError = false } = {}) {
+function fakeGPU({ compilationError = false, badSelfTest = false, scopeError = false, afterDispatch = () => {} } = {}) {
   const state = { configWrites: [], destroyed: 0, bufferDestroyed: 0, scopes: [] };
   const usageBefore = Object.getOwnPropertyDescriptor(globalThis, 'GPUBufferUsage');
   const mapBefore = Object.getOwnPropertyDescriptor(globalThis, 'GPUMapMode');
@@ -65,6 +66,7 @@ function fakeGPU({ compilationError = false, badSelfTest = false, scopeError = f
                 if (hash(salt + chars.join('')) === target) { match = i; break; }
               }
               new Uint32Array(group[1].raw)[0] = match;
+              afterDispatch();
             });
           }, end() {} };
         },
@@ -196,4 +198,107 @@ test('rejects unsupported message lengths, duplicate or non-ASCII alphabets and 
   for (const invalid of [{ length: 0 }, { length: 33 }, { alphabet: '001' }, { alphabet: 'あ' }, { salt: 'short' }, { targetHash: 'abc' }, { maxAttempts: 0 }]) {
     await assert.rejects(runGPU({ ...input(), ...invalid }));
   }
+});
+
+test('GPU plan searches unknown lengths shortest first with aggregate counts', async () => {
+  const fake = fakeGPU();
+  try {
+    await withNavigator(fake.navigator, async () => {
+      const plan = buildAttackPlan({knowledge:'charset',groups:['digits'],lengthKnown:false,maxLength:2});
+      const progress = [];
+      const result = await runGPUPlan({...input('07'),plan,maxAttempts:1000,onProgress:value => progress.push(value)});
+      assert.equal(result.status, 'found');
+      assert.equal(result.foundLength, 2);
+      assert.equal(result.foundCandidate, '07');
+      assert.equal(result.rankAttempts, 18);
+      assert.equal(result.attempts, 110);
+      assert.deepEqual(progress.map(value => value.attempts), [10,110]);
+      assert.equal(progress.at(-1).total, '110');
+      assert.equal(fake.state.destroyed, 2);
+      assert.match(result.setupNote, /文字数ごと/);
+    });
+  } finally { fake.restore(); }
+});
+
+test('GPU plan shares its attempt budget over the whole range and searches false hints', async () => {
+  const fake = fakeGPU();
+  try {
+    await withNavigator(fake.navigator, async () => {
+      const plan = buildAttackPlan({knowledge:'charset',groups:['digits'],lengthKnown:false,maxLength:3});
+      const result = await runGPUPlan({...input('outside'),plan,maxAttempts:120});
+      assert.equal(result.status, 'budget');
+      assert.equal(result.attempts, 120);
+      const actualSearches = fake.state.configWrites.filter((_value,index) => index % 4 === 3);
+      assert.deepEqual(actualSearches.map(value => [value.length,value.count]), [[1,10],[2,100],[3,10]]);
+      assert.equal(result.foundCandidate, undefined);
+    });
+  } finally { fake.restore(); }
+  const fakeMiss = fakeGPU();
+  try {
+    await withNavigator(fakeMiss.navigator, async () => {
+      const plan = buildAttackPlan({knowledge:'charset',groups:['digits'],lengthKnown:true,length:1});
+      const result = await runGPUPlan({...input('a'),plan});
+      assert.equal(result.status, 'exhausted');
+      assert.equal(result.attempts, 10);
+    });
+  } finally { fakeMiss.restore(); }
+});
+
+test('GPU plan applies one search-time budget to all lengths and separates setup time', async () => {
+  const beforePerformance = Object.getOwnPropertyDescriptor(globalThis, 'performance');
+  let clock = 0;
+  Object.defineProperty(globalThis, 'performance', {configurable:true,value:{now:() => clock}});
+  const fake = fakeGPU({afterDispatch:() => { clock += 15; }});
+  try {
+    await withNavigator(fake.navigator, async () => {
+      const plan = buildAttackPlan({knowledge:'charset',groups:['digits'],lengthKnown:false,maxLength:3});
+      const result = await runGPUPlan({...input('outside'),plan,timeLimitMs:25,maxAttempts:1000});
+      assert.equal(result.status, 'budget');
+      assert.equal(result.attempts, 110);
+      assert.equal(result.elapsedMs, 30);
+      assert.equal(result.setupMs, 90);
+      assert.equal(fake.state.destroyed, 2);
+    });
+  } finally {
+    fake.restore();
+    if (beforePerformance) Object.defineProperty(globalThis, 'performance', beforePerformance);
+    else delete globalThis.performance;
+  }
+});
+
+test('GPU unknown-information plan uses all characters independently of legacy fields', async () => {
+  const fake = fakeGPU();
+  try {
+    await withNavigator(fake.navigator, async () => {
+      const plan = buildAttackPlan({knowledge:'none',maxLength:1});
+      const result = await runGPUPlan({...input('a'),plan});
+      assert.equal(result.status, 'found');
+      assert.equal(result.foundLength, 1);
+      assert.equal(result.attempts, 94);
+      assert.equal(result.rankAttempts, 11);
+      assert.equal(fake.state.configWrites.at(-1).alphabet.length, 94);
+      assert.equal(fake.state.configWrites.at(-1).length, 1);
+    });
+  } finally { fake.restore(); }
+});
+
+test('GPU structures return a clear CPU-only reason without initialising hardware', async () => {
+  const plan = buildAttackPlan({knowledge:'structure',prefix:'x',firstGroup:'digits',firstCount:1});
+  await withNavigator({gpu:{requestAdapter() { throw Error('must not initialise'); }}}, async () => {
+    const result = await runGPUPlan({...input(),plan});
+    assert.equal(result.status, 'unavailable');
+    assert.equal(result.attempts, 0);
+    assert.equal(result.rate, 0);
+    assert.match(result.error, /CPU/);
+  });
+});
+
+test('GPU plan never treats a PBKDF2 digest as a SHA-256 target', async () => {
+  const plan = buildAttackPlan({knowledge:'none',maxLength:1});
+  await withNavigator({gpu:{requestAdapter() { throw Error('must not initialise'); }}}, async () => {
+    const result = await runGPUPlan({...input(),plan,mode:'pbkdf2'});
+    assert.equal(result.status, 'unavailable');
+    assert.equal(result.attempts, 0);
+    assert.match(result.error, /PBKDF2/);
+  });
 });

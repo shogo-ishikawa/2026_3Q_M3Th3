@@ -1,12 +1,13 @@
-import {SETS, buildAlphabet, validatePassword, generatePassword, searchSpace} from './engine.js';
+import {SETS, buildAlphabet, validatePassword, generatePassword, searchSpace, buildAttackPlan} from './engine.js';
 import {digestCandidate} from './worker.js';
-import {detectGPU, runGPU} from './gpu.js';
+import {detectGPU, runGPUPlan} from './gpu.js';
 
 const $ = id => document.getElementById(id);
-const methodNames = {dictionary:'教材用の辞書', pattern:'よくある規則', brute:'総当たり'};
+const methodNames = {dictionary:'教材用の辞書', pattern:'よくある規則', brute:'総当たり', structure:'並びの手がかりで探索'};
 const controls = [...document.querySelectorAll('input, select, button')].filter(el => el.id !== 'stop' && el.id !== 'show-password');
 let jobId = 0, worker = null, aborter = null, active = false;
-let generatedAlphabet = null, current = null, results = [];
+let current = null, results = [];
+let gpuAvailabilityMessage = 'WebGPUは対応する環境でのみ実行します。未対応でもCPUで試せます。';
 
 export function formatCount(value) {
   const n = BigInt(value);
@@ -23,23 +24,48 @@ export function formatTime(seconds) {
   const years = seconds / 31557600;
   return years < 1e6 ? `約${years.toLocaleString('ja-JP', {maximumFractionDigits:1})}年` : `約${years.toExponential(2)}年`;
 }
-function inferredAlphabet(password) {
-  const groups = Object.keys(SETS).filter(key => [...password].some(c => SETS[key].includes(c)));
-  return groups.length ? buildAlphabet(groups) : '';
-}
-function assumptionText(password, alphabet) {
-  return `文字数${password.length}・使える文字${alphabet.length}種類が既知として探索します。${generatedAlphabet ? '生成時に選んだ文字集合' : '入力に含まれる文字種の集合'}を使用します。`;
+export function readAttackPlan() {
+  return buildAttackPlan({
+    knowledge: $('attack-knowledge').value,
+    groups: Object.keys(SETS).filter(key => $(`attack-${key}`).checked),
+    lengthKnown: $('length-known').checked,
+    length: Number($('attack-length').value),
+    maxLength: Number($('search-max-length').value),
+    prefix: $('known-prefix').value, suffix: $('known-suffix').value,
+    firstGroup: $('first-group').value, firstCount: Number($('first-count').value),
+    secondGroup: $('second-group').value, secondCount: Number($('second-count').value),
+  });
 }
 function updateAssumptions() {
-  const password = $('password').value;
-  const alphabet = generatedAlphabet || inferredAlphabet(password);
-  $('assumptions').textContent = !password ? 'パスワードを入力するか、自動生成してください。' : /^[!-~]{1,32}$/.test(password) ? assumptionText(password, alphabet) : 'この教材の対象は、空白を除く半角英数字・記号の1〜32文字です。';
+  const kind = $('attack-knowledge').value;
+  $('charset-fields').hidden = kind !== 'charset';
+  $('structure-fields').hidden = kind !== 'structure';
+  $('known-length-fields').hidden = kind !== 'charset' || !$('length-known').checked;
+  $('unknown-length-fields').hidden = kind === 'structure' || (kind === 'charset' && $('length-known').checked);
+  $('sensitivity-panel').hidden = kind === 'structure';
+  $('use-gpu').disabled = active || kind === 'structure' || $('hash-mode').value !== 'sha256';
+  $('gpu-status').textContent = kind === 'structure' ? '並びを指定する探索はCPUで行います。'
+    : $('hash-mode').value !== 'sha256' ? 'PBKDF2はCPUで実測します。GPU比較はSHA-256を選んでください。' : gpuAvailabilityMessage;
+  for (const block of ['first', 'second']) $(block + '-count').disabled = active || $(block + '-group').value === 'none';
+  try {
+    const plan = readAttackPlan();
+    $('attack-preview').textContent = plan.summary;
+    $('attack-candidates').textContent = `${formatCount(plan.candidateCount)}通りの候補を試す設定です`;
+    $('assumptions').textContent = kind === 'structure'
+      ? '辞書と規則も、この並びに合う候補だけを試します。並びの探索はCPUで行います。'
+      : '辞書と規則も、指定した文字の種類・文字数の範囲に合う候補だけを試します。';
+  } catch (error) {
+    $('attack-preview').textContent = '探索の条件を確認してください';
+    $('attack-candidates').textContent = error.message;
+    $('assumptions').textContent = '条件を直してから「試してみる」を押してください。';
+  }
 }
 function setActive(value) {
   active = value;
   controls.forEach(el => { el.disabled = value; });
   $('stop').disabled = !value;
   $('run').textContent = value ? '照合しています…' : '試してみる';
+  updateAssumptions();
 }
 function clearResults() {
   current = null;
@@ -53,12 +79,14 @@ function clearResults() {
   $('status').textContent = '';
   $('error').textContent = '';
   $('progress-area').hidden = true;
+  $('space-note').textContent = '選んだ文字の種類・文字数・並びから計算します';
+  $('estimate-basis').textContent = '指定範囲の全候補が同じ確率で正解になる仮定です。範囲の外にある文字列の所要時間は表しません。';
 }
 function invalidate() { if (!active) { clearResults(); updateAssumptions(); } }
 function addRow(result, hardware = 'CPU') {
   results.push({...result, hardware});
   const row = document.createElement('tr');
-  const status = {found:'発見', budget:'上限で停止・未発見', exhausted:result.method === 'brute' ? '全候補を照合・未発見' : 'リスト内に一致なし', unavailable:'利用できません', cancelled:'停止'}[result.status] || '未実行';
+  const status = {found:'発見', budget:'上限で停止・未発見', exhausted:['brute','structure'].includes(result.method) ? '指定範囲では未発見' : 'リスト内に一致なし', unavailable:'利用できません', cancelled:'停止'}[result.status] || '未実行';
   for (const value of [methodNames[result.method] || result.method, hardware, result.attempts?.toLocaleString('ja-JP') ?? '—', status, result.status === 'unavailable' || result.elapsedMs == null ? '—' : formatTime(result.elapsedMs / 1000)]) {
     const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
   }
@@ -80,19 +108,28 @@ function updateVerdict() {
     $('result-summary').textContent = '短い試行で見つからなくても、安全の証明にはなりません。辞書や規則は教材用の小さなリストです。';
   }
 }
-function showEstimates(rate) {
+function showEstimates(rate, estimateBasis = '') {
   if (!current || !(rate > 0)) return;
-  const n = searchSpace(current.alphabet, current.length);
+  const plan = current.plan;
+  const n = plan.candidateCount;
   $('space-value').textContent = `${formatCount(n)}通り`;
   $('average-time').textContent = formatTime((Number(n) + 1) / 2 / rate);
   $('worst-time').textContent = formatTime(Number(n) / rate);
   $('cpu-rate').textContent = `約${Math.round(rate).toLocaleString('ja-JP')}候補/秒`;
+  $('space-note').textContent = plan.summary;
+  $('estimate-basis').textContent = '指定範囲の全候補が同じ確率で正解になる仮定です。' + (estimateBasis || `探索範囲の上限${plan.maxLength}文字で測った速度`) + 'を、範囲全体に仮定しています。';
   $('sensitivity').replaceChildren();
-  for (const length of [...new Set([4,8,12,16,current.length,Math.min(32,current.length+1)])].sort((a,b) => a-b)) {
-    const space = searchSpace(current.alphabet, length);
+  if (plan.kind === 'structure') return;
+  const fixed = plan.minLength === plan.maxLength;
+  $('sensitivity-copy').textContent = fixed
+    ? '同じ文字の種類・照合速度で、文字数が分かっている場合の推定です。'
+    : '同じ文字の種類・照合速度で、1文字から指定した上限まで探す場合の推定です。';
+  for (const length of [...new Set([4,8,12,16,plan.maxLength,Math.min(32,plan.maxLength+1)])].sort((a,b) => a-b)) {
+    let space = 0n;
+    for (let size = fixed ? length : 1; size <= length; size++) space += searchSpace(plan.alphabet, size);
     const row = document.createElement('tr');
-    if (length === current.length) row.className = 'current-length';
-    for (const value of [`${length}文字${length === current.length ? '（今回）' : ''}`, formatCount(space), formatTime((Number(space) + 1) / 2 / rate)]) {
+    if (length === plan.maxLength) row.className = 'current-length';
+    for (const value of [`${fixed ? '' : '1〜'}${length}文字${length === plan.maxLength ? '（今回の設定）' : ''}`, formatCount(space), formatTime((Number(space) + 1) / 2 / rate)]) {
       const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
     }
     $('sensitivity').append(row);
@@ -107,15 +144,15 @@ function finish() {
 }
 async function gpuStage(id, options) {
   if (id !== jobId) return;
-  if (!$('use-gpu').checked || options.mode !== 'sha256') { finish(); return; }
+  if (!$('use-gpu').checked || options.mode !== 'sha256' || options.plan.kind === 'structure') { finish(); return; }
   $('status').textContent = 'WebGPUで同じ総当たりを試しています。初回の準備には時間がかかる場合があります。';
   aborter = new AbortController();
-  const result = await runGPU({...options, signal:aborter.signal, onProgress: p => {
+  const result = await runGPUPlan({...options, signal:aborter.signal, onProgress: p => {
     if (id === jobId) $('progress-text').textContent = `WebGPU：${p.attempts.toLocaleString('ja-JP')}候補を照合`;
   }});
   if (id !== jobId) return;
-  addRow({...result, method:'brute'}, result.label || 'WebGPU');
-  if (result.status === 'unavailable') $('gpu-status').textContent = 'WebGPUは利用できませんでした。CPUの結果はそのまま確認できます。';
+  addRow({...result, method:options.plan.kind === 'structure' ? 'structure' : 'brute'}, result.label || 'WebGPU');
+  if (result.status === 'unavailable') $('gpu-status').textContent = result.error || result.reason || 'WebGPUは利用できませんでした。CPUの結果はそのまま確認できます。';
   finish();
 }
 async function run() {
@@ -123,10 +160,11 @@ async function run() {
   const password = $('password').value;
   if (!password) { $('error').textContent = '練習用パスワードを入力するか、自動生成してください。'; return; }
   if (!/^[!-~]{1,32}$/.test(password)) { $('error').textContent = 'この教材では空白を除く半角英数字・記号の1〜32文字を使います。'; return; }
-  const alphabet = generatedAlphabet || inferredAlphabet(password);
-  const check = validatePassword(password, alphabet);
+  const check = validatePassword(password, buildAlphabet(Object.keys(SETS)));
   if (!check.ok) { $('error').textContent = check.error; return; }
   if (!crypto.subtle && $('hash-mode').value === 'pbkdf2') { $('error').textContent = 'PBKDF2はHTTPSで開いてください。'; return; }
+  let plan;
+  try { plan = readAttackPlan(); } catch (error) { $('error').textContent = error.message; return; }
   const id = ++jobId;
   setActive(true);
   $('progress-area').hidden = false;
@@ -135,14 +173,14 @@ async function run() {
   $('progress-text').textContent = '計測用の候補を照合中';
   try {
     const salt = generatePassword(8, SETS.digits + SETS.lower + SETS.upper);
-    const options = {alphabet, length:password.length, salt, mode:$('hash-mode').value, timeLimitMs:Number($('budget').value), maxAttempts:1000000};
+    const options = {plan, salt, mode:$('hash-mode').value, timeLimitMs:Number($('budget').value), maxAttempts:1000000};
     current = {...options};
     options.targetHash = await digestCandidate(password, salt, options.mode);
     if (id !== jobId) return;
     worker = new Worker(new URL('./worker.js', import.meta.url), {type:'module'});
     worker.onmessage = ({data}) => {
       if (data.jobId !== jobId) return;
-      if (data.type === 'calibration') showEstimates(data.result.rate);
+      if (data.type === 'calibration') showEstimates(data.result.rate, data.result.estimateBasis);
       if (data.type === 'start') $('status').textContent = `${methodNames[data.method]}をCPUで試しています。`;
       if (data.type === 'progress') $('progress-text').textContent = `${methodNames[data.method]}：${data.attempts.toLocaleString('ja-JP')}候補を照合`;
       if (data.type === 'result') addRow(data.result);
@@ -170,13 +208,13 @@ $('stop').addEventListener('click', () => {
   $('status').textContent = '停止しました。完了した方式の結果だけ表示しています。';
   updateVerdict();
 });
-$('password').addEventListener('input', () => { generatedAlphabet = null; invalidate(); });
+$('password').addEventListener('input', invalidate);
 $('generate').addEventListener('click', () => {
   try {
     const groups = Object.keys(SETS).filter(key => $(`use-${key}`).checked);
     const alphabet = buildAlphabet(groups);
     $('password').value = generatePassword(Number($('length').value), alphabet);
-    generatedAlphabet = alphabet; invalidate();
+    invalidate();
     $('status').textContent = '生成しました。選んだ集合から各文字を均等に選びます。すべての種類を必ず含む方式ではありません。';
   } catch (error) { $('error').textContent = error.message; }
 });
@@ -186,13 +224,28 @@ $('show-password').addEventListener('click', () => {
 });
 document.querySelectorAll('[data-demo]').forEach(button => button.addEventListener('click', () => {
   const key = button.dataset.demo;
-  generatedAlphabet = key === 'random' ? buildAlphabet(['digits','lower','upper','symbols']) : null;
-  $('password').value = key === 'digits' ? '123456' : key === 'word' ? 'Password123!' : generatePassword(12, generatedAlphabet);
+  $('password').value = key === 'digits' ? '123456' : key === 'word' ? 'Password123!' : generatePassword(12, buildAlphabet(Object.keys(SETS)));
   invalidate();
 }));
-for (const id of ['length','use-digits','use-lower','use-upper','use-symbols','hash-mode','budget','use-gpu']) $(id).addEventListener('change', invalidate);
-$('hash-mode').addEventListener('change', () => {
-  $('gpu-status').textContent = $('hash-mode').value === 'pbkdf2' ? 'PBKDF2はCPUで実測します。WebGPUとの比較はSHA-256を選んでください。' : 'WebGPUは対応する環境でのみ実行します。未対応でもCPUで試せます。';
+for (const input of document.querySelectorAll('input, select')) if (input.id !== 'password') input.addEventListener('change', invalidate);
+for (const id of ['known-prefix','known-suffix']) $(id).addEventListener('input', invalidate);
+$('hint-mixed').addEventListener('click', () => {
+  $('known-prefix').value = ''; $('known-suffix').value = '';
+  $('first-group').value = 'lower'; $('first-count').value = '4';
+  $('second-group').value = 'digits'; $('second-count').value = '4';
+  invalidate();
+});
+$('hint-prefix').addEventListener('click', () => {
+  $('known-prefix').value = 'sakura'; $('known-suffix').value = '';
+  $('first-group').value = 'digits'; $('first-count').value = '4';
+  $('second-group').value = 'none'; $('second-count').value = '0';
+  invalidate();
 });
 clearResults(); $('password').value = '123456'; updateAssumptions();
-detectGPU().then(state => { if (!active && $('hash-mode').value === 'sha256') $('gpu-status').textContent = state.available ? `${state.label}を利用できます（任意）。` : state.reason; }).catch(() => { $('gpu-status').textContent = 'WebGPUは利用できません。CPUで実験できます。'; });
+detectGPU().then(state => {
+  gpuAvailabilityMessage = state.available ? `${state.label}を利用できます（任意）。` : state.reason;
+  updateAssumptions();
+}).catch(() => {
+  gpuAvailabilityMessage = 'WebGPUは利用できません。CPUで実験できます。';
+  updateAssumptions();
+});

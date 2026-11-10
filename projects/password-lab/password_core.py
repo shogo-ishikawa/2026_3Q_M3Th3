@@ -20,7 +20,14 @@ WORDS = [
     "orange", "summer", "winter", "music", "hello", "dragon",
 ]
 MAX_BATCH = 8192
-VERSION = "1.0.0"
+VERSION = "1.2.0"
+ALL_CHARACTERS = "".join(CHARSETS.values())
+GROUPS = {
+    "数字": CHARSETS["digits"], "小文字": CHARSETS["lower"],
+    "大文字": CHARSETS["upper"], "英字": string.ascii_letters,
+    "英数字": string.ascii_letters + string.digits,
+    "記号": CHARSETS["symbols"], "すべて": ALL_CHARACTERS, "なし": "",
+}
 
 
 def alphabet_for(digits=True, lower=True, upper=True, symbols=False):
@@ -62,36 +69,86 @@ def rule_candidates():
                     yield base + suffix + "!"
 
 
-def mask_alphabets(mask):
-    """?l=小文字、?u=大文字、?d=数字、?s=記号。それ以外は固定文字。"""
-    if not isinstance(mask, str) or not mask:
-        raise ValueError("形式のヒントが空です。例：sakura?d?d?d?d")
-    lookup = {"l": CHARSETS["lower"], "u": CHARSETS["upper"],
-              "d": CHARSETS["digits"], "s": CHARSETS["symbols"], "?": "?"}
-    positions = []
-    i = 0
-    while i < len(mask):
-        if mask[i] == "?":
-            if i + 1 >= len(mask) or mask[i + 1] not in lookup:
-                raise ValueError("?の後はl・u・d・s・?のどれかにしてください。")
-            positions.append(lookup[mask[i + 1]])
-            i += 2
-        else:
-            if not 33 <= ord(mask[i]) <= 126:
-                raise ValueError("形式のヒントには半角文字（空白なし）を使ってください。")
-            positions.append(mask[i])
-            i += 1
-    if len(positions) > 32:
-        raise ValueError("形式のヒントは展開後32文字以内にしてください。")
-    return positions
+def _length(value, label):
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 32:
+        raise ValueError(f"{label}は1〜32の整数にしてください。")
+    return value
 
 
-def mask_candidates(mask):
-    for values in itertools.product(*mask_alphabets(mask)):
+def make_attack(knowledge="手がかりなし", *, digits=True, lower=False,
+                upper=False, symbols=False, length_known=True, search_length=4,
+                search_max_length=6, prefix="", suffix="", group1="数字",
+                group1_count=4, group2="なし", group2_count=0):
+    """攻撃側の設定だけで候補範囲を作る。正解の情報は受け取らない。"""
+    if knowledge not in ("手がかりなし", "文字の種類・文字数を指定", "文字の並び・一部を指定"):
+        raise ValueError("手がかりの種類を選んでください。")
+    if knowledge == "文字の並び・一部を指定":
+        for fixed in (prefix, suffix):
+            if not isinstance(fixed, str) or any(not 33 <= ord(c) <= 126 for c in fixed):
+                raise ValueError("固定する文字には半角の英数字・記号（空白なし）を使ってください。")
+        positions = list(prefix)
+        parts = [prefix] if prefix else []
+        groups = []
+        for kind, count in ((group1, group1_count), (group2, group2_count)):
+            if kind not in GROUPS:
+                raise ValueError("文字グループと文字数を確認してください。")
+            if kind == "なし":
+                continue
+            if isinstance(count, bool) or not isinstance(count, int):
+                raise ValueError("文字グループと文字数を確認してください。")
+            if not 0 <= count <= 32:
+                raise ValueError("文字グループの文字数は0〜32にしてください。")
+            if count:
+                positions.extend([GROUPS[kind]] * count)
+                parts.append(f"{kind}{count}文字")
+                groups.append({"kind": kind, "count": count})
+        positions.extend(suffix)
+        _length(len(positions), "並び全体の文字数")
+        if suffix:
+            parts.append(suffix)
+        total = math.prod(len(chars) for chars in positions)
+        public = {"knowledge": knowledge, "length_known": True,
+                  "min_length": len(positions), "max_length": len(positions),
+                  "prefix_length": len(prefix), "suffix_length": len(suffix),
+                  "groups": groups, "candidates": total}
+        return {"mode": "structure", "positions": positions, "candidates": total,
+                "min_length": len(positions), "max_length": len(positions),
+                "preview": "＋".join(parts), "public": public}
+
+    if knowledge == "手がかりなし":
+        alphabet = ALL_CHARACTERS
+        minimum, maximum = 1, _length(search_max_length, "探索する最大文字数")
+        types = list(CHARSETS)
+    else:
+        alphabet = alphabet_for(digits, lower, upper, symbols)
+        maximum = _length(search_length if length_known else search_max_length,
+                          "探索する文字数")
+        minimum = maximum if length_known else 1
+        types = [name for name, enabled in zip(CHARSETS, (digits, lower, upper, symbols)) if enabled]
+    total = sum(len(alphabet) ** length for length in range(minimum, maximum + 1))
+    length_text = f"{maximum}文字" if minimum == maximum else f"1〜{maximum}文字を短い順"
+    public = {"knowledge": knowledge, "length_known": minimum == maximum,
+              "min_length": minimum, "max_length": maximum,
+              "charset_types": types, "alphabet_size": len(alphabet), "candidates": total}
+    return {"mode": "charset", "alphabet": alphabet, "min_length": minimum,
+            "max_length": maximum, "candidates": total,
+            "preview": f"{len(alphabet)}種類の文字・{length_text}", "public": public}
+
+
+def structure_candidates(positions):
+    for values in itertools.product(*positions):
         yield "".join(values)
 
 
-def search_candidates(name, candidates, digest, seconds=2.0, limit=100000):
+def candidate_allowed(candidate, attack):
+    if attack["mode"] == "structure":
+        return (len(candidate) == len(attack["positions"])
+                and all(c in chars for c, chars in zip(candidate, attack["positions"])))
+    return (attack["min_length"] <= len(candidate) <= attack["max_length"]
+            and all(c in attack["alphabet"] for c in candidate))
+
+
+def search_candidates(name, candidates, digest, seconds=2.0, limit=100000, attack=None):
     if not 0 < seconds <= 30 or not 1 <= limit <= 1000000:
         raise ValueError("実験の時間・件数の上限を確認してください。")
     begin = time.perf_counter()
@@ -100,7 +157,7 @@ def search_candidates(name, candidates, digest, seconds=2.0, limit=100000):
     for candidate in candidates:
         if tested >= limit or time.perf_counter() - begin >= seconds:
             return result(name, "打切り", tested, begin)
-        if candidate in seen:
+        if (attack is not None and not candidate_allowed(candidate, attack)) or candidate in seen:
             continue
         seen.add(candidate)
         tested += 1
@@ -155,33 +212,56 @@ def benchmark(alphabet, length, digest, include_gpu=True, batch=8192):
     return rows, best["engine"], engines[best["engine"]]
 
 
-def brute_search(password, alphabet, engine, seconds=2.0, limit=100000,
-                 engine_name="Python"):
-    if any(c not in alphabet for c in password):
-        return {"method": "総当たり", "state": "対象外：文字集合に含まれない文字",
-                "tested": 0, "seconds": 0.0, "rate": 0.0, "engine": engine_name}
-    total = len(alphabet) ** len(password)
+def brute_search(attack, digest, seconds=2.0, limit=100000, engine_name="Python"):
+    """長さをまたいでも、1つの時間・件数上限を共有する。"""
+    if not 0 < seconds <= 30 or not 1 <= limit <= 1000000:
+        raise ValueError("実験の時間・件数の上限を確認してください。")
     begin = time.perf_counter()
     tested = 0
-    while tested < min(total, limit, 2**63 - 1):
-        if time.perf_counter() - begin >= seconds:
-            break
-        count = min(MAX_BATCH, total - tested, limit - tested)
-        match = engine(tested, count)
-        tested += count
-        if match is not None:
-            return result("総当たり", "発見", tested, begin, engine=engine_name)
-    state = "全候補で未発見" if tested == total else "打切り"
-    return result("総当たり", state, tested, begin, engine=engine_name)
+    alphabet = attack["alphabet"]
+    for length in range(attack["min_length"], attack["max_length"] + 1):
+        if tested >= limit or time.perf_counter() - begin >= seconds:
+            return result("総当たり", "打切り", tested, begin, engine=engine_name)
+        engine = make_engine(engine_name, alphabet, length, digest)
+        total, index = len(alphabet) ** length, 0
+        while index < total:
+            if (tested >= limit or time.perf_counter() - begin >= seconds or index >= 2**63):
+                return result("総当たり", "打切り", tested, begin, engine=engine_name)
+            count = min(MAX_BATCH, total - index, limit - tested, 2**63 - index)
+            match = engine(index, count)
+            index += count
+            tested += count
+            if match is not None:
+                return result("総当たり", "発見", tested, begin, engine=engine_name)
+    return result("総当たり", "全候補で未発見", tested, begin, engine=engine_name)
 
 
-def estimate(alphabet, length, rate):
+def estimate(alphabet, length, rate, min_length=None):
     if not math.isfinite(rate) or rate <= 0:
         raise ValueError("実測速度が必要です。")
-    total = len(alphabet) ** length
+    minimum = length if min_length is None else min_length
+    total = sum(len(alphabet) ** n for n in range(minimum, length + 1))
     return {"candidates": total, "average_seconds": (total + 1) / (2 * rate),
             "exhaustive_seconds": total / rate,
-            "assumption": "固定長・選択した文字集合からの一様生成・SHA-256照合"}
+            "assumption": "指定した全候補が同じ確率で選ばれ、全長で同じSHA-256照合速度と仮定"}
+
+
+def benchmark_structure(positions, digest, batch=8192):
+    """位置ごとに使える文字が異なる候補生成も含め、別に測定する。"""
+    count = min(batch, math.prod(len(chars) for chars in positions))
+    def scan():
+        for candidate in itertools.islice(structure_candidates(positions), count):
+            hashlib.sha256(candidate.encode("ascii")).digest() == digest
+    scan()
+    times = []
+    for _ in range(3):
+        begin = time.perf_counter()
+        scan()
+        times.append(max(time.perf_counter() - begin, 1e-12))
+    elapsed = sorted(times)[1]
+    return [{"engine": "Python hashlib（並びの指定）", "state": "実測",
+             "count": count, "seconds": elapsed, "rate": count / elapsed,
+             "prepare_seconds": 0.0}]
 
 
 def duration(seconds):
@@ -199,38 +279,52 @@ def duration(seconds):
     return f"{years:,.1f}年" if years < 1e9 else f"{years:.2e}年"
 
 
-def run_experiment(password, alphabet, mask="sakura?d?d?d?d",
+def run_experiment(password, attack=None,
                    seconds=2.0, limit=100000, include_gpu=True):
     validate_password(password)
-    if not alphabet or len(set(alphabet)) != len(alphabet):
-        raise ValueError("使える文字を指定してください。")
     if not 0 < seconds <= 30 or not 1 <= limit <= 1000000:
         raise ValueError("時間は30秒以内、件数は100万件以内にしてください。")
-    # 先に形式を確認し、入力ミスのまま計測を始めないようにします。
-    mask_alphabets(mask)
+    if attack is None:
+        attack = make_attack()
     digest = hashlib.sha256(password.encode("ascii")).digest()
-    print("同じSHA-256照合でPython・Numba・GPUの速度を測っています…")
-    speeds, fastest, engine = benchmark(alphabet, len(password), digest, include_gpu)
+    if attack["mode"] == "structure":
+        print("指定した並びの候補生成とSHA-256照合を測っています…")
+        speeds = benchmark_structure(attack["positions"], digest)
+        fastest = speeds[0]["engine"]
+        search_row = search_candidates("指定した並び", structure_candidates(attack["positions"]),
+                                       digest, seconds, limit)
+        rate = speeds[0]["rate"]
+        total = attack["candidates"]
+        estimated = {"candidates": total, "average_seconds": (total + 1) / (2 * rate),
+                     "exhaustive_seconds": total / rate,
+                     "assumption": "指定した並びの全候補が同じ確率で選ばれると仮定"}
+    else:
+        print("攻撃側で指定した最大文字数で、同じSHA-256照合の速さを測っています…")
+        speeds, fastest, _ = benchmark(attack["alphabet"], attack["max_length"],
+                                      digest, include_gpu)
+        search_row = brute_search(attack, digest, seconds, limit, fastest)
+        rate = next(r["rate"] for r in speeds if r["engine"] == fastest)
+        estimated = estimate(attack["alphabet"], attack["max_length"], rate, attack["min_length"])
     trials = [
-        search_candidates("辞書", dictionary_candidates(), digest, seconds, limit),
-        search_candidates("単語の変形", rule_candidates(), digest, seconds, limit),
-        search_candidates("形式のヒント", mask_candidates(mask), digest, seconds, limit),
-        brute_search(password, alphabet, engine, seconds, limit, fastest),
+        search_candidates("辞書", dictionary_candidates(), digest, seconds, limit, attack),
+        search_candidates("単語の変形", rule_candidates(), digest, seconds, limit, attack),
+        search_row,
     ]
-    best_rate = next(r["rate"] for r in speeds if r["engine"] == fastest)
-    matching = all(c in alphabet for c in password)
     return {
         "version": VERSION,
         "verification": "SHA-256（教材用・実サービスの保存方式を再現しません）",
-        "length": len(password), "alphabet_size": len(alphabet),
-        "input_within_alphabet": matching,
+        "attack": attack["public"],
         "fastest_engine": fastest, "benchmarks": speeds, "trials": trials,
-        "estimate": estimate(alphabet, len(password), best_rate) if matching else None,
+        "estimate": estimated,
         "notes": [
             "探索の打切りは安全の証明ではありません。",
-            "平均時間は一様生成を仮定した総当たりの値です。辞書語には適用できません。",
-            "形式のヒントは正解の一部を知っている仮定です。",
-            "辞書・単語の変形・形式のヒントはPython hashlibで実行します。",
+            "平均時間は指定した全候補が同じ確率で選ばれる仮定です。人が考えた文字列の強さではありません。",
+            "攻撃側の手がかりはセル3で指定し、正解の長さや文字種から取得しません。",
+            "辞書と単語の変形も、攻撃側で指定した候補範囲の中で試します。",
+            "文字数が不明なら短い順に調べ、時間・件数の上限は各方法の全体で共有します。",
+            "最大文字数で測定した代表速度を、短い文字数にも同じと仮定して推定します。"
+            if attack["mode"] != "structure" else
+            "並び指定では位置ごとに文字集合が異なるため、Python hashlibで別に速度を測定します。",
             "実サービスの試行制限、保存方式、フィッシングなどはこの実験の対象外です。",
             "速度は同じ候補範囲を3回全走査した中央値です。初回準備時間は別表示です。",
             "バッチは途中で止めないため、総当たりは発見後の余分な候補も件数に含みます。",

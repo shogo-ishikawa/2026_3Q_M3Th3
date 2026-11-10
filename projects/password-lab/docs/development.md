@@ -4,10 +4,10 @@
 
 ## Macに置いて開く
 
-配布ZIPを展開すると`v1.1.0/`になります。そのフォルダーを次の場所に置けます。
+配布ZIPを展開すると`v1.2.0/`になります。そのフォルダーを次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/PasswordLab/v1.1.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/PasswordLab/v1.2.0
 ```
 
 ターミナルでそのフォルダーへ移動し、サーバーを起動します。
@@ -56,7 +56,7 @@ WebGPUは利用開始時に既知の正答を照合し、一致しなければ�
 作品のフォルダーとは別に、授業リポジトリ全体を置く場所を引数に指定します。
 
 ```bash
-cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/PasswordLab/v1.1.0
+cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/PasswordLab/v1.2.0
 bash tools/sync_project.sh /Users/shogo/Dropbox/share_data/open_material/misc/apps/2026_3Q_M3Th3
 ```
 
