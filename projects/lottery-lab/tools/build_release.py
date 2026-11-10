@@ -14,7 +14,7 @@ def build():
         ".html", ".css", ".js", ".json", ".py", ".ipynb", ".md",
     }]
     files.append(PROJECT / "VERSION")
-    for folder, pattern in [("docs", "*.md"), ("tests", "*.js"), ("tests", "*.py"), ("tools", "*.py")]:
+    for folder, pattern in [("docs", "*.md"), ("docs", "*.json"), ("tests", "*.js"), ("tests", "*.py"), ("tools", "*.py"), ("tools", "*.mjs")]:
         files.extend((PROJECT / folder).glob(pattern))
     files.append(PROJECT / "tools/index.template.html")
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:

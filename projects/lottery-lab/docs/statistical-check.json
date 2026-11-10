@@ -1,0 +1,848 @@
+{
+  "method": "2モデル×6設定、それぞれ200万回。同じ乱数列を使い、モデル・設定差を比べます。モデル・設定間の検証結果は独立ではありません。",
+  "publishedModel": "BB/RBと配当、ブドウ以外の小役は学生モデルと同じ。公表出玉率へ期待配当を合わせるため、ブドウ確率だけを逆算し、減った分をハズレへ加えます。補正値は公式のブドウ確率ではなく、実機の完全再現でもありません。",
+  "elapsedMilliseconds": 902.0351520000002,
+  "totalDraws": 24000000,
+  "settings": [
+    {
+      "model": "student",
+      "setting": 1,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": -0.0460898107165546,
+      "observedMean": -0.059611,
+      "standardError": 0.011335175649370005,
+      "zScore": -1.1928522064143652,
+      "modelReturnRate": 0.9846367297611485,
+      "referenceMachineReturnRate": 0.97,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7196,
+          "observedProbability": 0.003598,
+          "theoreticalProbability": 0.0036616623947272058
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 4610,
+          "observedProbability": 0.002305,
+          "theoreticalProbability": 0.002273760800363802
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 330416,
+          "observedProbability": 0.165208,
+          "theoreticalProbability": 0.1652892561983471
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56358,
+          "observedProbability": 0.028179,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274246,
+          "observedProbability": 0.137123,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1946,
+          "observedProbability": 0.000973,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1880,
+          "observedProbability": 0.00094,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1323348,
+          "observedProbability": 0.661674,
+          "theoreticalProbability": 0.6617460065962495
+        }
+      ]
+    },
+    {
+      "model": "student",
+      "setting": 2,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": -0.012498006867033506,
+      "observedMean": -0.0266035,
+      "standardError": 0.011441423208901302,
+      "zScore": -1.2328442777986373,
+      "modelReturnRate": 0.9958339977109888,
+      "referenceMachineReturnRate": 0.98,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7285,
+          "observedProbability": 0.0036425,
+          "theoreticalProbability": 0.0037078235076010383
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 5062,
+          "observedProbability": 0.002531,
+          "theoreticalProbability": 0.0025025025025025025
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 330434,
+          "observedProbability": 0.165217,
+          "theoreticalProbability": 0.1652892561983471
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56378,
+          "observedProbability": 0.028189,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274195,
+          "observedProbability": 0.1370975,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1922,
+          "observedProbability": 0.000961,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1930,
+          "observedProbability": 0.000965,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1322794,
+          "observedProbability": 0.661397,
+          "theoreticalProbability": 0.6614711037812369
+        }
+      ]
+    },
+    {
+      "model": "student",
+      "setting": 3,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": 0.03729196437308868,
+      "observedMean": 0.024657,
+      "standardError": 0.011538894943007985,
+      "zScore": -1.0949891159850504,
+      "modelReturnRate": 1.0124306547910296,
+      "referenceMachineReturnRate": 0.995,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7285,
+          "observedProbability": 0.0036425,
+          "theoreticalProbability": 0.0037078235076010383
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 6121,
+          "observedProbability": 0.0030605,
+          "theoreticalProbability": 0.0030211480362537764
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 330461,
+          "observedProbability": 0.1652305,
+          "theoreticalProbability": 0.1652892561983471
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56348,
+          "observedProbability": 0.028174,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274172,
+          "observedProbability": 0.137086,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1917,
+          "observedProbability": 0.0009585,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 2014,
+          "observedProbability": 0.001007,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1321682,
+          "observedProbability": 0.660841,
+          "theoreticalProbability": 0.6609524582474856
+        }
+      ]
+    },
+    {
+      "model": "student",
+      "setting": 4,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": 0.09052838760558535,
+      "observedMean": 0.0780845,
+      "standardError": 0.011770694381749347,
+      "zScore": -1.0571923118554327,
+      "modelReturnRate": 1.0301761292018619,
+      "referenceMachineReturnRate": 1.011,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7602,
+          "observedProbability": 0.003801,
+          "theoreticalProbability": 0.003861003861003861
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 6401,
+          "observedProbability": 0.0032005,
+          "theoreticalProbability": 0.0031735956839098697
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 330487,
+          "observedProbability": 0.1652435,
+          "theoreticalProbability": 0.1652892561983471
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56341,
+          "observedProbability": 0.0281705,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274179,
+          "observedProbability": 0.1370895,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1896,
+          "observedProbability": 0.000948,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 2031,
+          "observedProbability": 0.0010155,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1321063,
+          "observedProbability": 0.6605315,
+          "theoreticalProbability": 0.6606468302464268
+        }
+      ]
+    },
+    {
+      "model": "student",
+      "setting": 5,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": 0.16233379018553196,
+      "observedMean": 0.15107,
+      "standardError": 0.011906780039515574,
+      "zScore": -0.9459980068625012,
+      "modelReturnRate": 1.0541112633951772,
+      "referenceMachineReturnRate": 1.033,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7602,
+          "observedProbability": 0.003801,
+          "theoreticalProbability": 0.003861003861003861
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 7907,
+          "observedProbability": 0.0039535,
+          "theoreticalProbability": 0.00392156862745098
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 330547,
+          "observedProbability": 0.1652735,
+          "theoreticalProbability": 0.1652892561983471
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56231,
+          "observedProbability": 0.0281155,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274158,
+          "observedProbability": 0.137079,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 2033,
+          "observedProbability": 0.0010165,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1959,
+          "observedProbability": 0.0009795,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1319563,
+          "observedProbability": 0.6597815,
+          "theoreticalProbability": 0.6598988573028857
+        }
+      ]
+    },
+    {
+      "model": "student",
+      "setting": 6,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": 0.2369746351458466,
+      "observedMean": 0.2246005,
+      "standardError": 0.01198720787234808,
+      "zScore": -1.032278348521099,
+      "modelReturnRate": 1.0789915450486156,
+      "referenceMachineReturnRate": 1.055,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7709,
+          "observedProbability": 0.0038545,
+          "theoreticalProbability": 0.00392156862745098
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 7929,
+          "observedProbability": 0.0039645,
+          "theoreticalProbability": 0.00392156862745098
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 345430,
+          "observedProbability": 0.172715,
+          "theoreticalProbability": 0.17271157167530224
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56289,
+          "observedProbability": 0.0281445,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274121,
+          "observedProbability": 0.1370605,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1947,
+          "observedProbability": 0.0009735,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1971,
+          "observedProbability": 0.0009855,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1304604,
+          "observedProbability": 0.652302,
+          "theoreticalProbability": 0.6524159770594833
+        }
+      ]
+    },
+    {
+      "model": "published",
+      "setting": 1,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": -0.08999999999999986,
+      "observedMean": -0.1030905,
+      "standardError": 0.011333106765054021,
+      "zScore": -1.1550672089638385,
+      "modelReturnRate": 0.9700000000000001,
+      "referenceMachineReturnRate": 0.97,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7196,
+          "observedProbability": 0.003598,
+          "theoreticalProbability": 0.0036616623947272058
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 4610,
+          "observedProbability": 0.002305,
+          "theoreticalProbability": 0.002273760800363802
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 319331,
+          "observedProbability": 0.1596655,
+          "theoreticalProbability": 0.15980048253791646
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56337,
+          "observedProbability": 0.0281685,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274485,
+          "observedProbability": 0.1372425,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1995,
+          "observedProbability": 0.0009975,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1916,
+          "observedProbability": 0.000958,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1334130,
+          "observedProbability": 0.667065,
+          "theoreticalProbability": 0.66723478025668
+        }
+      ]
+    },
+    {
+      "model": "published",
+      "setting": 2,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": -0.06000000000000005,
+      "observedMean": -0.07366,
+      "standardError": 0.01143927188033138,
+      "zScore": -1.194131946762003,
+      "modelReturnRate": 0.98,
+      "referenceMachineReturnRate": 0.98,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7285,
+          "observedProbability": 0.0036425,
+          "theoreticalProbability": 0.0037078235076010383
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 5062,
+          "observedProbability": 0.002531,
+          "theoreticalProbability": 0.0025025025025025025
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 318423,
+          "observedProbability": 0.1592115,
+          "theoreticalProbability": 0.1593515070567263
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56351,
+          "observedProbability": 0.0281755,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274476,
+          "observedProbability": 0.137238,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 2006,
+          "observedProbability": 0.001003,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1931,
+          "observedProbability": 0.0009655,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1334466,
+          "observedProbability": 0.667233,
+          "theoreticalProbability": 0.6674088529228577
+        }
+      ]
+    },
+    {
+      "model": "published",
+      "setting": 3,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": -0.015000000000000124,
+      "observedMean": -0.027641,
+      "standardError": 0.011536654081088917,
+      "zScore": -1.0957249746025775,
+      "modelReturnRate": 0.995,
+      "referenceMachineReturnRate": 0.995,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7285,
+          "observedProbability": 0.0036425,
+          "theoreticalProbability": 0.0037078235076010383
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 6121,
+          "observedProbability": 0.0030605,
+          "theoreticalProbability": 0.0030211480362537764
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 317212,
+          "observedProbability": 0.158606,
+          "theoreticalProbability": 0.158752760651711
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56341,
+          "observedProbability": 0.0281705,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274484,
+          "observedProbability": 0.137242,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1998,
+          "observedProbability": 0.000999,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1948,
+          "observedProbability": 0.000974,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1334611,
+          "observedProbability": 0.6673055,
+          "theoreticalProbability": 0.6674889537941218
+        }
+      ]
+    },
+    {
+      "model": "published",
+      "setting": 4,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": 0.03299999999999903,
+      "observedMean": 0.0205615,
+      "standardError": 0.011768401379772078,
+      "zScore": -1.056940496725302,
+      "modelReturnRate": 1.0109999999999997,
+      "referenceMachineReturnRate": 1.011,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7602,
+          "observedProbability": 0.003801,
+          "theoreticalProbability": 0.003861003861003861
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 6401,
+          "observedProbability": 0.0032005,
+          "theoreticalProbability": 0.0031735956839098697
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 315875,
+          "observedProbability": 0.1579375,
+          "theoreticalProbability": 0.15809820774764888
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56393,
+          "observedProbability": 0.0281965,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274443,
+          "observedProbability": 0.1372215,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 2032,
+          "observedProbability": 0.001016,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1936,
+          "observedProbability": 0.000968,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1335318,
+          "observedProbability": 0.667659,
+          "theoreticalProbability": 0.667837878697125
+        }
+      ]
+    },
+    {
+      "model": "published",
+      "setting": 5,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": 0.09899999999999975,
+      "observedMean": 0.0870175,
+      "standardError": 0.011904467764202604,
+      "zScore": -1.0065548697634177,
+      "modelReturnRate": 1.033,
+      "referenceMachineReturnRate": 1.033,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7602,
+          "observedProbability": 0.003801,
+          "theoreticalProbability": 0.003861003861003861
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 7907,
+          "observedProbability": 0.0039535,
+          "theoreticalProbability": 0.00392156862745098
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 314417,
+          "observedProbability": 0.1572085,
+          "theoreticalProbability": 0.1573725324251556
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56387,
+          "observedProbability": 0.0281935,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274451,
+          "observedProbability": 0.1372255,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 2029,
+          "observedProbability": 0.0010145,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1939,
+          "observedProbability": 0.0009695,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1335268,
+          "observedProbability": 0.667634,
+          "theoreticalProbability": 0.6678155810760771
+        }
+      ]
+    },
+    {
+      "model": "published",
+      "setting": 6,
+      "draws": 2000000,
+      "seed": 20261110,
+      "theoreticalMean": 0.16500000000000004,
+      "observedMean": 0.151876,
+      "standardError": 0.011984808881604631,
+      "zScore": -1.0950529232171509,
+      "modelReturnRate": 1.055,
+      "referenceMachineReturnRate": 1.055,
+      "outcomes": [
+        {
+          "id": "BIG",
+          "name": "BIG",
+          "count": 7709,
+          "observedProbability": 0.0038545,
+          "theoreticalProbability": 0.00392156862745098
+        },
+        {
+          "id": "REG",
+          "name": "REG",
+          "count": 7929,
+          "observedProbability": 0.0039645,
+          "theoreticalProbability": 0.00392156862745098
+        },
+        {
+          "id": "grape",
+          "name": "ブドウ",
+          "count": 327253,
+          "observedProbability": 0.1636265,
+          "theoreticalProbability": 0.1637147422820714
+        },
+        {
+          "id": "cherry",
+          "name": "チェリー",
+          "count": 56397,
+          "observedProbability": 0.0281985,
+          "theoreticalProbability": 0.028089887640449437
+        },
+        {
+          "id": "replay",
+          "name": "リプレイ",
+          "count": 274172,
+          "observedProbability": 0.137086,
+          "theoreticalProbability": 0.136986301369863
+        },
+        {
+          "id": "bell",
+          "name": "ベル",
+          "count": 1934,
+          "observedProbability": 0.000967,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "clown",
+          "name": "ピエロ",
+          "count": 1949,
+          "observedProbability": 0.0009745,
+          "theoreticalProbability": 0.0009765625
+        },
+        {
+          "id": "miss",
+          "name": "ハズレ",
+          "count": 1322657,
+          "observedProbability": 0.6613285,
+          "theoreticalProbability": 0.6614128064527143
+        }
+      ]
+    }
+  ]
+}

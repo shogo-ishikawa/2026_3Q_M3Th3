@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f4ec">
-  <meta name="description" content="くじを引いて、確率のふしぎを体験。1000回チャレンジと設定比較で何度でも遊べる、学生作品から生まれたくじ引きシミュレーション。">
+  <meta name="description" content="スロット風の演出で確率と期待値を体験。結果のばらつきや仮の金額換算を比べる、学生作品から生まれた学習用シミュレーション。">
   <title>くじびきラボ</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='10' width='56' height='44' rx='12' fill='%23245d56'/%3E%3Ctext x='32' y='43' font-size='36' text-anchor='middle'%3E★%3C/text%3E%3C/svg%3E">
   <style>
@@ -17,6 +17,17 @@
 @media(max-width:650px){.wrap{width:calc(100% - 32px)}.masthead{height:82px}.brand{font-size:17px;gap:8px}.brand-mark{font-size:32px}.brand small{font-size:8px}.header-actions{gap:13px;font-size:11px}.quiet{font-size:10px;padding:7px 10px}.intro{padding:32px 0 24px}.intro .eyebrow{font-size:9px;margin-bottom:10px}.intro h1{font-size:35px;line-height:1.4;letter-spacing:.025em;margin-bottom:14px}.mobile-only{display:block}.intro>p:last-of-type{font-size:11px;line-height:1.9}.intro-stamp{width:98px;height:98px;right:7px;top:45px;gap:3px;outline-offset:4px}.intro-stamp b{font-size:23px}.intro-stamp span{font-size:7px}.intro-stamp span:last-child{font-size:6px}.view-tabs{gap:24px;margin-bottom:18px}.view-tabs button{font-size:12px;padding:13px 2px}.play-layout{grid-template-columns:1fr;gap:16px}.draw-panel{padding:20px 20px 17px}.ticket{min-height:232px}.ticket h2{font-size:22px}.draw-actions{grid-template-columns:1fr 72px 72px;gap:9px}.primary{font-size:14px;padding:14px 18px}.quick-actions{flex-direction:row;gap:8px;align-items:center}.quick-actions>span{font-size:8px}.quick-actions .text-button{font-size:10px}.batch-note{min-height:34px}.stats-column{grid-template-columns:1fr;gap:16px}.score-panel{padding:20px 24px;position:relative}.score-panel .balance strong{font-size:54px}.score-row{margin-top:7px}.chart-panel{padding:22px}.line-chart{max-height:235px}.section-heading h2{font-size:14px}.collection-section{padding-top:25px}.collection-grid{grid-template-columns:repeat(4,1fr);gap:8px;margin-top:15px}.collection-card{min-height:108px;padding:12px 4px}.collection-card .collect-icon{font-size:25px;height:37px}.collection-card b{font-size:10px}.previous-runs{grid-template-columns:repeat(2,1fr);gap:8px}.previous-run:first-child{grid-column:1/-1}.previous-run{padding:15px}.previous-run p{font-size:10px}.previous-run b{font-size:19px}.previous-section{margin-top:27px}.previous-section .text-button{font-size:10px}.guide-section{margin-top:30px}.guide-steps{grid-template-columns:1fr;gap:23px}.details-content{padding-left:14px;padding-right:6px;font-size:11px}.guide-steps p{font-size:11px}.guide-links{gap:18px}.comparison-intro{margin:28px 0 20px}.comparison-intro h2{font-size:20px;line-height:1.6}.comparison-intro p:last-child{font-size:11px;line-height:1.8}.comparison-decoration{display:none}.comparison-form{padding:19px;display:grid;grid-template-columns:1fr 1fr;gap:18px 12px}.comparison-form .primary{grid-column:1/-1;justify-content:center;padding:14px}.comparison-chart-panel{padding:20px 12px}.comparison-chart-panel .section-heading{padding:0 7px}.comparison-table{font-size:11px}th,td{padding:10px 12px}.footer p{font-size:9px}.score-row strong{font-size:13px}.chart-panel .small-note{font-size:9px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
+/* スロット風の表示と、確率・お金の振り返り */
+.model-notice{font-size:11px;line-height:1.9;color:#64756a;border-left:3px solid #b8cbbb;padding:12px 17px;background:#eaf0e7;border-radius:0 7px 7px 0;margin:0 0 18px}.model-notice strong{color:var(--green);font-weight:700}.model-notice a{white-space:nowrap;margin-left:8px}.intro h1{font-size:clamp(29px,3.65vw,44px)}
+.ticket.slot-machine{min-height:342px;padding:18px 22px 17px;background:linear-gradient(150deg,#24564f,#173f39);border:1px solid #163d35;color:#fff8e9;box-shadow:inset 0 0 0 5px #ffffff08,inset 0 0 24px #102f2c55;transition:none}.ticket.slot-machine::before,.ticket.slot-machine::after{display:none}.machine-top{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:17px}.slot-machine .ticket-serial{font-size:8px;padding:0;color:#c1d0bd}.bonus-lamp{display:inline-flex;align-items:center;justify-content:center;min-width:95px;min-height:33px;padding:5px 13px;border:1px solid #628071;border-radius:17px;color:#a5baaa;background:#173d36;font-size:10px;letter-spacing:.12em;font-weight:800;box-shadow:inset 0 1px 5px #0b2a2455}.bonus-lamp[data-lit=true]{background:#f7d98a;color:#573c18;border-color:#ffe7b3;box-shadow:0 0 15px #f7d98a50,inset 0 0 0 2px #fff3c8}.reels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:0 0 16px}.reel-column{min-width:0}.reel-window{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;height:113px;border:3px solid #d6d8bc;border-radius:8px;background:linear-gradient(#d6dbcf 0%,#fffef5 28%,#fffef5 72%,#d6dbcf 100%);box-shadow:0 2px 0 #092b27,inset 0 5px 12px #344f3519}.reel-window::after{content:"";position:absolute;inset:calc(50% - 1px) 0 auto;height:2px;background:#ca795c36;pointer-events:none}.reel-symbol{display:block;min-width:0;font-size:43px;line-height:1.3;color:#955338;font-weight:900;font-family:system-ui,sans-serif;text-align:center;text-shadow:0 1px #fff;will-change:transform}.reel-symbol.rolling{animation:reel-spin .14s linear infinite;filter:blur(1.2px)}.reel-stop{display:block;width:100%;min-height:29px;margin-top:10px;border-radius:16px;background:#eee6d3;color:#28554b;font-size:9px;letter-spacing:.08em;font-weight:800;border:1px solid #eee4cb;box-shadow:0 2px 0 #0d2e28;transition:background .12s,transform .12s}.reel-stop:hover:not(:disabled){background:#f6d5a4}.reel-stop:active:not(:disabled){transform:translateY(2px);box-shadow:none}.reel-stop:disabled{background:#2c574e;color:#a1b7a4;border-color:#4c6e60;opacity:1;box-shadow:none}.machine-result{display:flex;align-items:center;justify-content:center;gap:9px;min-height:30px}.slot-machine .result-icon{display:inline-block;width:24px;height:auto;font-size:19px;line-height:1.3;color:#f0c57b}.ticket.slot-machine h2{font-size:18px;line-height:1.65;letter-spacing:.03em;margin:0}.ticket.slot-machine p{color:#d4decd;font-size:11px;margin:6px 0 13px}.slot-machine .ticket-caption{font-size:9px;line-height:1.7;color:#b4c9b7;border-top:1px solid #507565;margin:0;padding-top:11px}.ticket.slot-machine[data-result=BIG],.ticket.slot-machine[data-result=REG],.ticket.slot-machine[data-result=grape],.ticket.slot-machine[data-result=cherry],.ticket.slot-machine[data-result=replay],.ticket.slot-machine[data-result=bell],.ticket.slot-machine[data-result=clown],.ticket.slot-machine[data-result=miss]{background:linear-gradient(150deg,#24564f,#173f39)}.ticket.slot-machine.celebrate .result-icon{animation:none}.ticket.slot-machine.drawing .result-icon{animation:none}
+.reflection-panel{margin-top:28px;padding:28px 30px;background:var(--white);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.reflection-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}.reflection-heading .eyebrow{font-size:9px;margin-bottom:8px}.reflection-heading h2{font-size:19px;margin:0;letter-spacing:.03em}.money-unit{display:flex;align-items:center;gap:9px;font-size:10px;color:var(--muted);white-space:nowrap}.money-unit select{font-size:11px;padding:7px 21px 7px 9px}.reflection-summary{display:grid;grid-template-columns:1fr 1fr 1.08fr;margin-top:22px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.reflection-number{margin:0;padding:20px 18px}.reflection-number:first-child{padding-left:0}.reflection-number+.reflection-number{border-left:1px solid var(--line)}.reflection-number dt{font-size:10px;line-height:1.75;color:var(--muted);margin:0 0 10px}.reflection-number dd{font-size:24px;line-height:1.35;letter-spacing:-.02em;margin:0;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.reflection-number.money-number{background:#f6f1e6;padding-right:0;padding-left:23px}.reflection-explainer{font-size:11px;line-height:1.9;color:var(--muted);margin:15px 0 20px}.return-comparison{display:grid;grid-template-columns:1fr 1fr;column-gap:26px;padding:16px 20px;border:1px dashed #cbd4c5;border-radius:8px;background:#f3f6ef}.return-comparison>div{display:flex;align-items:baseline;justify-content:space-between;gap:16px}.return-comparison span{font-size:10px;line-height:1.7;color:#5e7062}.return-comparison strong{font-size:17px;font-variant-numeric:tabular-nums}.return-comparison>p{grid-column:1/-1;font-size:9px;line-height:1.85;color:var(--muted);margin:10px 0 0}.opportunity-cost{margin-top:25px}.opportunity-cost h3{font-size:14px;margin:0 0 10px}.opportunity-cost>p{font-size:11px;line-height:1.9;color:var(--muted);margin:0}.loss-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}.loss-examples>article,.loss-examples>.cost-example,.loss-examples>div{padding:15px 17px;border:1px solid #e2ded1;border-radius:8px;background:#faf7ef}.loss-examples h4,.loss-examples h3{font-size:12px;margin:0 0 10px}.loss-examples strong,.loss-examples b{display:block;color:#875b3c;font-size:21px;margin:7px 0;font-variant-numeric:tabular-nums}.loss-examples p,.loss-examples small{font-size:10px;line-height:1.8;color:var(--muted);margin:0}.loss-examples>.empty-note{border-top:0;border-bottom:0;border-left:3px solid #c4d3bf;background:#f0f4ec;padding:15px 18px}.opportunity-cost>.budget-note{font-size:9px;margin-top:10px}.analysis-action{display:flex;gap:22px;align-items:center;border-top:1px solid var(--line);padding-top:23px;margin-top:25px}.analysis-action>.primary{font-size:12px;line-height:1.8;padding:13px 19px;flex-shrink:0}.analysis-action>p{font-size:10px;line-height:1.85;color:var(--muted);margin:0;max-width:390px}.risk-results{margin-top:24px;padding:24px;border-radius:10px;background:#f1f4ec;border:1px solid #d7e0d0}.risk-result-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}.risk-result-heading .eyebrow{font-size:9px;margin-bottom:6px}.risk-result-heading h3{font-size:15px;line-height:1.8;margin:0}.risk-result-heading>strong{font-size:30px;line-height:1.25;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--green)}.risk-results>p:not(.small-note){font-size:11px;line-height:1.9;margin:14px 0 0;color:#5c7060}.risk-results>.small-note{font-size:10px;margin-top:10px}.distribution-chart{display:block;width:100%;height:auto;margin-top:20px;overflow:visible}.risk-results .distribution-caption{font-size:10px;text-align:center;margin:12px 0 0;line-height:1.8}.analysis-range{display:flex;justify-content:space-between;align-items:center;gap:15px;border-top:1px solid #d0daca;padding-top:14px;margin-top:19px}.analysis-range>span{font-size:10px;color:var(--muted)}.analysis-range>strong{font-size:13px;line-height:1.8;font-variant-numeric:tabular-nums}
+@keyframes reel-spin{from{transform:translateY(-38px) scaleY(.8);opacity:.5}to{transform:translateY(38px) scaleY(1.1);opacity:.9}}
+@media(max-width:1000px){.intro h1{font-size:34px}.intro-stamp{right:8px;width:125px;height:125px;top:45px}.intro-stamp b{font-size:29px}.intro-stamp span{font-size:8px}.intro-stamp span:last-child{font-size:7px}.ticket.slot-machine{padding:17px 15px 15px}.reels{gap:8px}.reel-window{height:99px}.reel-symbol{font-size:35px}.reflection-panel{padding:25px}.reflection-heading h2{font-size:17px}.reflection-number{padding-left:15px;padding-right:15px}.reflection-number dd{font-size:21px}.analysis-action{align-items:flex-start;flex-direction:column;gap:12px}.analysis-action>p{max-width:none}.return-comparison>div{align-items:flex-start;flex-direction:column;gap:4px}}
+@media(max-width:650px){.intro h1{font-size:30px;line-height:1.55;max-width:calc(100% - 72px)}.intro-stamp{width:76px;height:76px;right:1px;top:48px;gap:3px;outline-offset:3px}.intro-stamp b{font-size:20px}.intro-stamp span{font-size:5px}.intro-stamp span:last-child{font-size:4px}.intro>p:last-of-type{font-size:11px;margin-top:4px}.model-notice{font-size:10px;padding:11px 13px;margin-bottom:14px}.model-notice a{margin-left:0}.ticket.slot-machine{min-height:328px;padding:17px 17px 15px}.machine-top{margin-bottom:15px}.bonus-lamp{min-width:90px;min-height:30px;font-size:9px}.reels{gap:10px}.reel-window{height:101px}.reel-symbol{font-size:38px}.ticket.slot-machine h2{font-size:16px}.ticket.slot-machine .result-icon{font-size:17px}.slot-machine .ticket-caption{font-size:8px}.reflection-panel{padding:22px 19px;margin-top:20px}.reflection-heading{flex-direction:column;align-items:flex-start;gap:16px}.reflection-heading h2{font-size:17px}.money-unit{font-size:10px}.reflection-summary{grid-template-columns:1fr 1fr;margin-top:18px}.reflection-number{padding:17px 10px}.reflection-number:first-child{padding-left:0}.reflection-number dt{font-size:9px;min-height:31px;margin-bottom:8px}.reflection-number dd{font-size:21px}.reflection-number.money-number{grid-column:1/-1;padding:15px 13px;border-left:0;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}.reflection-number.money-number dt{min-height:0;margin:0}.reflection-explainer{font-size:10px}.return-comparison{padding:14px;gap:16px}.return-comparison span{font-size:9px}.return-comparison strong{font-size:17px}.return-comparison>p{font-size:9px;margin-top:0}.opportunity-cost{margin-top:22px}.opportunity-cost h3{font-size:13px}.opportunity-cost>p{font-size:10px}.loss-examples{grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.loss-examples>article,.loss-examples>.cost-example,.loss-examples>div{padding:13px}.loss-examples h4,.loss-examples h3{font-size:11px}.loss-examples strong,.loss-examples b{font-size:19px}.loss-examples p,.loss-examples small{font-size:9px}.analysis-action{padding-top:20px;margin-top:20px}.analysis-action>.primary{font-size:11px;width:100%;padding:12px 15px;gap:12px}.analysis-action>p{font-size:10px}.risk-results{margin-top:20px;padding:18px 13px}.risk-result-heading{align-items:flex-start;flex-direction:column;gap:10px}.risk-result-heading h3{font-size:13px}.risk-result-heading>strong{font-size:29px}.risk-results>p:not(.small-note){font-size:10px}.risk-results>.small-note{font-size:9px}.distribution-chart{margin-top:20px;min-height:140px}.analysis-range{align-items:flex-start;flex-direction:column;gap:6px;margin-top:14px;padding-top:13px}.analysis-range>strong{font-size:12px}.analysis-range>span{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.reel-symbol.rolling{animation:none!important;filter:none}.ticket.slot-machine,.bonus-lamp,.reel-stop{transition:none!important}}
+.model-selector{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:-3px 0 16px;font-size:10px;color:var(--muted)}.model-selector select{max-width:100%;min-width:0;font-size:11px;padding:8px 24px 8px 10px}.comparison-model-note{font-size:11px;line-height:1.8;color:var(--green);margin:0 0 14px}.ticket.slot-machine[data-result=REG] .reel-symbol{font-size:30px;letter-spacing:-.03em;font-family:ui-monospace,monospace}@media(max-width:650px){.model-selector{font-size:10px;gap:8px;margin-bottom:15px}.model-selector select{font-size:10px;padding-right:19px}.ticket.slot-machine[data-result=REG] .reel-symbol{font-size:27px}.comparison-model-note{font-size:10px}}
+.loss-examples>.budget-card>span{display:block;font-size:10px;line-height:1.8;color:var(--muted)}.reel-symbol.rolling{font-size:0!important}.reel-symbol.rolling::before{content:"🍇\A🔔\A7\A↻";white-space:pre;display:block;font-size:40px;line-height:1.55;text-align:center}@keyframes reel-spin{from{transform:translateY(58px);opacity:.65}to{transform:translateY(-58px);opacity:.95}}@media(max-width:650px){.loss-examples>.budget-card>span{font-size:9px}.reel-symbol.rolling::before{font-size:36px}}@media(prefers-reduced-motion:reduce){.reel-symbol.rolling{font-size:38px!important}.reel-symbol.rolling::before{display:none}}
+
 </style>
 </head>
 <body>
@@ -27,31 +38,38 @@
 
   <main class="wrap">
     <section class="intro">
-      <p class="eyebrow">ひとつの乱数から、いろんな結果。</p>
-      <h1>次のくじは、<br class="mobile-only">なにが出る？</h1>
-      <p>1回ずつ楽しんでも、まとめて引いても。<br>設定を変えて、1000回の運だめしをしてみよう。</p>
-      <div class="intro-stamp" aria-hidden="true"><span>TRY YOUR</span><b>LUCK!</b><span>くり返すほど、おもしろい</span></div>
+      <p class="eyebrow">期待値と、今日の結果。</p>
+      <h1>スロットを回して、<br class="mobile-only">確率を見てみよう。</h1>
+      <p>当たった瞬間の印象と、1000回の数字は同じかな。<br>回して、比べて、お金の使い道も考えてみよう。</p>
+      <div class="intro-stamp" aria-hidden="true"><span>PROBABILITY</span><b>LAB</b><span>期待値とばらつきを体験</span></div>
     </section>
 
+    <p class="model-notice"><span id="model-description">BIG・REG確率と理論出玉率を公表値に合わせたモデルです。公表表にない小役は仮定し、ブドウ確率だけを調整しています。実機の完全再現ではありません。</span> <a href="https://www.kitadenshi.co.jp/slot/neoimjugglerex/" target="_blank" rel="noopener">公式の確率表 ↗</a></p>
+
     <nav class="view-tabs" aria-label="遊び方を選ぶ">
-      <button type="button" id="play-tab" class="active" aria-pressed="true" aria-controls="play-view">くじを引く</button>
+      <button type="button" id="play-tab" class="active" aria-pressed="true" aria-controls="play-view">回してみる</button>
       <button type="button" id="compare-tab" aria-pressed="false" aria-controls="compare-view">設定を比べる <span aria-hidden="true">↗</span></button>
     </nav>
 
     <section id="play-view" aria-labelledby="play-tab">
       <div class="play-layout">
         <section class="draw-panel" aria-label="くじ引き">
-          <div class="panel-top"><span class="tag">1000回チャレンジ</span><label class="setting-label" for="setting">設定 <select id="setting"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option></select></label></div>
-          <div id="ticket" class="ticket" data-result="ready">
-            <span class="ticket-serial" id="ticket-serial">TICKET / 0000</span>
-            <span id="result-icon" class="result-icon" aria-hidden="true">?</span>
-            <h2 id="result-name">最初のくじを引こう</h2>
+          <div class="panel-top"><span class="tag">1000回チャレンジ</span><label class="setting-label" for="setting">設定 <select id="setting"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label></div>
+          <label class="model-selector" for="model-select"><span>抽選モデル</span><select id="model-select"><option value="published" selected>公式値に合わせたモデル</option><option value="student">学生の簡略モデル</option></select></label>
+          <div id="ticket" class="ticket slot-machine" data-result="ready">
+            <div class="machine-top"><span class="ticket-serial" id="ticket-serial">DRAW / 0000</span><span id="bonus-lamp" class="bonus-lamp" data-lit="false" role="status" aria-label="ボーナス未当選">BONUS</span></div>
+            <div class="reels" aria-label="演出用の3リール">
+              <div class="reel-column"><div class="reel-window"><span id="reel-0" class="reel-symbol" aria-hidden="true">?</span></div><button id="stop-reel-0" class="reel-stop" data-reel="0" type="button" disabled aria-label="左リールを止める">STOP</button></div>
+              <div class="reel-column"><div class="reel-window"><span id="reel-1" class="reel-symbol" aria-hidden="true">?</span></div><button id="stop-reel-1" class="reel-stop" data-reel="1" type="button" disabled aria-label="中央リールを止める">STOP</button></div>
+              <div class="reel-column"><div class="reel-window"><span id="reel-2" class="reel-symbol" aria-hidden="true">?</span></div><button id="stop-reel-2" class="reel-stop" data-reel="2" type="button" disabled aria-label="右リールを止める">STOP</button></div>
+            </div>
+            <div class="machine-result"><span id="result-icon" class="result-icon" aria-hidden="true">✳</span><h2 id="result-name">最初の1回を回してみよう</h2></div>
             <p id="result-detail">1回 3 pt · 当選するとポイント獲得</p>
-            <span class="ticket-caption">どの結果も、毎回まっさらな抽選。</span>
+            <span class="ticket-caption">停止のタイミングで当選確率は変わりません。</span>
           </div>
-          <div class="draw-actions"><button type="button" class="primary draw-button" id="draw-one" data-draw="1"><span>くじを引く</span><b aria-hidden="true">↗</b></button><button type="button" class="secondary draw-button" data-draw="10">10回</button><button type="button" class="secondary draw-button" data-draw="100">100回</button></div>
+          <div class="draw-actions"><button type="button" class="primary draw-button" id="draw-one" data-draw="1"><span>1回回す</span><b aria-hidden="true">↗</b></button><button type="button" class="secondary draw-button" data-draw="10">10回</button><button type="button" class="secondary draw-button" data-draw="100">100回</button></div>
           <div class="quick-actions"><button id="draw-rest" type="button" class="text-button">1000回までまとめて引く</button><span>仮想ポイントで遊ぶ確率実験</span></div>
-          <p id="batch-note" class="batch-note" role="status" aria-live="polite">まずは「くじを引く」を押してみましょう。</p>
+          <p id="batch-note" class="batch-note" role="status" aria-live="polite">「1回回す」でスタート。STOPでも、自動でも止まります。</p>
           <div class="progress-label"><span><b id="game-count">0</b> / 1000 回</span><span id="progress-message">あと1000回</span></div>
           <progress id="game-progress" value="0" max="1000" aria-label="チャレンジの進み具合">0 / 1000</progress>
           <div class="round-footer"><span id="seed-label"></span><button id="new-round" type="button" class="text-button">新しく始める <span aria-hidden="true">↻</span></button></div>
@@ -74,6 +92,27 @@
         </div>
       </div>
 
+      <section class="reflection-panel" aria-labelledby="reflection-heading">
+        <div class="reflection-heading"><div><p class="eyebrow">当たりの印象を、数字で確かめる</p><h2 id="reflection-heading">いまの結果を、数字で見る</h2></div><label class="money-unit" for="yen-per-point">仮に1 ptを<select id="yen-per-point"><option value="1">1円</option><option value="5">5円</option><option value="20" selected>20円</option></select>としたら</label></div>
+        <div class="reflection-summary">
+          <dl class="reflection-number"><dt>この回数での理論上の平均収支</dt><dd id="expected-net">±0 pt</dd></dl>
+          <dl class="reflection-number"><dt>今回の収支と期待値の差</dt><dd id="expectation-gap">±0 pt</dd></dl>
+          <dl class="reflection-number money-number"><dt>今回の収支を仮の円に換算</dt><dd id="yen-net">±0円</dd></dl>
+        </div>
+        <p class="reflection-explainer">期待値は、同じ条件をたくさん繰り返したときの平均です。今回の結果がぴったり一致するとは限りません。収支は初期50 ptからの増減で、所持ポイントとは別です。</p>
+        <div class="return-comparison"><div><span>選んだモデルの理論出玉率</span><strong id="model-return">—</strong></div><div><span>メーカー公表出玉率（参考）</span><strong id="official-return">—</strong></div><p>理論出玉率は、長期平均の獲得ポイントと消費ポイントの比率です。平均を合わせても結果の分布までは一致しません。1回ごとの勝率とは別です。</p></div>
+        <div class="opportunity-cost"><h3>ほかの使い道と比べると</h3><p id="money-note">金額は仮の換算です。実際の現金の出入りや交換額ではありません。</p><div id="loss-examples" class="loss-examples"></div><p class="budget-note">買い物の金額は比較用の予算例です。実売価格ではありません。</p></div>
+        <div class="analysis-action"><button type="button" class="primary" id="analyse-result" disabled>同じ条件で5000試行して比べる <span aria-hidden="true">↗</span></button><p id="analysis-status" role="status" aria-live="polite">何回か回したら、同じ設定・回数の結果と比べてみましょう。</p></div>
+        <div id="risk-results" class="risk-results" hidden>
+          <div class="risk-result-heading"><div><p class="eyebrow">同じ条件の結果は、どれくらい？</p><h3 id="tail-heading">今回の結果を比べる</h3></div><strong id="tail-estimate">—</strong></div>
+          <p id="tail-note"></p><p id="tail-interval" class="small-note"></p>
+          <svg id="distribution-chart" class="distribution-chart" viewBox="0 0 900 250" role="img" aria-label="同じ設定と回数で繰り返した収支の分布"></svg>
+          <p id="distribution-caption" class="distribution-caption"></p>
+          <div class="analysis-range"><span>同条件の試行結果の中央95%</span><strong id="analysis-range">—</strong></div>
+          <p class="small-note">このモデル内の推定です。実機での勝率ではありません。試行数には限りがあるので、少ない発生回数ほど推定も不安定になります。</p>
+        </div>
+      </section>
+
       <section class="collection-section" aria-labelledby="collection-heading">
         <div class="section-heading"><div><p class="eyebrow">何回目でそろうかな</p><h2 id="collection-heading">当選コレクション <span id="collection-count">0 / 7</span></h2></div><span class="section-aside">新しく始めても、見つけた役は残ります。</span></div>
         <div id="collection" class="collection-grid"></div>
@@ -87,6 +126,7 @@
 
     <section id="compare-view" hidden aria-labelledby="compare-tab">
       <div class="comparison-intro"><div><p class="eyebrow">同じ設定でも、結果はいろいろ</p><h2>6つの設定を、何度も試そう。</h2><p>1回の結果だけでは分かりにくい違いを、繰り返して比べます。</p></div><span class="comparison-decoration" aria-hidden="true">≈</span></div>
+      <p id="comparison-model-note" class="comparison-model-note">公式値に合わせたモデルで比較します。</p>
       <form id="comparison-form" class="comparison-form">
         <label>1試行のくじの回数<select id="compare-games"><option value="100">100回</option><option value="1000" selected>1000回</option><option value="5000">5000回</option></select></label>
         <label>設定ごとの試行数<select id="compare-runs"><option value="10">10回</option><option value="50" selected>50回</option><option value="100">100回</option></select></label>
@@ -101,8 +141,10 @@
     </section>
 
     <section id="guide" class="guide-section">
-      <details><summary><span class="summary-symbol" aria-hidden="true">?</span> はじめての遊び方 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content guide-steps"><div><span>01</span><h3>好きな設定で引く</h3><p>まずはそのまま「くじを引く」。1回3 ptを使い、出た役のポイントを受け取ります。</p></div><div><span>02</span><h3>1000回まで試す</h3><p>10回・100回ならすぐ進めます。大きな当たりやポイントの増減を見てみましょう。</p></div><div><span>03</span><h3>もう一度、比べる</h3><p>「新しく始める」で再挑戦。設定を変えると新しいチャレンジが始まります。</p></div></div></details>
-      <details><summary><span class="summary-symbol" aria-hidden="true">%</span> 当選確率とポイント <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>元の学生作品の確率と配当を使っています。1回につき当たる役は1つです。外れが続いても次の当選確率は変わりません。</p><div class="table-scroll"><table id="probability-table"><caption>現在の設定の確率</caption><thead><tr><th scope="col">役</th><th scope="col">当選確率</th><th scope="col">獲得ポイント</th><th scope="col">今回の回数</th></tr></thead><tbody></tbody></table></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">?</span> はじめての遊び方 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content guide-steps"><div><span>01</span><h3>好きな設定で引く</h3><p>まずはそのまま「1回回す」。STOPを押しても自動停止でも、1回分の抽選を確かめられます。</p></div><div><span>02</span><h3>1000回まで試す</h3><p>10回・100回ならすぐ進めます。演出は最後の1回分です。合計の収支とポイント推移も見てみましょう。</p></div><div><span>03</span><h3>もう一度、比べる</h3><p>結果の分析で期待値との差や仮の金額を確認。「新しく始める」で別の結果とも比べられます。</p></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">%</span> 当選確率とポイント <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>選択中のモデルの確率と配当です。1回につき当たる役は1つです。外れが続いても次の当選確率は変わりません。</p><div class="table-scroll"><table id="probability-table"><caption>現在の設定の確率</caption><thead><tr><th scope="col">役</th><th scope="col">当選確率</th><th scope="col">獲得ポイント</th><th scope="col">今回の回数</th></tr></thead><tbody></tbody></table></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">≈</span> 実機との違いと期待値 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>ジャグラーは北電子のパチスロシリーズです。この教材では、2つのモデルを選べます。どちらもBIG・REGはメーカー公表の確率を使い、図柄と演出は教材独自のものです。</p><p>「公式値に合わせたモデル」は、未公開の小役確率を補正して理論出玉率の平均を公表値に合わせています。小役確率やボーナス中の処理など、実機の仕組みを完全に再現したものではありません。</p><p>「学生の簡略モデル」は元作品の確率表を引き継ぎます。理論出玉率は公式値とは異なり、設定3では100%を超えますが公式値は99.5%です。どちらのモデルも実際の遊技の収支予測には使えません。</p><p>分析に出る中央95%の範囲は、今回の比較実験で得た結果の広がりです。期待値の信頼区間や、今後の結果が必ず入る範囲ではありません。</p></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">↻</span> 負けが続くと次は当たりやすい？ <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>この教材の抽選は毎回独立です。前の結果を覚えていないので、外れが続いても次の当選確率は変わりません。停止のタイミングでも変わりません。</p><p>今回プラスになっても、続ければ同じように増えるとは限りません。負けた分を取り返そうと回数を増やすと、使うポイントも増えます。「ここでやめたら」という使い道と比べてみましょう。</p></div></details>
       <details><summary><span class="summary-symbol" aria-hidden="true">&lt;/&gt;</span> Pythonで仕組みを見てみる <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>学生作品の「乱数でくじを引き、設定による違いを比べる」という発想を受け継いでいます。Python版では確率や配当を変えながら、<code>for</code>・<code>if</code>・辞書・関数の役割を確かめられます。</p><div class="guide-links"><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/lottery-lab/lottery_lab.ipynb" target="_blank" rel="noopener">Colabで開く ↗</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/lottery-lab" target="_blank" rel="noopener">コードと説明書 ↗</a></div></div></details>
     </section>
 
@@ -124,6 +166,10 @@ const OUTCOMES = Object.freeze([
 ].map(Object.freeze));
 
 const SETTINGS = Object.freeze([1, 2, 3, 4, 5, 6]);
+const MODELS = Object.freeze(['student', 'published']);
+// メーカー公表の予測出玉率。公開値に合わせたモデルも実機の完全再現ではありません。
+// https://www.kitadenshi.co.jp/slot/neoimjugglerex/
+const OFFICIAL_RETURN_RATES = Object.freeze([.970, .980, .995, 1.011, 1.033, 1.055]);
 const BONUS_DENOMINATORS = Object.freeze([
   [273.1, 439.8], [269.7, 399.6], [269.7, 331.0],
   [259.0, 315.1], [259.0, 255.0], [255.0, 255.0],
@@ -140,18 +186,31 @@ function validateSetting(setting) {
   return integer(setting, '設定', 1, 6);
 }
 
-function probabilities(setting) {
+function validateModel(model) {
+  if (!MODELS.includes(model)) throw new RangeError('モデルはstudentまたはpublishedを指定してください。');
+  return model;
+}
+
+function probabilities(setting, model = 'student') {
   validateSetting(setting);
+  validateModel(model);
   const bonus = BONUS_DENOMINATORS[setting - 1];
   const values = [1 / bonus[0], 1 / bonus[1],
     1 / (setting === 6 ? 5.79 : 6.05), 1 / 35.6, 1 / 7.3, 1 / 1024, 1 / 1024];
+  if (model === 'published') {
+    // BB/RBと他の小役は元の数表を保ち、ブドウだけで公表出玉率へ合わせます。
+    // 逆算した補正値であり、メーカーが公表したブドウ確率ではありません。
+    const otherExpectedPayout = values.reduce((sum, probability, index) =>
+      sum + (index === 2 ? 0 : probability * OUTCOMES[index].payout), 0);
+    values[2] = (3 * OFFICIAL_RETURN_RATES[setting - 1] - otherExpectedPayout) / OUTCOMES[2].payout;
+  }
   values.push(1 - values.reduce((total, value) => total + value, 0));
   return OUTCOMES.map((outcome, index) => ({ ...outcome, probability: values[index] }));
 }
 
-function expectedDelta(setting, cost = 3) {
+function expectedDelta(setting, cost = 3, model = 'student') {
   integer(cost, '1回の消費ポイント', 0, 10000);
-  return probabilities(setting).reduce((total, row) => total + row.probability * row.payout, 0) - cost;
+  return probabilities(setting, model).reduce((total, row) => total + row.probability * row.payout, 0) - cost;
 }
 
 // Mulberry32。seedが同じなら同じ抽選列になり、0も有効なseedです。
@@ -174,14 +233,15 @@ function freshSeed() {
 }
 
 function createSession({ setting = 6, initialPoints = 50, cost = 3,
-  seed = freshSeed(), targetGames = 1000 } = {}) {
+  seed = freshSeed(), targetGames = 1000, model = 'student' } = {}) {
   validateSetting(setting);
+  validateModel(model);
   integer(initialPoints, '初期ポイント', 0, 1000000);
   integer(cost, '1回の消費ポイント', 0, 10000);
   integer(targetGames, '抽選回数', 1, 5000);
   const rng = createRng(seed);
   return {
-    setting, initialPoints, cost, seed, targetGames,
+    setting, model, initialPoints, cost, seed, targetGames,
     games: 0, balance: initialPoints, spent: 0, earned: 0,
     counts: Object.fromEntries(OUTCOMES.map(row => [row.id, 0])),
     history: [initialPoints], last: null, rng,
@@ -206,7 +266,7 @@ function draw(session, count = 1) {
   if (!session || typeof session.rng !== 'function') {
     throw new TypeError('createSessionで抽選を準備してください。');
   }
-  const rows = probabilities(session.setting);
+  const rows = probabilities(session.setting, session.model);
   const length = Math.min(count, session.targetGames - session.games);
   const results = [];
   for (let index = 0; index < length; index += 1) {
@@ -226,14 +286,15 @@ function draw(session, count = 1) {
 }
 
 function compareSettings({ games = 1000, runs = 50, seed = 42,
-  initialPoints = 50, cost = 3 } = {}) {
+  initialPoints = 50, cost = 3, model = 'student' } = {}) {
   integer(games, '1セットの抽選回数', 1, 5000);
   integer(runs, '繰り返すセット数', 1, 100);
   integer(seed, '乱数の種', 0, 0xffffffff);
   integer(initialPoints, '初期ポイント', 0, 1000000);
   integer(cost, '1回の消費ポイント', 0, 10000);
+  validateModel(model);
   return SETTINGS.map(setting => {
-    const rows = probabilities(setting);
+    const rows = probabilities(setting, model);
     const meanHistory = new Array(games + 1).fill(0);
     meanHistory[0] = initialPoints;
     let totalNet = 0;
@@ -254,22 +315,129 @@ function compareSettings({ games = 1000, runs = 50, seed = 42,
       maxNet = Math.max(maxNet, net);
       if (net > 0) positives += 1;
     }
-    return { setting, meanNet: totalNet / runs, minNet, maxNet,
-      positiveRate: positives / runs, expectedNet: games * expectedDelta(setting, cost), meanHistory };
+    return { setting, model, meanNet: totalNet / runs, minNet, maxNet,
+      positiveRate: positives / runs, expectedNet: games * expectedDelta(setting, cost, model), meanHistory };
   });
+}
+
+function theoreticalStats(setting, cost = 3, model = 'student') {
+  integer(cost, '1回の消費ポイント', 0, 10000);
+  const rows = probabilities(setting, model);
+  const expectedPayout = rows.reduce((sum, row) => sum + row.probability * row.payout, 0);
+  const mean = expectedPayout - cost;
+  const variance = rows.reduce((sum, row) => sum + row.probability * (row.payout - expectedPayout) ** 2, 0);
+  return {
+    model, mean, variance, sd: Math.sqrt(variance),
+    returnRate: cost ? expectedPayout / cost : null,
+    officialReturnRate: OFFICIAL_RETURN_RATES[setting - 1],
+    bonusProbability: rows[0].probability + rows[1].probability,
+  };
+}
+
+// 各試行の収支だけを残すため、5000試行でも全ポイント履歴を持つ必要がありません。
+// この結果はモンテカルロ推定用であり、厳密な確率分布ではありません。
+function simulateDistribution({ setting = 6, games = 1000, runs = 5000,
+  seed = 20261110, cost = 3, model = 'student' } = {}) {
+  integer(games, '1試行の抽選回数', 1, 5000);
+  integer(runs, '試行数', 1, 10000);
+  integer(seed, '乱数の種', 0, 0xffffffff);
+  integer(cost, '1回の消費ポイント', 0, 10000);
+  const rows = probabilities(setting, model);
+  const thresholds = [];
+  let cumulative = 0;
+  for (const row of rows) {
+    cumulative += row.probability;
+    thresholds.push(cumulative);
+  }
+  const nets = new Array(runs);
+  let totalNet = 0;
+  let losses = 0;
+  for (let run = 0; run < runs; run += 1) {
+    const random = createRng((seed + run) >>> 0);
+    let net = -games * cost;
+    for (let game = 0; game < games; game += 1) {
+      const value = random();
+      let index = 0;
+      while (index < thresholds.length - 1 && value >= thresholds[index]) index += 1;
+      net += rows[index].payout;
+    }
+    nets[run] = net;
+    totalNet += net;
+    if (net < 0) losses += 1;
+  }
+  const sortedNets = [...nets].sort((left, right) => left - right);
+  // 経験分布のnearest-rank。これは平均の信頼区間ではなく、各試行の結果の幅です。
+  const quantile = fraction => sortedNets[Math.max(0, Math.ceil(fraction * runs) - 1)];
+  return {
+    nets, sortedNets, meanNet: totalNet / runs,
+    lower95: quantile(.025), upper95: quantile(.975), lossRate: losses / runs,
+    runs, games, seed, setting, cost, model,
+  };
+}
+
+function tailEstimate(distribution, observedNet) {
+  if (!Number.isFinite(observedNet)) throw new RangeError('収支には有限の数を指定してください。');
+  if (!distribution || !Array.isArray(distribution.nets) || !distribution.nets.length
+    || distribution.nets.length > 10000 || !distribution.nets.every(Number.isFinite)
+    || (distribution.runs !== undefined && distribution.runs !== distribution.nets.length)) {
+    throw new TypeError('simulateDistributionの試行結果を指定してください。');
+  }
+  // 勝ちなら「同じ収支以上」、負けなら「同じ収支以下」。分母には全試行を使います。
+  // 収支0は「0以上」とし、勝ちのときと同じ上側で数えます。
+  const direction = observedNet >= 0 ? 'upper' : 'lower';
+  const count = distribution.nets.filter(net => direction === 'upper' ? net >= observedNet : net <= observedNet).length;
+  const total = distribution.nets.length;
+  const probability = count / total;
+  const z = 1.959963984540054;
+  const divisor = 1 + z * z / total;
+  const centre = (probability + z * z / (2 * total)) / divisor;
+  const halfWidth = z / divisor * Math.sqrt(probability * (1 - probability) / total + z * z / (4 * total * total));
+  return {
+    direction, count, total, probability,
+    lower95: count ? Math.max(0, centre - halfWidth) : 0,
+    upper95: count < total ? Math.min(1, centre + halfWidth) : 1,
+    oneIn: count ? total / count : null,
+  };
+}
+
+const EXAMPLE_BUDGETS = Object.freeze([
+  { name: '昼食', price: 800 },
+  { name: '本', price: 1500 },
+  { name: '映画', price: 2000 },
+  { name: 'イヤホン', price: 5000 },
+  { name: '小旅行', price: 20000 },
+].map(Object.freeze));
+
+function moneyComparison(net, yenPerPoint = 20) {
+  if (!Number.isFinite(net) || !Number.isFinite(yenPerPoint) || yenPerPoint <= 0
+    || yenPerPoint > 1000000 || !Number.isSafeInteger(Math.trunc(net * yenPerPoint))) {
+    throw new RangeError('収支と1ポイントあたりの仮の金額に、範囲内の有限な数を指定してください。');
+  }
+  const yenNet = net * yenPerPoint;
+  const lossYen = Math.max(0, -yenNet);
+  return {
+    yenNet, lossYen,
+    // 比較用に決めた予算例です。実売価格や実際の交換率を表しません。
+    examples: EXAMPLE_BUDGETS.map(row => ({ ...row, count: Math.floor(lossYen / row.price) })),
+  };
 }
 
 
 const $ = selector => document.querySelector(selector);
 const nf = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 1 });
 const fineNumber = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 3 });
+const percentage = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 2 });
 const signed = (value, formatter = nf) => `${value > 0 ? '+' : value < 0 ? '−' : '±'}${formatter.format(Math.abs(value))}`;
 const colourClass = value => value > 0 ? 'positive' : value < 0 ? 'negative' : '';
 const STORAGE_KEY = 'lottery-lab-v1';
 const COLOURS = ['#8a9d91', '#a77c65', '#8486ad', '#39949b', '#d49b35', '#245d56'];
-let session = createSession();
+const modelName = model => model === 'published' ? '公式値に合わせたモデル' : '学生の簡略モデル';
+let session = createSession({ setting: Number($('#setting').value), model: $('#model-select').value });
 let sessionRecorded = false;
 let busy = false;
+let analysisBusy = false;
+let latestAnalysis = null;
+let pendingSpin = null;
 let sound = false;
 let audioContext;
 let collection = Object.fromEntries(OUTCOMES.filter(row => row.id !== 'miss').map(row => [row.id, 0]));
@@ -286,7 +454,9 @@ try {
       previous = saved.previous.filter(row => row && Number.isInteger(row.setting) && row.setting >= 1 && row.setting <= 6
         && Number.isInteger(row.games) && row.games > 0 && row.games <= 1000
         && Number.isSafeInteger(row.net) && Number.isSafeInteger(row.seed)
-        && Number.isInteger(row.bonus) && row.bonus >= 0).slice(0, 5);
+        && Number.isInteger(row.bonus) && row.bonus >= 0
+        && (row.model === undefined || ['student', 'published'].includes(row.model)))
+        .slice(0, 5).map(row => ({ ...row, model: row.model ?? 'student' }));
     }
   }
 } catch {
@@ -332,6 +502,113 @@ function drawChart(element, series, { width = 500, height = 235, maxGames, descr
   element.innerHTML = content;
 }
 
+function resetAnalysis() {
+  latestAnalysis = null;
+  $('#risk-results').hidden = true;
+  $('#analysis-status').textContent = '何回か回したら、同じモデル・設定・回数の結果と比べてみましょう。';
+}
+
+function renderReflection() {
+  const net = session.balance - session.initialPoints;
+  const stats = theoreticalStats(session.setting, session.cost, session.model);
+  const expected = stats.mean * session.games;
+  const money = moneyComparison(net, Number($('#yen-per-point').value));
+  $('#expected-net').textContent = `${signed(expected)} pt`;
+  $('#expectation-gap').textContent = `${signed(net - expected)} pt`;
+  $('#yen-net').textContent = `${signed(money.yenNet)} 円`;
+  $('#yen-net').className = colourClass(money.yenNet);
+  $('#model-return').textContent = `${percentage.format(stats.returnRate * 100)}%`;
+  $('#official-return').textContent = `${percentage.format(stats.officialReturnRate * 100)}%`;
+  $('#model-description').textContent = session.model === 'published'
+    ? 'BIG・REG確率と理論出玉率をメーカー公表値に合わせたモデルです。公表表にない小役は仮定し、ブドウ確率だけを調整しています。実機の結果分布やリールの完全再現ではありません。'
+    : '学生作品の確率と配当を使う簡略モデルです。BIG・REG確率はメーカー公表表と一致しますが、小役を含む全体の出玉率は実機と異なります。';
+  if (money.lossYen > 0) {
+    $('#money-note').textContent = `差し引きの損失は、仮の換算で${nf.format(money.lossYen)}円です。使わずに残していれば、例えば次の予算に充てられました。`;
+    const affordable = money.examples.filter(row => row.count > 0);
+    $('#loss-examples').innerHTML = affordable.length
+      ? affordable.map(row => `<article class="budget-card"><strong>${row.name}なら ${nf.format(row.count)} 回分</strong><span>1回 ${nf.format(row.price)} 円の予算例</span></article>`).join('')
+      : '<p class="empty-note">少額でも使えば手元から減ります。買い物例は800円の昼食予算から表示します。</p>';
+  } else {
+    $('#money-note').textContent = session.games
+      ? '今回は差し引きで損失が出ていません。プラスでも、それが次回の結果を保証するわけではありません。'
+      : '金額は仮の換算です。実際の現金の出入りや交換額ではありません。';
+    $('#loss-examples').innerHTML = '<p class="empty-note">収支がマイナスになったら、同じ金額のほかの使い道を表示します。</p>';
+  }
+}
+
+function drawDistribution(sample, observed, expected) {
+  const narrow = matchMedia('(max-width: 650px)').matches;
+  const width = narrow ? 520 : 900, height = 250;
+  $('#distribution-chart').setAttribute('viewBox', `0 0 ${width} ${height}`);
+  const fontSize = narrow ? 18 : 14;
+  const margin = { left: 53, right: 24, top: 40, bottom: 38 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const min = Math.min(sample.sortedNets[0], observed, expected);
+  const max = Math.max(sample.sortedNets.at(-1), observed, expected);
+  const padding = Math.max(1, (max - min) * .03);
+  const low = min - padding, high = max + padding;
+  const bins = new Array(30).fill(0);
+  for (const value of sample.nets) {
+    const index = Math.min(bins.length - 1, Math.floor((value - low) / (high - low) * bins.length));
+    bins[index]++;
+  }
+  const peak = Math.max(...bins) / sample.runs;
+  const x = value => margin.left + (value - low) / (high - low) * plotWidth;
+  const y = value => margin.top + plotHeight * (1 - value / peak);
+  let content = '<title>同条件で繰り返した収支の分布</title><desc>横軸は収支、縦軸は比較した試行の割合。橙線は今回、緑の点線は理論平均です。</desc>';
+  content += `<rect x="${x(sample.lower95)}" y="${margin.top}" width="${x(sample.upper95) - x(sample.lower95)}" height="${plotHeight}" fill="#e2e9d9"/>`;
+  for (let i = 0; i <= 3; i++) {
+    const proportion = peak * i / 3;
+    content += `<line x1="${margin.left}" x2="${width - margin.right}" y1="${y(proportion)}" y2="${y(proportion)}" stroke="#d6ddce"/><text x="${margin.left - 9}" y="${y(proportion) + 4}" text-anchor="end" fill="#647764" font-size="${fontSize}">${percentage.format(proportion * 100)}%</text>`;
+  }
+  bins.forEach((count, index) => {
+    const barWidth = plotWidth / bins.length;
+    content += `<rect x="${margin.left + index * barWidth + 1}" y="${y(count / sample.runs)}" width="${barWidth - 2}" height="${plotHeight * count / sample.runs / peak}" fill="#71977b"/>`;
+  });
+  for (let i = 0; i <= 4; i++) {
+    const value = low + (high - low) * i / 4;
+    content += `<text x="${x(value)}" y="${height - 13}" text-anchor="middle" fill="#647764" font-size="${fontSize}">${nf.format(Math.round(value))}</text>`;
+  }
+  content += `<line x1="${x(expected)}" x2="${x(expected)}" y1="${margin.top}" y2="${height - margin.bottom}" stroke="#1c574d" stroke-width="2" stroke-dasharray="5 4"/><text x="${x(expected)}" y="14" text-anchor="middle" fill="#245d56" font-size="14">理論平均</text>`;
+  content += `<line x1="${x(observed)}" x2="${x(observed)}" y1="${margin.top}" y2="${height - margin.bottom}" stroke="#c2633d" stroke-width="3"/><text x="${x(observed)}" y="31" text-anchor="middle" fill="#ab4e2b" font-size="14">今回</text>`;
+  $('#distribution-chart').innerHTML = content;
+}
+
+async function analyseResult() {
+  if (busy || analysisBusy || !session.games) return;
+  analysisBusy = true;
+  renderSession();
+  const snapshot = { model: session.model, setting: session.setting, games: session.games,
+    cost: session.cost, net: session.balance - session.initialPoints };
+  $('#analysis-status').textContent = '同じモデル・設定・回数で5000試行を比較しています…';
+  await new Promise(resolve => setTimeout(resolve, 30));
+  try {
+    const seed = createSession().seed;
+    const sample = simulateDistribution({ ...snapshot, runs: 5000, seed });
+    const tail = tailEstimate(sample, snapshot.net);
+    latestAnalysis = { ...snapshot, sample, tail };
+    $('#risk-results').hidden = false;
+    $('#tail-heading').textContent = snapshot.net >= 0 ? '今回以上の収支になった割合' : '今回以下の収支になった割合';
+    $('#tail-estimate').textContent = tail.count ? `推定 ${percentage.format(tail.probability * 100)}%` : '5000試行中 0回';
+    const frequency = tail.count >= 5 ? `約${nf.format(tail.oneIn)}試行に1回の割合です。` : '';
+    $('#tail-note').textContent = `${modelName(snapshot.model)}・設定${snapshot.setting}で${nf.format(snapshot.games)}回ずつ試したところ、5000試行中${nf.format(tail.count)}試行でした。${frequency}${tail.count === 0 ? '今回見つからなくても、起きる確率が0という意味ではありません。' : tail.count < 5 ? '発生件数が少ないため、この推定は特に不安定です。' : ''}`;
+    $('#tail-interval').textContent = `推定割合の95%信頼区間（Wilson法）：${percentage.format(tail.lower95 * 100)}〜${percentage.format(tail.upper95 * 100)}%。`;
+    const expected = snapshot.games * theoreticalStats(snapshot.setting, snapshot.cost, snapshot.model).mean;
+    drawDistribution(sample, snapshot.net, expected);
+    $('#analysis-range').textContent = `${signed(sample.lower95)} 〜 ${signed(sample.upper95)} pt`;
+    $('#distribution-caption').textContent = '横軸：収支（pt）／縦軸：各範囲の試行割合。薄緑は試行結果の中央95%。平均の信頼区間とは別です。';
+    $('#analysis-status').textContent = `${nf.format(snapshot.games)}回 × 5000試行を比較しました。ゲームの回数や残高には加算していません。`;
+  } catch (error) {
+    latestAnalysis = null;
+    $('#risk-results').hidden = true;
+    $('#analysis-status').textContent = `比較できませんでした。${error.message}`;
+  } finally {
+    analysisBusy = false;
+    renderSession();
+  }
+}
+
 function renderCollection() {
   const found = Object.values(collection).filter(count => count > 0).length;
   $('#collection-count').textContent = `${found} / 7`;
@@ -342,7 +619,7 @@ function renderCollection() {
 }
 
 function renderPrevious() {
-  $('#previous-runs').innerHTML = previous.length ? previous.map(row => `<article class="previous-run"><p>設定${row.setting} · ${row.games}回</p><b class="${colourClass(row.net)}">${signed(row.net)} <small style="display:inline">pt</small></b><small>BIG / REG 合計${row.bonus}回</small></article>`).join('') : '<p class="empty-note">「新しく始める」で、今の結果がここに残ります。</p>';
+  $('#previous-runs').innerHTML = previous.length ? previous.map(row => `<article class="previous-run"><p>${modelName(row.model)}</p><p>設定${row.setting} · ${row.games}回</p><b class="${colourClass(row.net)}">${signed(row.net)} <small style="display:inline">pt</small></b><small>BIG / REG 合計${row.bonus}回</small></article>`).join('') : '<p class="empty-note">「新しく始める」で、今の結果がここに残ります。</p>';
 }
 
 function renderSession() {
@@ -357,24 +634,28 @@ function renderSession() {
   const done = session.games === session.targetGames;
   $('#progress-message').textContent = done ? '1000回、完走！' : `あと${nf.format(session.targetGames - session.games)}回`;
   $('#seed-label').textContent = `今回の乱数の種：${session.seed}`;
-  $('#draw-one span').textContent = done ? 'もう一度遊ぶ' : 'くじを引く';
-  for (const button of document.querySelectorAll('.draw-button')) button.disabled = busy || (done && button.id !== 'draw-one');
-  $('#draw-rest').disabled = busy || done;
-  $('#export-csv').disabled = busy || !session.games;
-  $('#setting').disabled = busy;
-  $('#new-round').disabled = busy;
-  const delta = expectedDelta(session.setting, session.cost);
+  $('#draw-one span').textContent = done ? 'もう一度試す' : '1回回す';
+  const blocked = busy || analysisBusy;
+  for (const button of document.querySelectorAll('.draw-button')) button.disabled = blocked || (done && button.id !== 'draw-one');
+  $('#draw-rest').disabled = blocked || done;
+  $('#export-csv').disabled = blocked || !session.games;
+  $('#setting').disabled = blocked;
+  $('#model-select').disabled = blocked;
+  $('#new-round').disabled = blocked;
+  $('#analyse-result').disabled = blocked || !session.games;
+  const delta = expectedDelta(session.setting, session.cost, session.model);
   drawChart($('#history-chart'), [
     { values: session.history.map((_, index) => session.initialPoints + delta * index), colour: '#a6b0a1', dashed: true },
     { values: session.history, colour: '#245d56' },
   ], { maxGames: Math.max(50, session.games), description: `設定${session.setting}、${session.games}回。所持${session.balance}ポイント、収支${signed(net)}ポイント。` });
-  $('#probability-table caption').textContent = `設定${session.setting} · 理論上の1回あたりの平均収支 ${signed(delta, fineNumber)} pt`;
-  $('#probability-table tbody').innerHTML = probabilities(session.setting).map(row => `<tr><td>${row.name}</td><td>${nf.format(row.probability * 100)}%${row.id !== 'miss' ? `（約1/${nf.format(1 / row.probability)}）` : ''}</td><td>${row.payout} pt</td><td>${session.counts[row.id]} 回</td></tr>`).join('');
+  $('#probability-table caption').textContent = `${modelName(session.model)}・設定${session.setting} · 理論上の1回あたりの平均収支 ${signed(delta, fineNumber)} pt`;
+  $('#probability-table tbody').innerHTML = probabilities(session.setting, session.model).map(row => `<tr><td>${row.name}${row.id === 'grape' && session.model === 'published' ? '（補正値）' : ''}</td><td>${nf.format(row.probability * 100)}%${row.id !== 'miss' ? `（約1/${nf.format(1 / row.probability)}）` : ''}</td><td>${row.payout} pt</td><td>${session.counts[row.id]} 回</td></tr>`).join('');
+  renderReflection();
 }
 
 function archiveSession() {
   if (session.games && !sessionRecorded) {
-    previous.unshift({ setting: session.setting, games: session.games, net: session.balance - session.initialPoints, seed: session.seed, bonus: session.counts.BIG + session.counts.REG });
+    previous.unshift({ model: session.model, setting: session.setting, games: session.games, net: session.balance - session.initialPoints, seed: session.seed, bonus: session.counts.BIG + session.counts.REG });
     previous = previous.slice(0, 5);
     sessionRecorded = true;
     saveRecords();
@@ -382,35 +663,72 @@ function archiveSession() {
 }
 
 function newRound() {
-  if (busy) return;
+  if (busy || analysisBusy) return;
+  const nextModel = $('#model-select').value;
+  if (nextModel !== session.model) {
+    $('#comparison-results').hidden = true;
+    $('#comparison-status').textContent = 'モデルを切り替えました。選んだモデルでもう一度比較できます。';
+  }
   archiveSession();
-  session = createSession({ setting: Number($('#setting').value) });
+  session = createSession({ setting: Number($('#setting').value), model: nextModel });
   sessionRecorded = false;
+  resetAnalysis();
   $('#ticket').dataset.result = 'ready';
   $('#ticket').classList.remove('drawing', 'celebrate');
-  $('#ticket-serial').textContent = 'TICKET / 0000';
+  $('#ticket-serial').textContent = 'DRAW / 0000';
   $('#result-icon').textContent = '?';
-  $('#result-name').textContent = '最初のくじを引こう';
+  $('#result-name').textContent = 'リールを回してみよう';
   $('#result-detail').textContent = '1回 3 pt · 当選するとポイント獲得';
-  $('#batch-note').textContent = '新しいチャレンジです。同じ設定でも結果は変わります。';
+  $('#batch-note').textContent = '新しい実験です。同じモデル・設定でも結果は変わります。';
+  for (let index = 0; index < 3; index++) {
+    $(`#reel-${index}`).textContent = ['7', '🍇', '🔔'][index];
+    $(`#stop-reel-${index}`).disabled = true;
+  }
+  setBonusLamp(false);
   renderSession();
   renderPrevious();
 }
 
-function confetti() {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const container = $('#confetti');
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < 30; i++) {
-    const piece = document.createElement('i');
-    piece.style.left = `${Math.random() * 100}%`;
-    piece.style.setProperty('--drift', `${Math.random() * 180 - 90}px`);
-    piece.style.background = ['#e87950', '#f7c867', '#8aaf9d', '#eac4b2'][i % 4];
-    piece.style.animationDelay = `${Math.random() * .25}s`;
-    fragment.append(piece);
+function setBonusLamp(lit) {
+  $('#bonus-lamp').classList.toggle('lit', lit);
+  $('#bonus-lamp').dataset.lit = String(lit);
+  $('#bonus-lamp').setAttribute('aria-label', lit ? 'ボーナス当選' : 'ボーナス未当選');
+}
+
+function stopReel(index) {
+  if (!pendingSpin || pendingSpin.stopped.has(index)) return;
+  const spin = pendingSpin;
+  spin.stopped.add(index);
+  $(`#reel-${index}`).classList.remove('rolling');
+  $(`#reel-${index}`).textContent = spin.symbols[index];
+  $(`#stop-reel-${index}`).disabled = true;
+  if (spin.stopped.size === 3) {
+    pendingSpin = null;
+    spin.resolve();
   }
-  container.replaceChildren(fragment);
-  setTimeout(() => container.replaceChildren(), 2300);
+}
+
+function animateReels(outcome) {
+  const symbols = {
+    BIG: ['7', '7', '7'], REG: ['BAR', 'BAR', 'BAR'],
+    grape: ['🍇', '🍇', '🍇'], cherry: ['🍒', '🍒', '🍒'],
+    replay: ['↻', '↻', '↻'], bell: ['🔔', '🔔', '🔔'],
+    clown: ['🃏', '🃏', '🃏'], miss: ['🍇', '🔔', '↻'],
+  }[outcome.id];
+  setBonusLamp(false);
+  return new Promise(resolve => {
+    const spin = { symbols, stopped: new Set(), resolve };
+    pendingSpin = spin;
+    for (let index = 0; index < 3; index++) {
+      $(`#reel-${index}`).classList.add('rolling');
+      $(`#reel-${index}`).textContent = '✳';
+      $(`#stop-reel-${index}`).disabled = false;
+      // STOPは決定済みの結果を表示するだけ。抽選し直さず、連打でも1回です。
+      setTimeout(() => {
+        if (pendingSpin === spin) stopReel(index);
+      }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 420 + index * 240);
+    }
+  });
 }
 
 async function chime(bonus) {
@@ -442,16 +760,18 @@ async function chime(bonus) {
 }
 
 async function play(count) {
-  if (busy) return;
+  if (busy || analysisBusy) return;
   if (session.games === session.targetGames) { newRound(); return; }
   busy = true;
+  resetAnalysis();
   renderSession();
   $('#ticket').classList.remove('drawing', 'celebrate');
   $('#result-icon').textContent = '✳';
-  $('#result-name').textContent = 'くじを開いています';
-  $('#result-detail').textContent = 'なにが出るかな…';
-  await new Promise(resolve => setTimeout(resolve, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260));
+  $('#result-name').textContent = 'リール回転中';
+  $('#result-detail').textContent = '自動で止まります。STOPでも止められます。';
   const results = draw(session, count);
+  const shown = results.at(-1);
+  await animateReels(shown);
   const counts = Object.fromEntries(OUTCOMES.map(row => [row.id, 0]));
   const discoveries = [];
   for (const result of results) {
@@ -461,22 +781,21 @@ async function play(count) {
       collection[result.id]++;
     }
   }
-  const best = results.reduce((choice, row) => row.payout > choice.payout ? row : choice, results.at(-1));
-  const outcome = OUTCOMES.find(row => row.id === best.id);
-  $('#ticket').dataset.result = best.id;
-  $('#ticket-serial').textContent = `TICKET / ${String(best.game).padStart(4, '0')}`;
+  const outcome = OUTCOMES.find(row => row.id === shown.id);
+  $('#ticket').dataset.result = shown.id;
+  $('#ticket-serial').textContent = `DRAW / ${String(shown.game).padStart(4, '0')}`;
   $('#result-icon').textContent = outcome.icon;
-  $('#result-name').textContent = best.id === 'BIG' ? 'BIG！' : best.name;
-  $('#result-detail').textContent = best.id === 'miss' ? '今回は 0 pt。次のくじはどうかな？' : `${best.payout} pt 獲得！`;
+  $('#result-name').textContent = shown.name;
+  $('#result-detail').textContent = shown.id === 'miss' ? '今回の獲得は 0 pt（消費 3 pt）' : `今回の獲得 ${shown.payout} pt（消費 3 pt）`;
   $('#ticket').classList.add('drawing');
-  const bonus = counts.BIG + counts.REG > 0;
-  if (bonus) { $('#ticket').classList.add('celebrate'); confetti(); }
+  const bonus = ['BIG', 'REG'].includes(shown.id);
+  setBonusLamp(bonus);
   void chime(bonus);
   const parts = OUTCOMES.filter(row => row.id !== 'miss' && counts[row.id]).map(row => `${row.name}×${counts[row.id]}`);
   const done = session.games === session.targetGames;
-  let note = results.length === 1 ? `${session.games}回目の結果です。` : `${results.length}回分：${parts.length ? parts.join(' / ') : 'すべてハズレ'}。表示は獲得ポイントが一番大きいくじです。`;
+  let note = results.length === 1 ? `${session.games}回目の結果です。` : `${results.length}回分：${parts.length ? parts.join(' / ') : 'すべてハズレ'}。リールは最後の1回を表示しています。`;
   if (discoveries.length) note += ` ${discoveries.join('・')}を初めて発見！`;
-  if (done) note += ` 1000回達成！収支は${signed(session.balance - session.initialPoints)} ptでした。もう一度遊んでみましょう。`;
+  if (done) note += ` 1000回の実験が終わりました。収支は${signed(session.balance - session.initialPoints)} ptです。下の分析で比べられます。`;
   $('#batch-note').textContent = note;
   busy = false;
   if (done) archiveSession();
@@ -490,6 +809,10 @@ for (const button of document.querySelectorAll('[data-draw]')) button.addEventLi
 $('#draw-rest').addEventListener('click', () => void play(session.targetGames - session.games));
 $('#new-round').addEventListener('click', newRound);
 $('#setting').addEventListener('change', newRound);
+$('#model-select').addEventListener('change', newRound);
+$('#yen-per-point').addEventListener('change', renderReflection);
+$('#analyse-result').addEventListener('click', () => void analyseResult());
+for (let index = 0; index < 3; index++) $(`#stop-reel-${index}`).addEventListener('click', () => stopReel(index));
 $('#sound-toggle').addEventListener('click', () => {
   sound = !sound;
   $('#sound-toggle').textContent = `音：${sound ? 'オン' : 'オフ'}`;
@@ -515,12 +838,15 @@ $('#comparison-form').addEventListener('submit', async event => {
   button.textContent = '比べています…';
   const games = Number($('#compare-games').value);
   const runs = Number($('#compare-runs').value);
+  const model = session.model;
   $('#comparison-status').textContent = `各設定で${nf.format(games)}回のくじを${runs}試行ずつ引いています…`;
   await new Promise(resolve => setTimeout(resolve, 30));
   try {
     const seed = createSession().seed;
-    const rows = compareSettings({ games, runs, seed });
+    const rows = compareSettings({ games, runs, seed, model });
+    if (model !== session.model) return;
     $('#comparison-results').hidden = false;
+    $('#comparison-model-note').textContent = `${modelName(model)}で比べています。モデルは「回してみる」画面で切り替えられます。`;
     drawChart($('#comparison-chart'), rows.map((row, index) => ({ values: row.meanHistory, colour: COLOURS[index] })), { width: 900, height: 300, maxGames: games, description: `${games}回を${runs}試行ずつ行った全設定の平均ポイント` });
     $('#comparison-legend').innerHTML = rows.map((row, index) => `<span><i class="legend-line" style="border-color:${COLOURS[index]}"></i>設定${row.setting}</span>`).join('');
     $('#comparison-body').innerHTML = rows.map(row => `<tr><td>設定 ${row.setting}</td><td class="${colourClass(row.meanNet)}">${signed(row.meanNet)}</td><td>${signed(row.minNet)} 〜 ${signed(row.maxNet)}</td><td>${nf.format(row.positiveRate * 100)}%</td><td>${signed(row.expectedNet)}</td></tr>`).join('');
@@ -534,12 +860,12 @@ $('#comparison-form').addEventListener('submit', async event => {
 
 $('#export-csv').addEventListener('click', () => {
   if (!session.games) return;
-  const rows = [['setting', 'seed', 'game', 'balance', 'net'], ...session.history.map((balance, game) => [session.setting, session.seed, game, balance, balance - session.initialPoints])];
+  const rows = [['model', 'setting', 'seed', 'game', 'balance', 'net'], ...session.history.map((balance, game) => [session.model, session.setting, session.seed, game, balance, balance - session.initialPoints])];
   const blob = new Blob(['\ufeff', rows.map(row => row.join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `lottery-setting${session.setting}-${session.seed}.csv`;
+  link.download = `lottery-${session.model}-setting${session.setting}-${session.seed}.csv`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
