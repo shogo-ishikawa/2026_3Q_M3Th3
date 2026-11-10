@@ -1,6 +1,6 @@
 import {ALLERGENS, INGREDIENTS, RECIPES} from './data.js';
-import {generatePlan, replaceRecipe, describeRecipe, eligibleRecipes, shoppingList, analyseHistory} from './planner.js';
-import {GROUP_IDS, PROTEIN_IDS, STORAGE_KEY, localDate, defaultState, validateState, parseState, readState, writeState} from './storage.js';
+import {generatePlan, replaceRecipe, toggleDish, describeRecipe, eligibleRecipes, shoppingList, analyseHistory} from './planner.js';
+import {GROUP_IDS, GENRES, STORAGE_KEY, localDate, rebalanceGenreRatios, validateState, parseState, readState, writeState} from './storage.js';
 
 const data = {recipes: RECIPES, ingredients: INGREDIENTS, allergens: ALLERGENS};
 const GROUP_NAMES = {staple: '主食', vegetable: '野菜などの副菜', protein: '肉・魚・卵・大豆', dairy: '牛乳・乳製品', fruit: '果物'};
@@ -26,6 +26,8 @@ let shoppingText = '';
 let toastTimer;
 let storageWarning = '';
 let previousHistoryRecipeName = '';
+let pantryIds = new Set();
+let showPantry = false;
 const toast = document.createElement('div');
 toast.className = 'toast';
 toast.hidden = true;
@@ -66,6 +68,9 @@ function closeRecipe() {
 
 function invalidatePlan() {
   plan = null;
+  pantryIds = new Set();
+  showPantry = false;
+  $('show-pantry').checked = false;
   closeRecipe();
   $('shopping-section').hidden = true;
   $('plan-date-label').textContent = '夕食の提案';
@@ -73,7 +78,7 @@ function invalidatePlan() {
 }
 
 function engineSettings() {
-  return {...state.settings, meal: 'dinner', history: state.history, preferences: {genre: 'all'}, seed: Math.floor(Math.random() * 2147483647)};
+  return {...state.settings, meal: 'dinner', history: state.history, seed: Math.floor(Math.random() * 2147483647)};
 }
 
 function formatDate(value, includeYear = false) {
@@ -102,6 +107,10 @@ function renderSettings() {
   $('start-date').value = state.settings.startDate;
   $('plan-days').value = state.settings.days;
   $('servings').value = state.settings.servings;
+  $('genre-mode').value = state.settings.preferences.genreMode;
+  $('single-genre').value = state.settings.preferences.genre === 'all' ? '和食' : state.settings.preferences.genre;
+  $('meal-mood').value = state.settings.preferences.mood;
+  renderGenrePreferences();
   $('required-allergens').replaceChildren();
   $('other-allergens').replaceChildren();
   for (const allergen of ALLERGENS) {
@@ -114,6 +123,76 @@ function renderSettings() {
   }
   $('allergen-count').textContent = `${state.settings.allergens.length}件`;
   renderIngredientChoices();
+  renderPreferredChoices();
+}
+
+function renderGenrePreferences() {
+  const preferences = state.settings.preferences;
+  $('single-genre-field').hidden = preferences.genreMode !== 'single';
+  $('genre-ratio-field').hidden = preferences.genreMode !== 'ratio';
+  const box = $('genre-ratios');
+  box.replaceChildren();
+  for (const genre of GENRES) {
+    const label = node('label', 'ratio-input-label', genre);
+    const input = document.createElement('input');
+    input.type = 'number'; input.min = '0'; input.max = '100'; input.step = '1';
+    input.value = preferences.genreRatios[genre];
+    input.setAttribute('aria-label', `${genre}の割合`);
+    input.addEventListener('change', () => {
+      try {
+        state.settings.preferences.genreRatios = rebalanceGenreRatios(state.settings.preferences.genreRatios, genre, Number(input.value));
+        renderGenrePreferences(); settingsChanged();
+      } catch (error) { input.value = state.settings.preferences.genreRatios[genre]; tell(error.message, true); }
+    });
+    label.append(input, node('span', '', '%'));
+    box.append(label);
+  }
+  $('ratio-total').textContent = `${Math.round(Object.values(preferences.genreRatios).reduce((sum, value) => sum + value, 0) * 100) / 100}%`;
+}
+
+function changePreferences() {
+  const mode = $('genre-mode').value;
+  state.settings.preferences.genreMode = mode;
+  state.settings.preferences.genre = mode === 'single' ? $('single-genre').value : 'all';
+  state.settings.preferences.mood = $('meal-mood').value;
+  renderGenrePreferences();
+  settingsChanged();
+}
+
+function renderPreferredChoices() {
+  const values = state.settings.preferences.preferredIngredients;
+  const selected = $('preferred-selections');
+  selected.replaceChildren();
+  for (const id of values) {
+    const button = node('button', '', `${INGREDIENTS[id].name} ×`);
+    button.type = 'button';
+    button.setAttribute('aria-label', `${INGREDIENTS[id].name}の優先を取り消す`);
+    button.addEventListener('click', () => {
+      state.settings.preferences.preferredIngredients = state.settings.preferences.preferredIngredients.filter(value => value !== id);
+      settingsChanged();
+    });
+    selected.append(button);
+  }
+  const query = $('preferred-search').value.trim();
+  const options = $('preferred-options');
+  options.replaceChildren();
+  if (!query) return;
+  const matches = Object.entries(INGREDIENTS).filter(([id, ingredient]) => ingredient.name.includes(query) && !values.includes(id)).slice(0, 20);
+  for (const [id, ingredient] of matches) {
+    const button = node('button', '', `＋ ${ingredient.name}`);
+    button.type = 'button';
+    button.addEventListener('click', () => {
+      if (state.settings.excludedIngredients.includes(id)) {
+        tell(`${ingredient.name}は除外中です。優先したい場合は、先に追加の除外食材から外してください。`, true);
+        return;
+      }
+      state.settings.preferences.preferredIngredients.push(id);
+      $('preferred-search').value = '';
+      settingsChanged();
+    });
+    options.append(button);
+  }
+  if (!matches.length) options.append(node('p', 'field-note', '一致する登録食材がありません。別の名前で検索してください。'));
 }
 
 function renderIngredientChoices() {
@@ -139,8 +218,11 @@ function renderIngredientChoices() {
     button.type = 'button';
     button.addEventListener('click', () => {
       state.settings.excludedIngredients.push(id);
+      const wasPreferred = state.settings.preferences.preferredIngredients.includes(id);
+      state.settings.preferences.preferredIngredients = state.settings.preferences.preferredIngredients.filter(value => value !== id);
       $('ingredient-search').value = '';
       settingsChanged();
+      if (wasPreferred) tell(`${ingredient.name}を除外し、優先する食材から外しました。`);
     });
     options.append(button);
   }
@@ -151,6 +233,7 @@ function settingsChanged() {
   invalidatePlan();
   $('allergen-count').textContent = `${state.settings.allergens.length}件`;
   renderIngredientChoices();
+  renderPreferredChoices();
   renderRecipeCatalog();
   renderHistorySummary();
   persist();
@@ -208,35 +291,70 @@ function renderPlan() {
     for (const text of plan.warnings) note.append(node('p', '', String(text)));
     output.append(note);
   }
+  const toolbar = node('div', 'plan-toolbar');
+  const shopping = node('button', 'button-secondary', '買い物リストを見る');
+  shopping.type = 'button';
+  shopping.addEventListener('click', () => {
+    $('shopping-section').open = true;
+    $('shopping-section').scrollIntoView({behavior: 'smooth', block: 'start'});
+  });
+  toolbar.append(node('p', '', '料理名からレシピを開けます。作らない料理は、今回の献立から外せます。'), shopping);
+  output.append(toolbar);
+  if (plan.genreSummary?.mode === 'ratio') {
+    const summary = node('div', 'genre-summary');
+    const actual = GENRES.filter(genre => plan.genreSummary.actual?.[genre]).map(genre => `${genre}${plan.genreSummary.actual[genre]}日`).join('・');
+    summary.append(node('p', '', `作る主菜のジャンル：${actual || '主菜をすべて除外しています'}`));
+    if (plan.genreSummary.note) summary.append(node('p', 'field-note', plan.genreSummary.note));
+    output.append(summary);
+  }
   plan.days.forEach((day, dayIndex) => {
     const article = node('article', 'day-card');
     const heading = node('div', 'day-heading');
     heading.append(node('h3', '', `${formatDate(day.date)}の夕食`));
     const record = node('button', 'button-secondary', '食べた記録へ');
     record.type = 'button';
-    record.disabled = day.date > localDate();
+    const activeIds = day.recipeIds.filter(id => !(day.omittedRecipeIds || []).includes(id));
+    record.disabled = day.date > localDate() || !activeIds.length;
     if (record.disabled) record.title = '食べた日になったら記録できます。';
+    if (!activeIds.length) record.title = '料理をすべて除外しているため、記録する料理がありません。';
     record.addEventListener('click', () => addDayToHistory(day));
     heading.append(record);
     article.append(heading);
     const dishes = node('div', 'day-dishes');
     for (const id of day.recipeIds) {
       const recipe = describeRecipe(id, data);
-      const row = node('div', 'dish-row');
+      const omitted = (day.omittedRecipeIds || []).includes(id);
+      const row = node('div', `dish-row${omitted ? ' omitted' : ''}`);
       const content = node('div');
       content.append(node('span', 'dish-role', ROLE_NAMES[recipe.role] || recipe.role));
       const open = node('button', 'dish-name', recipe.name);
       open.type = 'button';
       open.addEventListener('click', () => openRecipe(id));
       content.append(open, node('p', 'dish-info', `${recipe.genre} · 目安${recipe.minutes}分 · 材料と作り方を見る`));
+      if (omitted) content.append(node('p', 'omitted-label', '今回は作りません（買い物リストと記録の対象外）'));
       row.append(content);
+      const controls = node('div', 'dish-controls');
       if (recipe.role !== 'staple') {
         const swap = node('button', 'swap-button', '差し替え');
         swap.type = 'button';
         swap.setAttribute('aria-label', `${recipe.name}を差し替える`);
+        swap.disabled = omitted;
         swap.addEventListener('click', () => swapDish(dayIndex, id));
-        row.append(swap);
+        controls.append(swap);
       }
+      const omit = node('button', `omit-button${omitted ? ' restore-button' : ''}`, omitted ? '戻す' : '今回は除外');
+      omit.type = 'button';
+      omit.setAttribute('aria-label', omitted ? `${recipe.name}を献立に戻す` : `${recipe.name}を今回は除外する`);
+      omit.addEventListener('click', () => {
+        try {
+          plan = toggleDish(plan, {dayIndex, recipeId: id}, data);
+          renderPlan();
+          if (!plan.ok) { tell((plan.warnings || []).join(' ') || '献立を作り直してください。', true); return; }
+          tell(omitted ? `${recipe.name}を今回の献立に戻しました。` : `${recipe.name}を今回の献立から外しました。材料も買い物リストから除きます。`);
+        } catch (error) { tell(error.message, true); }
+      });
+      controls.append(omit);
+      row.append(controls);
       dishes.append(row);
     }
     article.append(dishes);
@@ -265,14 +383,39 @@ function renderShoppingList() {
   const ingredients = shoppingList(plan, state.settings.servings, data);
   const grid = node('div', 'shopping-list-grid');
   const lines = [`献立ノート · ${state.settings.servings}人分`];
+  let inPantry = 0;
+  let toBuy = 0;
   for (const item of ingredients) {
-    const row = node('div', 'shopping-item');
-    row.append(node('span', '', item.name), node('span', '', amountText(item.amount, item.unit)));
-    grid.append(row);
-    lines.push(`${item.name}：${amountText(item.amount, item.unit)}`);
+    const owned = pantryIds.has(item.id);
+    if (owned) inPantry++; else {
+      toBuy++;
+      lines.push(`${item.name}：${amountText(item.amount, item.unit)}`);
+    }
+    if (!owned || showPantry) {
+      const row = node('div', `shopping-item${owned ? ' in-pantry' : ''}`);
+      const label = node('label', 'pantry-choice');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox'; checkbox.checked = owned;
+      checkbox.setAttribute('aria-label', `${item.name}は家にある`);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) pantryIds.add(item.id); else pantryIds.delete(item.id);
+        renderShoppingList();
+      });
+      label.append(checkbox, node('span', '', '家にある'));
+      const name = node('div', 'shopping-name');
+      name.append(node('span', '', item.name), node('small', '', amountText(item.amount, item.unit)));
+      row.append(name, label);
+      grid.append(row);
+    }
   }
+  if (!ingredients.length) grid.append(node('p', 'field-note', '今回作る料理がないため、買い物リストは空です。「戻す」で料理を戻せます。'));
+  else if (!toBuy && !showPantry) grid.append(node('p', 'field-note', '買う食材はありません。「家にある食材も表示する」でチェックを取り消せます。'));
   $('shopping-list').replaceChildren(grid);
-  shoppingText = lines.join('\n');
+  shoppingText = toBuy ? lines.join('\n') : '';
+  $('show-pantry').checked = showPantry;
+  $('pantry-status').textContent = `買う食材 ${toBuy}品 · 家にある食材 ${inPantry}品${!showPantry && inPantry ? '（非表示）' : ''}。コピーには買う食材だけを含めます。`;
+  $('reset-pantry').disabled = !pantryIds.size;
+  $('copy-shopping').disabled = !toBuy;
   $('copy-status').textContent = '';
   $('shopping-section').hidden = false;
 }
@@ -391,10 +534,12 @@ function addHistory(entry) {
 
 function addDayToHistory(day) {
   if (day.date > localDate()) { tell('未来の食事はまだ記録できません。食べた日に追加してください。', true); return; }
-  const identical = state.history.some(entry => entry.date === day.date && entry.meal === day.meal && [...entry.recipeIds].sort().join('|') === [...day.recipeIds].sort().join('|'));
+  const activeIds = day.recipeIds.filter(id => !(day.omittedRecipeIds || []).includes(id));
+  if (!activeIds.length) { tell('料理をすべて除外しているため、記録する料理がありません。', true); return; }
+  const identical = state.history.some(entry => entry.date === day.date && entry.meal === day.meal && [...entry.recipeIds].sort().join('|') === [...activeIds].sort().join('|'));
   if (identical) { tell('この献立は食事の記録に追加済みです。'); return; }
   try {
-    addHistory({id: newRecordId(), date: day.date, meal: day.meal || 'dinner', recipeIds: [...day.recipeIds], groups: [], proteinSources: [], note: ''});
+    addHistory({id: newRecordId(), date: day.date, meal: day.meal || 'dinner', recipeIds: [...activeIds], groups: [], proteinSources: [], note: ''});
     tell('食事の記録に追加しました。次の献立は、更新した記録をもとに作成できます。');
   } catch (error) { tell(error.message, true); }
 }
@@ -440,11 +585,13 @@ $('planner-form').addEventListener('submit', event => {
   event.preventDefault();
   try {
     if ($('ingredient-search').value.trim()) throw new Error('追加で避ける食材は、検索結果の候補を押して選択してください。入力しただけでは除外条件に入りません。');
+    if ($('preferred-search').value.trim()) throw new Error('できれば使いたい食材は、検索結果の候補を押して選択してください。入力しただけでは優先する食材に入りません。');
     state.settings.startDate = $('start-date').value;
     state.settings.days = Number($('plan-days').value);
     state.settings.servings = Number($('servings').value);
     state = validateState(state, data);
     plan = generatePlan(engineSettings(), data);
+    pantryIds = new Set(); showPantry = false;
     renderPlan(); renderHistorySummary(); persist();
     tell(plan.ok ? `${plan.days.length}日分の献立を作成しました。料理名から材料と作り方を開けます。` : '除外条件を維持したままでは、必要な料理の候補が足りません。', !plan.ok);
   } catch (error) { invalidatePlan(); tell(error.message, true); }
@@ -458,6 +605,19 @@ for (const [element, setting] of [['start-date', 'startDate'], ['plan-days', 'da
   });
 }
 $('ingredient-search').addEventListener('input', renderIngredientChoices);
+$('preferred-search').addEventListener('input', renderPreferredChoices);
+for (const id of ['genre-mode', 'single-genre', 'meal-mood']) $(id).addEventListener('change', changePreferences);
+$('ratio-equal').addEventListener('click', () => {
+  state.settings.preferences.genreRatios = Object.fromEntries(GENRES.map(genre => [genre, 20]));
+  renderGenrePreferences(); settingsChanged();
+});
+$('ratio-japanese').addEventListener('click', () => {
+  state.settings.preferences.genreRatios = {'和食': 60, '洋食': 20, '中華': 10, 'エスニック': 10, 'その他': 0};
+  renderGenrePreferences(); settingsChanged();
+});
+$('preferred-search').addEventListener('keydown', event => {
+  if (event.key === 'Enter') { event.preventDefault(); tell('検索結果の候補を押して、優先したい食材を選択してください。'); }
+});
 $('ingredient-search').addEventListener('keydown', event => {
   if (event.key === 'Enter') {
     event.preventDefault();
@@ -488,12 +648,19 @@ $('history-form').addEventListener('submit', event => {
 });
 $('more-history').addEventListener('click', () => { historyLimit += 8; renderHistory(); });
 $('copy-shopping').addEventListener('click', async () => {
+  if (!shoppingText) { $('copy-status').textContent = 'コピーする買い物リストがありません。'; return; }
   try {
     await navigator.clipboard.writeText(shoppingText);
     $('copy-status').textContent = '買い物リストをコピーしました。';
   } catch {
     $('copy-status').textContent = '自動コピーを利用できません。表示されているリストを選択してコピーしてください。';
   }
+});
+$('show-pantry').addEventListener('change', () => { showPantry = $('show-pantry').checked; if (plan?.ok) renderShoppingList(); });
+$('reset-pantry').addEventListener('click', () => {
+  pantryIds = new Set();
+  if (plan?.ok) renderShoppingList();
+  $('copy-status').textContent = '家にある食材のチェックをすべて取り消しました。';
 });
 $('export-records').addEventListener('click', () => {
   try {

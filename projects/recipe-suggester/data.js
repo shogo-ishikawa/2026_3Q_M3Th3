@@ -1,5 +1,5 @@
 /** 献立候補の教材用データ。材料・分量・手順は本教材用に記述しています。 */
-export const DATA_VERSION = '1.0.0';
+export const DATA_VERSION = '1.1.0';
 
 // 2026年の消費者庁の表示対象。特定原材料9品目と推奨20品目。
 export const ALLERGENS = [
@@ -5466,7 +5466,92 @@ const EXTRA_SIDE_SOUP_RECIPES = [
   }
 ];
 
+// 気分タグは味や料理の構成を選ぶ目安です。栄養量の評価には使いません。
+// 「さっぱり」は酢・柑橘の酸味や蒸し料理・澄んだ汁などを中心に、
+// 「ガッツリ」は肉料理・丼・麺・衣焼きなどの食べ応えの印象から付けています。
+// 「定番」は家庭で親しみやすい料理を選び、「時短」は目安20分以内で統一します。
+// ご飯だけで気分条件を満たさないよう、主食の補助レシピにはタグを付けません。
+const MOOD_RECIPE_IDS = {
+  'さっぱり': new Set([
+    'chicken-steam','chicken-salt-lemon','pork-beansprout','pork-salt-cabbage',
+    'salmon-foil','salmon-lemon','cod-salt-steam','horse-mackerel-pan',
+    'scallop-broccoli','tofu-vegetable','chicken-nanban-pickle','chicken-tofu-pot',
+    'clam-sake-steam','cod-fishball','egg-tofu-porridge',
+    'potato-pepper-strips','kiriboshi-cucumber','chickpea-carrot-lemon',
+    'sweet-potato-apple','aubergine-tomato-cold',
+    'side-002','side-003','side-004','side-006','side-009','side-014','side-015',
+    'side-017','side-020','side-021','side-022','side-033','side-034','side-036',
+    'side-041','side-044','side-045','side-046','side-048','side-049',
+    'side-051','side-052','side-054','side-059','side-060',
+    'soup-013','soup-014','soup-015','soup-018','soup-020','soup-025','soup-026',
+    'soup-030','soup-031','soup-032','soup-033','soup-036','soup-040',
+  ]),
+  'ガッツリ': new Set([
+    'chicken-teriyaki','chicken-cashew','chicken-miso','chicken-curry-yogurt',
+    'chicken-meatball','chicken-lotus','pork-ginger','pork-cabbage','pork-vinegar',
+    'pork-meatball','pork-roll','pork-aubergine','pork-tofu','beef-onion',
+    'beef-pepper','beef-potato','beef-tomato','beef-hamburg','beef-burdock',
+    'beef-broccoli','salmon-miso','salmon-milk','cod-sweet-vinegar','cod-potato',
+    'shrimp-chilli','shrimp-egg','crab-omelette','tofu-mapo','tofu-burger',
+    'egg-potato','chicken-rice-bowl','beef-rice-bowl','pork-rice-bowl',
+    'egg-fried-rice','salmon-fried-rice','tomato-chicken-curry','minced-dry-curry',
+    'tofu-rice-bowl','pasta-meat','pasta-shrimp','pasta-mushroom','pasta-milk-salmon',
+    'udon-pork','udon-egg','soba-chicken','rice-egg-omelette','rice-baked-cheese',
+    'chicken-sandwich','pork-cabbage-roll','pork-chive-egg','chicken-root-simmer',
+    'okara-vegetable-patty','soy-hijiki-patty','mackerel-curry-roast','cod-cheese-bake',
+    'seafood-okonomiyaki','soy-taco-rice','chicken-pilaf','soy-milk-risotto',
+    'savoury-french-toast','rice-flour-chijimi','pork-stuffed-pepper','tofu-sesame-crust',
+    'yam-shimeji-butter','side-013','side-016','side-018','side-031','side-038',
+    'side-039','side-053','side-055','side-057','side-058',
+    'soup-003','soup-007','soup-010','soup-016','soup-017','soup-019',
+    'soup-027','soup-028','soup-029','soup-034','soup-035','soup-037',
+    'soup-038','soup-039',
+  ]),
+  '定番': new Set([
+    'chicken-teriyaki','chicken-tomato','chicken-miso','chicken-meatball',
+    'chicken-oyako','pork-ginger','pork-cabbage','pork-vinegar','pork-daikon',
+    'pork-meatball','pork-roll','pork-tofu','beef-onion','beef-pepper','beef-potato',
+    'beef-hamburg','beef-burdock','salmon-foil','salmon-miso','salmon-lemon',
+    'mackerel-miso','sardine-ginger','shrimp-chilli','shrimp-egg','tofu-steak',
+    'tofu-mapo','tofu-burger','tofu-egg','omelette-vegetable','egg-potato','egg-tomato',
+    'crab-omelette','chicken-rice-bowl','beef-rice-bowl','egg-fried-rice',
+    'tomato-chicken-curry','minced-dry-curry','pasta-meat','pasta-mushroom',
+    'udon-pork','udon-egg','soba-chicken','rice-egg-omelette',
+    'pork-cabbage-roll','chicken-root-simmer','chicken-nanban-pickle',
+    'chicken-tofu-pot','tofu-dried-simmer','clam-sake-steam',
+    'squid-daikon-simmer','seafood-okonomiyaki','chicken-pilaf',
+    'egg-tofu-porridge','pork-stuffed-pepper','daikon-leaf-tofu',
+    'side-001','side-002','side-004','side-006','side-008','side-012',
+    'side-013','side-027','side-028','side-029','side-030','side-037',
+    'side-040','side-044','side-049','side-050','side-054','side-056',
+    'soup-001','soup-002','soup-003','soup-005','soup-006','soup-009',
+    'soup-012','soup-013','soup-014','soup-015','soup-018','soup-026',
+    'soup-027','soup-033','soup-038','soup-039',
+  ]),
+};
+
+// 「エスニック」はこの教材の料理系統の目安です。国・地域を厳密に分類する意味ではありません。
+// カレー粉・クミン・ターメリック等を主な風味にした料理や、チヂミなどへ明示的に付けます。
+// 由来や系統がはっきりしないサラダ・混成料理は「その他」のまま残します。
+const ETHNIC_RECIPE_IDS = new Set([
+  'chicken-curry-yogurt','tomato-chicken-curry','minced-dry-curry',
+  'mackerel-curry-roast','rice-flour-chijimi',
+  'side-019','side-026','side-035','side-036','side-045',
+  'soup-021','soup-022','soup-023',
+]);
+
+const applyPreferences = item => ({
+  ...item,
+  genre: ETHNIC_RECIPE_IDS.has(item.id) ? 'エスニック' : item.genre,
+  tags: item.role === 'staple' ? [] : [
+    ...(MOOD_RECIPE_IDS['さっぱり'].has(item.id) ? ['さっぱり'] : []),
+    ...(MOOD_RECIPE_IDS['ガッツリ'].has(item.id) ? ['ガッツリ'] : []),
+    ...(item.minutes <= 20 ? ['時短'] : []),
+    ...(MOOD_RECIPE_IDS['定番'].has(item.id) ? ['定番'] : []),
+  ],
+});
+
 export const RECIPES = [...MAIN_RECIPES, ...EXTRA_MAIN_SIDE_RECIPES, ...SIDE_SOUP_RECIPES, ...EXTRA_SIDE_SOUP_RECIPES,
   {id:'plain-rice',name:'ご飯',role:'staple',genre:'和食',minutes:5,servings:2,
    ingredients:[{id:'rice',amount:300}],steps:['炊飯済みのご飯を十分温め、人数分に分けて盛る。'],tags:[],staple:true},
-];
+].map(applyPreferences);
