@@ -3,7 +3,17 @@
     {
       "source": "projects/lottery-lab",
       "destination": "projects/lottery-lab",
-      "files": ["index.html"]
+      "files": [
+        "index.html"
+      ]
+    },
+    {
+      "source": "projects/password-lab",
+      "destination": "projects/password-lab",
+      "files": [
+        "index.html",
+        "dist"
+      ]
     }
   ]
 }

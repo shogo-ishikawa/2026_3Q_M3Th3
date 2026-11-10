@@ -28,6 +28,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Prepare password lab dependencies
+        run: python -m pip install -r projects/password-lab/requirements.txt ipython
+      - name: Check password lab
+        working-directory: projects/password-lab
+        env:
+          NUMBA_NUM_THREADS: '2'
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Package password lab
+        run: python projects/password-lab/tools/build_release.py
       - name: Check lottery JavaScript
         run: npm test --prefix projects/lottery-lab
       - name: Check lottery Python

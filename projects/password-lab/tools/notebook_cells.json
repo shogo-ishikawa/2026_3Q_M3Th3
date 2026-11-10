@@ -1,0 +1,52 @@
+[
+  {
+    "type": "markdown",
+    "id": "welcome",
+    "text": "# パスワードラボ\n\n「あと1文字長ければ、探す時間はどれくらい変わる？」\n\n実験用の文字列を用意して、探し方と計算方法を比べてみましょう。**実際に使っているパスワードは入力しないでください。**\n\nセル1から5まで順に実行します。まずは数字4文字のデモで試せます。GPUがなくても動きます。\n\n[詳しい使い方](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/password-lab/docs/manual.md)"
+  },
+  {
+    "type": "code",
+    "id": "setup",
+    "text": "#@title 1. 実行環境を準備する\ngpu_enabled = True #@param {type:\"boolean\"}\nimport importlib.util\nimport subprocess\nimport sys\nimport tempfile\nfrom pathlib import Path\nfrom html import escape\nfrom IPython.display import display, HTML\n\nmissing = [name for name in (\"numpy\", \"numba\") if importlib.util.find_spec(name) is None]\nif missing:\n    subprocess.run([sys.executable, \"-m\", \"pip\", \"-q\", \"install\", *missing], check=True)\n\n# GPUがある環境で、CuPyだけが未導入なら追加します。\nimport shutil\nif gpu_enabled and shutil.which(\"nvidia-smi\") and importlib.util.find_spec(\"cupy\") is None:\n    try:\n        subprocess.run([sys.executable, \"-m\", \"pip\", \"-q\", \"install\", \"cupy-cuda12x\"], check=True)\n    except subprocess.CalledProcessError:\n        print(\"GPU用ライブラリの準備ができませんでした。CPUで続けられます。\")\n\nruntime_dir = Path(tempfile.mkdtemp(prefix=\"password-lab-\"))\n(runtime_dir / \"hash_engines.py\").write_text(__HASH_MODULE_LITERAL__, encoding=\"utf-8\")\n(runtime_dir / \"password_core.py\").write_text(__CORE_MODULE_LITERAL__, encoding=\"utf-8\")\nsys.path.insert(0, str(runtime_dir))\nfor name in (\"hash_engines\", \"password_core\"):\n    sys.modules.pop(name, None)\nfrom password_core import (\n    alphabet_for, generate_password, validate_password, run_experiment,\n    duration, pbkdf2_comparison,\n)\n\ndef show_table(rows, columns):\n    header = \"\".join(\"<th>\" + escape(label) + \"</th>\" for key, label in columns)\n    body = \"\"\n    for row in rows:\n        values = []\n        for key, label in columns:\n            value = row.get(key, \"—\")\n            if isinstance(value, float):\n                value = f\"{value:,.6f}\" if \"seconds\" in key else f\"{value:,.0f}\"\n            values.append(\"<td>\" + escape(str(value)) + \"</td>\")\n        body += \"<tr>\" + \"\".join(values) + \"</tr>\"\n    display(HTML(\"<div style='overflow:auto'><table class='pw-table'><thead><tr>\"\n                 + header + \"</tr></thead><tbody>\" + body + \"</tbody></table></div>\"))\n\ndisplay(HTML(\"<style>.pw-table{border-collapse:collapse;width:100%;margin:12px 0}\"\n             \".pw-table td,.pw-table th{text-align:left;padding:10px;border-bottom:1px solid #ccd7df}\"\n             \".pw-table th{background:#edf4fa}.pw-card{padding:18px;border:1px solid #ccd7df;\"\n             \"border-radius:10px;margin:12px 0}</style>\"))\nexperiment = None\nprint(\"準備できました。セル2へ進みましょう。初めてのNumba計測では変換処理に少し時間がかかります。\")\n"
+  },
+  {
+    "type": "markdown",
+    "id": "input-help",
+    "text": "## 文字列を用意しましょう\n\nデモは「数字4文字」と「単語＋数字」の2種類です。自動生成では長さと使える文字を選びます。自分で入力する場合は、実行後に出る入力欄を使ってください。\n\n選んだ文字種が必ず全部入るわけではありません。それらを合わせた集合から1文字ずつランダムに選びます。今回は半角の英数字・記号、1〜32文字を扱います。"
+  },
+  {
+    "type": "code",
+    "id": "prepare-password",
+    "text": "#@title 2. 実験用の文字列を用意する\nsource_mode = \"デモ：数字4桁\" #@param [\"デモ：数字4桁\", \"デモ：単語＋数字\", \"自動生成\", \"自分で入力\"]\npassword_length = 4 #@param {type:\"integer\"}\nuse_digits = True #@param {type:\"boolean\"}\nuse_lower = True #@param {type:\"boolean\"}\nuse_upper = True #@param {type:\"boolean\"}\nuse_symbols = False #@param {type:\"boolean\"}\n\nexperiment = None\nstorage_comparison = None\nalphabet = alphabet_for(use_digits, use_lower, use_upper, use_symbols)\nif source_mode == \"デモ：数字4桁\":\n    password, alphabet = \"4729\", alphabet_for(True, False, False, False)\nelif source_mode == \"デモ：単語＋数字\":\n    password, alphabet = \"sakura2026\", alphabet_for(True, True, False, False)\nelif source_mode == \"自動生成\":\n    password = generate_password(password_length, alphabet)\nelse:\n    from getpass import getpass\n    password = getpass(\"実験用の文字列：\")\nvalidate_password(password)\nif source_mode != \"自分で入力\":\n    print(\"今回の実験用文字列：\", password)\nprint(f\"長さ：{len(password)}文字 ／ 総当たりで使う文字：{len(alphabet)}種類\")\nif any(c not in alphabet for c in password):\n    print(\"選んだ文字種に含まれない文字があります。総当たりとその推定は対象外になります。\")\nprint(\"文字列を変えたら、このセルから実行し直してください。\")\n"
+  },
+  {
+    "type": "markdown",
+    "id": "search-help",
+    "text": "## 探し方を比べましょう\n\n**辞書 → 単語の変形 → 形式のヒント → 総当たり**を、それぞれ独立に試します。総当たりには、この実行環境で測定した中で最も速い方式を使います。\n\n形式のヒントは「一部を知っている」と仮定する方法です。例えば `sakura?d?d?d?d` は「sakura＋数字4文字」、`?d?d?d?d` は「数字4文字」を表します。\n\n`?d`：数字 ／ `?l`：小文字 ／ `?u`：大文字 ／ `?s`：記号\n\n各方法は指定した時間か件数で止めます。**見つからなかったことだけで、安全とは判断しません。**"
+  },
+  {
+    "type": "code",
+    "id": "search",
+    "text": "#@title 3. 実際に探索し、結果を比べる\nmask_pattern = \"?d?d?d?d\" #@param {type:\"string\"}\nseconds_per_method = 2 #@param {type:\"slider\", min:1, max:10, step:1}\ncandidate_limit = 100000 #@param {type:\"integer\"}\n\nexperiment = None\nstorage_comparison = None\nexperiment = run_experiment(password, alphabet, mask=mask_pattern,\n    seconds=float(seconds_per_method), limit=int(candidate_limit), include_gpu=gpu_enabled)\n\nshow_table(experiment[\"trials\"], [\n    (\"method\", \"探し方\"), (\"state\", \"結果\"), (\"tested\", \"調べた件数\"),\n    (\"seconds\", \"時間（秒）\"), (\"rate\", \"件／秒\"), (\"engine\", \"総当たりの実行方式\"),\n])\nfound_rows = [r for r in experiment[\"trials\"] if r[\"state\"] == \"発見\"]\nif found_rows:\n    quickest = min(found_rows, key=lambda row: row[\"seconds\"])\n    print(f\"今回は「{quickest['method']}」で最も短時間に見つかりました。\")\n    if any(r[\"method\"] in (\"辞書\", \"単語の変形\") for r in found_rows):\n        print(\"辞書や単語の変形で予想できる文字列でした。長さだけで強さを判断できない例です。\")\nelse:\n    print(\"今回は時間内に見つかりませんでした。結果は「安全」ではなく「この実験では未判定」です。\")\n\nprint(\"\\n同じ候補を調べる速さ（各方式で同じ件数を3回。中央値を表示）\")\nshow_table(experiment[\"benchmarks\"], [\n    (\"engine\", \"実行方式\"), (\"state\", \"状態\"), (\"count\", \"候補数\"),\n    (\"seconds\", \"時間（秒）\"), (\"rate\", \"件／秒\"),\n    (\"prepare_seconds\", \"初回準備（秒）\"), (\"reason\", \"利用できない理由\"),\n])\nprint(\"総当たりに使った方式：\", experiment[\"fastest_engine\"])\nprint(\"辞書・単語の変形・形式のヒントはPythonの標準hashlibで調べています。\")\nprint(\"GPUを使う場合はセル1のgpu_enabledを有効にし、ColabのGPUランタイムで上から実行し直してください。\")\n"
+  },
+  {
+    "type": "markdown",
+    "id": "estimate-help",
+    "text": "## 長い文字列と保存方式も考えてみましょう\n\n総当たりの候補数は「使える文字の種類数」の「文字数」乗です。ここでは、各文字をランダムに選び、長さと文字集合が分かっている条件で所要時間を見積もります。\n\n辞書語など、人が考えた文字列が実際にどれだけ推測されやすいかを、この式だけで表すことはできません。\n\n照合にはSHA-256を使っています。これは速度比較のための教材用の設定です。実際のサービスでは、照合を意図的に重くする保存方式やログインの試行制限も使われます。"
+  },
+  {
+    "type": "code",
+    "id": "estimate",
+    "text": "#@title 4. 総当たりの時間と、保存方式による違いを見る\npbkdf2_iterations = 100000 #@param {type:\"integer\"}\nif experiment is None:\n    raise RuntimeError(\"先にセル3を実行してください。\")\nest = experiment[\"estimate\"]\nif est is not None:\n    print(f\"候補の組み合わせ：{est['candidates']:,}通り\")\n    print(\"一様にランダム生成した場合の総当たりの推定\")\n    print(\"平均的に見つかるまで：\", duration(est[\"average_seconds\"]))\n    print(\"全候補を調べるまで：\", duration(est[\"exhaustive_seconds\"]))\n    print(\"この計算機・このSHA-256照合の実測速度を使った見積もりです。\")\nelse:\n    print(\"文字集合が一致しないため、総当たりの時間は推定しません。\")\n\nstorage_comparison = pbkdf2_comparison(password, int(pbkdf2_iterations))\nprint(\"\\n同じ文字列を1回照合するための時間（別の実測）\")\nshow_table(storage_comparison, [\n    (\"verification\", \"照合方式\"), (\"seconds_per_check\", \"1回あたり（秒）\"),\n])\nprint(\"PBKDF2は計算を繰り返し、1回の推測にかかる負担を増やします。\")\nprint(\"ここで選んだ反復回数を、実サービス向けの推奨設定として示すものではありません。\")\n"
+  },
+  {
+    "type": "markdown",
+    "id": "save-help",
+    "text": "## 結果を持ち帰りましょう\n\nCSVとJSONをZIPで保存できます。入力した文字列、照合用ハッシュ、形式のヒント、探索候補は含みません。\n\n次は文字数や使える文字を1つだけ変えて、結果を比べてみましょう。Notebookの入力設定や画面出力は、結果のZIPとは別にコピーへ残ることがあります。"
+  },
+  {
+    "type": "code",
+    "id": "export",
+    "text": "#@title 5. 結果をZIPで保存する\nif experiment is None:\n    raise RuntimeError(\"先にセル3を実行してください。\")\nimport csv\nimport io\nimport json\nimport zipfile\n\ndef results_zip_bytes(experiment, storage_comparison):\n    payload = dict(experiment)\n    payload[\"storage_comparison\"] = storage_comparison\n    output = io.BytesIO()\n    with zipfile.ZipFile(output, \"w\", compression=zipfile.ZIP_DEFLATED) as archive:\n        archive.writestr(\"results.json\", json.dumps(payload, ensure_ascii=False, indent=2))\n        text = io.StringIO(newline=\"\")\n        columns = [\"method\", \"state\", \"tested\", \"seconds\", \"rate\", \"engine\"]\n        writer = csv.DictWriter(text, columns, extrasaction=\"ignore\")\n        writer.writeheader()\n        writer.writerows(experiment[\"trials\"])\n        archive.writestr(\"search_results.csv\", text.getvalue().encode(\"utf-8-sig\"))\n        archive.writestr(\"README.txt\",\n            \"パスワードラボ：実験結果\\n\\n\"\n            \"実験用のSHA-256照合による結果です。実サービスの突破時間ではありません。\\n\"\n            \"平均時間は固定長・指定文字集合からの一様生成を仮定しています。\\n\"\n            \"入力文字列・照合用ハッシュ・形式のヒント・探索候補は含みません。\\n\")\n    return output.getvalue()\n\noutput_path = Path(\"password_lab_results.zip\")\noutput_path.write_bytes(results_zip_bytes(experiment, storage_comparison))\ntry:\n    from google.colab import files\n    files.download(str(output_path))\nexcept ImportError:\n    print(\"保存しました：\", output_path.resolve())\n"
+  }
+]

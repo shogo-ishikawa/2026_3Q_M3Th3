@@ -11,6 +11,7 @@
 | `projects/` | 各学生・グループのコード、教材、説明書 |
 | `projects/recipe-suggester/` | 条件に合わせて料理とレシピを提案する教材の作成先 |
 | `projects/ai-music-arranger/` | 音源を解析し、伴奏・ドラム・抽出メロディを重ねるColab教材 |
+| `projects/password-lab/` | 探索手法とCPU・GPUの速度を比べるパスワード実験用Colab教材 |
 | `projects/lottery-lab/` | くじ引きの1000回チャレンジと、全設定の繰り返し比較を楽しむブラウザ教材 |
 | `projects/pip0/` | デバイス内のファイル整理アシスタント「pip0」（グループの作品の初期コード） |
 | `CLAUDE.md` | Claude Codeなどで開発する際の共通方針 |
@@ -48,5 +49,6 @@ AIにコード作成を手伝ってもらう際も、自分たちが変更した
 | --- | --- | --- |
 | [AI作曲アレンジ](projects/ai-music-arranger/) | YouTube・音声ファイル・デモ音源から、コード伴奏とドラムを加えて聴き比べる教材 | [Colabで開く](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/ai_music_arranger.ipynb) ／ [操作マニュアル](projects/ai-music-arranger/docs/manual.md) |
 | [くじびきラボ](projects/lottery-lab/) | 1回・まとめ引き、当選コレクション、設定ごとの平均とばらつきを比べる確率実験 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/lottery-lab/) ／ [操作マニュアル](projects/lottery-lab/docs/manual.md) |
+| [パスワードラボ](projects/password-lab/) | 辞書・総当たりと、Python・Numba・GPUによる照合速度を比べる実験 | [Colabで開く](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/password-lab/password_lab.ipynb) ／ [操作マニュアル](projects/password-lab/docs/manual.md) |
 
 ブラウザ版は **GitHub Actions** でまとめて公開します。リポジトリの Settings → Pages でSourceをGitHub Actionsに設定します。公開対象の追加方法は[Pagesの公開手順](docs/pages.md)を参照してください。作品ごとのURLは `/projects/作品名/` です。
