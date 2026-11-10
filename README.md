@@ -49,4 +49,4 @@ AIにコード作成を手伝ってもらう際も、自分たちが変更した
 | [AI作曲アレンジ](projects/ai-music-arranger/) | YouTube・音声ファイル・デモ音源から、コード伴奏とドラムを加えて聴き比べる教材 | [Colabで開く](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/ai-music-arranger/ai_music_arranger.ipynb) ／ [操作マニュアル](projects/ai-music-arranger/docs/manual.md) |
 | [くじびきラボ](projects/lottery-lab/) | 1回・まとめ引き、当選コレクション、設定ごとの平均とばらつきを比べる確率実験 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/lottery-lab/) ／ [操作マニュアル](projects/lottery-lab/docs/manual.md) |
 
-ブラウザ版の初回公開は、リポジトリの Settings → Pages で **Deploy from a branch / main / (root)** を選びます。公開後は、同じPagesの中で作品ごとにURLを分けて使えます。
+ブラウザ版は **GitHub Actions** でまとめて公開します。リポジトリの Settings → Pages でSourceをGitHub Actionsに設定します。公開対象の追加方法は[Pagesの公開手順](docs/pages.md)を参照してください。作品ごとのURLは `/projects/作品名/` です。

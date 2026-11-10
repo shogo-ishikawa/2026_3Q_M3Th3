@@ -41,10 +41,10 @@
 
 ## ローカルで置く場所
 
-配布ZIPを展開すると `v1.0.0` フォルダーができます。Macでは次の場所へ置けます。
+配布ZIPを展開すると `v1.0.1` フォルダーができます。Macでは次の場所へ置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.1
 ```
 
 このフォルダーは授業リポジトリの `projects/lottery-lab/` に対応します。遊ぶだけなら `index.html` をダブルクリックしてブラウザで開けます。必要なコードとCSSはHTML内にまとめてあります。ブラウザによってローカルファイルの記録保存が制限される場合もあります。
@@ -52,7 +52,7 @@
 開発中にHTTPサーバーから開く場合は、次のようにします。
 
 ```bash
-cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.0
+cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.1
 python3 -m http.server 8000
 ```
 
@@ -62,9 +62,9 @@ python3 -m http.server 8000
 
 ### GitHub Pagesの初回設定
 
-授業リポジトリの Settings → Pages を開き、Sourceを **Deploy from a branch**、Branchを **main / (root)** にしてSaveします。設定はリポジトリ全体で1回だけ行います。
+授業リポジトリの Settings → Pages を開き、Sourceを **GitHub Actions** にします。設定はリポジトリ全体で1回だけ行います。mainへ変更が反映されると、共通workflowが確認・公開を行います。
 
-作品のURLは `https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/lottery-lab/` です。リポジトリのトップには作品ギャラリーを置き、`.nojekyll` で静的ファイルをそのまま配信します。後から別作品を追加する場合も、`projects/作品名/` ごとにURLを分けられます。
+作品のURLは `https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/lottery-lab/` です。共通workflowでギャラリーと全公開作品を1つの成果物にまとめるため、別作品を追加しても既存作品を残せます。登録方法は[Pagesの公開手順](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/docs/pages.md)を参照してください。
 
 ### コードをアップロードする
 
@@ -83,7 +83,7 @@ git status
 git pull --ff-only
 mkdir -p projects/lottery-lab
 rsync -av --exclude dist/ --exclude __pycache__/ \
-  /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.0/ \
+  /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.1/ \
   projects/lottery-lab/
 git diff --stat
 git add projects/lottery-lab
@@ -105,4 +105,4 @@ python3 tools/build_notebook.py
 python3 tools/build_release.py
 ```
 
-ZIPは `dist/lottery-lab_v1.0.0.zip` に作られます。提出元ファイル、個人情報、ブラウザの保存記録、テスト中の出力は含めません。
+ZIPは `dist/lottery-lab_v1.0.1.zip` に作られます。提出元ファイル、個人情報、ブラウザの保存記録、テスト中の出力は含めません。

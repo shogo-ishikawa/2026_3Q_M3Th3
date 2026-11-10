@@ -1,0 +1,9 @@
+{
+  "projects": [
+    {
+      "source": "projects/lottery-lab",
+      "destination": "projects/lottery-lab",
+      "files": ["index.html"]
+    }
+  ]
+}

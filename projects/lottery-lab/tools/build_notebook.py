@@ -21,7 +21,7 @@ def code(title, source, cell_id):
 def build():
     cells = [
         markdown("""
-# くじびきラボ：Pythonで試す（v1.0.0）
+# くじびきラボ：Pythonで試す（v1.0.1）
 
 くじを何度も引くと、ポイントはどう変わるでしょうか。設定を変えたり、同じ条件で繰り返したりして比べてみましょう。
 
@@ -35,7 +35,6 @@ def build():
 2. セル2で設定と回数を選び、▶ を押します。
 3. 全設定を繰り返し比べたい場合は、セル3も実行します。
 
-コードは `@title` で折りたたんでいます。セルのメニューから「コードを表示」を選ぶと仕組みを読めます。
 リンクからそのまま実行できます。変更したコードや設定を残したい場合だけ「ファイル → ドライブにコピーを保存」を選んでください。
 
 [操作マニュアル](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/lottery-lab/docs/manual.md) ／ [コードの読み方](https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/lottery-lab/docs/development.md)
