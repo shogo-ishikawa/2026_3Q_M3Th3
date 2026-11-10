@@ -55,6 +55,158 @@ export function buildAlphabet(groups) {
   return alphabet;
 }
 
+const ALL_CHARACTERS = buildAlphabet(GROUPS);
+const STRUCTURE_GROUPS = Object.freeze({
+  ...SETS,
+  letters: SETS.lower + SETS.upper,
+  alnum: SETS.digits + SETS.lower + SETS.upper,
+  all: ALL_CHARACTERS,
+  none: '',
+});
+const GROUP_LABELS = Object.freeze({
+  digits: '数字', lower: '英小文字', upper: '英大文字',
+  letters: '英字', alnum: '英数字', symbols: '記号', all: '半角英数字・記号',
+});
+
+function assertFixedText(text) {
+  if (typeof text !== 'string' || (text.length > 0 && !/^[!-~]+$/.test(text))) {
+    throw new TypeError('決まっている部分は空白を除く半角英数字・記号で入力してください。');
+  }
+}
+
+function lengthSpace(alphabet, minimum, maximum) {
+  let total = 0n;
+  for (let length = minimum; length <= maximum; length += 1) {
+    total += BigInt(alphabet.length) ** BigInt(length);
+  }
+  return total;
+}
+
+/** Build assumptions from attacker input only, never from the target password. */
+export function buildAttackPlan(config = {}) {
+  const knowledge = config.knowledge ?? 'none';
+  if (!['none', 'charset', 'structure'].includes(knowledge)) {
+    throw new TypeError('探索側が知っている情報を選んでください。');
+  }
+  if (knowledge === 'structure') {
+    const prefix = config.prefix ?? '';
+    const suffix = config.suffix ?? '';
+    assertFixedText(prefix);
+    assertFixedText(suffix);
+    const positions = [...prefix];
+    const descriptions = prefix ? [prefix] : [];
+    for (const part of ['first', 'second']) {
+      const group = config[`${part}Group`] ?? 'none';
+      if (!Object.hasOwn(STRUCTURE_GROUPS, group)) {
+        throw new TypeError('不明な文字の種類が指定されています。');
+      }
+      // An unused part contributes no characters, even if an inactive UI field
+      // retains its previous count.
+      if (group === 'none') continue;
+      const count = config[`${part}Count`] ?? 0;
+      if (!Number.isInteger(count) || count < 0 || count > MAX_LENGTH) {
+        throw new RangeError('各部分の文字数は0〜32の整数にしてください。');
+      }
+      for (let index = 0; index < count; index += 1) positions.push(STRUCTURE_GROUPS[group]);
+      if (count) descriptions.push(`${GROUP_LABELS[group]}${count}文字`);
+    }
+    positions.push(...suffix);
+    assertLength(positions.length);
+    if (suffix) descriptions.push(suffix);
+    const alphabet = [...ALL_CHARACTERS].filter(character => positions.some(set => set.includes(character))).join('');
+    return {
+      kind: knowledge, alphabet, minLength: positions.length, maxLength: positions.length,
+      positions, summary: descriptions.join(' ＋ '),
+      candidateCount: positions.reduce((total, set) => total * BigInt(set.length), 1n),
+    };
+  }
+  // Unknown information stays unknown: hidden character/length fields are not
+  // consulted in the `none` branch.
+  const alphabet = knowledge === 'none' ? ALL_CHARACTERS : buildAlphabet(config.groups ?? []);
+  const fixedLength = knowledge === 'charset' && config.lengthKnown === true;
+  const maximum = fixedLength ? config.length : (config.maxLength ?? 8);
+  assertLength(maximum);
+  const minimum = fixedLength ? maximum : 1;
+  const characterSummary = knowledge === 'none' ? '文字の種類は不明' : GROUPS.filter(key => alphabet.includes(SETS[key])).map(key => GROUP_LABELS[key]).join('・');
+  return {
+    kind: knowledge, alphabet, minLength: minimum, maxLength: maximum, positions: null,
+    summary: `${characterSummary}、${fixedLength ? maximum : `1〜${maximum}`}文字を探索`,
+    candidateCount: lengthSpace(alphabet, minimum, maximum),
+  };
+}
+
+function assertAttackPlan(plan) {
+  if (!plan || !['none', 'charset', 'structure'].includes(plan.kind)) {
+    throw new TypeError('探索条件を指定してください。');
+  }
+  assertAlphabet(plan.alphabet);
+  assertLength(plan.minLength);
+  assertLength(plan.maxLength);
+  if (plan.minLength > plan.maxLength) throw new RangeError('探索する文字数の範囲が不正です。');
+  if (plan.kind === 'structure') {
+    if (!Array.isArray(plan.positions) || plan.positions.length !== plan.maxLength || plan.minLength !== plan.maxLength) {
+      throw new TypeError('決まっている部分の探索条件が不正です。');
+    }
+    for (const set of plan.positions) assertAlphabet(set);
+  } else if (plan.positions !== null) {
+    throw new TypeError('文字集合による探索条件が不正です。');
+  }
+}
+
+export function planSearchSpace(plan) {
+  assertAttackPlan(plan);
+  return plan.kind === 'structure'
+    ? plan.positions.reduce((total, set) => total * BigInt(set.length), 1n)
+    : lengthSpace(plan.alphabet, plan.minLength, plan.maxLength);
+}
+
+/** Mixed-radix candidate generation also handles fixed prefix/suffix positions. */
+export function candidateFromPositions(index, positions) {
+  if (!Array.isArray(positions)) throw new TypeError('位置ごとの文字集合を指定してください。');
+  assertLength(positions.length);
+  for (const set of positions) assertAlphabet(set);
+  const total = positions.reduce((count, set) => count * BigInt(set.length), 1n);
+  if (typeof index === 'number') {
+    if (!Number.isSafeInteger(index)) throw new TypeError('候補番号は正確な整数で指定してください。');
+    index = BigInt(index);
+  }
+  if (typeof index !== 'bigint' || index < 0n || index >= total) throw new RangeError('候補番号が探索範囲の外です。');
+  const characters = Array(positions.length);
+  for (let position = positions.length - 1; position >= 0; position -= 1) {
+    const set = positions[position];
+    characters[position] = set[Number(index % BigInt(set.length))];
+    index /= BigInt(set.length);
+  }
+  return characters.join('');
+}
+
+function candidateFitsPlan(candidate, plan) {
+  if (candidate.length < plan.minLength || candidate.length > plan.maxLength) return false;
+  if (plan.kind === 'structure') return [...candidate].every((character, index) => plan.positions[index].includes(character));
+  return [...candidate].every(character => plan.alphabet.includes(character));
+}
+
+/** Shorter unknown lengths are enumerated first, without consulting a target. */
+export function* attackCandidates(method, plan) {
+  assertAttackPlan(plan);
+  if (method === 'brute' || method === 'structure') {
+    if (method === 'structure' && plan.kind !== 'structure') throw new TypeError('決まっている部分の探索条件を指定してください。');
+    if (plan.kind === 'structure') {
+      const total = planSearchSpace(plan);
+      for (let index = 0n; index < total; index += 1n) yield candidateFromPositions(index, plan.positions);
+    } else {
+      for (let length = plan.minLength; length <= plan.maxLength; length += 1) {
+        const total = searchSpace(plan.alphabet, length);
+        for (let index = 0n; index < total; index += 1n) yield candidateAt(index, plan.alphabet, length);
+      }
+    }
+    return;
+  }
+  const candidates = method === 'dictionary' ? DICTIONARY : method === 'pattern' ? PATTERNS : null;
+  if (candidates === null) throw new TypeError('不明な探索方法です。');
+  for (const candidate of candidates) if (candidateFitsPlan(candidate, plan)) yield candidate;
+}
+
 /** The input is never trimmed, normalised or silently shortened. */
 export function validatePassword(password, alphabet) {
   try {

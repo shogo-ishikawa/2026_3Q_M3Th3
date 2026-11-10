@@ -5,6 +5,7 @@ import {
   SETS, buildAlphabet, validatePassword, generatePassword, searchSpace,
   rankPassword, candidateAt, sha256, hashCandidate, dictionaryCandidates,
   patternCandidates, methodCandidates, estimateSeconds,
+  buildAttackPlan, attackCandidates, planSearchSpace, candidateFromPositions,
 } from '../engine.js';
 
 const all = buildAlphabet(['digits', 'lower', 'upper', 'symbols']);
@@ -171,4 +172,77 @@ test('time estimation preserves zero and validates its measured speed', () => {
   for (const rate of [0, -1, NaN, Infinity]) assert.throws(() => estimateSeconds(1n, rate));
   assert.throws(() => estimateSeconds(-1n, 1));
   assert.throws(() => estimateSeconds(1, 1));
+});
+
+test('no knowledge always means all 94 characters and unknown lengths', () => {
+  const plan = buildAttackPlan({knowledge:'none', groups:['digits'], lengthKnown:true,
+    length:1, maxLength:2, prefix:'a known secret', firstGroup:'unknown'});
+  assert.equal(plan.kind, 'none');
+  assert.equal(plan.alphabet, all);
+  assert.equal(plan.minLength, 1);
+  assert.equal(plan.maxLength, 2);
+  assert.equal(plan.positions, null);
+  assert.equal(plan.candidateCount, 94n + 94n ** 2n);
+  assert.equal(planSearchSpace(plan), plan.candidateCount);
+  const candidates = attackCandidates('brute', plan);
+  assert.equal(candidates.next().value, '0');
+  for (let index = 1; index < 94; index++) assert.equal(candidates.next().value, all[index]);
+  assert.equal(candidates.next().value, '00');
+});
+
+test('attacker character and length information is independent and enumerated shortest first', () => {
+  const unknownLength = buildAttackPlan({knowledge:'charset', groups:['digits'], lengthKnown:false, length:32, maxLength:2});
+  assert.equal(unknownLength.candidateCount, 110n);
+  assert.deepEqual([...attackCandidates('brute', unknownLength)].slice(0, 13),
+    ['0','1','2','3','4','5','6','7','8','9','00','01','02']);
+  const fixedLength = buildAttackPlan({knowledge:'charset', groups:['lower'], lengthKnown:true, length:2, maxLength:1});
+  assert.equal(fixedLength.minLength, 2);
+  assert.equal(fixedLength.maxLength, 2);
+  assert.equal(fixedLength.candidateCount, 676n);
+  assert.equal(attackCandidates('brute', fixedLength).next().value, 'aa');
+});
+
+test('known parts use a mixed-radix product and preserve prefix and suffix exactly', () => {
+  const plan = buildAttackPlan({knowledge:'structure', prefix:'sakura', firstGroup:'digits', firstCount:2,
+    secondGroup:'upper', secondCount:1, suffix:'!'});
+  assert.equal(plan.minLength, 10);
+  assert.equal(plan.maxLength, 10);
+  assert.equal(plan.candidateCount, 10n * 10n * 26n);
+  assert.equal(planSearchSpace(plan), plan.candidateCount);
+  assert.equal(plan.summary, 'sakura ＋ 数字2文字 ＋ 英大文字1文字 ＋ !');
+  const candidates = [...attackCandidates('structure', plan)];
+  assert.equal(candidates.length, 2600);
+  assert.deepEqual(candidates.slice(0, 3), ['sakura00A!','sakura00B!','sakura00C!']);
+  assert.equal(candidates[26], 'sakura01A!');
+  assert.equal(candidates.at(-1), 'sakura99Z!');
+  assert.equal(new Set(candidates).size, candidates.length);
+  assert.equal(candidateFromPositions(3n, ['x','01','ab']), 'x1b');
+});
+
+test('dictionary and pattern candidates obey the same attacker plan', () => {
+  const knownParts = buildAttackPlan({knowledge:'structure', prefix:'sakura', firstGroup:'digits', firstCount:4});
+  assert.ok([...attackCandidates('pattern', knownParts)].includes('sakura2026'));
+  assert.ok([...attackCandidates('pattern', knownParts)].every(candidate => /^sakura\d{4}$/.test(candidate)));
+  const range = buildAttackPlan({knowledge:'charset', groups:['digits'], lengthKnown:false, maxLength:4});
+  assert.ok([...attackCandidates('dictionary', range)].includes('1234'));
+  assert.ok([...attackCandidates('dictionary', range)].every(candidate => /^\d{1,4}$/.test(candidate)));
+  const unknown = buildAttackPlan({knowledge:'none', maxLength:12});
+  assert.ok([...attackCandidates('dictionary', unknown)].includes('Password123!'));
+});
+
+test('literal-only structures are one candidate and invalid information fails clearly', () => {
+  const literal = buildAttackPlan({knowledge:'structure', prefix:'x', firstGroup:'none', firstCount:5});
+  assert.equal(literal.candidateCount, 1n);
+  assert.deepEqual([...attackCandidates('structure', literal)], ['x']);
+  for (const invalid of [
+    {knowledge:'unknown'}, {knowledge:'none',maxLength:0},
+    {knowledge:'charset',groups:[]}, {knowledge:'charset',groups:['digits'],lengthKnown:true,length:33},
+    {knowledge:'structure'}, {knowledge:'structure',prefix:'a b'},
+    {knowledge:'structure',firstGroup:'unknown'},
+    {knowledge:'structure',firstGroup:'digits',firstCount:1.5},
+    {knowledge:'structure',prefix:'a'.repeat(32),firstGroup:'digits',firstCount:1},
+  ]) assert.throws(() => buildAttackPlan(invalid));
+  assert.throws(() => candidateFromPositions(4n, ['01','ab']));
+  assert.throws(() => [...attackCandidates('unknown', literal)]);
+  assert.throws(() => [...attackCandidates('structure', buildAttackPlan({knowledge:'none',maxLength:1}))]);
 });
