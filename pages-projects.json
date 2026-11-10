@@ -19,6 +19,17 @@
         "gpu.js",
         "dist"
       ]
+    },
+    {
+      "source": "projects/sound-analysis-lab",
+      "destination": "projects/sound-analysis-lab",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "demo_engine.js",
+        "dist"
+      ]
     }
   ]
 }

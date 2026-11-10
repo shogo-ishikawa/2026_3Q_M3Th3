@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="音を聴き、波形とスペクトルを見て、音の高さ・大きさ・音色の違いを学ぶ導入教材。詳しい音源分析はColabで。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <title>音の実験室 — 音と波のはじめの一歩</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header page-width">
+    <a class="brand" href="./"><span class="brand-mark" aria-hidden="true">∿</span><span>音の実験室<small>SOUND ANALYSIS LAB</small></span></a>
+    <nav aria-label="ページ内メニュー"><a href="#sound">音と波</a><a href="#try">聴いてみる</a><a href="#colab">Colabで分析 ↗</a></nav>
+  </header>
+  <main>
+    <section class="hero page-width">
+      <p class="eyebrow">聴いた音を、波から見てみよう</p>
+      <h1>音の高さと、音色。<br>何が違うのでしょうか。</h1>
+      <p class="hero-copy">同じ「ラ」の音でも、丸い音や明るい音に変えられます。<br>短い音を聴きながら、波の形と中に含まれる成分を確かめてみましょう。</p>
+      <p class="scope-note">このページは音の見方をつかむ導入です。<br>実際の曲の音源分離や詳しいグラフ分析は、<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-analysis-lab/sound_analysis_lab.ipynb">Colab版</a>へ進めます。</p>
+    </section>
+
+    <section class="reading page-width" id="sound" aria-labelledby="sound-title">
+      <div class="section-title"><span>01</span><h2 id="sound-title">音は、空気の圧力の変化</h2></div>
+      <div class="prose"><p>声や楽器が振動すると、周りの空気の圧力が変化し、その変化が伝わります。マイクで録音すると、変化を一定の間隔で数値として記録できます。</p><p>記録した数値を時間順に並べた図が<strong>波形</strong>です。横軸は時間、縦軸は振れ幅。波の繰り返し方や大きさを見ることで、音の特徴を調べられます。</p></div>
+      <dl class="vocabulary"><div><dt>周波数：繰り返しの速さ</dt><dd>1秒間に440回繰り返すと440 Hzです。周期的な音では、周波数が高いほど高い音として聞こえます。440 Hzは「ラ（A4）」の基準としてよく使われます。</dd></div><div><dt>振幅：波の振れ幅</dt><dd>同じ波形の振幅を大きくすると、一般に大きな音として聞こえます。図の振幅はデジタルの相対値で、耳元の音圧やスピーカーの音量そのものではありません。</dd></div></dl>
+    </section>
+
+    <section class="demo-section page-width" id="try" aria-labelledby="try-title">
+      <div class="section-title"><span>02</span><h2 id="try-title">1つずつ変えて、聴き比べる</h2></div>
+      <p class="section-lead">最初は「基準」の音を聴いてから、例のボタンやつまみを試してみましょう。</p>
+      <div class="demo">
+        <div class="presets" aria-label="聴き比べの例"><button type="button" data-preset="reference">基準：440 Hz</button><button type="button" data-preset="higher">高さだけ変える</button><button type="button" data-preset="louder">大きさだけ変える</button><button type="button" data-preset="richer">同じ高さで倍音を加える</button></div>
+        <div class="controls">
+          <label for="frequency"><span>基本周波数 <output id="frequency-value" for="frequency">440 Hz</output></span><input id="frequency" type="range" min="100" max="880" step="10" value="440"><small>低い音 ← → 高い音</small></label>
+          <label for="amplitude"><span>振幅の倍率 <output id="amplitude-value" for="amplitude">0.35</output></span><input id="amplitude" type="range" min="0" max="0.8" step="0.05" value="0.35"><small>小さい波 ← → 大きい波</small></label>
+          <label for="harmonics"><span>加える倍音の量 <output id="harmonics-value" for="harmonics">0 %</output></span><input id="harmonics" type="range" min="0" max="100" step="5" value="0"><small>基本の音だけ ← → 2倍・3倍の成分を追加</small></label>
+        </div>
+        <div class="play-actions"><button class="button-primary" id="play-sound" type="button">この音を1秒聴く <span aria-hidden="true">▶</span></button><button class="button-stop" id="stop-sound" type="button" disabled>停止</button><p>音は小さめに再生します。端末の音量も調整してください。</p></div>
+        <p id="play-status" class="play-status" role="status" aria-live="polite">設定できました。</p>
+        <div class="figures">
+          <figure><figcaption><strong>波形</strong><span>音の途中の20ミリ秒を拡大しています。20ミリ秒は0.02秒です。</span></figcaption><svg id="wave-plot" viewBox="0 0 640 260" role="img" aria-label="デモ音の波形"></svg></figure>
+          <figure><figcaption><strong>振幅スペクトル</strong><span>同じ音を、含まれる周波数成分に分けて表示します。</span></figcaption><svg id="spectrum-plot" viewBox="0 0 640 260" role="img" aria-label="デモ音の振幅スペクトル"></svg></figure>
+        </div>
+        <div class="measurements"><p>基本周波数 <strong id="fundamental-value">440 Hz</strong></p><p>スペクトル重心 <strong id="centroid-value">—</strong></p></div>
+        <p class="figure-note">再生音と図には同じデータを使っています。比較できるよう図の縦軸は固定です。すべての音に共通の倍率をかけ、倍音の量に合わせた自動の音量合わせは行いません。倍音を加えると、波の大きさや聞こえる音量も変わることがあります。</p>
+      </div>
+    </section>
+
+    <section class="reading page-width" id="spectrum" aria-labelledby="spectrum-title">
+      <div class="section-title"><span>03</span><h2 id="spectrum-title">波の形が違うと、音色も違う</h2></div>
+      <div class="prose"><p>基本の音に、その2倍、3倍といった周波数の成分を重ねると、波の形が変わります。整数倍の周波数を持つ成分を<strong>倍音</strong>と呼びます。上のデモでは440 Hzを基本にすると、880 Hzと1320 Hzの成分を加えられます。</p><p>基本の繰り返しが同じでも、含まれる成分の割合が違うと音色が変わります。楽器や声の違いには、こうした成分に加え、音の立ち上がりや余韻なども関わっています。</p><p><strong>スペクトル</strong>は「どの周波数の成分が、どのくらい含まれるか」を見る図です。横軸は周波数、縦軸は成分の強さ。倍音を加えたときは、基本周波数以外にも山が現れることを確かめてみましょう。</p></div>
+      <aside class="explanation"><h3>「重心」は、歌っている音の高さ？</h3><p><strong>スペクトル重心</strong>は、周波数成分の分布の重心です。高い周波数の成分が増えると高くなる傾向があり、音色の明るさに関わる指標として使います。基本周波数や音名とは別の値です。</p><p>この教材の出発点になった作品では、ある曲の分離結果で、歌声よりドラムの平均重心が高くなりました。打楽器に含まれる高い周波数の成分などを、実際に聴いて確かめる問いにつながります。「ドラムは歌声より高い音」「数値が高いほどよい音」と結論づけるものではありません。</p><p class="small-note">上のデモは表示と重心の計算範囲を0〜3000 Hzにそろえています。曲を分析するときは、対象とする帯域や無音の扱いも結果に関わります。</p></aside>
+    </section>
+
+    <section class="reading page-width" id="spectrogram" aria-labelledby="spectrogram-title">
+      <div class="section-title"><span>04</span><h2 id="spectrogram-title">音の変化を追う、スペクトログラム</h2></div>
+      <div class="prose"><p>曲の途中で楽器が加わったり、歌声の音の高さが変わったりすると、スペクトルも時間とともに変わります。</p><p><strong>スペクトログラム</strong>では、横軸が時間、縦軸が周波数、色が成分の強さです。「いつ、どの周波数の音が強かったか」を1枚の図で見ることができます。</p></div>
+      <figure class="spectrogram-example"><svg viewBox="0 0 820 300" role="img" aria-labelledby="spectrogram-caption"><title>はじめの1秒は440 Hz、後半の1秒は660 Hzの音を表すスペクトログラムの模式図</title><defs><linearGradient id="strength" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#e9eff0"/><stop offset="100%" stop-color="#24786f"/></linearGradient></defs><rect x="72" y="28" width="620" height="205" fill="#edf2f1"/><g stroke="#d3dfdc"><path d="M72 233H692M72 165H692M72 96H692M72 28H692M72 28V233M382 28V233M692 28V233"/></g><g fill="#24786f"><rect x="73" y="191" width="309" height="8"/><rect x="382" y="173" width="309" height="8"/></g><g fill="#6da496"><rect x="73" y="154" width="309" height="6"/><rect x="382" y="117" width="309" height="6"/></g><g fill="#a7c7ba"><rect x="73" y="117" width="309" height="5"/><rect x="382" y="61" width="309" height="5"/></g><g class="diagram-text"><text x="8" y="19">周波数（Hz）</text><text x="58" y="237" text-anchor="end">0</text><text x="58" y="169" text-anchor="end">800</text><text x="58" y="100" text-anchor="end">1600</text><text x="58" y="32" text-anchor="end">2400</text><text x="72" y="256" text-anchor="middle">0</text><text x="382" y="256" text-anchor="middle">1</text><text x="692" y="256" text-anchor="middle">2</text><text x="382" y="286" text-anchor="middle">時間（秒）</text><text class="diagram-annotation" x="185" y="219">440 Hz と倍音</text><text class="diagram-annotation" x="497" y="219">660 Hz と倍音</text><text x="727" y="76">強い</text><rect x="739" y="90" width="18" height="100" fill="url(#strength)"/><text x="727" y="217">弱い</text></g></svg><figcaption id="spectrogram-caption">模式図：1秒のところで基本周波数が440 Hzから660 Hzへ変わる例です。実際の曲の解析結果ではありません。薄い線は弱い倍音を表します。</figcaption></figure>
+    </section>
+
+    <section class="colab-section page-width" id="colab" aria-labelledby="colab-title">
+      <p class="eyebrow">ここからは、実際の音へ</p><h2 id="colab-title">好きな区間を、分けて聴いて分析する</h2><p>Colab版では、音声ファイルやデモを読み込み、原曲とパートを同じ区間で聴き比べます。日本語の波形・スペクトル・スペクトログラムや、重心の時間変化を見ながら、音の特徴を詳しく調べられます。</p><p>音源分離はボーカル・ドラム・ベース・その他の4パートを基本にします。フィルターなどの加工前後も比べられます。モデルを使わないデモから始められるので、まずは一度動かしてみましょう。</p><a class="colab-link" href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-analysis-lab/sound_analysis_lab.ipynb">Colabで音を分析する <span aria-hidden="true">↗</span></a><p class="small-note">Googleアカウントでログインし、セル1から順に実行します。使ってよい音源を用意してください。元の楽曲や分離した音声を共有するときは、利用条件も確認しましょう。</p>
+    </section>
+    <details class="references page-width"><summary>もう少し詳しく調べる</summary><div><p>上のデモでは、基本周波数をfとして、f・2f・3fの正弦波を重ねています。スペクトルは再生用データへHann窓をかけたFFTから計算し、振幅が比較できるよう窓の倍率を補正しています。再生の始めと終わりには、クリック音を抑える短いフェードを付けています。</p><ul><li><a href="https://librosa.org/doc/0.11.0/generated/librosa.feature.spectral_centroid.html">librosa：スペクトル重心の定義</a></li><li><a href="https://github.com/facebookresearch/demucs">Demucs：音源分離モデル</a></li><li><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-analysis-lab/docs/manual.md">この教材の操作説明</a></li></ul></div></details>
+  </main>
+  <footer class="site-footer page-width"><a href="../../">学生作品ギャラリーへ</a><p>音の実験室 · 聴こえた違いを、波と成分から確かめる。</p><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/sound-analysis-lab">コードと説明書 ↗</a></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

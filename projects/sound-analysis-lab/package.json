@@ -1,0 +1,10 @@
+{
+  "name": "sound-analysis-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/web.test.mjs",
+    "dev": "python3 tools/serve.py"
+  }
+}
