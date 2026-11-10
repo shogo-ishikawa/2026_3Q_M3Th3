@@ -266,12 +266,17 @@ def ensure_japanese_font():
         except (OSError, RuntimeError):
             continue
     try:
-        import japanize_matplotlib
-        japanize_matplotlib.japanize()
-        path = font_manager.findfont("IPAexGothic", fallback_to_default=False)
-        if all(ord(char) in ft2font.FT2Font(path).get_charmap() for char in "時間周波数重心振幅原曲"):
-            mpl.rcParams["axes.unicode_minus"] = False
-            return "IPAexGothic"
+        # パッケージの実行コードは旧distutilsに依存するためimportしません。
+        from importlib.util import find_spec
+        package = find_spec("japanize_matplotlib")
+        if package is not None and package.origin:
+            path = Path(package.origin).parent / "fonts" / "ipaexg.ttf"
+            font = ft2font.FT2Font(str(path))
+            if all(ord(char) in font.get_charmap() for char in "時間周波数重心振幅原曲"):
+                font_manager.fontManager.addfont(str(path))
+                mpl.rcParams["font.family"] = [font.family_name]
+                mpl.rcParams["axes.unicode_minus"] = False
+                return font.family_name
     except (ImportError, ValueError, RuntimeError, OSError):
         pass
     raise RuntimeError("日本語フォントが見つかりません。セル1でjapanize-matplotlibを準備してください。")

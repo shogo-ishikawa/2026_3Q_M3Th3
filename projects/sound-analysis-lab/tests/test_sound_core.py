@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import warnings
 
 import matplotlib
@@ -164,6 +165,29 @@ class AudioCoreTests(unittest.TestCase):
                 self.assertEqual(path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
                 self.assertGreater(path.stat().st_size, 10000)
             self.assertFalse(any("Glyph" in str(w.message) and "missing" in str(w.message) for w in captured))
+
+    def test_bundled_japanese_font_without_legacy_package_import(self):
+        import builtins
+        from importlib.util import find_spec
+        from matplotlib import font_manager, ft2font
+        package = find_spec("japanize_matplotlib")
+        self.assertIsNotNone(package, "テスト環境にはjapanize-matplotlibが必要です。")
+        bundled = Path(package.origin).parent / "fonts" / "ipaexg.ttf"
+        self.assertTrue(bundled.is_file())
+        original_import = builtins.__import__
+
+        def forbid_legacy_import(name, *args, **kwargs):
+            if name == "japanize_matplotlib" or name.startswith("japanize_matplotlib."):
+                raise AssertionError("旧distutilsへ依存するパッケージ本体をimportしてはいけません。")
+            return original_import(name, *args, **kwargs)
+
+        with matplotlib.rc_context(), mock.patch.object(font_manager.fontManager, "ttflist", []), mock.patch("builtins.__import__", side_effect=forbid_legacy_import):
+            family = ensure_japanese_font()
+            self.assertEqual(family, "IPAexGothic")
+            self.assertEqual(matplotlib.rcParams["font.family"], [family])
+            registered = Path(font_manager.findfont(family, fallback_to_default=False))
+            self.assertEqual(registered.resolve(), bundled.resolve())
+            self.assertTrue(all(ord(char) in ft2font.FT2Font(str(registered)).get_charmap() for char in "時間周波数重心振幅原曲"))
 
 
 if __name__ == "__main__":
