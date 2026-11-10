@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {analyseHistory, describeRecipe, eligibleRecipes, generatePlan, replaceRecipe, shoppingList} from '../planner.js';
+import {GENRES, activeRecipeIds, allocateGenreCounts, analyseHistory, describeRecipe, eligibleRecipes, generatePlan, replaceRecipe, shoppingList, toggleDish} from '../planner.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 
 const makeRecipe = (id, role, ingredientIds, extra = {}) => ({
@@ -406,4 +406,179 @@ test('excluding tomato from the distributed catalogue also removes its registere
     }
     assert.ok(!shoppingList(variant, 2, data).some(item => tomatoIds.includes(item.id)));
   }
+});
+
+const RATIOS = {和食: 40, 洋食: 30, 中華: 20, エスニック: 10, その他: 0};
+const RATIO_DATA = {...DATA, recipes: [
+  ...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+  ...GENRES.flatMap((genre, index) => [
+    makeRecipe(`genre-${index}-light`, 'main', ['chicken'], {genre, tags: ['さっぱり', '時短'], minutes: 10}),
+    makeRecipe(`genre-${index}-hearty`, 'main', ['chicken'], {genre, tags: ['ガッツリ', '定番']}),
+  ]),
+]};
+
+test('genre percentages use largest remainders and allocate every day exactly once', () => {
+  assert.deepEqual(allocateGenreCounts(7, RATIOS), {和食: 3, 洋食: 2, 中華: 1, エスニック: 1, その他: 0});
+  assert.deepEqual(allocateGenreCounts(1, {和食: 20, 洋食: 20, 中華: 20, エスニック: 20, その他: 20}),
+    {和食: 1, 洋食: 0, 中華: 0, エスニック: 0, その他: 0});
+  for (let days = 1; days <= 7; days++) assert.equal(Object.values(allocateGenreCounts(days, RATIOS)).reduce((sum, value) => sum + value, 0), days);
+  for (const bad of [{和食: 99}, {和食: 101, 洋食: -1}, {和食: 99.5, 洋食: 0.5}, {和食: 90, unknown: 10}]) {
+    assert.throws(() => allocateGenreCounts(7, bad));
+  }
+});
+
+test('ratio targets match actual main genres when safe candidates exist, including repeated recipes', () => {
+  const plan = generatePlan(settings({days: 7, preferences: {genreMode: 'ratio', genreRatios: RATIOS}}), RATIO_DATA);
+  assert.equal(plan.ok, true);
+  assert.deepEqual(plan.genreSummary.targets, {和食: 3, 洋食: 2, 中華: 1, エスニック: 1, その他: 0});
+  assert.deepEqual(plan.genreSummary.actual, plan.genreSummary.targets);
+  assert.equal(plan.genreSummary.activeMainCount, 7);
+  for (const day of plan.days) assert.equal(describeRecipe(day.recipeIds[0], RATIO_DATA).genre, day.targetGenre);
+  const allJapanese = generatePlan(settings({days: 7, preferences: {genreMode: 'ratio', genreRatios: {和食: 100}}}), RATIO_DATA);
+  assert.ok(allJapanese.days.every(day => describeRecipe(day.recipeIds[0], RATIO_DATA).genre === '和食'));
+  assert.ok(allJapanese.days.some(day => day.warnings.some(message => message.includes('同じ料理'))));
+});
+
+test('an unavailable target genre falls back safely even to zero-percent genres with explicit counts', () => {
+  const data = {...DATA, recipes: [
+    ...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    makeRecipe('egg-japanese', 'main', ['egg'], {genre: '和食'}),
+    makeRecipe('chicken-western', 'main', ['chicken'], {genre: '洋食'}),
+  ]};
+  const plan = generatePlan(settings({days: 7, allergens: ['egg'], preferences: {genreMode: 'ratio', genreRatios: {和食: 100}}}), data);
+  assert.equal(plan.ok, true);
+  assert.equal(plan.genreSummary.targets.和食, 7);
+  assert.equal(plan.genreSummary.actual.洋食, 7);
+  assert.match(plan.genreSummary.note, /0%/);
+  for (const day of plan.days) {
+    assert.equal(day.targetGenre, '和食');
+    assert.match(day.warnings.join(''), /和食.*洋食/);
+    assert.ok(!describeRecipe(day.recipeIds[0], data).allergens.includes('egg'));
+  }
+});
+
+test('single mode and legacy genre preferences keep the requested main genre ahead of repetition', () => {
+  const history = RATIO_DATA.recipes.filter(recipe => recipe.role === 'main' && recipe.genre === '和食')
+    .map(recipe => ({date: '2026-11-09', meal: 'dinner', recipeIds: [recipe.id]}));
+  for (const preferences of [{genre: '和食'}, {genreMode: 'single', genre: '和食'}]) {
+    const plan = generatePlan(settings({days: 3, preferences, history}), RATIO_DATA);
+    assert.equal(plan.settings.preferences.genreMode, 'single');
+    assert.ok(plan.days.every(day => describeRecipe(day.recipeIds[0], RATIO_DATA).genre === '和食'));
+  }
+  assert.equal(generatePlan(settings(), DATA).settings.preferences.genreMode, 'any');
+});
+
+test('main swaps preserve the day target and update actual genres when only another genre is available', () => {
+  const plan = generatePlan(settings({days: 7, preferences: {genreMode: 'ratio', genreRatios: RATIOS}}), RATIO_DATA);
+  const swapped = replaceRecipe(plan, {dayIndex: 0, recipeId: plan.days[0].recipeIds[0], seed: 93}, RATIO_DATA);
+  assert.equal(swapped.days[0].targetGenre, plan.days[0].targetGenre);
+  assert.equal(describeRecipe(swapped.days[0].recipeIds[0], RATIO_DATA).genre, plan.days[0].targetGenre);
+  assert.deepEqual(swapped.genreSummary.actual, plan.genreSummary.actual);
+  const data = {...DATA, recipes: [...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    makeRecipe('only-japanese', 'main', ['chicken'], {genre: '和食'}),
+    makeRecipe('only-western', 'main', ['chicken'], {genre: '洋食'}),
+  ]};
+  const one = generatePlan(settings({days: 1, preferences: {genreMode: 'single', genre: '和食'}}), data);
+  const fallback = replaceRecipe(one, {dayIndex: 0, recipeId: 'only-japanese'}, data);
+  assert.equal(fallback.days[0].targetGenre, '和食');
+  assert.equal(fallback.genreSummary.actual.洋食, 1);
+  assert.match(fallback.days[0].warnings.join(''), /和食.*洋食/);
+});
+
+test('mood tags are preferred inside the requested genre and cannot bypass allergy checks', () => {
+  for (const mood of ['さっぱり', 'ガッツリ', '時短', '定番']) {
+    const plan = generatePlan(settings({days: 1, preferences: {genreMode: 'single', genre: '和食', mood}}), RATIO_DATA);
+    const main = describeRecipe(plan.days[0].recipeIds[0], RATIO_DATA);
+    assert.equal(main.genre, '和食');
+    assert.ok(main.tags.includes(mood));
+  }
+  const data = {...DATA, recipes: [...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    makeRecipe('light-egg', 'main', ['egg'], {genre: '和食', tags: ['さっぱり']}),
+    makeRecipe('hearty-chicken', 'main', ['chicken'], {genre: '和食', tags: ['ガッツリ']}),
+    makeRecipe('foreign-light', 'main', ['chicken'], {genre: '洋食', tags: ['さっぱり']}),
+  ]};
+  const plan = generatePlan(settings({days: 1, allergens: ['egg'], preferences: {genreMode: 'single', genre: '和食', mood: 'さっぱり'}}), data);
+  assert.equal(plan.days[0].recipeIds[0], 'hearty-chicken');
+  assert.match(plan.days[0].warnings.join(''), /気分「さっぱり」/);
+  const next = replaceRecipe(plan, {dayIndex: 0, recipeId: 'hearty-chicken', allergens: ['egg']}, data);
+  assert.equal(next.days[0].recipeIds[0], 'foreign-light');
+  assert.ok(!next.days[0].recipeIds.includes('light-egg'));
+});
+
+test('omitting and restoring a dish changes shopping and active-main counts without changing the proposal', () => {
+  const plan = generatePlan(settings({days: 1}), DATA);
+  const original = JSON.stringify(plan);
+  const mainId = plan.days[0].recipeIds[0];
+  const omitted = toggleDish(plan, {dayIndex: 0, recipeId: mainId}, DATA);
+  assert.equal(JSON.stringify(plan), original);
+  assert.deepEqual(omitted.days[0].recipeIds, plan.days[0].recipeIds);
+  assert.ok(!activeRecipeIds(omitted.days[0]).includes(mainId));
+  assert.equal(omitted.genreSummary.activeMainCount, 0);
+  assert.equal(omitted.genreSummary.omittedMainCount, 1);
+  assert.match(omitted.days[0].warnings.join(''), /主菜/);
+  assert.doesNotMatch(omitted.days[0].reasons.join(''), /主菜に含めています/);
+  const expected = shoppingList({...plan, days: [{...plan.days[0], recipeIds: activeRecipeIds(omitted.days[0])}]}, 2, DATA);
+  assert.deepEqual(shoppingList(omitted, 2, DATA), expected);
+  const restored = toggleDish(omitted, {dayIndex: 0, recipeId: mainId}, DATA);
+  assert.deepEqual(restored.days[0].omittedRecipeIds, []);
+  assert.deepEqual(restored.days[0].reasons, plan.days[0].reasons);
+  assert.deepEqual(shoppingList(restored, 2, DATA), shoppingList(plan, 2, DATA));
+  assert.equal(restored.genreSummary.activeMainCount, 1);
+});
+
+test('all dishes may be explicitly omitted, producing an empty shopping list and no active recipe IDs', () => {
+  let plan = generatePlan(settings({days: 1}), DATA);
+  const ids = [...plan.days[0].recipeIds];
+  for (const recipeId of ids) plan = toggleDish(plan, {dayIndex: 0, recipeId}, DATA);
+  assert.equal(plan.ok, true);
+  assert.deepEqual(activeRecipeIds(plan.days[0]), []);
+  assert.deepEqual(shoppingList(plan, 2, DATA), []);
+  assert.equal(plan.genreSummary.activeMainCount, 0);
+  assert.match(plan.days[0].reasons.join(''), /すべて/);
+});
+
+test('swapping an omitted dish is rejected while swapping another dish preserves omission', () => {
+  const plan = generatePlan(settings({days: 1}), DATA);
+  const side = plan.days[0].recipeIds.find(id => describeRecipe(id, DATA).role === 'side');
+  const omitted = toggleDish(plan, {dayIndex: 0, recipeId: side}, DATA);
+  assert.throws(() => replaceRecipe(omitted, {dayIndex: 0, recipeId: side}, DATA), /戻してから/);
+  const changed = replaceRecipe(omitted, {dayIndex: 0, recipeId: omitted.days[0].recipeIds[0]}, DATA);
+  assert.deepEqual(changed.days[0].omittedRecipeIds, [side]);
+  assert.ok(!activeRecipeIds(changed.days[0]).includes(side));
+  assert.throws(() => toggleDish(plan, {dayIndex: 0, recipeId: 'missing'}, DATA), /料理が見つかりません/);
+});
+
+test('an unsafe saved omitted dish cannot be restored after exclusion settings change', () => {
+  const data = {...DATA, recipes: DATA.recipes.filter(recipe => recipe.role !== 'main' || recipe.id === 'egg-rice')};
+  const plan = generatePlan(settings({days: 1}), data);
+  const omitted = toggleDish(plan, {dayIndex: 0, recipeId: 'egg-rice'}, data);
+  const changed = {...omitted, settings: {...omitted.settings, allergens: ['egg']}};
+  const restored = toggleDish(changed, {dayIndex: 0, recipeId: 'egg-rice'}, data);
+  assert.equal(restored.ok, false);
+  assert.deepEqual(restored.days, []);
+});
+
+test('preferred source ingredients include derivatives, and exclusion conflicts are disclosed', () => {
+  const data = {...DERIVED_DATA, recipes: [
+    ...DERIVED_DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    makeRecipe('tomato-option', 'main', ['chicken', 'tomato_paste']),
+    makeRecipe('carrot-option', 'main', ['chicken', 'carrot']),
+  ]};
+  for (const seed of [1, 2, 3, 4]) {
+    const plan = generatePlan(settings({days: 1, seed, preferences: {preferredIngredients: ['tomato']}}), data);
+    assert.equal(plan.days[0].recipeIds[0], 'tomato-option');
+  }
+  const excluded = generatePlan(settings({days: 1, excludedIngredients: ['tomato'], preferences: {preferredIngredients: ['tomato_paste']}}), data);
+  assert.equal(excluded.days[0].recipeIds[0], 'carrot-option');
+  assert.match(excluded.warnings.join(''), /優先食材.*除外を優先/);
+});
+
+test('the distributed ethnic main collection supports seven days at 100% without silently changing genre', () => {
+  const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
+  assert.ok(RECIPES.some(recipe => recipe.role === 'main' && recipe.genre === 'エスニック'));
+  const plan = generatePlan(settings({days: 7, preferences: {genreMode: 'ratio', genreRatios: {エスニック: 100}}}), data);
+  assert.equal(plan.ok, true);
+  assert.equal(plan.genreSummary.targets.エスニック, 7);
+  assert.equal(plan.genreSummary.actual.エスニック, 7);
+  assert.ok(plan.days.every(day => describeRecipe(day.recipeIds[0], data).genre === 'エスニック'));
 });

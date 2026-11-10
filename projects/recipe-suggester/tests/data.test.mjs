@@ -120,3 +120,34 @@ test('instructions use proportions instead of absolute ingredient quantities', (
     }
   }
 });
+
+test('the original mood choices are available on mains and have consistent meanings', () => {
+  const moodTags = new Set(['さっぱり','ガッツリ','時短','定番']);
+  for (const recipe of RECIPES) {
+    assert.ok(recipe.tags.every(tag => moodTags.has(tag)),recipe.id);
+    assert.equal(new Set(recipe.tags).size,recipe.tags.length,recipe.id);
+    if (recipe.role === 'staple') assert.deepEqual(recipe.tags,[],recipe.id);
+    else assert.equal(recipe.tags.includes('時短'),recipe.minutes <= 20,recipe.id);
+  }
+  for (const tag of moodTags) {
+    assert.ok(RECIPES.filter(recipe => recipe.role === 'main' && recipe.tags.includes(tag)).length >= 5,tag);
+  }
+  assert.ok(byId.get('chicken-salt-lemon').tags.includes('さっぱり'));
+  assert.ok(byId.get('beef-rice-bowl').tags.includes('ガッツリ'));
+  assert.ok(byId.get('pork-ginger').tags.includes('時短'));
+  assert.ok(byId.get('chicken-teriyaki').tags.includes('定番'));
+  assert.ok(!byId.get('chicken-root-simmer').tags.includes('時短'));
+});
+
+test('five cuisine choices include explicitly classified ethnic dishes while retaining other dishes', () => {
+  const genres = new Set(['和食','洋食','中華','エスニック','その他']);
+  assert.deepEqual(new Set(RECIPES.map(recipe => recipe.genre)),genres);
+  assert.ok(RECIPES.filter(recipe => recipe.role === 'main' && recipe.genre === 'エスニック').length >= 5);
+  for (const id of ['chicken-curry-yogurt','tomato-chicken-curry','side-019','soup-021']) {
+    assert.equal(byId.get(id).genre,'エスニック',id);
+  }
+  assert.equal(byId.get('side-033').genre,'その他');
+  assert.equal(byId.get('soup-032').genre,'その他');
+  assert.equal(byId.get('rice-baked-cheese').genre,'洋食');
+  assert.equal(byId.get('chicken-teriyaki').genre,'和食');
+});

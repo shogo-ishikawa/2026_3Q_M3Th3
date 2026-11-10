@@ -2,6 +2,8 @@
 export const STORAGE_KEY = 'kondate-note-v1';
 export const GROUP_IDS = ['staple', 'vegetable', 'protein', 'dairy', 'fruit'];
 export const PROTEIN_IDS = ['meat', 'fish', 'egg', 'soy'];
+export const GENRES = ['和食', '洋食', '中華', 'エスニック', 'その他'];
+export const MOODS = ['all', 'さっぱり', 'ガッツリ', '時短', '定番'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MAX_HISTORY = 1000;
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
@@ -18,7 +20,42 @@ function dateIsValid(value) {
 }
 
 export function defaultState(today = localDate()) {
-  return {version: 1, settings: {startDate: today, days: 3, servings: 2, allergens: [], excludedIngredients: []}, history: []};
+  return {version: 1, settings: {startDate: today, days: 3, servings: 2, allergens: [], excludedIngredients: [], preferences: defaultPreferences()}, history: []};
+}
+
+export function defaultPreferences() {
+  return {genreMode: 'any', genre: 'all', mood: 'all', genreRatios: {'和食': 40, '洋食': 30, '中華': 20, 'エスニック': 10, 'その他': 0}, preferredIngredients: [], maxMinutes: null};
+}
+
+export function rebalanceGenreRatios(ratios, changedGenre, percent) {
+  if (!GENRES.includes(changedGenre) || !Number.isInteger(percent) || percent < 0 || percent > 100) throw new Error('ジャンルの割合は0〜100の整数で指定してください。');
+  const others = GENRES.filter(genre => genre !== changedGenre);
+  const weights = others.map(genre => Math.max(0, Number(ratios[genre]) || 0));
+  const sum = weights.reduce((total, weight) => total + weight, 0);
+  const raw = weights.map(weight => (sum > 0 ? weight / sum : 1 / others.length) * (100 - percent));
+  const portions = raw.map(Math.floor);
+  let rest = 100 - percent - portions.reduce((total, value) => total + value, 0);
+  const order = raw.map((value, index) => ({index, fraction: value - portions[index]})).sort((a, b) => b.fraction - a.fraction || a.index - b.index);
+  for (const {index} of order) if (rest-- > 0) portions[index]++;
+  return Object.fromEntries(GENRES.map(genre => [genre, genre === changedGenre ? percent : portions[others.indexOf(genre)]]));
+}
+
+function validatePreferences(value, ingredientIds) {
+  if (value === undefined) return defaultPreferences();
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('好みの設定を確認してください。');
+  const defaults = defaultPreferences();
+  if (Object.keys(value).some(key => !Object.hasOwn(defaults, key))) throw new Error('好みの設定に、このアプリで扱えない項目があります。');
+  const genreMode = value.genreMode === undefined ? (GENRES.includes(value.genre) ? 'single' : defaults.genreMode) : value.genreMode;
+  const genre = value.genre === undefined ? (genreMode === 'single' ? '和食' : defaults.genre) : value.genre;
+  const mood = value.mood === undefined ? defaults.mood : value.mood;
+  if (!['any', 'single', 'ratio'].includes(genreMode) || !['all', ...GENRES].includes(genre) || !MOODS.includes(mood) || (genreMode === 'single' && genre === 'all')) throw new Error('ジャンルと気分の設定を確認してください。');
+  const sourceRatios = value.genreRatios === undefined ? defaults.genreRatios : value.genreRatios;
+  if (!sourceRatios || typeof sourceRatios !== 'object' || Array.isArray(sourceRatios) || Object.keys(sourceRatios).some(genre => !GENRES.includes(genre)) || GENRES.some(genre => !Number.isInteger(sourceRatios[genre]) || sourceRatios[genre] < 0 || sourceRatios[genre] > 100)) throw new Error('ジャンルの割合は0〜100の整数で指定してください。');
+  const genreRatios = Object.fromEntries(GENRES.map(genre => [genre, sourceRatios[genre]]));
+  if (Math.abs(Object.values(genreRatios).reduce((total, number) => total + number, 0) - 100) > 1e-8) throw new Error('ジャンルの割合は合計100%で指定してください。');
+  const maxMinutes = value.maxMinutes === undefined ? null : value.maxMinutes;
+  if (maxMinutes !== null && (typeof maxMinutes !== 'number' || !Number.isFinite(maxMinutes) || maxMinutes <= 0 || maxMinutes > 240)) throw new Error('時間の目安は1〜240分で指定してください。');
+  return {genreMode, genre, mood, genreRatios, preferredIngredients: selectedIds(value.preferredIngredients === undefined ? [] : value.preferredIngredients, ingredientIds, '優先食材'), maxMinutes};
 }
 
 function selectedIds(value, allowed, label) {
@@ -39,7 +76,8 @@ export function validateState(value, data) {
   const allergenIds = new Set(data.allergens.map(allergen => allergen.id));
   const settings = {startDate: source.startDate, days: source.days, servings: source.servings,
     allergens: selectedIds(source.allergens, allergenIds, 'アレルギー食材'),
-    excludedIngredients: selectedIds(source.excludedIngredients, ingredientIds, '追加の除外食材')};
+    excludedIngredients: selectedIds(source.excludedIngredients, ingredientIds, '追加の除外食材'),
+    preferences: validatePreferences(source.preferences, ingredientIds)};
   if (!Array.isArray(value.history) || value.history.length > MAX_HISTORY) throw new Error(`食事の記録は${MAX_HISTORY}件まで読み込めます。`);
   const ids = new Set();
   const history = value.history.map(entry => {

@@ -2,6 +2,9 @@
 // 食品群の回数は献立の組合せを考える目安です。栄養量の計算ではありません。
 export const FOOD_GROUPS = ['staple', 'vegetable', 'protein', 'dairy', 'fruit'];
 export const PROTEIN_SOURCES = ['meat', 'fish', 'egg', 'soy'];
+export const GENRES = ['和食', '洋食', '中華', 'エスニック', 'その他'];
+export const MOODS = ['all', 'さっぱり', 'ガッツリ', '時短', '定番'];
+const DEFAULT_RATIOS = {和食: 40, 洋食: 30, 中華: 20, エスニック: 10, その他: 0};
 const ROLES = ['main', 'side', 'soup', 'staple'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const SOURCE_LABELS = {meat: '肉', fish: '魚', egg: '卵', soy: '大豆'};
@@ -167,6 +170,12 @@ function normaliseSettings(settings, data) {
   if (typeof preferences !== 'object' || preferences === null || Array.isArray(preferences)) throw new Error('好みの設定を確認してください。');
   const genre = preferences.genre ?? 'all';
   if (typeof genre !== 'string') throw new Error('料理ジャンルを確認してください。');
+  let genreMode = preferences.genreMode ?? (['all', 'any', 'おまかせ', '指定なし', ''].includes(genre) ? 'any' : 'single');
+  if (!['any', 'single', 'ratio'].includes(genreMode)) throw new Error('ジャンルの選び方を確認してください。');
+  if (genreMode === 'single' && !GENRES.includes(genre)) throw new Error('優先するジャンルを一覧から選んでください。');
+  const mood = preferences.mood === '指定なし' ? 'all' : (preferences.mood ?? 'all');
+  if (!MOODS.includes(mood)) throw new Error('気分を一覧から選んでください。');
+  const genreRatios = normaliseRatios(preferences.genreRatios ?? DEFAULT_RATIOS);
   if (preferences.maxMinutes != null && (!finitePositive(preferences.maxMinutes) || preferences.maxMinutes > 240)) {
     throw new Error('所要時間の目安は1〜240分の範囲にしてください。');
   }
@@ -174,7 +183,86 @@ function normaliseSettings(settings, data) {
   const seed = settings.seed ?? 1;
   if (!['number', 'string'].includes(typeof seed) || (typeof seed === 'number' && !Number.isFinite(seed))) throw new Error('乱数の設定を確認してください。');
   return {...selected, startDate, days, servings, meal, seed,
-    preferences: {genre, maxMinutes: preferences.maxMinutes ?? null, preferredIngredients},
+    preferences: {genreMode, genre, mood, genreRatios, maxMinutes: preferences.maxMinutes ?? null, preferredIngredients},
+  };
+}
+
+function normaliseRatios(ratios) {
+  if (!ratios || typeof ratios !== 'object' || Array.isArray(ratios) || Object.keys(ratios).some(genre => !GENRES.includes(genre))) {
+    throw new Error('ジャンルの比率を確認してください。');
+  }
+  const result = Object.fromEntries(GENRES.map(genre => [genre, ratios[genre] ?? 0]));
+  if (Object.values(result).some(value => !Number.isInteger(value) || value < 0 || value > 100) ||
+      Object.values(result).reduce((sum, value) => sum + value, 0) !== 100) {
+    throw new Error('ジャンルの比率は0〜100の整数で、合計100%にしてください。');
+  }
+  return result;
+}
+
+export function allocateGenreCounts(days, genreRatios) {
+  if (!Number.isInteger(days) || days < 1 || days > 7) throw new Error('日数は1〜7日の整数で指定してください。');
+  const ratios = normaliseRatios(genreRatios);
+  const targets = Object.fromEntries(GENRES.map(genre => [genre, Math.floor(days * ratios[genre] / 100)]));
+  let remaining = days - Object.values(targets).reduce((sum, count) => sum + count, 0);
+  // 小数部分が大きいジャンルから1食ずつ配分。同じときはGENRESの順です。
+  const order = [...GENRES].sort((a, b) => (days * ratios[b] % 100) - (days * ratios[a] % 100));
+  for (const genre of order) {
+    if (!remaining) break;
+    targets[genre]++;
+    remaining--;
+  }
+  return targets;
+}
+
+function genreSchedule(settings) {
+  const preferences = settings.preferences;
+  if (preferences.genreMode === 'any') return Array(settings.days).fill(null);
+  if (preferences.genreMode === 'single') return Array(settings.days).fill(preferences.genre);
+  const targets = allocateGenreCounts(settings.days, preferences.genreRatios);
+  const used = emptyCounts(GENRES);
+  const sequence = [];
+  for (let index = 0; index < settings.days; index++) {
+    const candidates = GENRES.filter(genre => used[genre] < targets[genre]);
+    candidates.sort((a, b) => {
+      const deficitA = targets[a] * (index + 1) / settings.days - used[a];
+      const deficitB = targets[b] * (index + 1) / settings.days - used[b];
+      return deficitB - deficitA || tieBreak(settings.seed, `${index}:${b}`) - tieBreak(settings.seed, `${index}:${a}`);
+    });
+    sequence.push(candidates[0]);
+    used[candidates[0]]++;
+  }
+  return sequence;
+}
+
+export function activeRecipeIds(day) {
+  if (!day || !Array.isArray(day.recipeIds) || day.recipeIds.some(id => typeof id !== 'string')) {
+    throw new Error('献立の料理一覧を確認してください。');
+  }
+  const omitted = day.omittedRecipeIds ?? [];
+  if (!Array.isArray(omitted) || omitted.some(id => typeof id !== 'string' || !day.recipeIds.includes(id))) {
+    throw new Error('今回は作らない料理の設定を確認してください。');
+  }
+  return day.recipeIds.filter(id => !omitted.includes(id));
+}
+
+function summariseGenres(settings, days, data) {
+  const actual = emptyCounts(GENRES);
+  let omittedMainCount = 0;
+  for (const day of days) {
+    const active = new Set(activeRecipeIds(day));
+    for (const id of day.recipeIds) {
+      const recipe = describeRecipe(id, data);
+      if (recipe.role !== 'main') continue;
+      if (!active.has(id)) omittedMainCount++;
+      else if (GENRES.includes(recipe.genre)) actual[recipe.genre]++;
+    }
+  }
+  const mode = settings.preferences.genreMode;
+  const targets = mode === 'ratio' ? allocateGenreCounts(settings.days, settings.preferences.genreRatios) : emptyCounts(GENRES);
+  if (mode === 'single') targets[settings.preferences.genre] = settings.days;
+  return {mode, ratios: {...settings.preferences.genreRatios}, targets, actual, omittedMainCount,
+    activeMainCount: Object.values(actual).reduce((sum, count) => sum + count, 0),
+    note: mode === 'ratio' ? '比率は主菜の希望配分です。候補がない場合は0%のジャンルも含め、食材の除外条件に合う料理を選びます。今回は作らない主菜は実績の件数に含めません。' : '件数は今回は作る主菜だけを数えています。',
   };
 }
 
@@ -240,16 +328,24 @@ function tieBreak(seed, value) {
 
 function pick(candidates, settings, history, context, date, role) {
   if (!candidates.length) return null;
-  const fresh = candidates.filter(recipe => !history.recipeCounts[recipe.id] && !context.used.has(recipe.id));
-  const pool = fresh.length ? fresh : candidates;
-  const genreSpecified = !['all', 'any', 'おまかせ', '指定なし', ''].includes(settings.preferences.genre);
+  let preferred = candidates;
+  if (role === 'main' && context.targetGenre) {
+    const matching = preferred.filter(recipe => recipe.genre === context.targetGenre);
+    if (matching.length) preferred = matching;
+  }
+  if (settings.preferences.mood !== 'all') {
+    const matching = preferred.filter(recipe => (recipe.tags ?? []).includes(settings.preferences.mood));
+    if (matching.length) preferred = matching;
+  }
+  const fresh = preferred.filter(recipe => !history.recipeCounts[recipe.id] && !context.used.has(recipe.id));
+  const pool = fresh.length ? fresh : preferred;
   const score = recipe => {
     let value = tieBreak(settings.seed, `${date}:${role}:${recipe.id}`);
     value -= (history.recipeCounts[recipe.id] ?? 0) * 25;
     value -= context.used.has(recipe.id) ? 60 : 0;
-    if (genreSpecified && recipe.genre === settings.preferences.genre) value += 8;
     if (settings.preferences.maxMinutes && recipe.minutes <= settings.preferences.maxMinutes) value += 5;
-    value += recipe.ingredients.filter(item => settings.preferences.preferredIngredients.includes(item.id)).length * 4;
+    value += recipe.ingredients.filter(item => [item.id, ...item.ancestorIds]
+      .some(id => settings.preferences.preferredIngredients.includes(id))).length * 4;
     if (!context.groups.has('vegetable') && recipe.groups.includes('vegetable')) value += 10;
     if (!context.groups.has('protein') && recipe.groups.includes('protein')) value += 8;
     if (history.hasTaggedData) {
@@ -279,7 +375,24 @@ function incomplete(settings, roles, warnings = []) {
   };
 }
 
-function dayNotes(selected, history, settings, {recordedHistory = history.hasTaggedData, earlierPlans = false} = {}) {
+function preferenceWarnings(settings, data) {
+  const warnings = [];
+  const knownAllergens = checkData(data);
+  for (const id of settings.preferences.preferredIngredients) {
+    try {
+      const family = [id, ...ingredientAncestors(id, data, knownAllergens)];
+      const allergens = unique(family.flatMap(item => checkedIngredient(item, data, knownAllergens).allergens));
+      if (family.some(item => settings.excludedIngredients.includes(item)) || allergens.some(item => settings.allergens.includes(item))) {
+        warnings.push(`優先食材「${data.ingredients[id].name}」は除外条件と重なるため、除外を優先しました。`);
+      }
+    } catch {
+      warnings.push(`優先食材「${data.ingredients[id]?.name ?? id}」は確認情報が不足するため優先できません。`);
+    }
+  }
+  return warnings;
+}
+
+function dayNotes(selected, history, settings, {recordedHistory = history.hasTaggedData, earlierPlans = false, targetGenre = null} = {}) {
   const reasons = [];
   const warnings = [];
   const groups = unique(selected.flatMap(recipe => recipe.groups));
@@ -302,14 +415,48 @@ function dayNotes(selected, history, settings, {recordedHistory = history.hasTag
   if (selected.some(recipe => history.recipeCounts[recipe.id] && recipe.role !== 'staple')) {
     warnings.push(`食べられる候補の範囲で、${basis}と同じ料理を含めています。`);
   }
-  const genre = settings.preferences.genre;
-  if (!['all', 'any', 'おまかせ', '指定なし', ''].includes(genre) && main?.genre !== genre) {
-    warnings.push('希望ジャンル以外の主菜を選びました。アレルゲンと除外食材の条件は維持しています。');
+  if (targetGenre && main?.genre !== targetGenre) {
+    warnings.push(`希望ジャンル以外の主菜を選びました。目標の「${targetGenre}」に選べる候補がないため「${main?.genre ?? 'その他'}」にしています。アレルゲンと除外食材の条件は維持しています。`);
+  }
+  const mood = settings.preferences.mood;
+  if (mood !== 'all') {
+    if (selected.some(recipe => recipe.role !== 'staple' && (recipe.tags ?? []).includes(mood))) {
+      reasons.push(`「${mood}」のタグが付いた料理を含めています。`);
+    } else {
+      warnings.push(`気分「${mood}」に合う候補を組み合わせられなかったため、食材の除外条件を保った別の料理を選びました。`);
+    }
   }
   if (settings.preferences.maxMinutes && selected.some(recipe => recipe.minutes > settings.preferences.maxMinutes)) {
     warnings.push('希望した所要時間を超える料理を含みます。');
   }
   return {reasons: unique(reasons), warnings: unique(warnings)};
+}
+
+function omissionNotes(day, data) {
+  const active = new Set(activeRecipeIds(day));
+  const omittedRecipeIds = unique(day.omittedRecipeIds ?? []);
+  const proposedReasons = [...(day.proposedReasons ?? day.reasons ?? [])];
+  const proposedWarnings = [...(day.proposedWarnings ?? day.warnings ?? [])];
+  if (!omittedRecipeIds.length) {
+    return {...day, omittedRecipeIds, proposedReasons, proposedWarnings,
+      reasons: [...proposedReasons], warnings: [...proposedWarnings]};
+  }
+  const recipes = [...active].map(id => describeRecipe(id, data));
+  const groups = unique(recipes.flatMap(recipe => recipe.groups));
+  const warnings = proposedWarnings.map(message => `提案時の条件確認：${message}`);
+  const omittedNames = omittedRecipeIds.map(id => {
+    const recipe = describeRecipe(id, data);
+    return `${ROLE_LABELS[recipe.role]}「${recipe.name}」`;
+  });
+  warnings.push(`今回は${omittedNames.join('・')}を作らない設定です。買い物リストと食事の記録から外します。`);
+  if (active.size) {
+    if (!groups.includes('vegetable')) warnings.push('今回作る料理には野菜の食品群がありません。');
+    if (!groups.includes('protein')) warnings.push('今回作る料理には主なたんぱく源の食品群がありません。');
+    if (!groups.includes('staple')) warnings.push('今回作る料理には主食の食品群がありません。');
+  }
+  return {...day, omittedRecipeIds, proposedReasons, proposedWarnings,
+    reasons: [active.size ? '今回作る料理だけで集計しています。自動提案時の主菜・副菜・汁物の構成から、一部を外した状態です。' : 'この日の料理はすべて「今回は作らない」設定です。'],
+    warnings: unique(warnings)};
 }
 
 export function generatePlan(settings = {}, data) {
@@ -322,16 +469,18 @@ export function generatePlan(settings = {}, data) {
   const missing = ['side', 'soup'].filter(role => !byRole[role].length);
   if (!byRole.main.length) missing.push('main');
   else if (!possibleMains.length) missing.push('staple');
-  const warnings = catalog.invalidIds.length ? [`材料・手順・確認情報が不足する${catalog.invalidIds.length}品は提案から除外しました。`] : [];
+  const warnings = [...preferenceWarnings(normalised, data),
+    ...(catalog.invalidIds.length ? [`材料・手順・確認情報が不足する${catalog.invalidIds.length}品は提案から除外しました。`] : [])];
   if (missing.length) return incomplete(normalised, missing, warnings);
   const result = [];
   const historyEntries = [...(settings.history ?? [])];
   const used = new Set();
+  const targets = genreSchedule(normalised);
   let lastSources = [];
   for (let index = 0; index < normalised.days; index++) {
     const date = nextDate(normalised.startDate, index);
     const history = analyseHistory(historyEntries, {beforeDate: date, days: 7, beforeMeal: normalised.meal}, data);
-    const context = {used, groups: new Set(), lastSources};
+    const context = {used, groups: new Set(), lastSources, targetGenre: targets[index]};
     const selected = [];
     const add = recipe => {
       selected.push(recipe);
@@ -344,12 +493,15 @@ export function generatePlan(settings = {}, data) {
     add(pick(byRole.soup, normalised, history, context, date, 'soup'));
     if (!main.staple) add(pick(byRole.staple, normalised, history, context, date, 'staple'));
     const recorded = analyseHistory(settings.history ?? [], {beforeDate: date, days: 7, beforeMeal: normalised.meal}, data);
-    const notes = dayNotes(selected, history, normalised, {recordedHistory: recorded.hasTaggedData, earlierPlans: index > 0});
-    result.push({date, meal: normalised.meal, recipeIds: selected.map(recipe => recipe.id), ...notes});
+    const notes = dayNotes(selected, history, normalised, {recordedHistory: recorded.hasTaggedData, earlierPlans: index > 0, targetGenre: targets[index]});
+    result.push({date, meal: normalised.meal, targetGenre: targets[index],
+      recipeIds: selected.map(recipe => recipe.id), omittedRecipeIds: [],
+      ...notes, proposedReasons: [...notes.reasons], proposedWarnings: [...notes.warnings]});
     lastSources = main.proteinSources;
     historyEntries.push({date, meal: normalised.meal, recipeIds: selected.map(recipe => recipe.id)});
   }
-  return {ok: true, days: result, settings: normalised, missingRoles: [], warnings};
+  return {ok: true, days: result, settings: normalised, missingRoles: [], warnings,
+    genreSummary: summariseGenres(normalised, result, data)};
 }
 
 export function replaceRecipe(plan, options = {}, data) {
@@ -365,15 +517,18 @@ export function replaceRecipe(plan, options = {}, data) {
     return {ok: false, days: [], settings, missingRoles: [], warnings: ['現在の除外条件に合わない料理が献立に含まれます。新しい条件で献立全体を作り直してください。']};
   }
   const currentDay = plan.days[dayIndex];
+  activeRecipeIds(currentDay);
   if (!currentDay.recipeIds.includes(options.recipeId)) throw new Error('差し替える料理が見つかりません。');
+  if ((currentDay.omittedRecipeIds ?? []).includes(options.recipeId)) throw new Error('今回は作らない料理は、戻してから差し替えてください。');
   const previous = safeById.get(options.recipeId);
   const main = currentDay.recipeIds.map(id => safeById.get(id)).find(recipe => recipe.role === 'main');
   const otherDays = plan.days.filter((_, index) => index !== dayIndex)
-    .map(day => ({date: day.date, meal: day.meal, recipeIds: day.recipeIds}));
+    .map(day => ({date: day.date, meal: day.meal, recipeIds: activeRecipeIds(day)}));
   const history = analyseHistory([...(options.history ?? []), ...otherDays],
     {beforeDate: currentDay.date, days: 7, beforeMeal: currentDay.meal}, data);
-  const used = new Set(plan.days.flatMap(day => day.recipeIds));
-  const others = currentDay.recipeIds.filter(id => id !== previous.id).map(id => safeById.get(id));
+  const used = new Set(plan.days.flatMap(day => activeRecipeIds(day)));
+  const others = activeRecipeIds(currentDay).filter(id => id !== previous.id).map(id => safeById.get(id));
+  const targetGenre = currentDay.targetGenre ?? genreSchedule(settings)[dayIndex];
   let pool = safe.filter(recipe => recipe.role === previous.role && recipe.id !== previous.id);
   if (previous.role === 'main') {
     const hasStaple = safe.some(recipe => recipe.role === 'staple');
@@ -381,9 +536,10 @@ export function replaceRecipe(plan, options = {}, data) {
   }
   if (previous.role === 'staple' && main?.staple) pool = [];
   if (!pool.length) {
-    return {...plan, settings, warnings: unique([...(plan.warnings ?? []), '除外条件に合う別の料理がないため、現在の料理を維持しました。条件外の料理には差し替えていません。'])};
+    return {...plan, settings, genreSummary: summariseGenres(settings, plan.days, data),
+      warnings: unique([...(plan.warnings ?? []), ...preferenceWarnings(settings, data), '除外条件に合う別の料理がないため、現在の料理を維持しました。条件外の料理には差し替えていません。'])};
   }
-  const selected = pick(pool, settings, history, {used, groups: new Set(others.flatMap(recipe => recipe.groups)), lastSources: []}, currentDay.date, previous.role);
+  const selected = pick(pool, settings, history, {used, groups: new Set(others.flatMap(recipe => recipe.groups)), lastSources: [], targetGenre}, currentDay.date, previous.role);
   let newRecipes = currentDay.recipeIds.map(id => id === previous.id ? selected : safeById.get(id));
   if (previous.role === 'main') {
     newRecipes = newRecipes.filter(recipe => recipe.role !== 'staple');
@@ -395,11 +551,36 @@ export function replaceRecipe(plan, options = {}, data) {
   }
   const recorded = analyseHistory(options.history ?? [], {beforeDate: currentDay.date, days: 7, beforeMeal: currentDay.meal}, data);
   const earlierPlans = otherDays.some(day => day.date < currentDay.date);
-  const newDay = {...currentDay, recipeIds: newRecipes.map(recipe => recipe.id),
-    ...dayNotes(newRecipes, history, settings, {recordedHistory: recorded.hasTaggedData, earlierPlans})};
-  return {ok: true, settings, missingRoles: [], warnings: invalidIds.length ? [`確認情報が不足する${invalidIds.length}品は候補に含めていません。`] : [],
-    days: plan.days.map((day, index) => index === dayIndex ? newDay : {...day, recipeIds: [...day.recipeIds]}),
-  };
+  const notes = dayNotes(newRecipes, history, settings, {recordedHistory: recorded.hasTaggedData, earlierPlans, targetGenre});
+  const recipeIds = newRecipes.map(recipe => recipe.id);
+  const newDay = omissionNotes({...currentDay, targetGenre, recipeIds,
+    omittedRecipeIds: (currentDay.omittedRecipeIds ?? []).filter(id => recipeIds.includes(id)),
+    ...notes, proposedReasons: [...notes.reasons], proposedWarnings: [...notes.warnings]}, data);
+  const days = plan.days.map((day, index) => index === dayIndex ? newDay : {...day, recipeIds: [...day.recipeIds], omittedRecipeIds: [...(day.omittedRecipeIds ?? [])]});
+  return {ok: true, settings, missingRoles: [],
+    warnings: [...preferenceWarnings(settings, data), ...(invalidIds.length ? [`確認情報が不足する${invalidIds.length}品は候補に含めていません。`] : [])],
+    days, genreSummary: summariseGenres(settings, days, data)};
+}
+
+export function toggleDish(plan, {dayIndex, recipeId} = {}, data) {
+  if (!plan?.ok || !Array.isArray(plan.days) || !plan.settings) throw new Error('先に献立を作成してください。');
+  if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex >= plan.days.length) throw new Error('変更する日を選んでください。');
+  const settings = normaliseSettings(plan.settings, data);
+  for (const day of plan.days) {
+    activeRecipeIds(day);
+    for (const id of day.recipeIds) {
+      if (!allowed(describeRecipe(id, data), settings)) {
+        return {ok: false, days: [], settings, missingRoles: [], warnings: ['現在の除外条件に合わない料理が献立に含まれます。新しい条件で献立全体を作り直してください。']};
+      }
+    }
+  }
+  const currentDay = plan.days[dayIndex];
+  if (!currentDay.recipeIds.includes(recipeId)) throw new Error('変更する料理が見つかりません。');
+  const omitted = new Set(currentDay.omittedRecipeIds ?? []);
+  if (omitted.has(recipeId)) omitted.delete(recipeId);
+  else omitted.add(recipeId);
+  const days = plan.days.map((day, index) => index === dayIndex ? omissionNotes({...day, omittedRecipeIds: [...omitted]}, data) : {...day, recipeIds: [...day.recipeIds], omittedRecipeIds: [...(day.omittedRecipeIds ?? [])]});
+  return {...plan, settings, days, genreSummary: summariseGenres(settings, days, data)};
 }
 
 export function shoppingList(plan, servings = plan?.settings?.servings ?? 2, data) {
@@ -408,7 +589,7 @@ export function shoppingList(plan, servings = plan?.settings?.servings ?? 2, dat
   const selected = constraints(plan.settings ?? {}, data);
   const items = new Map();
   for (const day of plan.days) {
-    for (const id of day.recipeIds) {
+    for (const id of activeRecipeIds(day)) {
       const recipe = describeRecipe(id, data);
       if (!allowed(recipe, selected)) throw new Error('除外条件に合わない料理を買い物リストに含めることはできません。献立を作り直してください。');
       for (const part of recipe.ingredients) {
