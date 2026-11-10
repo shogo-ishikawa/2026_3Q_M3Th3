@@ -24,12 +24,23 @@
 | `pick_result` | `for`、`if`、`return` | 乱数が入った確率の区間を調べる |
 | `simulate` | 変数、繰り返し | 消費と配当を足し引きし、履歴を残す |
 | `compare_settings` | 二重の繰り返し | 設定と試行を変えながら結果を集計 |
+| `theoretical_stats` | リスト、集計 | 平均と分散から、理論値を求める |
+| `simulate_distribution`、`tail_estimate` | 反復、条件、並べ替え | 同条件の結果の幅と、今回以上／以下の収支の割合を求める |
+| `money_comparison` | 関数、四則演算 | 純損失を仮の金額と買い物例へ換算する |
 
 例えばBIGの確率が約0.00366なら、0以上1未満の乱数のうち、最初の約0.00366の区間をBIGに割り当てます。その次の区間をREGにし、残りの役も順に足します。どの役にも入らない残りがハズレです。
 
 1回の平均収支は `sum(確率 × 配当) - 消費ポイント` で求めます。試行ごとの収支とは異なります。回数を増やしたときの変化を観察してみましょう。
 
+## v1.1.0のモデルと演出
+
+Pythonの各関数は `model="student"` を省略時の値として旧APIを保っています。ColabとWeb画面の初期値は `published` です。公表値モデルのブドウ確率は、1回3 ptの理論出玉率を公表値へ合わせるための補正であり、公式の小役確率ではありません。[詳しい計算](probability-models.md)を参照してください。
+
+リールは `app.js` の `animateReels` で表示します。抽選は1回だけ行い、STOPや自動停止では再抽選しません。まとめ引きは最高配当を選ばず、最後の1回を表示します。分析用の5000試行はゲームの状態を変えません。
+
 ### 自分で変えてみる
+
+確率や配当を変える練習では、まず `model="student"` を選びます。publishedでは平均を合わせる補正が働くためです。
 
 1. `PAYOUTS` のBIGの配当を変え、同じseedで元の結果と比べます。
 2. `play_cost` を変え、理論上の平均収支もどう変わるか調べます。
@@ -41,10 +52,10 @@
 
 ## ローカルで置く場所
 
-配布ZIPを展開すると `v1.0.1` フォルダーができます。Macでは次の場所へ置けます。
+配布ZIPを展開すると `v1.1.0` フォルダーができます。Macでは次の場所へ置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.1
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.1.0
 ```
 
 このフォルダーは授業リポジトリの `projects/lottery-lab/` に対応します。遊ぶだけなら `index.html` をダブルクリックしてブラウザで開けます。必要なコードとCSSはHTML内にまとめてあります。ブラウザによってローカルファイルの記録保存が制限される場合もあります。
@@ -52,7 +63,7 @@
 開発中にHTTPサーバーから開く場合は、次のようにします。
 
 ```bash
-cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.1
+cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.1.0
 python3 -m http.server 8000
 ```
 
@@ -83,7 +94,7 @@ git status
 git pull --ff-only
 mkdir -p projects/lottery-lab
 rsync -av --exclude dist/ --exclude __pycache__/ \
-  /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.0.1/ \
+  /Users/shogo/Dropbox/share_data/open_material/misc/apps/lottery-lab/v1.1.0/ \
   projects/lottery-lab/
 git diff --stat
 git add projects/lottery-lab
@@ -102,7 +113,8 @@ JavaScriptの確認はNode.jsで `npm test`、Pythonの確認は `python3 -m uni
 ```bash
 python3 tools/build_web.py
 python3 tools/build_notebook.py
+node tools/validate_distribution.mjs
 python3 tools/build_release.py
 ```
 
-ZIPは `dist/lottery-lab_v1.0.1.zip` に作られます。提出元ファイル、個人情報、ブラウザの保存記録、テスト中の出力は含めません。
+ZIPは `dist/lottery-lab_v1.1.0.zip` に作られます。提出元ファイル、個人情報、ブラウザの保存記録、テスト中の出力は含めません。

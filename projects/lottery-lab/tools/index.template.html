@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f4ec">
-  <meta name="description" content="くじを引いて、確率のふしぎを体験。1000回チャレンジと設定比較で何度でも遊べる、学生作品から生まれたくじ引きシミュレーション。">
+  <meta name="description" content="スロット風の演出で確率と期待値を体験。結果のばらつきや仮の金額換算を比べる、学生作品から生まれた学習用シミュレーション。">
   <title>くじびきラボ</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='10' width='56' height='44' rx='12' fill='%23245d56'/%3E%3Ctext x='32' y='43' font-size='36' text-anchor='middle'%3E★%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
@@ -17,31 +17,38 @@
 
   <main class="wrap">
     <section class="intro">
-      <p class="eyebrow">ひとつの乱数から、いろんな結果。</p>
-      <h1>次のくじは、<br class="mobile-only">なにが出る？</h1>
-      <p>1回ずつ楽しんでも、まとめて引いても。<br>設定を変えて、1000回の運だめしをしてみよう。</p>
-      <div class="intro-stamp" aria-hidden="true"><span>TRY YOUR</span><b>LUCK!</b><span>くり返すほど、おもしろい</span></div>
+      <p class="eyebrow">期待値と、今日の結果。</p>
+      <h1>スロットを回して、<br class="mobile-only">確率を見てみよう。</h1>
+      <p>当たった瞬間の印象と、1000回の数字は同じかな。<br>回して、比べて、お金の使い道も考えてみよう。</p>
+      <div class="intro-stamp" aria-hidden="true"><span>PROBABILITY</span><b>LAB</b><span>期待値とばらつきを体験</span></div>
     </section>
 
+    <p class="model-notice"><span id="model-description">BIG・REG確率と理論出玉率を公表値に合わせたモデルです。公表表にない小役は仮定し、ブドウ確率だけを調整しています。実機の完全再現ではありません。</span> <a href="https://www.kitadenshi.co.jp/slot/neoimjugglerex/" target="_blank" rel="noopener">公式の確率表 ↗</a></p>
+
     <nav class="view-tabs" aria-label="遊び方を選ぶ">
-      <button type="button" id="play-tab" class="active" aria-pressed="true" aria-controls="play-view">くじを引く</button>
+      <button type="button" id="play-tab" class="active" aria-pressed="true" aria-controls="play-view">回してみる</button>
       <button type="button" id="compare-tab" aria-pressed="false" aria-controls="compare-view">設定を比べる <span aria-hidden="true">↗</span></button>
     </nav>
 
     <section id="play-view" aria-labelledby="play-tab">
       <div class="play-layout">
         <section class="draw-panel" aria-label="くじ引き">
-          <div class="panel-top"><span class="tag">1000回チャレンジ</span><label class="setting-label" for="setting">設定 <select id="setting"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option></select></label></div>
-          <div id="ticket" class="ticket" data-result="ready">
-            <span class="ticket-serial" id="ticket-serial">TICKET / 0000</span>
-            <span id="result-icon" class="result-icon" aria-hidden="true">?</span>
-            <h2 id="result-name">最初のくじを引こう</h2>
+          <div class="panel-top"><span class="tag">1000回チャレンジ</span><label class="setting-label" for="setting">設定 <select id="setting"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label></div>
+          <label class="model-selector" for="model-select"><span>抽選モデル</span><select id="model-select"><option value="published" selected>公式値に合わせたモデル</option><option value="student">学生の簡略モデル</option></select></label>
+          <div id="ticket" class="ticket slot-machine" data-result="ready">
+            <div class="machine-top"><span class="ticket-serial" id="ticket-serial">DRAW / 0000</span><span id="bonus-lamp" class="bonus-lamp" data-lit="false" role="status" aria-label="ボーナス未当選">BONUS</span></div>
+            <div class="reels" aria-label="演出用の3リール">
+              <div class="reel-column"><div class="reel-window"><span id="reel-0" class="reel-symbol" aria-hidden="true">?</span></div><button id="stop-reel-0" class="reel-stop" data-reel="0" type="button" disabled aria-label="左リールを止める">STOP</button></div>
+              <div class="reel-column"><div class="reel-window"><span id="reel-1" class="reel-symbol" aria-hidden="true">?</span></div><button id="stop-reel-1" class="reel-stop" data-reel="1" type="button" disabled aria-label="中央リールを止める">STOP</button></div>
+              <div class="reel-column"><div class="reel-window"><span id="reel-2" class="reel-symbol" aria-hidden="true">?</span></div><button id="stop-reel-2" class="reel-stop" data-reel="2" type="button" disabled aria-label="右リールを止める">STOP</button></div>
+            </div>
+            <div class="machine-result"><span id="result-icon" class="result-icon" aria-hidden="true">✳</span><h2 id="result-name">最初の1回を回してみよう</h2></div>
             <p id="result-detail">1回 3 pt · 当選するとポイント獲得</p>
-            <span class="ticket-caption">どの結果も、毎回まっさらな抽選。</span>
+            <span class="ticket-caption">停止のタイミングで当選確率は変わりません。</span>
           </div>
-          <div class="draw-actions"><button type="button" class="primary draw-button" id="draw-one" data-draw="1"><span>くじを引く</span><b aria-hidden="true">↗</b></button><button type="button" class="secondary draw-button" data-draw="10">10回</button><button type="button" class="secondary draw-button" data-draw="100">100回</button></div>
+          <div class="draw-actions"><button type="button" class="primary draw-button" id="draw-one" data-draw="1"><span>1回回す</span><b aria-hidden="true">↗</b></button><button type="button" class="secondary draw-button" data-draw="10">10回</button><button type="button" class="secondary draw-button" data-draw="100">100回</button></div>
           <div class="quick-actions"><button id="draw-rest" type="button" class="text-button">1000回までまとめて引く</button><span>仮想ポイントで遊ぶ確率実験</span></div>
-          <p id="batch-note" class="batch-note" role="status" aria-live="polite">まずは「くじを引く」を押してみましょう。</p>
+          <p id="batch-note" class="batch-note" role="status" aria-live="polite">「1回回す」でスタート。STOPでも、自動でも止まります。</p>
           <div class="progress-label"><span><b id="game-count">0</b> / 1000 回</span><span id="progress-message">あと1000回</span></div>
           <progress id="game-progress" value="0" max="1000" aria-label="チャレンジの進み具合">0 / 1000</progress>
           <div class="round-footer"><span id="seed-label"></span><button id="new-round" type="button" class="text-button">新しく始める <span aria-hidden="true">↻</span></button></div>
@@ -64,6 +71,27 @@
         </div>
       </div>
 
+      <section class="reflection-panel" aria-labelledby="reflection-heading">
+        <div class="reflection-heading"><div><p class="eyebrow">当たりの印象を、数字で確かめる</p><h2 id="reflection-heading">いまの結果を、数字で見る</h2></div><label class="money-unit" for="yen-per-point">仮に1 ptを<select id="yen-per-point"><option value="1">1円</option><option value="5">5円</option><option value="20" selected>20円</option></select>としたら</label></div>
+        <div class="reflection-summary">
+          <dl class="reflection-number"><dt>この回数での理論上の平均収支</dt><dd id="expected-net">±0 pt</dd></dl>
+          <dl class="reflection-number"><dt>今回の収支と期待値の差</dt><dd id="expectation-gap">±0 pt</dd></dl>
+          <dl class="reflection-number money-number"><dt>今回の収支を仮の円に換算</dt><dd id="yen-net">±0円</dd></dl>
+        </div>
+        <p class="reflection-explainer">期待値は、同じ条件をたくさん繰り返したときの平均です。今回の結果がぴったり一致するとは限りません。収支は初期50 ptからの増減で、所持ポイントとは別です。</p>
+        <div class="return-comparison"><div><span>選んだモデルの理論出玉率</span><strong id="model-return">—</strong></div><div><span>メーカー公表出玉率（参考）</span><strong id="official-return">—</strong></div><p>理論出玉率は、長期平均の獲得ポイントと消費ポイントの比率です。平均を合わせても結果の分布までは一致しません。1回ごとの勝率とは別です。</p></div>
+        <div class="opportunity-cost"><h3>ほかの使い道と比べると</h3><p id="money-note">金額は仮の換算です。実際の現金の出入りや交換額ではありません。</p><div id="loss-examples" class="loss-examples"></div><p class="budget-note">買い物の金額は比較用の予算例です。実売価格ではありません。</p></div>
+        <div class="analysis-action"><button type="button" class="primary" id="analyse-result" disabled>同じ条件で5000試行して比べる <span aria-hidden="true">↗</span></button><p id="analysis-status" role="status" aria-live="polite">何回か回したら、同じ設定・回数の結果と比べてみましょう。</p></div>
+        <div id="risk-results" class="risk-results" hidden>
+          <div class="risk-result-heading"><div><p class="eyebrow">同じ条件の結果は、どれくらい？</p><h3 id="tail-heading">今回の結果を比べる</h3></div><strong id="tail-estimate">—</strong></div>
+          <p id="tail-note"></p><p id="tail-interval" class="small-note"></p>
+          <svg id="distribution-chart" class="distribution-chart" viewBox="0 0 900 250" role="img" aria-label="同じ設定と回数で繰り返した収支の分布"></svg>
+          <p id="distribution-caption" class="distribution-caption"></p>
+          <div class="analysis-range"><span>同条件の試行結果の中央95%</span><strong id="analysis-range">—</strong></div>
+          <p class="small-note">このモデル内の推定です。実機での勝率ではありません。試行数には限りがあるので、少ない発生回数ほど推定も不安定になります。</p>
+        </div>
+      </section>
+
       <section class="collection-section" aria-labelledby="collection-heading">
         <div class="section-heading"><div><p class="eyebrow">何回目でそろうかな</p><h2 id="collection-heading">当選コレクション <span id="collection-count">0 / 7</span></h2></div><span class="section-aside">新しく始めても、見つけた役は残ります。</span></div>
         <div id="collection" class="collection-grid"></div>
@@ -77,6 +105,7 @@
 
     <section id="compare-view" hidden aria-labelledby="compare-tab">
       <div class="comparison-intro"><div><p class="eyebrow">同じ設定でも、結果はいろいろ</p><h2>6つの設定を、何度も試そう。</h2><p>1回の結果だけでは分かりにくい違いを、繰り返して比べます。</p></div><span class="comparison-decoration" aria-hidden="true">≈</span></div>
+      <p id="comparison-model-note" class="comparison-model-note">公式値に合わせたモデルで比較します。</p>
       <form id="comparison-form" class="comparison-form">
         <label>1試行のくじの回数<select id="compare-games"><option value="100">100回</option><option value="1000" selected>1000回</option><option value="5000">5000回</option></select></label>
         <label>設定ごとの試行数<select id="compare-runs"><option value="10">10回</option><option value="50" selected>50回</option><option value="100">100回</option></select></label>
@@ -91,8 +120,10 @@
     </section>
 
     <section id="guide" class="guide-section">
-      <details><summary><span class="summary-symbol" aria-hidden="true">?</span> はじめての遊び方 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content guide-steps"><div><span>01</span><h3>好きな設定で引く</h3><p>まずはそのまま「くじを引く」。1回3 ptを使い、出た役のポイントを受け取ります。</p></div><div><span>02</span><h3>1000回まで試す</h3><p>10回・100回ならすぐ進めます。大きな当たりやポイントの増減を見てみましょう。</p></div><div><span>03</span><h3>もう一度、比べる</h3><p>「新しく始める」で再挑戦。設定を変えると新しいチャレンジが始まります。</p></div></div></details>
-      <details><summary><span class="summary-symbol" aria-hidden="true">%</span> 当選確率とポイント <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>元の学生作品の確率と配当を使っています。1回につき当たる役は1つです。外れが続いても次の当選確率は変わりません。</p><div class="table-scroll"><table id="probability-table"><caption>現在の設定の確率</caption><thead><tr><th scope="col">役</th><th scope="col">当選確率</th><th scope="col">獲得ポイント</th><th scope="col">今回の回数</th></tr></thead><tbody></tbody></table></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">?</span> はじめての遊び方 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content guide-steps"><div><span>01</span><h3>好きな設定で引く</h3><p>まずはそのまま「1回回す」。STOPを押しても自動停止でも、1回分の抽選を確かめられます。</p></div><div><span>02</span><h3>1000回まで試す</h3><p>10回・100回ならすぐ進めます。演出は最後の1回分です。合計の収支とポイント推移も見てみましょう。</p></div><div><span>03</span><h3>もう一度、比べる</h3><p>結果の分析で期待値との差や仮の金額を確認。「新しく始める」で別の結果とも比べられます。</p></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">%</span> 当選確率とポイント <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>選択中のモデルの確率と配当です。1回につき当たる役は1つです。外れが続いても次の当選確率は変わりません。</p><div class="table-scroll"><table id="probability-table"><caption>現在の設定の確率</caption><thead><tr><th scope="col">役</th><th scope="col">当選確率</th><th scope="col">獲得ポイント</th><th scope="col">今回の回数</th></tr></thead><tbody></tbody></table></div></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">≈</span> 実機との違いと期待値 <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>ジャグラーは北電子のパチスロシリーズです。この教材では、2つのモデルを選べます。どちらもBIG・REGはメーカー公表の確率を使い、図柄と演出は教材独自のものです。</p><p>「公式値に合わせたモデル」は、未公開の小役確率を補正して理論出玉率の平均を公表値に合わせています。小役確率やボーナス中の処理など、実機の仕組みを完全に再現したものではありません。</p><p>「学生の簡略モデル」は元作品の確率表を引き継ぎます。理論出玉率は公式値とは異なり、設定3では100%を超えますが公式値は99.5%です。どちらのモデルも実際の遊技の収支予測には使えません。</p><p>分析に出る中央95%の範囲は、今回の比較実験で得た結果の広がりです。期待値の信頼区間や、今後の結果が必ず入る範囲ではありません。</p></div></details>
+      <details><summary><span class="summary-symbol" aria-hidden="true">↻</span> 負けが続くと次は当たりやすい？ <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>この教材の抽選は毎回独立です。前の結果を覚えていないので、外れが続いても次の当選確率は変わりません。停止のタイミングでも変わりません。</p><p>今回プラスになっても、続ければ同じように増えるとは限りません。負けた分を取り返そうと回数を増やすと、使うポイントも増えます。「ここでやめたら」という使い道と比べてみましょう。</p></div></details>
       <details><summary><span class="summary-symbol" aria-hidden="true">&lt;/&gt;</span> Pythonで仕組みを見てみる <span class="summary-plus" aria-hidden="true">＋</span></summary><div class="details-content"><p>学生作品の「乱数でくじを引き、設定による違いを比べる」という発想を受け継いでいます。Python版では確率や配当を変えながら、<code>for</code>・<code>if</code>・辞書・関数の役割を確かめられます。</p><div class="guide-links"><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/lottery-lab/lottery_lab.ipynb" target="_blank" rel="noopener">Colabで開く ↗</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/lottery-lab" target="_blank" rel="noopener">コードと説明書 ↗</a></div></div></details>
     </section>
 
