@@ -12,6 +12,11 @@
       "destination": "projects/password-lab",
       "files": [
         "index.html",
+        "styles.css",
+        "app.js",
+        "engine.js",
+        "worker.js",
+        "gpu.js",
         "dist"
       ]
     }

@@ -43,6 +43,8 @@ jobs:
         run: python -m unittest discover -s projects/lottery-lab/tests -p 'test_*.py'
       - name: Check shared publishing
         run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Check password JavaScript
+        run: npm test --prefix projects/password-lab
       - name: Build lottery web page
         run: python projects/lottery-lab/tools/build_web.py
       - name: Assemble all published projects

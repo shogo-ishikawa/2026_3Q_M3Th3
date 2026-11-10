@@ -1,71 +1,54 @@
-# パスワードラボ
+# パスワード実験室
 
-「文字を1つ増やすと、探す時間はどれくらい変わるのでしょうか？」
+文字を1つ増やすと、探す時間はどれくらい変わるのでしょうか。文字数・文字の種類・探し方・照合計算を変えて、違いを確かめる教材です。学生作品の「同じ候補をCPUとGPUで調べて速さを比べる」というアイデアから、Web版とColab版を用意しました。
 
-長さや使える文字を変え、候補の探し方と計算方法を比べるColab教材です。短い実験で実際に探索を試し、時間がかかる場合は測定した速度から必要時間を見積もります。
+[ブラウザで試す](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/password-lab/) ／ [Colabで開く](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/password-lab/password_lab.ipynb) ／ [使い方](docs/manual.md)
 
-**実際に使っているパスワードは入力しないでください。授業用の文字列で試しましょう。**
+**実際に使っているパスワードは入力せず、練習用の文字列で試してください。**
 
-[Colabで開く](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/password-lab/password_lab.ipynb) ／ [操作マニュアル](docs/manual.md)
+## まずはWeb版で試す
 
-## 使い方
+1. 最初の例のまま「試してみる」を押します。
+2. 辞書・よくある規則・総当たりで、どの方法が先に見つけたか確認します。
+3. 文字数や使える文字を変えて生成し、結果と推定時間を比べます。
 
-セル1から順に実行します。数字4文字と「単語＋数字」のデモがあり、文字列の入力・自動生成もできます。
+入力内容はブラウザの中で処理し、送信・保存しません。GPUがなくてもCPUで動きます。対応環境では、WebGPUで同じSHA-256総当たりも試せます。SHA-256とPBKDF2を切り替えると、照合1回の重さによる違いを体験できます。
+
+## Colabでコードも調べる
+
+セル1から5まで順に実行します。リンクからそのまま実行でき、変更を残したい場合は「ドライブにコピーを保存」を使います。
 
 | セル | 操作 |
 | --- | --- |
 | 1 | 実行環境を準備 |
-| 2 | 文字列を入力、または長さと文字種を選んで自動生成 |
-| 3 | 辞書・単語の変形・形式のヒント・総当たりを比較し、CPU・GPUの速度を測定 |
-| 4 | 総当たりの所要時間を推定し、保存方式による照合コストを比較 |
+| 2 | デモを選ぶ、入力する、または文字数と文字種を指定して生成 |
+| 3 | 辞書・単語の変形・形式のヒント・総当たりを比較し、Python・Numba・Numba並列・GPUの速さを測定 |
+| 4 | 総当たりの時間を推定し、SHA-256とPBKDF2の照合コストを比較 |
 | 5 | 実験条件と集計結果をZIPで保存 |
 
-GPUは任意です。Colabの「ランタイム → ランタイムのタイプを変更」でGPUを選択し、セル1のgpu_enabledを有効にします。利用できない場合もCPUで実験できます。初回のNumba・GPUには準備時間がかかるため、探索速度とは別に表示します。
+GPUは任意です。Colabの「ランタイム → ランタイムのタイプを変更」でGPUを選び、セル1の`gpu_enabled`を有効にします。利用できない場合もCPUで続けられます。
 
-## 比べてみましょう
+ColabはGoogle上で動き、フォームや画面出力がNotebookに残る場合があります。結果ZIPには入力文字列・照合用ハッシュ・形式のヒント・探索候補を含めませんが、Notebookを共有するときは入力と出力も確認してください。
 
-- 数字だけの文字列を1文字長くする。
-- 同じ長さで、数字だけの場合と英字を含む場合を比べる。
-- 単語に数字を付けた文字列と、自動生成した文字列を比べる。
-- 同じ候補をPython・Numba・Numba並列・GPUで調べる。
+## 結果を読むときに
 
-結果は「発見」「打切り」「この候補群では未発見」などに分けて表示します。見つからなかったことだけで安全とは判断しません。
+「発見」は実際に候補を照合した結果です。時間内に見つからなかった場合は、実測した速度から総当たりの時間を見積もります。未発見や長い推定時間は、安全の証明ではありません。
 
-## この教材で測っているもの
+照合には実際のSHA-256を使います。元作品の整数変換から方式を変更し、CPUとGPUで同じ計算を比較できるようにしました。ただし、単発のSHA-256は速度比較のための教材条件です。PBKDF2の反復回数も実用の推奨設定ではありません。表示はこの端末・照合方式・オフライン条件での目安であり、実サービスの突破時間を示しません。[前提と出典](docs/model-notes.md)も参照できます。
 
-候補の照合にはSHA-256を使います。表示する時間は、この教材の照合処理での実測・推定です。実際のサービスの突破時間を表すものではありません。
-
-元の学生作品の「CPUとGPUの性能を比べる」という着眼点を引き継ぎ、可逆な整数変換をSHA-256による照合へ変更しました。単発のSHA-256は教材の速度比較のために使います。実際のパスワード保存には、ソルトと照合の計算を重くする仕組みが必要です。
-
-保存するCSV・JSONには実験条件と集計結果だけを含め、入力した文字列・照合用ハッシュ・形式のヒント・探索候補は含めません。Notebookのコピーや画面出力は別なので、実際のパスワードを入力しないでください。
-
-## コードを読んで変更する
+## コードを読む入口
 
 | ファイル | 内容 |
 | --- | --- |
-| password_lab.ipynb | 単体で動くColab教材 |
-| password_core.py | 候補生成、探索、推定 |
-| hash_engines.py | 同じSHA-256を使う4種類の実行方式 |
-| tools/notebook_cells.json | Notebookの説明・フォーム |
-| tools/build_notebook.py | 部品を埋め込んでNotebookを生成 |
-| tests/ | hashlibとの一致、範囲境界、探索、推定、Notebookの確認 |
+| `password_lab.ipynb` | 単体で動くColab教材 |
+| `password_core.py` | Pythonの候補生成・探索・推定 |
+| `hash_engines.py` | 同じSHA-256を使うPython・Numba・Numba並列・CuPyの照合 |
+| `engine.js` | Web版の文字集合・候補生成・SHA-256・辞書・規則 |
+| `worker.js` | 画面を止めずに行うCPU照合と速度計測 |
+| `gpu.js` | WebGPUによる任意のSHA-256照合 |
+| `app.js` | Web版の入力から結果表示までの流れ |
+| `tools/notebook_cells.json` | Colabの説明と入力フォーム |
 
-最初はpassword_core.pyのWORDSやrule_candidatesを変えてみましょう。「何件で見つかるか」が変わる理由を考えやすい部分です。
+Pythonでは、`for`で候補を作り、`if`で一致を調べ、関数で処理を分けています。最初は`password_core.py`の`WORDS`や`rule_candidates`を変えるところから試せます。
 
-ローカルで確認する場合は、Python 3.12以降で次を実行します。
-
-```bash
-python -m pip install -r requirements.txt ipython
-python -m unittest discover -s tests -v
-python tools/build_notebook.py
-python tools/build_release.py
-```
-
-配布ZIPはv1.0.0というフォルダーに展開します。Macでは必要に応じて /Users/shogo/Dropbox/share_data/open_material/misc/apps/PasswordLab/v1.0.0 に置けます。この作品はクラス共通リポジトリの projects/password-lab/ で管理します。
-
-## 参考資料
-
-- [Python hashlib](https://docs.python.org/3/library/hashlib.html)
-- [Numbaの並列処理](https://numba.readthedocs.io/en/stable/user/parallel.html)
-- [CuPyの計測時の注意](https://docs.cupy.dev/en/stable/user_guide/performance.html)
-- [NISTのパスワードに関する案内](https://pages.nist.gov/800-63-4/sp800-63b.html)
+配布ZIPは`v1.1.0/`に展開します。Macでは`/Users/shogo/Dropbox/share_data/open_material/misc/apps/PasswordLab/v1.1.0`に置けます。起動・検証・HTTPSでの更新方法は[開発手順](docs/development.md)にまとめています。
