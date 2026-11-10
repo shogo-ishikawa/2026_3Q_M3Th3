@@ -30,6 +30,19 @@
         "demo_engine.js",
         "dist"
       ]
+    },
+    {
+      "source": "projects/recipe-suggester",
+      "destination": "projects/recipe-suggester",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "storage.js",
+        "planner.js",
+        "data.js",
+        "dist"
+      ]
     }
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "name": "kondate-note",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python3 tools/serve.py --port 4173",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

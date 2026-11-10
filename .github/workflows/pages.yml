@@ -50,6 +50,12 @@ jobs:
         run: npm test --prefix projects/sound-analysis-lab
       - name: Package sound lab
         run: python projects/sound-analysis-lab/tools/build_release.py
+      - name: Check meal planner JavaScript
+        run: npm test --prefix projects/recipe-suggester
+      - name: Check meal planner Python notebook
+        run: python -m unittest discover -s projects/recipe-suggester/tests -p 'test_*.py' -v
+      - name: Package meal planner
+        run: python projects/recipe-suggester/tools/build_release.py
       - name: Check shared publishing
         run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Check password JavaScript
