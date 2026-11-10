@@ -49,6 +49,32 @@ with zipfile.ZipFile("password_lab_results.zip") as archive:
     assert saved["length"] == 4 and saved["alphabet_size"] == 10
 print("Standalone notebook and export passed")
 '''
+        invalid_storage = sources[3].replace("pbkdf2_iterations = 100000", "pbkdf2_iterations = 0")
+        invalid_input = sources[1].replace(
+            'source_mode = "デモ：数字4桁"', 'source_mode = "自動生成"'
+        ).replace("password_length = 4", "password_length = 0")
+        script += f"""
+try:
+    exec({invalid_storage!r})
+except ValueError:
+    pass
+else:
+    raise AssertionError("invalid storage setting was accepted")
+assert storage_comparison is None
+try:
+    exec({invalid_input!r})
+except ValueError:
+    pass
+else:
+    raise AssertionError("invalid password length was accepted")
+assert password is None and experiment is None
+try:
+    exec({sources[2]!r})
+except ValueError:
+    pass
+else:
+    raise AssertionError("stale password was searched after an input error")
+"""
         with tempfile.TemporaryDirectory() as directory:
             completed = subprocess.run(
                 [sys.executable, "-c", script], cwd=directory,
