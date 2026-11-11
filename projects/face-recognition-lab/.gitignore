@@ -1,0 +1,17 @@
+vendor/
+models-web/
+dist/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+local/data/
+local/logs/
+local/models/
+local/reports/
+local/screenshots/
+local/settings.json
+local/*_log.txt
+local/tests/_artifacts/
+

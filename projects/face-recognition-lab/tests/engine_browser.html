@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><title>FACEGATE 推論の確認</title>
+<body><h1>実モデルの推論確認</h1><p>開発時の確認画面です。選んだ画像は端末内だけで処理します。</p>
+<button id="load">モデルを読み込む</button><input id="image" type="file" accept="image/*" aria-label="確認する画像"><pre id="result" role="status">準備前</pre>
+<script type="module">
+import {FaceEngine} from '../engine.js';
+const engine=new FaceEngine();
+const result=document.querySelector('#result');
+document.querySelector('#load').addEventListener('click',async()=>{
+  try {await engine.load(p=>result.textContent=p.message);result.textContent='モデル準備完了';}
+  catch(e){result.textContent='ERROR: '+e.message;}
+});
+document.querySelector('#image').addEventListener('change',async e=>{
+  const file=e.target.files[0];if(!file)return;
+  try {
+    result.textContent='推論しています';
+    const image=await createImageBitmap(file);const data=await engine.analyze(image);image.close();
+    result.textContent=JSON.stringify(data,null,2);
+  } catch(e){result.textContent='ERROR: '+e.message;}
+});
+</script></body></html>

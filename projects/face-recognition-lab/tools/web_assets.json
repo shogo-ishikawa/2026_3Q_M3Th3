@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "path": "models-web/face_detection_yunet_2023mar.onnx",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+      "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+      "size": 232589
+    },
+    {
+      "path": "models-web/face_recognition_sface_2021dec.onnx",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+      "sha256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+      "size": 38696353
+    },
+    {
+      "path": "models-web/emotion-ferplus-8.onnx",
+      "url": "https://media.githubusercontent.com/media/onnx/models/c5cae0f1942c8d7727372c7b1f6b485aa39e4421/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx",
+      "sha256": "a2a2ba6a335a3b29c21acb6272f962bd3d47f84952aaffa03b60986e04efa61c",
+      "size": 35040571
+    },
+    {
+      "path": "docs/licences/yunet-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_detection_yunet/LICENSE",
+      "sha256": "c83b8120c50ccbd4c4f96edf53141bdd566ebb8f8e9227e415326aa1b1aba958",
+      "size": 1085
+    },
+    {
+      "path": "docs/licences/sface-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_recognition_sface/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    {
+      "path": "docs/licences/onnx-model-zoo-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/onnx/models/c5cae0f1942c8d7727372c7b1f6b485aa39e4421/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    {
+      "path": "docs/licences/onnxruntime-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.22.0/LICENSE",
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+      "size": 1073
+    },
+    {
+      "path": "docs/licences/ferplus-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/FERPlus/ae2128abf776409c93e50cf7c9d87180673314e6/LICENSE.md",
+      "size": 1102,
+      "sha256": "e9d873074f826f2b356b4141cf9c8423b36e257336787600fe4bbe5f5cc2e9fa"
+    },
+    {
+      "path": "docs/licences/ferplus-model-README.md",
+      "url": "https://raw.githubusercontent.com/onnx/models/c5cae0f1942c8d7727372c7b1f6b485aa39e4421/validated/vision/body_analysis/emotion_ferplus/README.md",
+      "size": 4170,
+      "sha256": "0f7de02e07d07ded0fed8e03d1365fd43ecffe2d1bb3c91f45aeeab34081ac37"
+    },
+    {
+      "path": "docs/licences/onnxruntime-ThirdPartyNotices.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.22.0/ThirdPartyNotices.txt",
+      "size": 326866,
+      "sha256": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc"
+    }
+  ],
+  "runtime": {
+    "url": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.22.0.tgz",
+    "sha256": "e293551f9d36d003e293d0f2937fee7b3dfdcef76d71d1449b55e2d4157c7aea",
+    "size": 20387966,
+    "files": [
+      {
+        "path": "vendor/ort.wasm.min.mjs",
+        "member": "package/dist/ort.wasm.min.mjs",
+        "size": 48259,
+        "sha256": "6ef726f355b791129f7ddf3f62e7877a16b9b777abe87004b8ab306e6b9cf265"
+      },
+      {
+        "path": "vendor/ort-wasm-simd-threaded.mjs",
+        "member": "package/dist/ort-wasm-simd-threaded.mjs",
+        "size": 20856,
+        "sha256": "30dd851d9c00622940500f71ddd2ff8820c5cb65270816080175b958705385a8"
+      },
+      {
+        "path": "vendor/ort-wasm-simd-threaded.wasm",
+        "member": "package/dist/ort-wasm-simd-threaded.wasm",
+        "size": 11210254,
+        "sha256": "71aef04959c5c1b6de461b6538e2058e306610034a85aad2742d0c7fd4533fe4"
+      }
+    ]
+  }
+}
