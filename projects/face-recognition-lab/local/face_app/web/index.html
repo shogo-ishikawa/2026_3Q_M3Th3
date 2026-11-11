@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>FACEGATE — 顔照合・表情分析システム</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<!-- 起動画面 -->
+<div class="boot" id="boot">
+  <div class="boot-grid"></div>
+  <div class="boot-corner tl">SYS.BOOT <b>//</b> FACEGATE</div>
+  <div class="boot-corner tr" id="boot-clock"></div>
+  <div class="boot-corner bl">LOCAL MODE · 127.0.0.1</div>
+  <div class="boot-corner br">計算科学基礎 03-01</div>
+  <div class="boot-center">
+    <div class="boot-emblem">
+      <div class="bring b1"></div><div class="bring b2"></div><div class="bring b3"></div><div class="bring b4"></div>
+      <svg id="boot-face" viewBox="0 0 200 200"></svg>
+    </div>
+    <div class="boot-logo" id="boot-logo"></div>
+    <div class="boot-tag">IDENTITY &amp; EMOTION RECOGNITION SYSTEM</div>
+    <div class="boot-bar"><div id="boot-bar"></div></div>
+    <div class="boot-log" id="boot-log"></div>
+    <div class="boot-ready" id="boot-ready">SYSTEM READY</div>
+  </div>
+  <div class="boot-skip">CLICK TO SKIP</div>
+</div>
+<div class="boot-line" id="boot-line"></div>
+<div class="app">
+
+  <!-- ================= サイドバー ================= -->
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">FACE<span>GATE</span></div>
+      <div class="tagline">IDENTITY &amp; EMOTION<br>顔照合・表情分析システム</div>
+    </div>
+    <nav class="nav">
+      <a data-page="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span><b>ホーム</b><i>HOME</i></span></a>
+      <a data-page="auth"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.2"/></svg><span><b>顔認証</b><i>AUTHENTICATION</i></span></a>
+      <a data-page="analysis"><svg viewBox="0 0 24 24"><path d="M3 20h18M6 16l4-5 3 3 5-7"/><circle cx="18" cy="7" r="1.2"/></svg><span><b>分析モード</b><i>ANALYSIS</i></span></a>
+      <a data-page="users"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.8.8 2.8 2.6 3 5.2"/></svg><span><b>ユーザー管理</b><i>USER MANAGEMENT</i></span></a>
+      <a data-page="logs"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span><b>アクセスログ</b><i>ACCESS LOG</i></span></a>
+      <a data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg><span><b>設定</b><i>SETTINGS</i></span></a>
+    </nav>
+    <div class="side-art">
+      <svg viewBox="0 0 200 150" preserveAspectRatio="none" class="waves">
+        <defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#2b5f9e" stop-opacity=".1"/><stop offset=".5" stop-color="#8fd3ff" stop-opacity=".9"/><stop offset="1" stop-color="#2b5f9e" stop-opacity=".1"/></linearGradient></defs>
+        <g id="wavelines" fill="none" stroke="url(#wg)" stroke-width=".7"></g>
+      </svg>
+    </div>
+    <div class="side-foot">SEE PEOPLE.<br>READ EMOTION.<br>STAY PRIVATE.</div>
+  </aside>
+
+  <!-- ================= メイン ================= -->
+  <main class="main">
+
+    <!-- ホーム -->
+    <section class="page" id="page-home">
+      <header class="page-head">
+        <div><div class="eyebrow">DASHBOARD</div><h1>ホーム</h1></div>
+        <div class="clock" id="clock"></div>
+      </header>
+
+      <div class="card setup hidden" id="setup-card">
+        <div class="setup-icon">⬇</div>
+        <div class="setup-body">
+          <div class="eyebrow">FIRST-TIME SETUP</div>
+          <h2>はじめての準備</h2>
+          <p>顔認識に使うモデル3つ(合計 約75MB)をダウンロードします。インターネットに接続した状態で始めてください。</p>
+          <div class="bar"><div id="dl-bar"></div></div>
+          <div class="dl-line"><span id="dl-file"></span><span id="dl-mb"></span></div>
+          <div class="muted small" id="dl-msg"></div>
+          <div class="dl-err hidden" id="dl-err"></div>
+          <details class="dl-manual">
+            <summary>ネットにつながらない・何度も失敗する場合</summary>
+            <p>別のPCで次の3つのファイルをダウンロードし(USBメモリなどで持ってきて)、「ファイルから取り込む」で選んでください。</p>
+            <ul>
+              <li><code>face_detection_yunet_2023mar.onnx</code><br><span class="url">media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_detection_yunet/face_detection_yunet_2023mar.onnx</span></li>
+              <li><code>face_recognition_sface_2021dec.onnx</code><br><span class="url">media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_recognition_sface/face_recognition_sface_2021dec.onnx</span></li>
+              <li><code>emotion-ferplus-8.onnx</code><br><span class="url">media.githubusercontent.com/media/onnx/models/c5cae0f1942c8d7727372c7b1f6b485aa39e4421/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx</span></li>
+            </ul>
+            <p class="muted small">すでにほかのPCでこのアプリが動いているなら、そのPCの <code>face_app\models</code> フォルダの中身を使えます。</p>
+          </details>
+        </div>
+        <div class="setup-actions">
+          <button class="btn primary" id="dl-btn">ダウンロード開始</button>
+          <label class="btn ghost sm"><input type="file" id="dl-files" accept=".onnx" multiple hidden>ファイルから取り込む</label>
+        </div>
+      </div>
+
+      <div class="hero card">
+        <div class="hero-text">
+          <div class="eyebrow">FACIAL RECOGNITION SYSTEM</div>
+          <h2>カメラを見るだけで、<br>本人確認と表情の分析を。</h2>
+          <p class="muted">登録したメンバーとの照合と、表情からの表情ラベル推定をリアルタイムで行います。</p>
+          <div class="hero-actions">
+            <button class="btn primary big" data-go="auth">
+              <svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.2"/></svg>
+              顔認証を開始
+            </button>
+            <button class="btn ghost" data-go="users">ユーザーを登録</button>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+          <svg viewBox="0 0 200 200" class="hero-face" id="hero-face"></svg>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="card stat"><div class="eyebrow">REGISTERED USERS</div><div class="num" id="st-users">0</div><div class="muted small">登録ユーザー</div></div>
+        <div class="card stat"><div class="eyebrow">AUTHENTICATED TODAY</div><div class="num" id="st-today">0</div><div class="muted small">本日の認証</div></div>
+        <div class="card stat"><div class="eyebrow">LAST VERIFIED</div><div class="num sm" id="st-last">—</div><div class="muted small" id="st-last-time">最後に認証した人</div></div>
+        <div class="card stat"><div class="eyebrow">SYSTEM STATUS</div><div class="num sm" id="st-status">—</div><div class="muted small" id="st-status-sub">システム状態</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="eyebrow">RECENT ACCESS</div><h3>最近のアクセス</h3></div><button class="btn ghost sm" data-go="logs">すべて見る</button></div>
+        <div id="recent" class="recent"></div>
+      </div>
+    </section>
+
+    <!-- 顔認証 -->
+    <section class="page" id="page-auth">
+      <div class="split">
+        <div class="stage-slot" data-stage="auth"></div>
+        <aside class="panel result" id="auth-panel">
+          <div class="eyebrow line">VERIFICATION RESULT</div>
+          <div id="res-wait" class="res-state">
+            <div class="scan-ring"><span></span><span></span><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.6"/><path d="M5 20c.8-3.8 3.6-5.8 7-5.8s6.2 2 7 5.8"/></svg></div>
+            <div class="res-title" id="res-wait-title">Scanning</div>
+            <div class="res-sub" id="res-wait-msg">カメラの方を見てください</div>
+            <div class="metrics" id="metrics">
+              <div class="m-row"><span>FACE QUALITY</span><b id="mt-q">--</b><i><em id="mb-q"></em></i></div>
+              <div class="m-row"><span>HEAD POSE · YAW</span><b id="mt-yaw">--</b><i><em id="mb-yaw"></em></i></div>
+              <div class="m-row"><span>LIGHTING</span><b id="mt-light">--</b><i><em id="mb-light"></em></i></div>
+              <div class="m-row"><span>SIMILARITY</span><b id="mt-sim">0.000</b><i><em id="mb-sim"></em><u id="mb-thr"></u></i></div>
+            </div>
+            <div class="cand" id="cand">
+              <div class="avatar sm" id="cand-av">?</div>
+              <div class="cand-body"><div class="eyebrow">IDENTITY MATCH</div><div class="cand-name" id="cand-name">— — —</div></div>
+              <div class="cand-n" id="cand-n">0 USERS</div>
+            </div>
+          </div>
+          <div id="res-unknown" class="res-state hidden">
+            <div class="x-ring"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></div>
+            <div class="res-title ng">Not Registered</div>
+            <div class="res-sub">登録されていない方です</div>
+            <button class="btn ghost sm" data-go="users">ユーザー登録へ</button>
+          </div>
+          <div id="res-ok" class="res-state hidden">
+            <div class="welcome">Welcome</div>
+            <div class="welcome-ja">ようこそ</div>
+            <div class="check-ring"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>
+            <div class="res-title">Authenticated</div>
+            <div class="hello" id="res-hello">さん、こんにちは!</div>
+            <div class="user-card">
+              <div class="avatar" id="res-avatar">?</div>
+              <div class="uc-body">
+                <div class="uc-name" id="res-name">—</div>
+                <dl>
+                  <dt>Similarity</dt><dd id="res-sim">—</dd>
+                  <dt>Emotion</dt><dd id="res-emo">—</dd>
+                  <dt>Registered</dt><dd id="res-reg">—</dd>
+                </dl>
+              </div>
+            </div>
+            <div class="time-card">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <div><div id="res-time">—</div><div class="muted small" id="res-loc">—</div></div>
+            </div>
+            <div class="back-msg"><span id="res-count">5</span> 秒後にホームへ戻ります <button class="link" data-go="home">今すぐ戻る</button></div>
+          </div>
+          <div class="panel-foot">GOOD PEOPLE,<br>GOOD DAYS.</div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 分析モード -->
+    <section class="page" id="page-analysis">
+      <div class="split">
+        <div class="stage-slot" data-stage="analysis"></div>
+        <aside class="panel analysis-panel">
+          <div class="eyebrow line">LIVE ANALYSIS</div>
+          <div class="an-who"><div class="avatar sm" id="an-avatar">?</div><div><div class="an-name" id="an-name">顔が映っていません</div><div class="muted small" id="an-sim">類似度 —</div></div></div>
+          <div class="sub-label">表情からの推定 <span class="muted">(本人の気持ちとは限りません)</span></div>
+          <div id="emo-bars" class="emo-bars"></div>
+          <div class="sub-label">表情ラベルの推移</div>
+          <canvas id="timeline" class="timeline" width="380" height="80"></canvas>
+          <div class="an-row">
+            <div class="mini"><div class="sub-label">撮影条件</div><div class="mini-num" id="an-q">—</div><div class="muted small" id="an-q-adv"></div></div>
+            <div class="mini"><div class="sub-label">表情ラベルの合成スコア</div><div class="mood"><div id="mood-bar"></div><i></i></div><div class="muted small" id="an-mood">—</div></div>
+          </div>
+          <div class="sub-label">動作チャレンジ(動きの確認実験)</div>
+          <div class="challenge"><button class="btn ghost sm" id="ch-btn">開始</button><div id="ch-text" class="muted small">ランダムな指示に合う動きかを確認します。通常の照合とは独立した実験です</div></div>
+          <div class="sub-label">今の気持ちを申告して比較</div>
+          <div class="report-btns" id="sr-btns"></div>
+          <button class="btn primary sm full" id="an-report">この記録のレポートを作成</button>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 顔の登録(カメラ) -->
+    <section class="page" id="page-register">
+      <div class="split">
+        <div class="stage-slot" data-stage="register"></div>
+        <aside class="panel">
+          <div class="eyebrow line">FACE ENROLLMENT</div>
+          <div class="reg-ring">
+            <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" id="reg-arc"/></svg>
+            <div class="reg-num"><b id="reg-count">0</b><span id="reg-target">/ 10</span></div>
+          </div>
+          <div class="res-title" id="reg-name">—</div>
+          <div class="res-sub" id="reg-msg">カメラに顔を映してください</div>
+          <div class="tip" id="reg-tip"></div>
+          <ul class="howto">
+            <li>枠が<b>シアン</b>に光ったときに自動で撮影します</li>
+            <li>ヒントに合わせて少しずつ顔の向きを変えてください</li>
+            <li>写真は保存せず、照合用の数値だけを保存します</li>
+          </ul>
+          <button class="btn ghost full" data-go="users">中止する</button>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ユーザー管理 -->
+    <section class="page" id="page-users">
+      <header class="page-head">
+        <div><div class="eyebrow">USER MANAGEMENT</div><h1>ユーザー管理</h1></div>
+        <button class="btn primary" id="add-user">＋ 新しいユーザーを登録</button>
+      </header>
+      <div class="user-grid" id="user-grid"></div>
+    </section>
+
+    <!-- アクセスログ -->
+    <section class="page" id="page-logs">
+      <header class="page-head">
+        <div><div class="eyebrow">ACCESS LOG</div><h1>アクセスログ</h1></div>
+        <div class="row gap"><button class="btn ghost" id="log-report">分析レポートを作成</button><button class="btn ghost" id="log-open">記録フォルダを開く</button></div>
+      </header>
+      <div class="card">
+        <table class="table"><thead><tr><th>日時</th><th>名前</th><th>結果</th><th>類似度</th><th>表情</th><th>場所</th></tr></thead><tbody id="log-body"></tbody></table>
+        <div class="empty hidden" id="log-empty">まだ記録がありません</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><div class="eyebrow">ACCURACY TEST</div><h3>精度の評価</h3></div></div>
+        <p class="muted small">確認用の写真フォルダ(中に <code>名前/</code> と <code>_unknown/</code>)を指定すると、本人拒否・未登録受入の数を数え、しきい値を提案します。</p>
+        <div class="row gap"><input id="eval-path" class="input grow" placeholder="例: C:\Users\...\face_app\data\test"><button class="btn primary" id="eval-btn">評価する</button></div>
+        <div id="eval-out" class="eval-out hidden"><pre id="eval-text"></pre><img id="eval-img" alt=""></div>
+      </div>
+    </section>
+
+    <!-- 設定 -->
+    <section class="page" id="page-settings">
+      <header class="page-head"><div><div class="eyebrow">SETTINGS</div><h1>設定</h1></div><button class="btn primary" id="set-save">保存する</button></header>
+      <div class="set-grid">
+        <div class="card">
+          <h3>カメラ</h3>
+          <label class="field"><span>使用するカメラ番号</span><select id="set-camera" class="input"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+          <label class="check"><input type="checkbox" id="set-mirror"> 鏡のように左右反転して表示</label>
+          <button class="btn ghost sm" id="camtest-btn">カメラの接続を診断する</button>
+          <pre class="camtest hidden" id="camtest-out"></pre>
+        </div>
+        <div class="card">
+          <h3>認証</h3>
+          <label class="field"><span>照合のしきい値 <b id="thr-val"></b></span><input type="range" id="set-threshold" min="0.05" max="0.95" step="0.005"></label>
+          <div class="muted small">上げると「他人を受け入れる誤り」が減り、下げると「本人を拒否する誤り」が減ります。</div>
+          <label class="field"><span>認証の演出時間(秒) <span class="muted">0にすると最速</span></span><input type="number" id="set-show" class="input" min="0" max="15" step="0.5"></label>
+          <label class="field"><span>確定までのフレーム数</span><input type="number" id="set-confirm" class="input" min="2" max="60"></label>
+          <label class="field"><span>認証後にホームへ戻るまでの秒数</span><input type="number" id="set-return" class="input" min="1" max="60"></label>
+          <label class="field"><span>設置場所(認証結果に表示)</span><input id="set-location" class="input"></label>
+        </div>
+        <div class="card">
+          <h3>プライバシー</h3>
+          <label class="check"><input type="checkbox" id="set-blur"> 未登録の人の顔をぼかす</label>
+          <label class="field"><span>カメラ登録で撮影する枚数</span><input type="number" id="set-shots" class="input" min="3" max="30"></label>
+          <div class="muted small">登録写真は自動保存せず、特徴量と名前を保存します。写真と同様に扱い、共有を避けてください。登録者の削除では関連ログと生成物も処理します。</div>
+        </div>
+        <div class="card">
+          <h3>システム</h3>
+          <p class="muted small">動作チャレンジは生体検知の保証ではありません。照合と表情分類の仕組みを試す教育用アプリです。</p>
+          <div class="kv"><span>モデル</span><b id="sys-models">—</b></div>
+          <div class="kv"><span>処理速度</span><b id="sys-fps">—</b></div>
+          <button class="btn ghost sm" id="open-root">アプリのフォルダを開く</button>
+          <button class="btn danger sm" id="delete-local-data">アプリが保存したデータをすべて削除</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 共通のライブ映像(各ページの stage-slot に差し込む) -->
+    <div class="stage" id="stage">
+      <img id="video" alt="">
+      <canvas id="overlay"></canvas>
+      <div class="stage-grid"></div>
+      <div class="stage-off" id="stage-off"><div class="pulse"></div><div>CAMERA STANDBY</div><div class="small muted" id="stage-off-msg">カメラを起動しています…</div></div>
+      <div class="stage-head">
+        <div class="eyebrow big" id="stage-title">FACIAL RECOGNITION SYSTEM</div>
+        <div class="stage-sub" id="stage-sub">見るだけで、あなたを確かめる</div>
+      </div>
+      <div class="live"><i></i>LIVE</div>
+      <ol class="steps" id="steps">
+        <li data-i="0"><b>DETECTING</b><span>顔を検出</span></li>
+        <li data-i="1"><b>ANALYZING</b><span>特徴を解析</span></li>
+        <li data-i="2"><b>MATCHING</b><span>登録者と照合</span></li>
+        <li data-i="3"><b>COMPLETE</b><span>認証完了</span></li>
+      </ol>
+      <div class="stage-foot">
+        <div class="hint" id="stage-hint">KEEP A NATURAL EXPRESSION</div>
+        <div class="hint-ja" id="stage-hint-ja">自然な表情でカメラを見てください</div>
+        <div class="prog"><div id="stage-prog"></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 登録ダイアログ -->
+<div class="modal hidden" id="modal">
+  <div class="modal-box">
+    <div class="eyebrow">NEW USER</div>
+    <h2>新しいユーザーを登録</h2>
+    <label class="field"><span>名前</span><input id="m-name" class="input" placeholder="例: 山田 太郎"></label>
+    <label class="check consent"><input type="checkbox" id="m-consent"> 本人から、顔を登録することへの<b>同意</b>を得ています</label>
+    <div class="muted small">写真そのものは保存せず、照合用の数値だけを保存します。いつでも削除できます。</div>
+    <div class="m-methods">
+      <button class="method" id="m-camera"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg><b>カメラで撮影</b><span>自動で{n}枚撮影します</span></button>
+      <label class="method"><input type="file" id="m-files" accept="image/*" multiple hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg><b>写真を選ぶ</b><span>5〜10枚がおすすめ</span></label>
+    </div>
+    <div id="m-result" class="m-result hidden"></div>
+    <div class="row end"><button class="btn ghost" id="m-close">閉じる</button></div>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

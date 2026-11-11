@@ -43,6 +43,23 @@
         "data.js",
         "dist"
       ]
+    },
+    {
+      "source": "projects/face-recognition-lab",
+      "destination": "projects/face-recognition-lab",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "engine.js",
+        "browser-store.js",
+        "model-config.js",
+        "THIRD_PARTY_NOTICES.md",
+        "docs/licences",
+        "vendor",
+        "models-web",
+        "dist"
+      ]
     }
   ]
 }
