@@ -58,7 +58,11 @@
         "docs/licences",
         "vendor",
         "models-web",
-        "dist"
+        "dist",
+        "tracking.js",
+        "inference-client.js",
+        "inference-worker.js",
+        "original"
       ]
     }
   ]

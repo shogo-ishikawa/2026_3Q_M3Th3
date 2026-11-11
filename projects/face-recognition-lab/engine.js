@@ -216,55 +216,105 @@ function canvas(width,height) {
   c.width=width;c.height=height;return c;
 }
 
+export const MAX_FACES = 50;
+
+export function detectionRegions(width,height,profile='fast') {
+  if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>1920||height>1920||!['fast','group'].includes(profile))throw new Error('検出する画像の設定が不正です。');
+  const regions=[{x:0,y:0,width,height,kind:'overview'}];
+  if(profile==='fast'||Math.max(width,height)<=960)return regions;
+  const side=960,positions=length=>{if(length<=side)return [0];const out=[0];for(let start=720;start<length-side;start+=720)out.push(start);if(out[out.length-1]!==length-side)out.push(length-side);return out;};
+  const rw=Math.min(width,side),rh=Math.min(height,side);
+  for(const y of positions(height))for(const x of positions(width))regions.push({x,y,width:rw,height:rh,kind:'tile'});
+  return regions;
+}
+
+export function mapDetection(face,region,scale) {
+  if(!region||!Number.isFinite(scale)||scale<=0||!validVector(face.box,4)||face.landmarks?.length!==5||!face.landmarks.every(p=>validVector(p,2)))throw new Error('検出範囲を復元できませんでした。');
+  return {...face,box:[face.box[0]/scale+region.x,face.box[1]/scale+region.y,face.box[2]/scale,face.box[3]/scale],landmarks:face.landmarks.map(([x,y])=>[x/scale+region.x,y/scale+region.y])};
+}
+
+export function analysisOptions(options={},maxSize=1920) {
+  const {maxFaces=6,expressions=false,profile='fast'}=options;
+  if(!Number.isInteger(maxFaces)||maxFaces<1||maxFaces>MAX_FACES||typeof expressions!=='boolean'||!['fast','group'].includes(profile))throw new Error('画像処理の設定が不正です。');
+  return {maxFaces,expressions,profile,workingSize:Math.min(maxSize,profile==='group'?1920:640)};
+}
+
 export class FaceEngine {
-  constructor({detectThreshold=0.8,maxSize=640}={}) {
-    if(!Number.isFinite(detectThreshold)||detectThreshold<0||detectThreshold>1||!Number.isInteger(maxSize)||maxSize<160||maxSize>1280)throw new Error('画像処理の設定が不正です。');
-    this.detectThreshold=detectThreshold;this.maxSize=maxSize;this.sessions={};this.ready=false;this.busy=false;this.loading=null;
+  constructor({detectThreshold=0.8,maxSize=1920}={}) {
+    if(!Number.isFinite(detectThreshold)||detectThreshold<0||detectThreshold>1||!Number.isInteger(maxSize)||maxSize<160||maxSize>1920)throw new Error('画像処理の設定が不正です。');
+    this.detectThreshold=detectThreshold;this.maxSize=maxSize;this.sessions={};this.ready=false;this.busy=false;this.loading=null;this.expressionLoading=null;this.onProgress=()=>{};
   }
-  async load(onProgress=()=>{}) {
-    if(this.ready)return;
-    if(this.loading)return this.loading;
-    this.loading=(async()=>{
+  async load(onProgress=()=>{},{expressions=false}={}) {
+    if(typeof onProgress!=='function'||typeof expressions!=='boolean')throw new Error('モデル読み込みの設定が不正です。');
+    this.onProgress=onProgress;
+    if(!this.ready){
+      if(!this.loading)this.loading=(async()=>{
+        try{
+          onProgress({stage:'runtime',percent:0,message:'画像処理の実行環境を準備しています。'});
+          this.ort=await import('./vendor/ort.wasm.min.mjs');
+          this.ort.env.wasm.numThreads=1;this.ort.env.wasm.proxy=false;
+          this.ort.env.wasm.wasmPaths=new URL('./vendor/',import.meta.url).href;this.ort.env.logLevel='error';
+          const files=MODEL_FILES.filter(f=>f.key!=='expression'),total=files.reduce((sum,f)=>sum+f.bytes,0);let done=0;
+          for(const file of files){
+            const bytes=await readModel(file,onProgress,done,total);done+=file.bytes;
+            onProgress({stage:'compile',percent:Math.floor(done/total*90),message:`${file.name}を組み立てています。`});
+            this.sessions[file.key]=await this.ort.InferenceSession.create(bytes,{executionProviders:['wasm'],graphOptimizationLevel:'all',logSeverityLevel:3});
+          }
+          this.ready=true;onProgress({stage:'ready',percent:100,message:'照合の準備ができました。表情モデルは分析を使うときに追加します。'});
+        }catch(error){await this.dispose();throw new Error(`画像処理の準備に失敗しました。${error.message||error}`);}
+        finally{this.loading=null;}
+      })();
+      await this.loading;
+    }
+    if(expressions)await this.loadExpression(onProgress);
+  }
+  async loadExpression(onProgress=this.onProgress) {
+    if(this.sessions.expression)return;
+    if(!this.ready)throw new Error('先に照合モデルを準備してください。');
+    if(!this.expressionLoading)this.expressionLoading=(async()=>{
+      const file=MODEL_FILES.find(f=>f.key==='expression');
       try{
-        onProgress({stage:'runtime',percent:0,message:'画像処理の実行環境を準備しています。'});
-        this.ort=await import('./vendor/ort.wasm.min.mjs');
-        this.ort.env.wasm.numThreads=1;
-        this.ort.env.wasm.proxy=false;
-        this.ort.env.wasm.wasmPaths=new URL('./vendor/',import.meta.url).href;
-        this.ort.env.logLevel='error';
-        const total=MODEL_FILES.reduce((a,f)=>a+f.bytes,0);let done=0;
-        for(let i=0;i<MODEL_FILES.length;i++){
-          const file=MODEL_FILES[i],bytes=await readModel(file,onProgress,done,total);done+=file.bytes;
-          onProgress({stage:'compile',percent:Math.floor(done/total*85),message:`${file.name}を組み立てています。`});
-          this.sessions[file.key]=await this.ort.InferenceSession.create(bytes,{executionProviders:['wasm'],graphOptimizationLevel:'all',logSeverityLevel:3});
-        }
-        this.ready=true;onProgress({stage:'ready',percent:100,message:'準備できました。カメラや画像で試せます。'});
-      }catch(error){await this.dispose();throw new Error(`画像処理の準備に失敗しました。${error.message||error}`);}
-      finally{this.loading=null;}
+        onProgress({stage:'expression',percent:0,message:'分析用の表情モデル（約35 MB）を追加しています。'});
+        const bytes=await readModel(file,onProgress,0,file.bytes);
+        onProgress({stage:'compile',percent:90,message:'表情モデルを組み立てています。'});
+        this.sessions.expression=await this.ort.InferenceSession.create(bytes,{executionProviders:['wasm'],graphOptimizationLevel:'all',logSeverityLevel:3});
+        onProgress({stage:'ready',percent:100,message:'表情の分析を始められます。'});
+      }finally{this.expressionLoading=null;}
     })();
-    return this.loading;
+    return this.expressionLoading;
   }
-  async analyze(source,{maxFaces=3,expressions=true}={}) {
+  async analyze(source,options={},onProgress=this.onProgress) {
     if(!this.ready)throw new Error('先に画像処理の準備を開始してください。');
     if(this.busy)throw new Error('ひとつ前の画像を処理しています。');
-    if(!Number.isInteger(maxFaces)||maxFaces<1||maxFaces>10)throw new Error('一度に調べる顔の数が不正です。');
+    const {maxFaces,expressions,profile,workingSize}=analysisOptions(options,this.maxSize);
     this.busy=true;const start=performance.now();
     try{
+      if(expressions)await this.loadExpression(onProgress);
       const originalWidth=source.videoWidth||source.naturalWidth||source.width,originalHeight=source.videoHeight||source.naturalHeight||source.height;
-      if(!originalWidth||!originalHeight)throw new Error('カメラ映像または画像の読み込みをお待ちください。');
-      const scale=Math.min(1,this.maxSize/Math.max(originalWidth,originalHeight));
+      if(!Number.isFinite(originalWidth)||!Number.isFinite(originalHeight)||originalWidth<1||originalHeight<1)throw new Error('カメラ映像または画像の読み込みをお待ちください。');
+      const scale=Math.min(1,workingSize/Math.max(originalWidth,originalHeight));
       const width=Math.max(1,Math.round(originalWidth*scale)),height=Math.max(1,Math.round(originalHeight*scale));
       const frameCanvas=canvas(width,height),ctx=frameCanvas.getContext('2d',{willReadFrequently:true});
+      if(!ctx)throw new Error('この環境の画像描画に対応していません。');
       ctx.drawImage(source,0,0,width,height);const frame=ctx.getImageData(0,0,width,height);
       const detectorCanvas=canvas(DETECTOR_SIZE,DETECTOR_SIZE),dc=detectorCanvas.getContext('2d',{willReadFrequently:true});
-      const detectionScale=DETECTOR_SIZE/Math.max(width,height),dw=Math.round(width*detectionScale),dh=Math.round(height*detectionScale);
-      dc.fillStyle='black';dc.fillRect(0,0,DETECTOR_SIZE,DETECTOR_SIZE);dc.drawImage(frameCanvas,0,0,dw,dh);
-      const input=new this.ort.Tensor('float32',rgbPlanar(dc.getImageData(0,0,DETECTOR_SIZE,DETECTOR_SIZE),'bgr'),[1,3,DETECTOR_SIZE,DETECTOR_SIZE]);
-      const result=await this.sessions.detector.run({[this.sessions.detector.inputNames[0]]:input});
-      const faces=decodeYuNet(result,{scoreThreshold:this.detectThreshold}).filter(face=>face.box[0]<dw&&face.box[1]<dh&&face.box[0]+face.box[2]>0&&face.box[1]+face.box[3]>0)
-        .slice(0,maxFaces).map(face=>({...face,box:face.box.map(v=>v/detectionScale),landmarks:face.landmarks.map(p=>p.map(v=>v/detectionScale))}));
-      for(const face of faces){
-        const aligned=warpAligned(frame,face.landmarks);
+      if(!dc)throw new Error('この環境の画像描画に対応していません。');
+      const candidates=[],regions=detectionRegions(width,height,profile);
+      for(const region of regions){
+        const detectionScale=DETECTOR_SIZE/Math.max(region.width,region.height),dw=Math.round(region.width*detectionScale),dh=Math.round(region.height*detectionScale);
+        dc.fillStyle='black';dc.fillRect(0,0,DETECTOR_SIZE,DETECTOR_SIZE);dc.drawImage(frameCanvas,region.x,region.y,region.width,region.height,0,0,dw,dh);
+        const input=new this.ort.Tensor('float32',rgbPlanar(dc.getImageData(0,0,DETECTOR_SIZE,DETECTOR_SIZE),'bgr'),[1,3,DETECTOR_SIZE,DETECTOR_SIZE]);
+        const result=await this.sessions.detector.run({[this.sessions.detector.inputNames[0]]:input});
+        for(const face of decodeYuNet(result,{scoreThreshold:this.detectThreshold})){
+          if(face.box[0]>=dw||face.box[1]>=dh||face.box[0]+face.box[2]<=0||face.box[1]+face.box[3]<=0)continue;
+          candidates.push(mapDetection(face,region,detectionScale));
+        }
+      }
+      const allFaces=nonMaximumSuppression(candidates,.3),selected=allFaces.slice(0,maxFaces),faces=[],unprocessedFaces=allFaces.slice(maxFaces).map(({box,landmarks,score})=>({box,landmarks,score}));
+      for(const face of selected){
+        let aligned;
+        try{aligned=warpAligned(frame,face.landmarks);face.quality=assessQuality(frame,face);}
+        catch{unprocessedFaces.push({box:face.box,landmarks:face.landmarks,score:face.score});continue;}
         const embedding=await this.sessions.recognizer.run({[this.sessions.recognizer.inputNames[0]]:new this.ort.Tensor('float32',rgbPlanar(aligned),[1,3,112,112])});
         const raw=embedding[this.sessions.recognizer.outputNames[0]].data;
         if(raw.length!==128)throw new Error('照合モデルの特徴量の数が違います。');
@@ -275,14 +325,16 @@ export class FaceEngine {
           if(logits.length!==8)throw new Error('表情モデルの分類数が違います。');
           face.expression=softmax(logits);
         }else face.expression=null;
-        face.quality=assessQuality(frame,face);
+        faces.push(face);
       }
-      return {faces,width,height,originalWidth,originalHeight,elapsedMs:performance.now()-start};
+      return {faces,width,height,originalWidth,originalHeight,elapsedMs:performance.now()-start,profile,
+        detectedCount:allFaces.length,processedCount:faces.length,limitedCount:Math.max(0,allFaces.length-maxFaces),smallFaceCount:faces.filter(f=>f.quality.face_size<48).length,
+        unprocessedCount:unprocessedFaces.length,failedCount:Math.max(0,unprocessedFaces.length-Math.max(0,allFaces.length-maxFaces)),unprocessedFaces,detectionPasses:regions.length,expressions};
     }finally{this.busy=false;}
   }
   async dispose() {
     this.ready=false;
-    for(const session of Object.values(this.sessions))try{await session.release();}catch{/* Allow recovery after a partial initialisation. */}
+    for(const session of Object.values(this.sessions))try{await session.release();}catch{/* Allow recovery after partial initialisation. */}
     this.sessions={};
   }
 }

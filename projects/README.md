@@ -37,4 +37,4 @@
 
 - [音の実験室](sound-analysis-lab/)：Webで音と波・スペクトルの基礎を学び、Colabで音源分離・聴き比べ・日本語グラフによる比較分析を進める教材です。合成デモから始め、手元の音源にも応用できます。
 
-- [FACEGATE](face-recognition-lab/)：学生の顔認証アプリをもとに、ブラウザ内で動く登録・照合・表情分類、Pythonローカル版、日本語グラフのColab教材をまとめています。
+- [FACEGATE](face-recognition-lab/)：学生への配布用に[元提出ZIP](face-recognition-lab/original/facegate-submitted.zip)を未改変で保存しています。[ブラウザ発展版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/face-recognition-lab/)では高速照合・複数人処理を追加しています。
