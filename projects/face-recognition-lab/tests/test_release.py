@@ -5,6 +5,7 @@ import json
 import tempfile
 import unittest
 import zipfile
+import hashlib
 
 PROJECT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('face_release', PROJECT / 'tools' / 'build_release.py')
@@ -15,6 +16,7 @@ spec.loader.exec_module(release)
 class ReleaseTests(unittest.TestCase):
     def fixture(self, root):
         for name in release.ROOT_FILES:
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
             (root / name).write_text('{}')
         (root / 'VERSION').write_text('1.0.0\n')
         (root / 'face_recognition_lab.ipynb').write_text(json.dumps({'cells': []}))
@@ -22,6 +24,16 @@ class ReleaseTests(unittest.TestCase):
             (root / folder).mkdir()
         (root / 'tools/fetch_web_assets.py').write_text('def asset_paths(root):\n    return []\n')
         (root / 'local/main.py').write_text('# public source\n')
+        original = root / 'original'
+        original.mkdir()
+        (original / 'README.md').write_text('Original submission')
+        archive = original / 'facegate-submitted.zip'
+        with zipfile.ZipFile(archive, 'w') as zipped:
+            zipped.writestr('face_app/main.py', '# original source')
+        content = archive.read_bytes()
+        (original / 'manifest.json').write_text(json.dumps({
+            'file': archive.name, 'bytes': len(content),
+            'sha256': hashlib.sha256(content).hexdigest()}))
 
     def test_personal_runtime_files_are_absent_and_archive_is_repeatable(self):
         with tempfile.TemporaryDirectory() as directory:

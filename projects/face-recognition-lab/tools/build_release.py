@@ -3,11 +3,16 @@ from pathlib import Path
 import json
 import re
 import zipfile
+import hashlib
+import stat
+from pathlib import PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = ('README.md', '.gitignore', 'VERSION', 'package.json', 'THIRD_PARTY_NOTICES.md',
               'index.html', 'styles.css', 'app.js', 'engine.js', 'model-config.js', 'browser-store.js',
+              'tracking.js', 'inference-client.js', 'inference-worker.js',
               'face_recognition_lab.ipynb')
+ORIGINAL_FILES = ('original/README.md', 'original/manifest.json', 'original/facegate-submitted.zip')
 SOURCE_SUFFIXES = {'.md', '.py', '.js', '.mjs', '.json', '.html', '.css', '.bat', '.sh', '.txt'}
 OMIT_PARTS = {'__pycache__', '.pytest_cache', '.venv', 'node_modules', '_artifacts', 'data',
               'logs', 'reports', 'screenshots', 'models', 'dist'}
@@ -15,7 +20,7 @@ OMIT_PARTS = {'__pycache__', '.pytest_cache', '.venv', 'node_modules', '_artifac
 
 def public_sources(root=ROOT):
     root = Path(root)
-    for name in ROOT_FILES:
+    for name in (*ROOT_FILES, *ORIGINAL_FILES):
         path = root / name
         if not path.is_file() or path.is_symlink():
             raise ValueError(f'配布ファイルがありません：{name}')
@@ -49,11 +54,41 @@ def public_files(root=ROOT):
         yield path
 
 
+def verify_original(root=ROOT):
+    root = Path(root)
+    directory = root / 'original'
+    if directory.is_symlink():
+        raise ValueError('元提出版の保存先にリンクは使えません。')
+    manifest = directory / 'manifest.json'
+    archive = directory / 'facegate-submitted.zip'
+    if manifest.is_symlink() or archive.is_symlink():
+        raise ValueError('元提出版にリンクは使えません。')
+    metadata = json.loads(manifest.read_text(encoding='utf-8'))
+    if (metadata.get('file') != archive.name
+            or type(metadata.get('bytes')) is not int
+            or not re.fullmatch(r'[0-9a-f]{64}', metadata.get('sha256', ''))):
+        raise ValueError('元提出版の検査情報を確認してください。')
+    content = archive.read_bytes()
+    if len(content) != metadata['bytes'] or hashlib.sha256(content).hexdigest() != metadata['sha256']:
+        raise ValueError('元提出版のZIPが提出時の内容から変わっています。')
+    with zipfile.ZipFile(archive) as zipped:
+        for member in zipped.infolist():
+            name = PurePosixPath(member.filename)
+            if (name.is_absolute() or '..' in name.parts or '\\' in member.filename
+                    or not name.parts or name.parts[0] != 'face_app'
+                    or stat.S_ISLNK(member.external_attr >> 16)):
+                raise ValueError('元提出版のZIP内に不正なパスがあります。')
+        if zipped.testzip() is not None:
+            raise ValueError('元提出版のZIPが壊れています。')
+    return archive
+
+
 def build(root=ROOT):
     root = Path(root)
     version = (root / 'VERSION').read_text().strip()
     if not re.fullmatch(r'\d+\.\d+\.\d+', version):
         raise ValueError('VERSIONにはX.Y.Zを指定してください。')
+    verify_original(root)
     files = list(public_files(root))
     for nb in (root / 'face_recognition_lab.ipynb',):
         notebook = json.loads(nb.read_text())

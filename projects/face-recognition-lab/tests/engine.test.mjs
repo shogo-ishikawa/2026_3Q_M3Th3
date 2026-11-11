@@ -88,3 +88,58 @@ test('engine validates options and refuses use before model loading',async()=>{
   assert.throws(()=>new FaceEngine({detectThreshold:2}));
   const engine=new FaceEngine();await assert.rejects(engine.analyze({width:10,height:10}),/準備/);
 });
+
+test('group regions cover every edge, retain overview and use a bounded number of overlapping passes',async()=>{
+  const {detectionRegions}=await import('../engine.js');
+  assert.deepEqual(detectionRegions(640,480),[{x:0,y:0,width:640,height:480,kind:'overview'}]);
+  assert.equal(detectionRegions(800,800,'group').length,1);
+  for(const [width,height] of [[1920,1080],[1920,1920],[1280,300],[300,1280]]){
+    const regions=detectionRegions(width,height,'group');
+    assert.ok(regions.length>1&&regions.length<=10);
+    const tiles=regions.filter(r=>r.kind==='tile');
+    for(const x of [0,width-1])for(const y of [0,height-1])assert.ok(tiles.some(r=>r.x<=x&&x<r.x+r.width&&r.y<=y&&y<r.y+r.height));
+    assert.ok(regions.every(r=>r.x>=0&&r.y>=0&&r.x+r.width<=width&&r.y+r.height<=height));
+  }
+  assert.throws(()=>detectionRegions(1921,1080,'group'));
+});
+
+test('tile detections restore box and all landmarks before global duplicate suppression',async()=>{
+  const {mapDetection}=await import('../engine.js');
+  const face={box:[20,40,60,80],score:.9,landmarks:[[25,45],[45,45],[35,55],[25,65],[45,65]]};
+  const mapped=mapDetection(face,{x:100,y:200},.5);
+  assert.deepEqual(mapped.box,[140,280,120,160]);assert.deepEqual(mapped.landmarks[0],[150,290]);
+  const duplicate={...mapped,score:.8};assert.deepEqual(nonMaximumSuppression([mapped,duplicate]),[mapped]);
+  assert.throws(()=>mapDetection(face,{x:0,y:0},0));
+});
+
+test('fast and group options permit 50 fresh face computations without weakening detector confidence',async()=>{
+  const {analysisOptions,MAX_FACES}=await import('../engine.js');
+  assert.equal(MAX_FACES,50);assert.deepEqual(analysisOptions(),{maxFaces:6,expressions:false,profile:'fast',workingSize:640});
+  assert.equal(analysisOptions({maxFaces:50,profile:'group'}).workingSize,1920);
+  assert.equal(analysisOptions({profile:'group'},1280).workingSize,1280);
+  for(const options of [{maxFaces:51},{maxFaces:0},{maxFaces:2.2},{expressions:'false'},{profile:'unbounded'}])assert.throws(()=>analysisOptions(options));
+});
+
+test('all selected faces receive fresh embeddings, and fast matching never executes the expression network',async()=>{
+  const oldCanvas=globalThis.OffscreenCanvas;
+  class Canvas {
+    constructor(width,height){this.width=width;this.height=height;}
+    getContext(){return {fillRect(){},drawImage(){},getImageData:()=>({width:this.width,height:this.height,data:new Uint8ClampedArray(this.width*this.height*4).fill(128)})};}
+  }
+  globalThis.OffscreenCanvas=Canvas;
+  try{
+    const out=outputs(640);
+    for(let n=0;n<8;n++){
+      const col=5+n*9,row=12,i=row*80+col;
+      out.cls_8.data[i]=1;out.obj_8.data[i]=1;out.bbox_8.data.set([0,0,Math.log(50/8),Math.log(60/8)],i*4);
+      const points=[[-2,-1],[2,-1],[0,0],[-1.5,2],[1.5,2]];out.kps_8.data.set(points.flat(),i*10);
+    }
+    const engine=new FaceEngine();let embeddings=0;
+    engine.ready=true;engine.ort={Tensor:class{constructor(type,data,dims){Object.assign(this,{type,data,dims});}}};
+    engine.sessions={detector:{inputNames:['x'],run:async()=>out},recognizer:{inputNames:['x'],outputNames:['embedding'],run:async()=>{embeddings++;return {embedding:{data:Float32Array.from({length:128},(_,i)=>i===embeddings%128?1:0)}};}},expression:{run:async()=>{throw Error('FER+ should not run in fast matching');}}};
+    const result=await engine.analyze({width:640,height:480},{maxFaces:6,expressions:false});
+    assert.equal(result.detectedCount,8);assert.equal(result.processedCount,6);assert.equal(result.limitedCount,2);assert.equal(result.unprocessedCount,2);assert.equal(result.unprocessedFaces.length,2);assert.ok(result.unprocessedFaces.every(f=>f.embedding===undefined));assert.equal(embeddings,6);
+    assert.ok(result.faces.every(f=>f.embedding.length===128&&f.expression===null));
+    await engine.analyze({width:640,height:480},{maxFaces:50});assert.equal(embeddings,14);
+  }finally{if(oldCanvas===undefined)delete globalThis.OffscreenCanvas;else globalThis.OffscreenCanvas=oldCanvas;}
+});

@@ -1,21 +1,32 @@
 <!doctype html>
 <html lang="ja"><meta charset="utf-8"><title>FACEGATE 推論の確認</title>
 <body><h1>実モデルの推論確認</h1><p>開発時の確認画面です。選んだ画像は端末内だけで処理します。</p>
+<label>処理方式<select id="backend"><option value="worker">Workerを優先</option><option value="main">画面内で処理</option></select></label>
+<label>画像処理<select id="profile"><option value="fast">高速照合</option><option value="group">多人数</option></select></label>
+<label>人数上限<select id="max-faces"><option>6</option><option>12</option><option>30</option><option>50</option></select></label>
+<label><input type="checkbox" id="expressions">表情も分類</label>
 <button id="load">モデルを読み込む</button><input id="image" type="file" accept="image/*" aria-label="確認する画像"><pre id="result" role="status">準備前</pre>
 <script type="module">
-import {FaceEngine} from '../engine.js';
-const engine=new FaceEngine();
+import {FaceInferenceClient} from '../inference-client.js';
+let engine=null;
 const result=document.querySelector('#result');
+async function prepare(){
+  if(!engine)engine=new FaceInferenceClient({useWorker:document.querySelector('#backend').value==='worker'});
+  await engine.load(p=>result.textContent=p.message);
+}
 document.querySelector('#load').addEventListener('click',async()=>{
-  try {await engine.load(p=>result.textContent=p.message);result.textContent='モデル準備完了';}
+  try {await prepare();result.textContent='モデル準備完了: '+engine.backend;}
   catch(e){result.textContent='ERROR: '+e.message;}
 });
+document.querySelector('#backend').addEventListener('change',async()=>{if(engine)await engine.dispose();engine=null;result.textContent='処理方式を変更しました。モデルを読み込んでください。';});
 document.querySelector('#image').addEventListener('change',async e=>{
-  const file=e.target.files[0];if(!file)return;
+  const file=e.target.files[0];if(!file)return;let image;
   try {
-    result.textContent='推論しています';
-    const image=await createImageBitmap(file);const data=await engine.analyze(image);image.close();
+    result.textContent='推論しています';await prepare();
+    image=await createImageBitmap(file);
+    const data=await engine.analyze(image,{profile:document.querySelector('#profile').value,maxFaces:Number(document.querySelector('#max-faces').value),expressions:document.querySelector('#expressions').checked});
     result.textContent=JSON.stringify(data,null,2);
   } catch(e){result.textContent='ERROR: '+e.message;}
+  finally{image?.close();e.target.value='';}
 });
 </script></body></html>
