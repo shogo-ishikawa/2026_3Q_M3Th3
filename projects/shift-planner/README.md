@@ -22,9 +22,9 @@
 
 ## ZIPで手元に置く
 
-[最新版のZIP](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/shift-planner/dist/shift-planner_v1.0.0.zip) を展開すると `v1.0.0/` ができます。Python 3を利用できる環境で、このフォルダーの `start_windows.bat` または `start_mac.command` を実行し、`http://localhost:8000/` を開きます。終了は起動した端末で `Ctrl+C` です。
+[最新版のZIP](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/shift-planner/dist/shift-planner_v1.1.0.zip) を展開すると `v1.1.0/` ができます。Python 3を利用できる環境で、このフォルダーの `start_windows.bat` または `start_mac.command` を実行し、`http://localhost:8000/` を開きます。終了は起動した端末で `Ctrl+C` です。
 
-Macでは `/Users/shogo/Dropbox/share_data/open_material/misc/apps/shift-planner/v1.0.0/` のようにバージョンごとのフォルダーへ置けます。`.command` が実行できない場合は、端末でフォルダーを開いて次を実行してください。
+Macでは `/Users/shogo/Dropbox/share_data/open_material/misc/apps/shift-planner/v1.1.0/` のようにバージョンごとのフォルダーへ置けます。`.command` が実行できない場合は、端末でフォルダーを開いて次を実行してください。
 
 ```sh
 python3 -m http.server 8000 --bind 127.0.0.1
@@ -40,6 +40,7 @@ Web WorkerとJavaScriptのモジュールを使うため、HTMLを直接ダブ�
 | `solver.js` | 条件の検証、割り当ての探索、完成シフトの再検証 |
 | `worker.js` | 画面操作を止めずに探索を実行 |
 | `io.js` | CSV・Excel入出力 |
+| `plan-tools.js` | 完成案の担当固定と、表示する勤務枠の絞り込み |
 | `demo.js` | 架空の入力例 |
 | `tests/` | 条件の競合、均等化、入出力などの検証 |
 
@@ -53,3 +54,7 @@ python3 tools/build_release.py
 ```
 
 GitHub Pagesへの公開は、リポジトリ共通のGitHub Actionsで行います。このディレクトリのファイルを更新し、[HTTPSのリポジトリ](https://github.com/shogo-ishikawa/2026_3Q_M3Th3) へ反映すると、共通の検証と公開処理が実行されます。
+
+## v1.1.0で追加したこと
+
+クールホワイトとグラファイトを基調に配色を更新しました。探索時間の選び方、必須条件と配分目標の違い、割り当てを組み替える探索の仕組みをアプリ内で解説します。完成した案で気に入った枠の担当を固定して再作成でき、スタッフが入る枠だけに表示を絞ることもできます。同じ枠の同僚も表示します。CSV・Excelは全員分を出力し、印刷は表示中の勤務表です。勤務時間のグラフは常にチーム全員分です。

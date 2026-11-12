@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f4f5f1">
+    <meta name="theme-color" content="#f5f7fb">
   <meta name="description" content="勤務可能日時と必要人数から、条件を守ったアルバイトシフトを作成。過去の実績を含めた勤務量の調整、CSV・Excelの入出力に対応します。">
   <title>SHIFT STUDIO — アルバイトシフト自動作成</title>
   <link rel="stylesheet" href="styles.css">
@@ -15,7 +15,7 @@
       <span class="logo-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
       <span>SHIFT<span class="wordmark-light">STUDIO</span><small>シフトスタジオ</small></span>
     </a>
-    <nav aria-label="ページ案内"><a href="#guide">使い方</a><a class="back-link" href="../../">作品一覧へ <span aria-hidden="true">↗</span></a></nav>
+    <nav aria-label="ページ案内"><a href="#background">しくみを知る</a><a href="#guide">使い方</a><a class="back-link" href="../../">作品一覧へ <span aria-hidden="true">↗</span></a></nav>
   </header>
 
   <main class="page-width">
@@ -72,7 +72,16 @@
           <label class="number-setting" for="maxDailyHours"><span>1日の勤務時間</span><span class="number-with-unit"><input id="maxDailyHours" type="number" min="0.5" max="24" step="0.5" value="8"><span>時間まで</span></span></label>
           <p class="setting-tip">分割した連続枠を同じ人が担当する場合は休息を0にします。11時間にすると09–13時と13–17時は別の人が担当します。過去実績も各上限の確認に使います。</p>
         </div>
-        <label class="search-setting" for="timeLimitMs"><span>探索に使う時間</span><select id="timeLimitMs"><option value="1000">1秒</option><option value="5000" selected>5秒</option><option value="15000">15秒</option><option value="30000">30秒</option></select></label>
+        <label class="search-setting" for="timeLimitMs"><span>探索時間の上限</span><select id="timeLimitMs" aria-describedby="search-time-summary"><option value="1000">1秒</option><option value="5000" selected>5秒</option><option value="15000">15秒</option><option value="30000">30秒</option></select></label>
+        <div id="search-time-guide" class="search-help">
+          <p id="search-time-summary">まずは<strong>5秒</strong>で。条件が複雑なら15〜30秒へ。最良の案だと確認できれば、上限より早く終了します。</p>
+          <details><summary>長くすると、何が変わる？</summary><div>
+            <p>完成した案の勤務時間をさらに均等にしたり、「これ以上よい案がない」と確認したりする余裕が増えます。時間を延ばしても、条件は緩めません。</p>
+            <table><caption>探索時間の選び方</caption><thead><tr><th scope="col">上限</th><th scope="col">使い分けの目安</th></tr></thead><tbody><tr><th scope="row">1秒</th><td>入力や条件を変えながら、短く試す</td></tr><tr><th scope="row">5秒</th><td>最初に試す基本の設定</td></tr><tr><th scope="row">15・30秒</th><td>人数や枠が多い、条件が重なる場合に再探索</td></tr></tbody></table>
+            <p>長くすれば必ず答えが見つかる、必ず公平になる、という意味ではありません。すでに最良と確認できていれば、時間を延ばしても、その評価は改善しません。計算の速さは端末によっても異なります。</p>
+            <p><a href="#search-results">4種類の結果の読み方を見る <span aria-hidden="true">↓</span></a></p>
+          </div></details>
+        </div>
         <button id="generate" class="button button-primary" type="button">シフトを作成する <span aria-hidden="true">→</span></button>
         <button id="cancel-search" class="button cancel-button" type="button" hidden>探索を中止</button>
         <div id="search-progress" class="search-progress" aria-live="polite"></div>
@@ -90,14 +99,54 @@
       </div>
     </section>
 
+    <section id="background" class="learning-section" aria-labelledby="background-title">
+      <div class="section-heading"><div><p class="section-kicker">03 / HOW IT WORKS</p><h2 id="background-title">シフトづくりの、しくみ。</h2></div><a class="section-note" href="#search-time-guide">探索時間の選び方 <span aria-hidden="true">↗</span></a></div>
+      <p class="learning-lead">誰かを1枠に入れると、その人を別の枠へ入れられなくなることがあります。シフトづくりは、予定全体を見ながら組み合わせを調整する問題です。</p>
+      <div class="learning-grid">
+        <article class="learning-card">
+          <p class="section-kicker">01 / RULES FIRST</p><h3>守る条件と、近づける目標。</h3>
+          <p>まず全員の予定と必要人数を守り、その中で勤務量の偏りを小さくします。</p>
+          <div class="learning-table-scroll"><table class="comparison-table"><thead><tr><th scope="col">必ず守る条件</th><th scope="col">できるだけ近づける目標</th></tr></thead><tbody><tr><td>勤務可能な日時・必要人数</td><td>比率に応じた勤務時間</td></tr><tr><td>時間・日数・連勤・休息の上限や下限</td><td>過去分を含めた勤務量のバランス</td></tr><tr><td>担当できる役割・固定した担当者</td><td>配分の評価が同じなら、希望する枠</td></tr></tbody></table></div>
+          <p class="learning-note">均等にするために、出勤できない人を割り当てることはありません。</p>
+          <details><summary>条件を満たせないときは？</summary><div><p>勤務できる人が足りない枠や、時間・日数の上限と両立しない組み合わせを確認します。不可能だと確認できた場合は、条件を変えるまで勤務表を出力しません。</p><p>一方、答えを見つける前に探索時間が尽きた場合は「未判定」です。同じ「表がない」状態でも、意味が異なります。</p></div></details>
+        </article>
+        <article class="learning-card">
+          <p class="section-kicker">02 / BALANCE IN HOURS</p><h3>「同じ回数」より、時間で比べる。</h3>
+          <p>4時間の勤務を2回と、8時間の勤務を1回は、どちらも合計8時間。このアプリは勤務回数だけでなく、合計時間を基準に配分します。</p>
+          <div class="learning-table-scroll"><table class="comparison-table"><caption>今回24時間分を、比率2：1で分ける例</caption><thead><tr><th scope="col">スタッフ</th><th scope="col">勤務比率</th><th scope="col">目標時間</th></tr></thead><tbody><tr><th scope="row">A</th><td>2</td><td>16時間</td></tr><tr><th scope="row">B</th><td>1</td><td>8時間</td></tr></tbody></table></div>
+          <details><summary>過去の実績を足すと、どう変わる？</summary><div><p>比率がA：B＝2：1で、Aがすでに8時間、Bが0時間働いているとします。今回16時間分を追加すると、過去と今回の合計は24時間です。合計の目標はAが16時間、Bが8時間なので、今回の目安はA・Bとも8時間になります。</p><p>実際には枠の長さや勤務可能日時があるため、目標にぴったり合うとは限りません。目標との差を数値で評価し、偏りが小さい実現可能な配分を探します。全員に同じ期間の実績を入れると比較しやすくなります。</p></div></details>
+        </article>
+        <article class="learning-card">
+          <p class="section-kicker">03 / MANY POSSIBILITIES</p><h3>人数と枠が増えると、候補も増える。</h3>
+          <p>6人から2人を選ぶ方法は15通り。それを10枠で別々に選ぶと、単純計算では<strong>15<sup>10</sup>＝約5,800億通り</strong>になります。</p>
+          <p class="learning-note">これは条件で候補を絞る前の例です。実際の候補数や処理時間を表す数ではありません。</p>
+          <details><summary>全部を順番に試しているの？</summary><div><p>すべての候補を同じように試すのではなく、次の方法で探す範囲を絞ります。</p><ol><li>固定した担当者を先に置き、選択肢の少ない枠から考えます。</li><li>勤務可能日時や上限に反する候補を外します。</li><li>行き詰まったら前の割り当てへ戻り、組み替えます。</li><li>途中の案が、今ある案よりよくなり得ないと分かれば、その先を調べません。</li></ol><p>この「戻って組み替える」探索と、不要な候補を省く工夫によって、単純な総当たりより効率よく探します。計算は端末のCPUで、ブラウザの画面操作とは別に進みます。入力を外部へ送ったり、外部のGPUで計算したりする処理はありません。</p></div></details>
+        </article>
+        <article class="learning-card">
+          <p class="section-kicker">04 / LOOK AT THE WHOLE PLAN</p><h3>その場でよさそうでも、組み替えが必要。</h3>
+          <p>Aは月・火に勤務可能、Bは月だけ勤務可能。2人とも週1日までで、毎日1人ずつ必要だとします。</p>
+          <div class="learning-table-scroll"><table class="comparison-table"><thead><tr><th scope="col">割り当て方</th><th scope="col">月曜</th><th scope="col">火曜</th></tr></thead><tbody><tr><th scope="row">月曜からAを選ぶ</th><td>A</td><td>担当できる人がいない</td></tr><tr><th scope="row">全体を見て組み替える</th><td>B</td><td>A</td></tr></tbody></table></div>
+          <p>月曜をBへ変えれば、火曜にAを入れられます。順番に埋めるだけでは見落とす案も、組み替えることで見つけられます。</p>
+          <details><summary>「最良」は、何を基準にしている？</summary><div><p>このアプリでは、必須条件を満たす案の中から、設定した比率と実績に基づく勤務時間の偏りが小さい案を選びます。配分の評価が同じ場合は、希望枠への割り当て数を比べます。</p><p>「最良を確認」は、この評価方法でこれ以上よい案がないと確認できた、という意味です。休み方の好みなど、入力していない事情まで評価した結果ではありません。</p></div></details>
+        </article>
+      </div>
+      <div id="search-results" class="learning-results" aria-labelledby="search-results-title"><h3 id="search-results-title">結果は、4つに分けて読みます。</h3><div class="result-key">
+        <article><span class="result-label">条件OK・最良を確認</span><p>使える勤務表があり、設定した評価でこれ以上よい案がないと確認できました。</p></article>
+        <article><span class="result-label">条件OK・最良は未確認</span><p>使える勤務表はあります。時間の上限に達したため、最良かどうかは未確認です。</p></article>
+        <article><span class="result-label">条件上、作成できない</span><p>必須条件を同時に満たす案がありません。時間を延ばすより、条件の修正が必要です。</p></article>
+        <article><span class="result-label">時間内に見つからず未判定</span><p>使える勤務表はまだありません。不可能とは限らないので、時間や対象期間を見直します。</p></article>
+      </div><p class="learning-note">探索時間を延ばしても、条件が自動で緩むことはありません。最良と確認できた場合は、長く待つ必要もありません。</p></div>
+    </section>
+
     <section id="guide" class="guide" aria-labelledby="guide-title"><div class="guide-intro"><p class="section-kicker">A LITTLE HELP</p><h2 id="guide-title">はじめての方へ。</h2><p>入力のコツと、結果の読み方。</p></div><div class="guide-details">
       <details><summary>何を、どの順番で入力すればいい？<span aria-hidden="true">＋</span></summary><div><p>①スタッフを登録し、②日付・時間・必要人数をシフト枠に入力します。③勤務可能では、その人が働ける枠だけを登録します。登録されていない組み合わせには割り当てません。</p><p>過去の勤務も考慮したいときは④過去実績へ。勤務量は時間を基準に調整します。「勤務比率」を2にすると標準の人の2倍、0.5なら半分を目標にします。上下限は今回の期間の合計時間、週の日数上限は月曜から日曜で数えます。</p><p>必要スキルや担当者の固定も指定できます。日付をまたぐ勤務は、例えば「22:00–24:00」と翌日の「00:00–02:00」に分けて入力してください。終了には24:00を指定できます。</p></div></details>
       <details><summary>CSV・Excel はどう使う？<span aria-hidden="true">＋</span></summary><div><p>「入力用テンプレート」を保存し、見出しを変えずに入力してください。スタッフIDと枠IDでデータをつなぐので、IDはそれぞれ重複しないようにします。</p><p>CSVは選択中の表を取り込み、Excelは入力用ブックの各シートをまとめて取り込みます。完成後は勤務表と個人別の集計をExcelで保存できます。過去実績のタブにある「以前の完成シフトを履歴に追加」から、このアプリで出力した完成シフトのCSV・Excelを読み込めます。新しい予定の入力は保持し、過去の実績だけを追加します。設定の保存・再開にはJSONファイルを使います。</p></div></details>
+      <details><summary>決まった担当を残して、ほかの枠を調整できる？<span aria-hidden="true">＋</span></summary><div><p>完成した勤務表で、残したい枠の「この枠の担当を固定」にチェックし、「固定を反映して再作成」を押します。複数の枠を選んでまとめて反映できます。チェックしただけでは条件を変えず、反映前なら「選択を戻す」で取り消せます。</p><p>固定を反映した後で勤務可能日時などを変更すると、その担当を守りながら残りを組み替えます。同じ条件で再作成しても、別の案になるとは限りません。固定した担当にもすべての必須条件を適用します。固定を一度に外す場合は「全枠の固定を解除して再作成」を使います。</p><p>勤務表はスタッフで表示を絞れます。その人と同じ枠で働く人も確認できます。勤務時間の集計とCSV・Excelは全員分を残し、「表示を印刷」は表示中の勤務表を印刷します。</p></div></details>
       <details><summary>「作成できない」「探索時間が足りない」ときは？<span aria-hidden="true">＋</span></summary><div><p>必要人数を満たせない場合や条件がぶつかる場合は、未完成の勤務表を完成品として表示しません。メッセージを確認し、勤務可能な人・必要人数・上下限などを調整してから再作成してください。</p><p>時間内に答えが見つからなかった場合は、作成不可能とは限りません。探索時間を延ばすか、対象期間を短くして試してください。条件を満たす案が見つかっても、最も偏りが少ない案かどうかを時間内に確認できない場合があります。</p></div></details>
       <details><summary>入力したデータはどこに保存される？<span aria-hidden="true">＋</span></summary><div><p>計算とファイルの読み込みはブラウザ内で行い、入力内容をサーバーに送信しません。必要なデータは「設定を保存」やExcel出力で手元に残してください。共有用にはスタッフ名の代わりに識別用の名前を使うこともできます。</p></div></details>
     </div></section>
   </main>
-  <footer class="site-footer page-width"><div><a class="footer-brand" href="./">SHIFT STUDIO <span>v1.0.0</span></a><p>学生の提出作品を基に、公開用に機能を拡張したブラウザ版です。</p></div><div class="footer-links"><a href="dist/shift-planner_v1.0.0.zip">アプリをダウンロード</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/shift-planner" target="_blank" rel="noopener noreferrer">ソースコード ↗</a><a href="../../">作品一覧 ↗</a></div></footer>
+  <footer class="site-footer page-width"><div><a class="footer-brand" href="./">SHIFT STUDIO <span>v1.1.0</span></a><p>学生の提出作品を基に、公開用に機能を拡張したブラウザ版です。</p></div><div class="footer-links"><a href="dist/shift-planner_v1.1.0.zip">アプリをダウンロード</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/shift-planner" target="_blank" rel="noopener noreferrer">ソースコード ↗</a><a href="../../">作品一覧 ↗</a></div></footer>
   <script type="module" src="app.js"></script>
 </body>
 </html>

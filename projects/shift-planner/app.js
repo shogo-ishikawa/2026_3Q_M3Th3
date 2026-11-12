@@ -1,6 +1,7 @@
 import {createDemo} from './demo.js';
 import {validateInput, validateSchedule} from './solver.js';
 import {readFile, readPastSchedule, workbookBlob, csvBlob} from './io.js';
+import {applyPlanLocks, clearPlanLocks, filterSchedule} from './plan-tools.js';
 
 const $ = id => document.getElementById(id);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -17,12 +18,14 @@ const hints = {
   history:'確定した過去の勤務を1勤務1行で入力します。「以前の完成シフトを履歴に追加」から、このアプリで出力したCSV・Excelも使えます。今回の最初の勤務枠より前の実績を入力してください。',
 };
 let data = createDemo(), active = 'staff', result = null, worker = null, ticker = null, revision = 0, availabilityPage = 0;
+let pendingLocks = new Map(), staffFilter = '';
 
 function status(message, type = '') { $('status').className = `status ${type}`; $('status').textContent = message; }
 function diagnostics(messages = [], type = '') { $('diagnostics').className=`diagnostics ${type}`; $('diagnostics').innerHTML = messages.length ? `<ul class="diagnostic-list">${messages.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>` : ''; }
 function stopWorker() { if (worker) worker.terminate(); worker = null; clearInterval(ticker); $('cancel-search').hidden = true; $('generate').disabled = false; $('search-progress').textContent = ''; }
 function invalidate(message) {
   revision++; stopWorker(); result = null;
+  pendingLocks.clear(); staffFilter='';
   $('result-empty').hidden = false; $('result-content').hidden = true;
   for (const id of ['export-csv','export-excel','print-result']) $(id).disabled = true;
   diagnostics(); if (message) status(message);
@@ -30,6 +33,7 @@ function invalidate(message) {
 function summary() {
   const total = data.slots.reduce((sum,s)=>sum + (Number(s.required)||0),0);
   $('input-summary').textContent = `${data.staff.length}人 / ${data.slots.length}枠 / 延べ${total}人の配置 / 過去${data.history.length}件`;
+  const unlock=$('clear-fixed');if(unlock)unlock.disabled=!data.slots.some(s=>s.fixed?.trim());
 }
 function inputHTML(kind, row, index, [key,label,type]) {
   const attrs = `data-kind="${kind}" data-row="${index}" data-key="${key}" aria-label="${index+1}行目 ${label}"`;
@@ -60,6 +64,7 @@ function selectTab(kind) {
   $('tab-hint').textContent = hints[kind]; $('add-row').hidden = kind==='availability';
   $('bulk-availability').hidden = kind!=='availability'; $('repeat-slots').hidden = kind!=='slots';
   const pastControl=$('past-schedule-control');if(pastControl)pastControl.hidden=kind!=='history';
+  const unlock=$('clear-fixed');if(unlock)unlock.hidden=kind!=='slots';
 }
 function nextID(kind,prefix) { let n=1;const ids=new Set(data[kind].map(x=>x.id));while(ids.has(prefix+n))n++;return prefix+n; }
 function addRow() {
@@ -76,10 +81,35 @@ function safeResult() {
   if (!result) throw Error('条件を満たすシフトを先に作成してください。');
   const errors=validateSchedule(data,result.schedule);if(errors.length){invalidate();throw Error(errors.join(' / '));}return result;
 }
-function renderResult(r) {
+function renderSchedule(r) {
   const people=new Map(data.staff.map(p=>[p.id,p])); const bySlot=new Map(r.schedule.map(s=>[s.slotId,s.staffIds]));
-  const days=new Map();for(const s of [...data.slots].sort((a,b)=>`${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`))){if(!days.has(s.date))days.set(s.date,[]);days.get(s.date).push(s);}
-  $('schedule-view').innerHTML=[...days].map(([date,slots])=>`<section class="day-group"><h3>${escape(date)} <small>${new Date(date+'T12:00:00Z').toLocaleDateString('ja-JP',{weekday:'short',timeZone:'UTC'})}</small></h3>${slots.map(s=>`<div class="schedule-card"><div class="slot-time">${escape(s.start)}–${escape(s.end)}<small>${escape(s.id)} · ${s.required}人${s.skill?' · '+escape(s.skill):''}</small></div><div class="assignment">${bySlot.get(s.id).map(id=>`<span class="staff-chip">${escape(people.get(id)?.name||id)}${s.fixed.split(',').map(x=>x.trim()).includes(id)?' <small>固定</small>':''}</span>`).join('')}</div><span class="fulfilled">充足</span></div>`).join('')}</section>`).join('');
+  const visible=new Set(filterSchedule(r.schedule,staffFilter).map(s=>s.slotId));
+  const days=new Map();for(const s of [...data.slots].filter(s=>visible.has(s.id)).sort((a,b)=>`${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`))){if(!days.has(s.date))days.set(s.date,[]);days.get(s.date).push(s);}
+  document.querySelector('.plan-panel .panel-heading h3').textContent=staffFilter?`${people.get(staffFilter)?.name||staffFilter}の勤務表`:'勤務表';
+  $('schedule-view').innerHTML=[...days].map(([date,slots])=>`<section class="day-group"><h3>${escape(date)} <small>${new Date(date+'T12:00:00Z').toLocaleDateString('ja-JP',{weekday:'short',timeZone:'UTC'})}</small></h3>${slots.map(s=>{const assigned=bySlot.get(s.id),fixed=s.fixed.split(',').map(x=>x.trim()).filter(Boolean),full=fixed.length===assigned.length&&assigned.every(id=>fixed.includes(id)),mixed=fixed.length>0&&!full,checked=pendingLocks.has(s.id)?pendingLocks.get(s.id):full;return `<div class="schedule-card"><div class="slot-time">${escape(s.start)}–${escape(s.end)}<small>${escape(s.id)} · ${s.required}人${s.skill?' · '+escape(s.skill):''}</small></div><div class="assignment">${assigned.map(id=>`<span class="staff-chip">${escape(people.get(id)?.name||id)}${fixed.includes(id)?' <small>固定</small>':''}</span>`).join('')}</div><span class="fulfilled">充足</span><label class="plan-lock"><input type="checkbox" data-plan-lock="${escape(s.id)}" data-mixed="${mixed&&!pendingLocks.has(s.id)}" ${checked?'checked':''} aria-label="${escape(s.date)} ${escape(s.start)} ${escape(s.id)} この枠の担当を固定"><span>この枠の担当を固定</span></label></div>`}).join('')}</section>`).join('')||'<p class="empty-note">このスタッフの勤務枠はありません。チーム全体の配分は右のグラフで確認できます。</p>';
+  document.querySelectorAll('[data-plan-lock][data-mixed="true"]').forEach(input=>{input.indeterminate=true;});
+}
+function updateLockTools() {
+  $('apply-locks').disabled=pendingLocks.size===0;
+  $('reset-locks').disabled=pendingLocks.size===0;
+  $('unlock-result').disabled=!data.slots.some(s=>s.fixed?.trim());
+  $('lock-status').textContent=pendingLocks.size?`${pendingLocks.size}枠の固定変更は未反映です。「固定を反映して再作成」で適用します。`:'固定したい枠にチェックを入れます。一部の担当だけが固定された枠は「−」で表示します。';
+}
+function renderPlanTools() {
+  let tools=$('plan-tools');
+  if(!tools){tools=document.createElement('div');tools.id='plan-tools';tools.className='plan-tools';tools.innerHTML='<div class="person-filter"><label for="person-filter">勤務表の表示</label><select id="person-filter"></select><p>選んだ人が入る枠を、同僚も含めて表示します。CSV・Excelは全員分。印刷は表示中の勤務表です。時間のグラフはチーム全員分です。</p></div><div class="lock-actions"><button id="apply-locks" type="button" class="button button-small button-dark" disabled>固定を反映して再作成</button><button id="reset-locks" type="button" class="button button-small" disabled>選択を戻す</button><button id="unlock-result" type="button" class="button button-small">全枠の固定を解除して再作成</button></div><p id="lock-status" class="lock-status" aria-live="polite"></p>';document.querySelector('.result-toolbar').after(tools);
+    $('person-filter').addEventListener('change',event=>{staffFilter=event.target.value;renderSchedule(safeResult());});
+    $('apply-locks').addEventListener('click',()=>{try{const r=safeResult();data=applyPlanLocks(data,r.schedule,pendingLocks);renderEditor('slots');summary();generate();}catch(error){status(error.message,'error');}});
+    $('reset-locks').addEventListener('click',()=>{pendingLocks.clear();renderSchedule(safeResult());updateLockTools();});
+    $('unlock-result').addEventListener('click',()=>{data=clearPlanLocks(data);renderEditor('slots');summary();generate();});
+  }
+  $('person-filter').innerHTML='<option value="">全員</option>'+data.staff.map(p=>`<option value="${escape(p.id)}" ${p.id===staffFilter?'selected':''}>${escape(p.name)}</option>`).join('');
+  $('print-result').textContent='表示を印刷';updateLockTools();
+}
+function renderResult(r) {
+  pendingLocks.clear();
+  const people=new Map(data.staff.map(p=>[p.id,p]));
+  renderSchedule(r);renderPlanTools();
   const max=Math.max(1,...r.stats.map(s=>s.totalHours),...r.stats.map(s=>s.targetHours));
   $('workload-view').innerHTML=r.stats.map(s=>`<div class="workload-row"><div class="workload-name">${escape(people.get(s.staffId)?.name||s.staffId)}<small>比率 ${escape(people.get(s.staffId)?.weight)}</small></div><div class="bar-track" role="img" aria-label="今回${s.hours}時間、過去${s.historyHours}時間、合計${s.totalHours}時間"><span class="bar-fill history" style="width:${s.historyHours/max*100}%"></span><span class="bar-fill" style="width:${s.hours/max*100}%"></span></div><div class="workload-value"><strong>${format(s.hours)}h</strong><small>過去 ${format(s.historyHours)}h / 合計 ${format(s.totalHours)}h<br>配分目安 ${format(s.targetHours)}h · 今回${s.days}日</small></div></div>`).join('');
   $('result-meta').textContent=`${r.status==='optimal'?'最も偏りが小さい案（探索完了）':'条件を満たす案（時間内で最良のもの）'} · 配分目安は${data.settings.includeHistory?'過去＋今回':'今回のみ'} · ${format(r.elapsedMs/1000)}秒 · ${r.nodes.toLocaleString()}候補を探索`;
@@ -112,6 +142,7 @@ function generate() {
 
 document.addEventListener('input',event=>{
   const el=event.target;
+  if(el.dataset.planLock){if(!result)return;const slot=data.slots.find(s=>s.id===el.dataset.planLock),row=result.schedule.find(s=>s.slotId===el.dataset.planLock);const fixed=slot.fixed.split(',').map(s=>s.trim()).filter(Boolean);const baseline=fixed.length===row.staffIds.length&&row.staffIds.every(id=>fixed.includes(id))?true:fixed.length?null:false;if(el.checked===baseline)pendingLocks.delete(slot.id);else pendingLocks.set(slot.id,el.checked);updateLockTools();return;}
   if(el.dataset.kind){if(el.dataset.key==='id')return;data[el.dataset.kind][el.dataset.row][el.dataset.key]=el.type==='number'?(el.value===''?NaN:Number(el.value)):el.value;
     invalidate('条件を変更しました。再作成すると新しい条件が反映されます。');summary();return;
   }
@@ -136,6 +167,7 @@ $('repeat-slots').addEventListener('click',()=>{
   for(const [i,s] of original.entries()){const date=dates[i];date.setUTCDate(date.getUTCDate()+7);const next={...s,id:nextID('slots','S'),date:date.toISOString().slice(0,10)};data.slots.push(next);for(const a of pairs.filter(a=>a.slotId===s.id))data.availability.push({...a,slotId:next.id});}
   invalidate('翌週の枠と勤務可能設定を追加しました。日付や上限時間を確認してください。');renderEditor('slots');summary();
 });
+const clearFixed=document.createElement('button');clearFixed.type='button';clearFixed.id='clear-fixed';clearFixed.className='text-button danger';clearFixed.textContent='固定する担当をすべて解除';clearFixed.hidden=true;clearFixed.disabled=true;$('repeat-slots').after(clearFixed);clearFixed.addEventListener('click',()=>{data=clearPlanLocks(data);invalidate('担当の固定をすべて解除しました。ほかの条件は保持しています。');renderEditor('slots');summary();});
 $('generate').addEventListener('click',generate);
 $('cancel-search').addEventListener('click',()=>{invalidate();status('探索を中止しました。シフトは確定していません。');});
 $('save-project').addEventListener('click',()=>download(new Blob([JSON.stringify({format:'shift-studio',version:1,data},null,2)],{type:'application/json'}),'shift-studio-settings.json'));
