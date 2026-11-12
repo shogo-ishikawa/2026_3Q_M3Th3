@@ -62,7 +62,11 @@
         "familiar-sides.js",
         "record-actions.js",
         "sushi-foods.js",
-        "performance-foods.js"
+        "performance-foods.js",
+        "cooking-instructions.js",
+        "japanese-search.js",
+        "varied-recipes.js",
+        "takeaway-foods.js"
       ]
     },
     {

@@ -60,6 +60,36 @@ test('unknown allergen composition, unknown ingredient and incomplete steps fail
   assert.match(generatePlan(settings(), data).warnings.join(''), /3品/);
 });
 
+test('完成品は手順を作らず記録でき、水や牛乳の候補とアレルギー除外を保つ', () => {
+  const recipes = [
+    makeRecipe('ready-water', 'drink', ['water'], {nature: 'ready-to-eat', family: 'water', steps: []}),
+    makeRecipe('ready-milk', 'drink', ['milk'], {nature: 'ready-to-eat', family: 'milk', steps: []}),
+    ...['instant', 'retort', 'fast-food'].map(nature => makeRecipe(`unknown-${nature}`, 'main', ['chicken'],
+      {nature, steps: [], allergensKnown: false, ingredientsKnown: false})),
+    makeRecipe('home-without-steps', 'main', ['chicken'], {nature: 'home-cooked', steps: []}),
+  ];
+  const data = {...DATA, recipes};
+  assert.deepEqual(eligibleRecipes({}, data).map(recipe => recipe.id), ['ready-water', 'ready-milk']);
+  assert.deepEqual(eligibleRecipes({allergens: ['milk']}, data).map(recipe => recipe.id), ['ready-water']);
+  for (const recipe of recipes.filter(recipe => recipe.nature !== 'home-cooked')) {
+    assert.deepEqual(describeRecipe(recipe.id, data).steps, [], recipe.id);
+  }
+  assert.throws(() => describeRecipe('home-without-steps', data), /基本情報/);
+});
+
+test('即席品でも確認フラグと材料の条件を維持し、お酒を献立へ戻さない', () => {
+  const recipes = ['instant', 'retort', 'fast-food'].flatMap(nature => [
+    makeRecipe(`known-${nature}`, 'main', ['chicken'], {nature, steps: [], allergensKnown: true, ingredientsKnown: true}),
+    makeRecipe(`unspecified-${nature}`, 'main', ['chicken'], {nature, steps: []}),
+  ]);
+  recipes.push(makeRecipe('alcohol-without-steps', 'drink', ['water'],
+    {nature: 'ready-to-eat', family: 'alcohol', steps: [], allergensKnown: true, ingredientsKnown: true}));
+  const data = {...DATA, recipes};
+  assert.deepEqual(eligibleRecipes({}, data).map(recipe => recipe.id), ['known-instant', 'known-retort', 'known-fast-food']);
+  assert.deepEqual(eligibleRecipes({excludedIngredients: ['chicken']}, data), []);
+  assert.deepEqual(describeRecipe('alcohol-without-steps', data).steps, []);
+});
+
 test('a duplicate recipe ID cannot hide a second version with different ingredients', () => {
   const data = {...DATA, recipes: [...DATA.recipes, makeRecipe('chicken-main', 'main', ['egg'])]};
   assert.ok(!eligibleRecipes({}, data).some(recipe => recipe.id === 'chicken-main'));

@@ -1,3 +1,4 @@
+import {matchesJapaneseQuery,japaneseQueryRank} from './japanese-search.js';
 import {CATALOG_CATEGORIES, FOOD_NATURES, recipeFamily, recipeNature} from './catalog.js';
 
 /** 献立での役割とは別の、料理を探すための主な食材です。 */
@@ -411,18 +412,19 @@ function matchesQuery(recipe, classification, query) {
     methodById.get(classification.method).label,
     friedDetails.get(classification.methodDetail) ?? '',
     ...classification.secondaryCategories.map(id => categoryById.get(id).label));
-  return normalise(words.join(' ')).includes(query);
+  return matchesJapaneseQuery(words, query);
 }
 
 /**
- * 条件をすべて満たす元レシピを、元の順番で一度ずつ返します。
+ * 条件をすべて満たす元レシピを一度ずつ返します。検索時は料理名との一致を優先し、
+ * 同順位と検索語がない場合は元の順番を保ちます。
  * 主材料・調理法の指定時は主菜と副菜のみを対象にします。
  * secondaryCategories も食材カテゴリからの入口として扱います。
  */
 export function browseDishes(recipes, options = {}) {
   if (!Array.isArray(recipes)) throw new Error('メニューの一覧を確認してください。');
   const selected = checkedOptions(options);
-  return recipes.filter(recipe => {
+  const matched = recipes.filter(recipe => {
     const classification = dishClassification(recipe);
     if ((selected.category !== 'all' || selected.method !== 'all') && !isDish(classification.section)) return false;
     return (selected.section === 'all' || selected.section === classification.section) &&
@@ -431,6 +433,9 @@ export function browseDishes(recipes, options = {}) {
       (selected.nature === 'all' || recipeNature(recipe) === selected.nature) &&
       matchesQuery(recipe, classification, selected.query);
   });
+  if (!selected.query) return matched;
+  return matched.map((recipe,index) => ({recipe,index,rank:japaneseQueryRank([recipe.name,recipe.variantLabel],selected.query)}))
+    .sort((a,b) => a.rank - b.rank || a.index - b.index).map(({recipe}) => recipe);
 }
 
 /** 絞り込まれた主菜・副菜について、食材から入れる料理数を返します。 */

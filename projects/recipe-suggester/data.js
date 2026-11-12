@@ -8,10 +8,13 @@ import { FAMILIAR_MAIN_INGREDIENTS, FAMILIAR_MAIN_RECIPES } from './familiar-mai
 import { FAMILIAR_SIDE_INGREDIENTS, FAMILIAR_SIDE_RECIPES } from './familiar-sides.js';
 import { SUSHI_INGREDIENTS, SUSHI_RECIPES } from './sushi-foods.js';
 import { PERFORMANCE_INGREDIENTS, PERFORMANCE_RECIPES } from './performance-foods.js';
+import { TAKEAWAY_INGREDIENTS, TAKEAWAY_RECIPES } from './takeaway-foods.js';
+import { VARIED_INGREDIENTS, VARIED_RECIPES } from './varied-recipes.js';
+import { decorateCookingInstructions } from './cooking-instructions.js';
 import { decorateRecipe } from './catalog-metadata.js';
 import { INGREDIENT_NUTRITION } from './ingredient-nutrients.js';
 
-export const DATA_VERSION = '3.3.0';
+export const DATA_VERSION = '3.4.0';
 
 // 2026年の消費者庁の表示対象。特定原材料9品目と推奨20品目。
 export const ALLERGENS = [
@@ -279,7 +282,7 @@ const DERIVED_FROM = {
 };
 for (const [id, parents] of Object.entries(DERIVED_FROM)) INGREDIENTS[id].derivedFrom = parents;
 
-Object.assign(INGREDIENTS, EXTRA_INGREDIENTS, EVERYDAY_INGREDIENTS, CLASSIC_MAIN_INGREDIENTS, CLASSIC_SIDE_INGREDIENTS, PREPARED_INGREDIENTS, FAMILIAR_MAIN_INGREDIENTS, FAMILIAR_SIDE_INGREDIENTS, SUSHI_INGREDIENTS, PERFORMANCE_INGREDIENTS);
+Object.assign(INGREDIENTS, EXTRA_INGREDIENTS, EVERYDAY_INGREDIENTS, CLASSIC_MAIN_INGREDIENTS, CLASSIC_SIDE_INGREDIENTS, PREPARED_INGREDIENTS, FAMILIAR_MAIN_INGREDIENTS, FAMILIAR_SIDE_INGREDIENTS, SUSHI_INGREDIENTS, PERFORMANCE_INGREDIENTS, TAKEAWAY_INGREDIENTS, VARIED_INGREDIENTS);
 for (const [id, item] of Object.entries(INGREDIENTS)) {
   // 材料の宣言単位あたりの参考値。未登録成分はゼロにせず不明のまま扱います。
   Object.assign(item, INGREDIENT_NUTRITION[id] ?? {
@@ -5577,7 +5580,7 @@ export const RECIPES = [...MAIN_RECIPES, ...EXTRA_MAIN_SIDE_RECIPES, ...SIDE_SOU
    ingredients:[{id:'rice',amount:300}],steps:['炊飯済みのご飯を十分温め、人数分に分けて盛る。'],tags:[],staple:true},
   ...EXPANDED_RECIPES,
   ...EVERYDAY_RECIPES,
-].map(applyPreferences).concat(CLASSIC_MAIN_RECIPES, CLASSIC_SIDE_RECIPES, PREPARED_RECIPES, FAMILIAR_MAIN_RECIPES, FAMILIAR_SIDE_RECIPES, SUSHI_RECIPES, PERFORMANCE_RECIPES);
+].map(applyPreferences).concat(CLASSIC_MAIN_RECIPES, CLASSIC_SIDE_RECIPES, PREPARED_RECIPES, FAMILIAR_MAIN_RECIPES, FAMILIAR_SIDE_RECIPES, SUSHI_RECIPES, PERFORMANCE_RECIPES, TAKEAWAY_RECIPES, VARIED_RECIPES).map(recipe=>({...recipe}));
 
 // 選び慣れたご飯・おにぎりを別の種類として扱い、旧レシピIDも保持します。
 const FAMILIAR_PORTIONS = {
@@ -5597,4 +5600,5 @@ const FAMILIAR_PORTIONS = {
 for (const recipe of RECIPES) {
   if (FAMILIAR_PORTIONS[recipe.id]) Object.assign(recipe,FAMILIAR_PORTIONS[recipe.id]);
   Object.assign(recipe,decorateRecipe(recipe));
+  Object.assign(recipe,decorateCookingInstructions(recipe,INGREDIENTS));
 }

@@ -102,10 +102,13 @@ function ingredientAncestors(id, data, knownAllergens, trail = []) {
 
 function describeRawRecipe(recipe, data, knownAllergens) {
   const custom = recipe?.custom === true;
+  // 完成品や即席品は、架空の調理手順を足さずに記録できます。
+  // 家庭料理の手順不足と、商品の原材料・アレルギー確認は別に検査します。
+  const noCookingRequired = ['ready-to-eat', 'instant', 'retort', 'fast-food'].includes(recipe?.nature);
   const confirmed = recipeConfirmation(recipe);
   if (!recipe || typeof recipe.id !== 'string' || !recipe.id || typeof recipe.name !== 'string' || !recipe.name.trim() ||
       !ROLES.includes(recipe.role) || !finitePositive(recipe.servings) || !finitePositive(recipe.minutes) ||
-      !Array.isArray(recipe.steps) || (!custom && !recipe.steps.length) || recipe.steps.some(step => typeof step !== 'string' || !step.trim()) ||
+      !Array.isArray(recipe.steps) || (!custom && !noCookingRequired && !recipe.steps.length) || recipe.steps.some(step => typeof step !== 'string' || !step.trim()) ||
       !Array.isArray(recipe.ingredients) || (!custom && !recipe.ingredients.length) || typeof recipe.staple !== 'boolean') {
     throw new Error('料理の基本情報が不足しています。');
   }
@@ -132,7 +135,7 @@ function describeRawRecipe(recipe, data, knownAllergens) {
       proteinSources: ingredient.proteinSources ?? [], ancestorIds};
   });
   return {...recipe, ingredients,
-    steps: recipe.steps.length ? [...recipe.steps] : ['調理方法は未登録です。'],
+    steps: recipe.steps.length || noCookingRequired ? [...recipe.steps] : ['調理方法は未登録です。'],
     allergensKnown: confirmed.allergensKnown,
     ingredientsKnown: confirmed.ingredientsKnown,
     allergens: unique([...ingredients.flatMap(item => item.allergens), ...(custom ? recipe.allergens ?? [] : [])]),

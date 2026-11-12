@@ -50,14 +50,18 @@ test('the expanded collection consists of distinct complete dishes', () => {
       assert.ok(INGREDIENTS[item.id],recipe.id + ':' + item.id);
       assert.ok(Number.isFinite(item.amount) && item.amount > 0,recipe.id + ':' + item.id);
     }
-    assert.ok(Array.isArray(recipe.steps) && recipe.steps.length >= (recipe.role === 'staple' ? 1 : 3),recipe.id);
+    assert.ok(Array.isArray(recipe.steps),recipe.id);
+    if(recipe.nature==='home-cooked'){
+      assert.ok(recipe.steps.length>=1,recipe.id);
+      if(['main','side','soup'].includes(recipe.role))assert.ok(recipe.steps.length>=4,recipe.id);
+    }else assert.deepEqual(recipe.steps,[],recipe.id);
     assert.ok(recipe.steps.every(step => typeof step === 'string' && step.length >= 10),recipe.id);
     assert.equal(typeof recipe.staple,'boolean',recipe.id);
   }
 });
 
 test('the calendar catalogue adds meaningful staples, drinks and snacks', () => {
-  assert.equal(DATA_VERSION,'3.3.0');
+  assert.equal(DATA_VERSION,'3.4.0');
   assert.ok(EXPANDED_RECIPES.length >= 100);
   assert.ok(RECIPES.length >= 305);
   assert.ok(EXPANDED_RECIPES.filter(item => item.role === 'staple').length >= 20);
