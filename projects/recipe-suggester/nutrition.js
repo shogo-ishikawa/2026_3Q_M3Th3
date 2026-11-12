@@ -1,4 +1,5 @@
 /** Estimates for a single person's recorded portions. Unknown values stay unknown. */
+import {FOOD_NATURES} from './catalog.js';
 export const NUTRIENT_KEYS = ['kcal','protein','fat','carbs','fiber','salt'];
 export const NUTRIENT_LABELS = {kcal:'エネルギー',protein:'たんぱく質',fat:'脂質',carbs:'炭水化物',fiber:'食物繊維',salt:'食塩相当量'};
 export const NUTRIENT_UNITS = {kcal:'kcal',protein:'g',fat:'g',carbs:'g',fiber:'g',salt:'g'};
@@ -32,6 +33,20 @@ function ingredientMetadata(parts, data) {
   return [...found.values()];
 }
 
+/** 市販の代表例は、材料があるだけで商品表示を確認済みとは扱いません。 */
+export function recipeConfirmation(recipe) {
+  if(!recipe||typeof recipe!=='object')throw Error('料理の確認情報が必要です。');
+  for(const key of ['allergensKnown','ingredientsKnown','shoppingKnown'])if(recipe[key]!==undefined&&typeof recipe[key]!=='boolean')throw Error('材料とアレルギー情報の確認状況を確認してください。');
+  if(recipe.nature!==undefined&&!FOOD_NATURES.some(nature=>nature.id===recipe.nature))throw Error('メニューの性質を確認してください。');
+  if(recipe.sourceNote!==undefined&&(typeof recipe.sourceNote!=='string'||recipe.sourceNote.length>2000))throw Error('栄養と原材料の説明を確認してください。');
+  if(recipe.shoppingKnown===true&&(!Array.isArray(recipe.ingredients)||!recipe.ingredients.length))throw Error('買い物に使う商品の構成を登録してください。');
+  const explicit=recipe.custom===true||['instant','retort','fast-food'].includes(recipe.nature);
+  return {
+    allergensKnown: explicit ? recipe.allergensKnown===true : recipe.allergensKnown!==false,
+    ingredientsKnown: (explicit ? recipe.ingredientsKnown===true : recipe.ingredientsKnown!==false)&&Array.isArray(recipe.ingredients)&&recipe.ingredients.length>0,
+  };
+}
+
 export function recipeNutrition(recipe,data) {
   if(!recipe||!validAmount(recipe.servings)||recipe.servings===0)throw Error('レシピの人数を確認してください。');
   if(recipe.manualNutrition!==undefined)return checkNutrition(recipe.manualNutrition);
@@ -49,6 +64,7 @@ export function itemFromRecipe(recipe,data,quantity=1) {
   if(!validAmount(quantity)||quantity===0)throw Error('食べる量は0より大きい数値で入力してください。');
   const ingredients=Array.isArray(recipe.ingredients)?recipe.ingredients:[];
   const metas=ingredientMetadata(ingredients,data);
+  const confirmed=recipeConfirmation(recipe);
   // 原料の参照はアレルゲン確認に使います。しょうゆの原料が大豆でも、
   // しょうゆだけを「大豆のたんぱく源を食べた1食」とは数えません。
   const directMetas=ingredients.map(part=>data.ingredients[part.id]);
@@ -56,8 +72,10 @@ export function itemFromRecipe(recipe,data,quantity=1) {
   return {id:globalThis.crypto?.randomUUID?.()??`item-${Date.now()}-${Math.random().toString(36).slice(2)}`,recipeId:recipe.id??null,name:recipe.name,quantity,
     nutrition:recipeNutrition(recipe,data),ingredients:ingredients.map(p=>({id:p.id,amount:p.amount/recipe.servings})),
     groups:unique([...(recipe.groups??[]),...directMetas.flatMap(p=>p?.groups??[])]),proteinSources:unique([...(recipe.proteinSources??[]),...directMetas.flatMap(p=>p?.proteinSources??[])]),
-    allergens:unique([...(recipe.allergens??[]),...metas.flatMap(p=>p?.allergens??[])]),allergensKnown:recipe.custom?recipe.allergensKnown===true:true,
-    ingredientsKnown:recipe.custom?recipe.ingredientsKnown===true:ingredients.length>0,steps:[...(recipe.steps??[])],role:recipe.role};
+    allergens:unique([...(recipe.allergens??[]),...metas.flatMap(p=>p?.allergens??[])]),allergensKnown:confirmed.allergensKnown,
+    ingredientsKnown:confirmed.ingredientsKnown,steps:[...(recipe.steps??[])],role:recipe.role,
+    ...(recipe.nature===undefined?{}:{nature:recipe.nature}),...(recipe.sourceNote===undefined?{}:{sourceNote:recipe.sourceNote}),
+    ...(recipe.shoppingKnown===undefined?{}:{shoppingKnown:recipe.shoppingKnown})};
 }
 export function itemNutrition(item) {
   if(!validAmount(item?.quantity)||item.quantity===0)throw Error('食事の分量を確認してください。');

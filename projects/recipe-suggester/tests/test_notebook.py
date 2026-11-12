@@ -29,7 +29,7 @@ class NotebookTests(unittest.TestCase):
     def test_notebook_uses_current_data_and_executes_without_extra_libraries(self):
         namespace = self.notebook_namespace()
         self.assertEqual(namespace["DATA"], builder.dataset())
-        self.assertGreaterEqual(len(namespace["RECIPES"]), 200)
+        self.assertGreaterEqual(len(namespace["RECIPES"]), 580)
         self.assertTrue(namespace["candidates"])
         for recipe in namespace["candidates"]:
             allergens, _, _ = namespace["recipe_features"](recipe)
@@ -121,6 +121,61 @@ class NotebookTests(unittest.TestCase):
         candidates = [recipe for recipe in only_egg if namespace["is_candidate"](recipe)]
         self.assertEqual(candidates, [])
         self.assertEqual(namespace["avoid_ids"], {"egg"})
+
+    def test_actual_prepared_foods_are_not_suggested_even_without_exclusions(self):
+        namespace = self.notebook_namespace()
+        namespace["avoid_ids"] = set()
+        namespace["excluded_ingredients"] = []
+        products = [recipe for recipe in namespace["RECIPES"] if recipe["id"].startswith("prepared-")]
+        self.assertEqual(len(products), 35)
+        for recipe in products:
+            with self.subTest(recipe=recipe["id"]):
+                # Test the product itself, rather than rejecting it for the default main/staple role mismatch.
+                namespace["role"] = recipe["role"]
+                self.assertFalse(namespace["is_candidate"](recipe))
+                self.assertFalse(namespace["is_candidate"]({**recipe, "shoppingKnown": True}))
+
+    def test_confirmation_flags_match_the_browser_candidate_rules(self):
+        namespace = self.notebook_namespace()
+        namespace["avoid_ids"] = set()
+        namespace["excluded_ingredients"] = []
+        base = {"role": "main", "ingredients": [{"id": "rice", "amount": 100}]}
+        self.assertTrue(namespace["is_candidate"](base))
+        # Missing confirmation has a different meaning for a generic home recipe and a bought product.
+        for nature in ["instant", "retort", "fast-food"]:
+            with self.subTest(nature=nature):
+                product = {**base, "nature": nature}
+                self.assertFalse(namespace["is_candidate"](product))
+                self.assertFalse(namespace["is_candidate"]({**product, "ingredientsKnown": True}))
+                self.assertFalse(namespace["is_candidate"]({**product, "allergensKnown": False}))
+                self.assertTrue(namespace["is_candidate"]({**product, "allergensKnown": True}))
+                self.assertTrue(namespace["is_candidate"]({**product, "allergensKnown": True, "ingredientsKnown": True}))
+        self.assertFalse(namespace["is_candidate"]({**base, "custom": True}))
+        self.assertFalse(namespace["is_candidate"]({**base, "allergensKnown": False}))
+
+        namespace["excluded_ingredients"] = ["tomato"]
+        self.assertTrue(namespace["is_candidate"](base))
+        self.assertFalse(namespace["is_candidate"]({**base, "ingredientsKnown": False}))
+        for nature in ["instant", "retort", "fast-food"]:
+            product = {**base, "nature": nature, "allergensKnown": True}
+            self.assertFalse(namespace["is_candidate"](product))
+            self.assertFalse(namespace["is_candidate"]({**product, "ingredientsKnown": False}))
+            self.assertTrue(namespace["is_candidate"]({**product, "ingredientsKnown": True}))
+        namespace["excluded_ingredients"] = ["rice"]
+        self.assertFalse(namespace["is_candidate"]({**base, "nature": "instant", "allergensKnown": True, "ingredientsKnown": True}))
+
+    def test_confirmation_flags_require_actual_booleans(self):
+        namespace = self.notebook_namespace()
+        namespace["avoid_ids"] = set()
+        namespace["excluded_ingredients"] = []
+        base = {"role": "main", "ingredients": [{"id": "rice", "amount": 100}]}
+        for field in ["allergensKnown", "ingredientsKnown", "shoppingKnown"]:
+            for invalid in [None, "false", "true", 0, 1, [], {}]:
+                with self.subTest(field=field, value=invalid):
+                    self.assertFalse(namespace["is_candidate"]({**base, field: invalid}))
+        for invalid_nature in [None, "fast_food", "unknown", 0, [], {}]:
+            with self.subTest(nature=invalid_nature):
+                self.assertFalse(namespace["is_candidate"]({**base, "nature": invalid_nature}))
 
 
 if __name__ == "__main__":

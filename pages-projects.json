@@ -52,7 +52,11 @@
         "intake.js",
         "tabs.js",
         "everyday-foods.js",
-        "app-icon.svg"
+        "app-icon.svg",
+        "classics-mains.js",
+        "classics-sides.js",
+        "prepared-foods.js",
+        "catalog-metadata.js"
       ]
     },
     {

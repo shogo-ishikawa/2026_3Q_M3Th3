@@ -1,6 +1,7 @@
 // 個人の食事記録とマイレシピは、このブラウザー内にだけ保存します。
-import {CATALOG_CATEGORIES} from './catalog.js';
+import {CATALOG_CATEGORIES, FOOD_NATURES} from './catalog.js';
 import {deriveReference} from './dietary-reference.js';
+import {recipeConfirmation} from './nutrition.js';
 import {STORAGE_KEY as LEGACY_KEY, defaultState, validateState, GROUP_IDS, PROTEIN_IDS, GENRES} from './storage.js';
 
 export const JOURNAL_KEY = 'kondate-note-v3';
@@ -13,8 +14,8 @@ export const DEFAULT_TARGETS = Object.freeze({kcal: 2000, protein: 60, fat: 65, 
 const MAX_BYTES = 2 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount'];
-const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion'];
-const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase'];
+const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown'];
+const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown'];
 const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。アレルギーと除外食材を選び直してください。バックアップがあれば「記録を読み込む」から取り込めます。';
 const unknownNutrition = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
 const unique = values => [...new Set(values)];
@@ -169,9 +170,21 @@ function ingredientMetadata(parts, data) {
 
 function portion(value) {
   record(value, ['amount', 'unit', 'label'], '料理の基準量');
-  if (!['g', 'ml', '個', '皿', '杯', '枚', '袋', '人分'].includes(value.unit)) throw new Error('料理の量の単位を確認してください。');
+  if (!['g', 'ml', '個', '皿', '杯', '枚', '袋', '人分', '貫', '食'].includes(value.unit)) throw new Error('料理の量の単位を確認してください。');
   return {amount: number(value.amount, '料理の基準量', {max: 100000}), unit: value.unit,
     ...(value.label === undefined ? {} : {label: text(value.label, 120, '基準量の説明')})};
+}
+
+const NATURE_IDS = new Set(FOOD_NATURES.map(nature => nature.id));
+function sourceMetadata(source) {
+  const result = {};
+  if (source.nature !== undefined) {
+    if (!NATURE_IDS.has(source.nature)) throw new Error('メニューの性質を確認してください。');
+    result.nature = source.nature;
+  }
+  if (source.shoppingKnown !== undefined) result.shoppingKnown = bool(source.shoppingKnown, false, '買い物に使う商品の確認状況');
+  if (source.sourceNote !== undefined) result.sourceNote = text(source.sourceNote, 2000, '栄養と原材料の説明', true);
+  return result;
 }
 
 function customRecipe(source, context) {
@@ -186,7 +199,8 @@ function customRecipe(source, context) {
   const ingredients = parts(source.ingredients ?? [], context.ingredientIds);
   const ingredientsKnown = bool(source.ingredientsKnown, false, '材料の確認状況');
   if (ingredientsKnown && !ingredients.length) throw new Error('材料を確認済みにする場合は、材料を登録してください。');
-  const extra = {};
+  if (source.shoppingKnown === true && !ingredients.length) throw new Error('買い物に使う商品を確認済みにする場合は、商品を登録してください。');
+  const extra = sourceMetadata(source);
   if (source.portion !== undefined) extra.portion = portion(source.portion);
   if (source.family !== undefined) {
     if (!CATALOG_CATEGORIES.some(category => category.id === source.family)) throw new Error('メニューの大分類が登録されていません。');
@@ -213,12 +227,13 @@ function snapshot(source, context, itemIds) {
   itemIds.add(id);
   if (source.recipeId !== null) identifier(source.recipeId, 'レシピの識別子');
   if (!ROLE_IDS.includes(source.role)) throw new Error('料理の種類を確認してください。');
+  if (source.shoppingKnown === true && !source.ingredients?.length) throw new Error('買い物に使う商品の構成を登録してください。');
   return {id, recipeId: source.recipeId, name: text(source.name, 200, '料理名'), quantity: number(source.quantity, '食べた量', {max: 1000}),
     nutrition: nutrition(source.nutrition), ingredients: parts(source.ingredients, context.ingredientIds, {historical: true}),
     groups: ids(source.groups, new Set(GROUP_IDS), '食品群'), proteinSources: ids(source.proteinSources, new Set(PROTEIN_IDS), '主な食材'),
     allergens: ids(source.allergens, context.allergenIds, 'アレルゲン'), allergensKnown: bool(source.allergensKnown, false, 'アレルゲンの確認状況'),
     ingredientsKnown: bool(source.ingredientsKnown, false, '材料の確認状況'), steps: steps(source.steps), role: source.role,
-    ...(source.portion === undefined ? {} : {portion: portion(source.portion)})};
+    ...(source.portion === undefined ? {} : {portion: portion(source.portion)}), ...sourceMetadata(source)};
 }
 
 function settings(source, data, recipes) {
@@ -316,8 +331,8 @@ function migrateV1(value, data) {
         nutrition: recipe ? legacyNutrition(recipe, data) : unknownNutrition(), ingredients,
         groups: unique([...metadata.groups, ...(index === 0 ? entry.groups : [])]),
         proteinSources: unique([...metadata.proteinSources, ...(index === 0 ? entry.proteinSources : [])]),
-        allergens: metadata.allergens, allergensKnown: !!recipe, ingredientsKnown: !!recipe && ingredients.length > 0,
-        steps: recipe?.steps ?? [], role: ROLE_IDS.includes(recipe?.role) ? recipe.role : 'main'};
+        allergens: metadata.allergens, allergensKnown: recipe ? recipeConfirmation(recipe).allergensKnown : false, ingredientsKnown: recipe ? recipeConfirmation(recipe).ingredientsKnown : false,
+        steps: recipe?.steps ?? [], role: ROLE_IDS.includes(recipe?.role) ? recipe.role : 'main', ...(recipe ? sourceMetadata(recipe) : {})};
     });
     if (!items.length) items.push({id: `legacy-item-${entryIndex}-manual`, recipeId: null, name: entry.note.trim().slice(0, 200), quantity: 1,
       nutrition: unknownNutrition(), ingredients: [], groups: entry.groups, proteinSources: entry.proteinSources,

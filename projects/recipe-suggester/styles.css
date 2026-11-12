@@ -609,3 +609,12 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
   .app-sidebar { padding-inline: 10px; }
   .app-tab { font-size: 10px; }
 }
+
+/* 種類・料理ジャンル・提供形態を別の軸として選びます。 */
+.recipe-facets { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:20px; }
+.recipe-facets > label { min-width:0; width:100%; }
+.food-confirmation { display:inline-block; margin-top:9px; padding:3px 7px; border:1px solid #d9cba0; border-radius:3px; color:#72622a; background:#fff9e9; font-size:10px; }
+.food-nature { color:var(--teal); font-weight:600; }
+.source-note { padding:12px; border-left:3px solid var(--teal); background:#f0f6f3; font-size:12px; line-height:1.8; }
+#catalog-type-note { margin-top:0; }
+@media(max-width:640px){ .recipe-facets { grid-template-columns:1fr; gap:10px; } }
