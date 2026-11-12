@@ -9,7 +9,7 @@
 | パス | 内容 |
 | --- | --- |
 | `projects/` | 各学生・グループのコード、教材、説明書 |
-| `projects/recipe-suggester/` | 条件に合わせて食材の除外・レシピ表示・食事履歴を使う献立ノートとColab教材 |
+| `projects/recipe-suggester/` | 条件に合わせて食材の除外・レシピ表示・食事履歴を使うMeal PaletteとColab教材 |
 | `projects/ai-music-arranger/` | 音源を解析し、伴奏・ドラム・抽出メロディを重ねるColab教材 |
 | `projects/password-lab/` | 練習用パスワードの探索・推定とCPU/GPU比較を学ぶ教材 |
 | `projects/sound-analysis-lab/` | 音と波・スペクトルのWeb入門と、音源分離・比較分析のColab教材 |
@@ -36,7 +36,7 @@ AIにコード作成を手伝ってもらう際も、自分たちが変更した
 
 | プロジェクト | 概要 | 状態 |
 | --- | --- | --- |
-| [献立ノート](projects/recipe-suggester/) | 食事カレンダーと栄養の集計を使う献立提案。主食・飲み物・手入力・手持ちの食材と買い物リストに対応 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/) ／ [使い方](projects/recipe-suggester/docs/manual.md) |
+| [Meal Palette](projects/recipe-suggester/) | 食事カレンダーと栄養の集計を使う献立提案。主食・飲み物・手入力・手持ちの食材と買い物リストに対応 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/) ／ [使い方](projects/recipe-suggester/docs/manual.md) |
 | [pip0](projects/pip0/) | ダウンロードの自動仕分け・改名、作業に合わせたファイル候補、思い出し検索、長く使わないファイルの退避、機密ファイルのドラッグ警告を行う、Windows 11 用のファイル整理アシスタント | 初期コード作成（Linux 上の試験とダミーデータのデモで確認。Windows 11 実機での確認は未実施） |
 
 ## ファイルを追加する際のお願い

@@ -46,7 +46,13 @@
         "nutrition.js",
         "shopping.js",
         "ingredient-nutrients.js",
-        "expanded-foods.js"
+        "expanded-foods.js",
+        "catalog.js",
+        "dietary-reference.js",
+        "intake.js",
+        "tabs.js",
+        "everyday-foods.js",
+        "app-icon.svg"
       ]
     },
     {

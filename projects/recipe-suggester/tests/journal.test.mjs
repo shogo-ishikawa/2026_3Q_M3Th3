@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultState, STORAGE_KEY} from '../storage.js';
-import {JOURNAL_KEY, NUTRIENT_KEYS, DEFAULT_TARGETS, defaultJournal, validateJournal, parseJournal, readJournal, writeJournal, dateKey, dateIsValid, monthIsValid, monthCells, shiftDate, entriesForDay} from '../journal.js';
+import {JOURNAL_KEY, PREVIOUS_JOURNAL_KEY, DEFAULT_PROFILE, NUTRIENT_KEYS, DEFAULT_TARGETS, defaultJournal, validateJournal, parseJournal, readJournal, writeJournal, dateKey, dateIsValid, monthIsValid, monthCells, shiftDate, entriesForDay} from '../journal.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
+import {deriveReference, AGE_BANDS, SEX_OPTIONS, ACTIVITY_OPTIONS} from '../dietary-reference.js';
 
 const all = (kcal, protein = 0, fat = 0, carbs = 0, fiber = 0, salt = 0) => ({kcal, protein, fat, carbs, fiber, salt});
 const unknown = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
@@ -34,7 +35,7 @@ const memoryStorage = (pairs = []) => {
 
 test('defaults are independent and comparison targets are illustrative editable values', () => {
   const source = state();
-  assert.equal(source.version, 2);
+  assert.equal(source.version, 3);
   assert.deepEqual(source.targets, DEFAULT_TARGETS);
   assert.equal(source.settings.meal, 'dinner');
   assert.equal(source.settings.stapleId, 'auto');
@@ -46,7 +47,7 @@ test('defaults are independent and comparison targets are illustrative editable 
   assert.deepEqual(validateJournal(state(), data), state());
 });
 
-test('v2 round trip preserves multiple foods, quantities, nullable snapshots, pantry and checkboxes', () => {
+test('v3 round trip preserves multiple foods, quantities, nullable snapshots, pantry and checkboxes', () => {
   const source = state();
   source.entries = [entry()];
   source.entries[0].items.push({...item('item-two'), role: 'drink', quantity: 0.5, recipeId: null});
@@ -141,7 +142,7 @@ test('v1 migration preserves allergies, exclusions, preferences and recipe notes
   source.settings.excludedIngredients = ['butter'];
   source.settings.preferences = {...source.settings.preferences, genreMode: 'single', genre: '和食', preferredIngredients: ['carrot']};
   const migrated = parseJournal(JSON.stringify(source), data);
-  assert.deepEqual(migrated.settings, {...source.settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none'});
+  assert.deepEqual(migrated.settings, {...source.settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null});
   const record = migrated.entries[0];
   assert.equal(record.status, 'eaten');
   assert.equal(record.note, 'お弁当にした');
@@ -187,7 +188,7 @@ test('legacy local storage is read without writing or deleting either original k
   const raw = JSON.stringify(legacyState());
   const storage = memoryStorage([[STORAGE_KEY, raw]]);
   const loaded = readJournal(storage, data, '2026-11-12');
-  assert.equal(loaded.state.version, 2);
+  assert.equal(loaded.state.version, 3);
   assert.match(loaded.message, /引き継ぎ/);
   assert.deepEqual(storage.writes, []);
   assert.equal(storage.memory.get(STORAGE_KEY), raw);
@@ -231,7 +232,7 @@ test('unknown fields and prototype pollution payloads are rejected at every leve
     const source = state(); mutate(source);
     assert.throws(() => validateJournal(source, data));
   }
-  const malicious = JSON.stringify(state()).replace('"version":2', '"version":2,"__proto__":{"polluted":true}');
+  const malicious = JSON.stringify(state()).replace('"version":3', '"version":3,"__proto__":{"polluted":true}');
   assert.throws(() => parseJournal(malicious, data));
   const inherited = Object.assign(Object.create({polluted: true}), state());
   assert.throws(() => validateJournal(inherited, data));
@@ -312,4 +313,116 @@ test('daily entries retain multiple records and sort in meal order without chang
   assert.deepEqual(entriesForDay(records, '2026-11-12').map(record => record.meal), ['breakfast', 'lunch', 'dinner', 'snack']);
   assert.equal(records[0].meal, 'dinner');
   assert.deepEqual(entriesForDay(records, '2026-02-30'), []);
+});
+
+
+test('v2 JSON migration retains snapshots and personal database without inventing a profile or portions', () => {
+  const current = state(); current.entries = [entry()]; current.customRecipes = [custom()];
+  current.settings.allergens = ['milk']; current.settings.excludedIngredients = ['butter'];
+  current.pantry = [{id: 'milk', amount: 50}]; current.shoppingChecks = ['milk'];
+  const legacy = structuredClone(current); legacy.version = 2;
+  delete legacy.profile; delete legacy.completedDays; delete legacy.settings.stapleAmount; delete legacy.settings.drinkAmount;
+  const sourceText = JSON.stringify(legacy);
+  const migrated = parseJournal(sourceText, data);
+  assert.equal(migrated.version, 3);
+  assert.deepEqual(migrated.profile, DEFAULT_PROFILE);
+  assert.deepEqual(migrated.completedDays, []);
+  assert.deepEqual(migrated.entries, current.entries);
+  assert.equal(migrated.customRecipes[0].name, 'マイメニュー');
+  assert.deepEqual(migrated.settings.allergens, ['milk']);
+  assert.deepEqual(migrated.settings.excludedIngredients, ['butter']);
+  assert.equal(migrated.settings.stapleAmount, null);
+  assert.equal(migrated.settings.drinkAmount, null);
+  assert.equal(JSON.stringify(legacy), sourceText);
+  const storage = memoryStorage([[PREVIOUS_JOURNAL_KEY, sourceText], [STORAGE_KEY, JSON.stringify(legacyState())]]);
+  const loaded = readJournal(storage, data);
+  assert.equal(loaded.state.entries[0].id, 'entry-one');
+  assert.match(loaded.message, /引き継ぎ/);
+  assert.deepEqual(storage.writes, []);
+  writeJournal(storage, loaded.state, data);
+  assert.equal(storage.memory.get(PREVIOUS_JOURNAL_KEY), sourceText);
+  assert.ok(storage.memory.has(STORAGE_KEY));
+  assert.ok(storage.memory.has(JOURNAL_KEY));
+});
+
+test('v3 round trip preserves confirmed days, profile, explicit amounts and historical portion units', () => {
+  const source = state(); source.entries = [entry()];
+  source.profile = {ageBand: '65-74', sex: 'female', activity: 'moderate', mode: 'reference'};
+  source.targets = {...deriveReference(source.profile).targets};
+  source.completedDays = ['2026-11-12']; source.settings.stapleId = 'rice'; source.settings.stapleAmount = 80;
+  source.settings.drinkId = 'glass-milk'; source.settings.drinkAmount = 250;
+  source.entries[0].items[0].portion = {amount: 150, unit: 'g', label: '炊いたご飯'};
+  source.customRecipes = [{...custom(), family: 'onigiri', variantLabel: '梅', portion: {amount: 1, unit: '個'}, mealBase: false}];
+  const clean = parseJournal(JSON.stringify(source), data);
+  assert.deepEqual(clean.profile, source.profile);
+  assert.deepEqual(clean.completedDays, source.completedDays);
+  assert.equal(clean.settings.stapleAmount, 80);
+  assert.equal(clean.settings.drinkAmount, 250);
+  assert.deepEqual(clean.entries[0].items[0].portion, source.entries[0].items[0].portion);
+  assert.equal(clean.customRecipes[0].family, 'onigiri');
+  assert.deepEqual(clean.customRecipes[0].portion, {amount: 1, unit: '個'});
+  assert.equal(clean.customRecipes[0].mealBase, false);
+});
+
+test('invalid v3 profiles, portion metadata and confirmed-day lists fail without modifying stored values', () => {
+  for (const mutate of [
+    source => {source.profile.sex = 'other';},
+    source => {source.profile.ageBand = 'child';},
+    source => {source.profile.activity = 'extreme';},
+    source => {source.profile.mode = 'automatic';},
+    source => {source.profile.privateNote = 'bad';},
+    source => {source.completedDays = ['2026-11-12', '2026-11-12'];},
+    source => {source.completedDays = ['2026-02-30'];},
+    source => {source.settings.stapleAmount = 0;},
+    source => {source.settings.drinkAmount = '250';},
+    source => {source.entries[0].items[0].portion = {amount: 1, unit: 'kg'};},
+    source => {source.entries[0].items[0].portion = {amount: -1, unit: '個'};},
+    source => {source.customRecipes = [{...custom(), family: 'unregistered'}];},
+    source => {source.customRecipes = [{...custom(), mealBase: 'yes'}];},
+  ]) {
+    const source = state(); source.entries = [entry()]; mutate(source);
+    const storage = memoryStorage(); assert.throws(() => writeJournal(storage, source, data));
+    assert.deepEqual(storage.writes, []);
+  }
+  const invalidV2 = {...state(), version: 2};
+  assert.throws(() => validateJournal(invalidV2, data));
+  const broken = memoryStorage([[PREVIOUS_JOURNAL_KEY, '{broken'], [STORAGE_KEY, JSON.stringify(legacyState())]]);
+  assert.match(readJournal(broken, data).message, /元の保存データ/);
+  assert.deepEqual(broken.writes, []);
+});
+
+
+test('reference mode accepts only available profiles and their canonical comparison values', () => {
+  let checked = 0;
+  for (const age of AGE_BANDS) for (const sex of SEX_OPTIONS) for (const activity of ACTIVITY_OPTIONS) {
+    const source = state(); source.profile = {ageBand: age.id, sex: sex.id, activity: activity.id, mode: 'reference'};
+    const reference = deriveReference(source.profile);
+    if (!reference) {assert.throws(() => validateJournal(source, data), /比較値を使えません/); continue;}
+    source.targets = {...reference.targets};
+    assert.deepEqual(validateJournal(source, data).targets, reference.targets);
+    source.targets.fat += 5e-7;
+    assert.deepEqual(validateJournal(source, data).targets, reference.targets); // normalise an insignificant arithmetic round-off
+    checked++;
+  }
+  assert.equal(checked, 28);
+});
+
+test('reference mode rejects incomplete profiles and forged targets before any storage write', () => {
+  for (const field of ['ageBand', 'sex', 'activity']) {
+    const source = state(); source.profile = {ageBand: '18-29', sex: 'male', activity: 'moderate', mode: 'reference'};
+    source.targets = {...deriveReference(source.profile).targets}; source.profile[field] = 'unset';
+    const storage = memoryStorage();
+    assert.throws(() => writeJournal(storage, source, data), /比較値を使えません/);
+    assert.deepEqual(storage.writes, []);
+  }
+  for (const key of NUTRIENT_KEYS) {
+    const source = state(); source.profile = {ageBand: '18-29', sex: 'male', activity: 'moderate', mode: 'reference'};
+    source.targets = {...deriveReference(source.profile).targets}; source.targets[key] += 0.01;
+    const storage = memoryStorage();
+    assert.throws(() => writeJournal(storage, source, data), /一致しません/);
+    assert.deepEqual(storage.writes, []);
+    assert.throws(() => parseJournal(JSON.stringify(source), data), /一致しません/);
+  }
+  const manual = state(); manual.targets = {kcal: 1750, protein: 55, fat: 42, carbs: 220, fiber: 25, salt: 4};
+  assert.deepEqual(validateJournal(manual, data).targets, manual.targets);
 });

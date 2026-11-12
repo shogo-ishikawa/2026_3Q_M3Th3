@@ -116,3 +116,65 @@ test('density assumptions are visible in the attribution and metadata is immutab
   assert.ok(Object.isFrozen(INGREDIENT_NUTRITION));
   assert.ok(Object.isFrozen(INGREDIENT_NUTRITION.egg.nutritionPerUnit));
 });
+
+test('everyday noodles and pizza crust retain their declared preparation state', () => {
+  close(value('yakisoba_noodles', 'kcal', 200), 324);
+  close(value('ramen_noodles', 'kcal', 200), 266);
+  close(value('pizza_base', 'kcal', 100), 265);
+  close(value('pizza_base', 'protein', 100), 9.1);
+  assert.match(INGREDIENT_NUTRITION.yakisoba_noodles.nutritionSource, /蒸し中華めん/);
+  assert.match(INGREDIENT_NUTRITION.ramen_noodles.nutritionSource, /ゆでた中華めん/);
+  assert.match(INGREDIENT_NUTRITION.pizza_base.nutritionSource, /具やチーズは含みません/);
+});
+
+test('everyday sauces use official volume densities', () => {
+  close(value('worcestershire_sauce', 'salt', 10), 1.01575);
+  close(value('oyster_sauce', 'salt', 10), 1.4022);
+  close(value('worcestershire_sauce', 'kcal', 10), 13.9815);
+  assert.match(INGREDIENT_NUTRITION.worcestershire_sauce.nutritionSource, /100ml=119.5g/);
+  assert.match(INGREDIENT_NUTRITION.oyster_sauce.nutritionSource, /100ml=123g/);
+});
+
+test('processed snacks use the appropriate official representative foods', () => {
+  close(value('potato_chips', 'kcal', 30), 162.3);
+  close(value('chocolate', 'kcal', 20), 110);
+  close(value('biscuit', 'kcal', 20), 102.4);
+  close(value('vanilla_ice_cream', 'kcal', 80), 142.4);
+  close(value('rice_cracker', 'salt', 20), 0.26);
+  assert.match(INGREDIENT_NUTRITION.vanilla_ice_cream.nutritionSource, /普通脂肪/);
+  assert.match(INGREDIENT_NUTRITION.potato_chips.nutritionSource, /成形品やフレーバー/);
+});
+
+test('finished fried food, canned tuna and bacon are not treated as raw lean meat', () => {
+  close(value('shrimp_tempura', 'kcal', 40), 77.6);
+  close(value('shrimp_tempura', 'fat', 40), 4.12);
+  close(value('tuna_canned', 'kcal', 80), 56);
+  close(value('bacon', 'salt', 40), 1.04);
+  assert.match(INGREDIENT_NUTRITION.shrimp_tempura.nutritionSource, /衣と吸収油を含む/);
+  assert.match(INGREDIENT_NUTRITION.tuna_canned.nutritionSource, /液汁を含む/);
+});
+
+test('sugared drinks and unsweetened carbonated water remain separate', () => {
+  close(value('cola', 'kcal', 250), 118.45);
+  close(value('cola', 'carbs', 250), 29.355);
+  close(value('sports_drink', 'kcal', 500), 106.05);
+  close(value('sports_drink', 'salt', 500), 0.505);
+  assert.equal(INGREDIENT_NUTRITION.cola.nutritionPerUnit.fat, null);
+  assert.equal(INGREDIENT_NUTRITION.cola.nutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.sports_drink.nutritionPerUnit.fat, null);
+  assert.equal(INGREDIENT_NUTRITION.sports_drink.nutritionPerUnit.fiber, null);
+  assert.deepEqual(INGREDIENT_NUTRITION.carbonated_water.nutritionPerUnit,
+    Object.fromEntries(keys.map(key => [key, 0])));
+});
+
+test('raw rice, fresh basil and finished pork buns have separate representative profiles', () => {
+  close(value('uncooked_rice', 'kcal', 60), 205.2);
+  close(value('uncooked_rice', 'carbs', 60), 46.56);
+  close(value('fresh_basil', 'kcal', 20), 4.2);
+  close(value('octopus', 'protein', 50), 10.85);
+  close(value('steamed_pork_bun', 'kcal', 100), 242);
+  assert.notEqual(INGREDIENT_NUTRITION.uncooked_rice.nutritionPerUnit.kcal,
+    INGREDIENT_NUTRITION.rice.nutritionPerUnit.kcal);
+  assert.match(INGREDIENT_NUTRITION.fresh_basil.nutritionSource, /乾燥バジルとは区別/);
+  assert.match(INGREDIENT_NUTRITION.steamed_pork_bun.nutritionSource, /皮と肉あん/);
+});

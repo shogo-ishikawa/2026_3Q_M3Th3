@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ALLERGENS, DATA_VERSION, INGREDIENTS, RECIPES } from '../data.js';
 import { EXTRA_INGREDIENTS, EXPANDED_RECIPES } from '../expanded-foods.js';
+import { EVERYDAY_INGREDIENTS, EVERYDAY_RECIPES } from '../everyday-foods.js';
 
 const allowedGroups = new Set(['staple','vegetable','protein','dairy','fruit']);
 const allowedProteins = new Set(['meat','fish','egg','soy']);
@@ -56,7 +57,7 @@ test('the expanded collection consists of distinct complete dishes', () => {
 });
 
 test('the calendar catalogue adds meaningful staples, drinks and snacks', () => {
-  assert.equal(DATA_VERSION,'2.0.0');
+  assert.equal(DATA_VERSION,'3.0.0');
   assert.ok(EXPANDED_RECIPES.length >= 100);
   assert.ok(RECIPES.length >= 305);
   assert.ok(EXPANDED_RECIPES.filter(item => item.role === 'staple').length >= 20);
@@ -203,4 +204,79 @@ test('five cuisine choices include explicitly classified ethnic dishes while ret
   assert.equal(byId.get('soup-032').genre,'その他');
   assert.equal(byId.get('rice-baked-cheese').genre,'洋食');
   assert.equal(byId.get('chicken-teriyaki').genre,'和食');
+});
+
+
+test('daily staples separate rice from rice balls and carry usable portion units', () => {
+  assert.equal(byId.get('plain-rice').family,'rice');
+  assert.equal(byId.get('plain-rice').portion.amount,150);
+  assert.equal(byId.get('plain-rice').portion.unit,'g');
+  const rice=EVERYDAY_RECIPES.filter(r=>r.family==='rice');
+  const onigiri=EVERYDAY_RECIPES.filter(r=>r.family==='onigiri');
+  assert.ok(rice.length>=4);
+  assert.ok(onigiri.length>=8);
+  for(const r of rice){assert.equal(r.portion.unit,'g');assert.equal(r.mealBase,false);}
+  for(const r of onigiri){
+    assert.equal(r.portion.unit,'個');assert.equal(r.portion.amount,1);assert.equal(r.mealBase,false);
+    assert.equal(r.ingredients.find(p=>p.id==='rice').amount/r.servings,100,r.id);
+  }
+  assert.equal(byId.get('staple-salt-onigiri').family,'onigiri');
+  assert.match(byId.get('staple-salt-onigiri').variantLabel,/大きめ/);
+});
+
+test('everyday families include familiar noodles, pasta, curry, pizza and fried rice', () => {
+  assert.ok(EVERYDAY_RECIPES.length>=90);
+  const required={
+    udon:['かけ','きつね','たぬき','わかめ','肉','天ぷら','カレー'],
+    soba:['かけ','きつね','たぬき','わかめ','肉','天ぷら','カレー'],
+    pasta:['ペペロンチーノ','カルボナーラ','ジェノベーゼ','ボロネーゼ','アラビアータ','ペスカトーレ'],
+    yakisoba:['ソース','塩'],curry:['チキン','ポーク','ビーフ','野菜','キーマ'],
+    pizza:['マルゲリータ','ミックス','照り焼きチキン'], 'fried-rice':['卵','五目','キムチ'],
+  };
+  for(const [family,variants]of Object.entries(required)){
+    const members=EVERYDAY_RECIPES.filter(r=>r.family===family);
+    for(const variant of variants)assert.ok(members.some(r=>r.variantLabel===variant),family+':'+variant);
+    for(const r of members){assert.equal(r.role,'staple');assert.equal(r.mealBase,true);}
+  }
+  for(const r of EVERYDAY_RECIPES){
+    assert.ok(r.variantLabel&&r.family,r.id);
+    assert.ok(r.portion&&r.portion.amount>0,r.id);
+    assert.ok(['g','ml','個','皿','杯','枚','袋'].includes(r.portion.unit),r.id);
+    assert.equal(typeof r.mealBase,'boolean',r.id);
+  }
+});
+
+test('drinks and soups offer common variants within their families', () => {
+  const variants=family=>EVERYDAY_RECIPES.filter(r=>r.family===family).map(r=>r.variantLabel);
+  assert.ok(variants('water').includes('炭酸水'));
+  assert.ok(variants('water').includes('レモン炭酸水'));
+  assert.ok(variants('soft-drink').includes('コーラ'));
+  assert.ok(variants('miso-soup').includes('玉ねぎ'));
+  assert.ok(variants('miso-soup').includes('あさり'));
+  assert.ok(variants('miso-soup').includes('豚汁'));
+  assert.equal(byId.get('drink-water').family,'water');
+  assert.equal(byId.get('soup-001').family,'miso-soup');
+});
+
+test('ordinary snacks include sweets, desserts, cheese and hot snacks', () => {
+  const wanted={snack:['ポテトチップス','せんべい'],sweets:['クッキー','チョコレート'],dessert:['バニラアイス','プリン','チョコケーキ'],cheese:['チーズ'], 'hot-snack':['チキン','唐揚げ','ポテト','たこ焼き','肉まん']};
+  for(const [family,variants]of Object.entries(wanted))for(const variant of variants){
+    const r=EVERYDAY_RECIPES.find(r=>r.family===family&&r.variantLabel===variant);
+    assert.ok(r,family+':'+variant);assert.equal(r.role,'snack');assert.equal(r.mealBase,false);
+  }
+  assert.deepEqual(byId.get('daily-snack-vanilla-ice').portion,{amount:100,unit:'g'});
+  assert.deepEqual(byId.get('daily-snack-chocolate').ingredients,[{id:'chocolate',amount:40}]);
+});
+
+test('prepared ingredients retain explicit product assumptions and known derived allergens', () => {
+  assert.ok(Object.keys(EVERYDAY_INGREDIENTS).length>=23);
+  for(const id of ['pizza_base','chocolate','rice_cracker','biscuit','vanilla_ice_cream','kimchi','steamed_pork_bun']){
+    assert.ok(EVERYDAY_INGREDIENTS[id].note,id);
+    assert.ok(EVERYDAY_INGREDIENTS[id].allergens.length,id);
+  }
+  assert.ok(recipeAllergens(byId.get('daily-udon-tempura')).has('shrimp'));
+  assert.ok(recipeAllergens(byId.get('daily-pasta-carbonara')).has('egg'));
+  assert.ok(recipeAllergens(byId.get('daily-pasta-carbonara')).has('milk'));
+  assert.ok(recipeAllergens(byId.get('daily-fried-rice-kimchi')).has('shrimp'));
+  assert.equal(byId.get('daily-pasta-genovese').ingredients.find(p=>p.id==='fresh_basil').amount,30);
 });
