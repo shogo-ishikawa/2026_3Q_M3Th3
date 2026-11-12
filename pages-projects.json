@@ -66,7 +66,10 @@
         "cooking-instructions.js",
         "japanese-search.js",
         "varied-recipes.js",
-        "takeaway-foods.js"
+        "takeaway-foods.js",
+        "comfort-foods.js",
+        "confectionery-foods.js",
+        "dessert-foods.js"
       ]
     },
     {

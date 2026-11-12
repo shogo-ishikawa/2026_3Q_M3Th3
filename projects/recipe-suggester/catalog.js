@@ -23,8 +23,13 @@ export const CATALOG_CATEGORIES = Object.freeze([
   ['juice', 'ジュース', 'drink'], ['soft-drink', '清涼飲料水', 'drink'],
   ['protein-drink', 'プロテイン飲料', 'drink'], ['alcohol', 'お酒', 'drink'],
   ['other-drink', 'その他の飲み物', 'drink'],
-  ['snack', 'スナック', 'snack'], ['sweets', 'お菓子', 'snack'],
-  ['dessert', 'スイーツ', 'snack'], ['cheese', 'チーズ', 'snack'],
+  ['chocolate', 'チョコレート', 'snack'], ['candy', '飴・キャラメル・ラムネ', 'snack'],
+  ['gummy', 'グミ', 'snack'], ['biscuit', 'クッキー・ビスケット', 'snack'],
+  ['salty-snack', 'スナック菓子', 'snack'], ['rice-snack', 'せんべい・米菓', 'snack'],
+  ['donut', 'ドーナツ', 'snack'], ['cake', 'ケーキ', 'snack'],
+  ['japanese-sweet', '和菓子', 'snack'], ['ice-dessert', 'アイス・氷菓', 'snack'],
+  ['snack', 'その他のスナック', 'snack'], ['sweets', 'その他のお菓子', 'snack'],
+  ['dessert', 'その他のスイーツ', 'snack'], ['cheese', 'チーズ', 'snack'],
   ['hot-snack', 'ホットスナック', 'snack'], ['fruit', '果物', 'snack'],
   ['nuts', 'ナッツ', 'snack'], ['yoghurt', 'ヨーグルト', 'snack'],
   ['functional-snack', '補食・栄養補助食品', 'snack'],
@@ -86,8 +91,21 @@ export function recipeFamily(recipe) {
     return 'other-drink';
   }
   if (recipe.role === 'snack') {
-    if (/protein[-_ ]?bar|energy[-_ ]?bar|meal[-_ ]?block|salad[-_ ]?chicken|プロテインバー|栄養調整食品|バランス栄養食品|サラダチキン|カロリーメイト/.test(text)) return 'functional-snack';
+    if (/protein[-_ ]?bar|energy[-_ ]?bar|meal[-_ ]?block|salad[-_ ]?chicken|プロテイン(?:チョコ(?:レート)?)?バー|栄養調整食品|バランス栄養食品|サラダチキン|カロリーメイト/.test(text)) return 'functional-snack';
     if (/hot-snack|chicken|karaage|takoyaki|fries|nikuman|唐揚|から揚|チキン|たこ焼|フライドポテト|肉まん/.test(text)) return 'hot-snack';
+    // 主な料理名を先に見ます。チーズケーキをチーズ、アーモンドチョコを
+    // ナッツへ振り分けたり、ラムネ菓子を飲み物へ変えたりしません。
+    if (/doughnut|donut|ドーナツ|ドーナッツ/.test(text)) return 'donut';
+    if (/pancake|パンケーキ|クレープ|フレンチトースト/.test(text)) return 'dessert';
+    if (/cake|ケーキ|バウムクーヘン|バームクーヘン|モンブラン/.test(text)) return 'cake';
+    if (/ice[-_ ]?cream|アイスクリーム|アイスバー|アイスキャンディ|ソフトクリーム|ジェラート|シャーベット|氷菓/.test(text)) return 'ice-dessert';
+    if (/大福|どら焼|どらやき|羊羹|ようかん|最中|もなか|わらび餅|わらびもち|まんじゅう|饅頭|おはぎ|柏餅|桜餅|みたらし団子|だんご|ぜんざい/.test(text)) return 'japanese-sweet';
+    if (/gummy|gummi|グミ/.test(text)) return 'gummy';
+    if (/candy|caramel|キャンディ|飴|あめ|キャラメル|ハイチュウ|ラムネ/.test(text)) return 'candy';
+    if (/rice[-_ ]?(cracker|snack)|せんべい|煎餅|米菓|おかき|あられ|柿の種/.test(text)) return 'rice-snack';
+    if (/cookie|biscuit|cracker|クッキー|ビスケット|クラッカー|ウエハース|ウェハース|ポッキー|プリッツ/.test(text)) return 'biscuit';
+    if (/chocolate|チョコ|ショコラ/.test(text)) return 'chocolate';
+    if (/potato[-_ ]?chips|popcorn|ポテトチップ|ポップコーン|コーンスナック|えびせん|スナック菓子/.test(text)) return 'salty-snack';
     if (/yogurt|yoghurt|ヨーグルト/.test(text)) return 'yoghurt';
     if (/cheese|チーズ/.test(text)) return 'cheese';
     if (/nuts|almond|walnut|cashew|peanut|ナッツ|アーモンド|くるみ|カシューナッツ|落花生/.test(text)) return 'nuts';

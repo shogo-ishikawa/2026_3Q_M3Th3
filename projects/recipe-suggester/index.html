@@ -22,7 +22,7 @@
 <p class="eyebrow">MAKE ROOM FOR GOOD FOOD</p>
 <h1 id="hero-title">食事と栄養をひとつの場所に。</h1>
 </div>
-<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v3.4.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
+<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v3.5.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
 <section class="tab-panel" id="panel-record" role="tabpanel" aria-labelledby="tab-record" tabindex="0" hidden><section class="calendar-section" id="calendar" aria-labelledby="calendar-title">
       <div class="section-heading">
 <div>
@@ -176,6 +176,19 @@
 <a class="text-link" href="#shopping">買い物リストへ <span aria-hidden="true">↓</span></a>
 </div>
       <p class="section-copy">食べた記録や手持ちの食材を参考にして提案します。アレルギーと避ける食材の条件に合う候補がなければ、条件を緩めずにお知らせします。</p>
+      <details class="planner-explanation"><summary>献立はどうやって選ぶ？</summary><div class="details-content">
+<p>登録済みの料理から条件に合う候補を絞り、食事の組み合わせや最近の記録を参考に点数を付けて選びます。</p>
+<ol>
+<li><strong>食べられる候補を確認</strong>：アレルギーと避ける食材を最優先にします。候補が足りなくても、この条件は外しません。</li>
+<li><strong>希望する食事を組み立てる</strong>：ジャンル・比率・気分を優先し、主食と主菜の重複を避けます。汁のある麺には別の汁物を付けません。</li>
+<li><strong>同じものが続かないようにする</strong>：最近食べた料理や、肉・魚・卵・豆の登場回数を参考にします。手持ちの食材や使いたい食材にも優先度を付けます。</li>
+<li><strong>栄養の記録を参考にする</strong>：直近約1週間の記録から、たんぱく質・食物繊維が少なめなら補う方向へ、エネルギー・食塩が多めなら控える方向へ順位を調整します。最近の平均には記録完了日の既知の値を使い、提案する食事より前に食べた内容も参照します。</li>
+</ol>
+<p>ジャンルや気分は優先する目安です。候補がなければ食材を避ける条件を守って別の候補を探します。栄養の目標値にぴったり合わせる最適化ではなく、選びやすくするための提案です。</p>
+<h4>テイクアウトやインスタントも選ばれる？</h4>
+<p>テイクアウト・インスタントや今回追加した市販のお菓子・スイーツなど、全原材料とアレルギー情報が未確認の商品例は自動提案に使いません。食べた内容として記録することはできます。表示の栄養値が分かっていても、原材料の確認とは分けて扱います。</p>
+<p>調理・提供形態だけで一律に除外する仕組みではありません。自分のDBへ保存した購入品も、アレルギー情報などを確認し、除外条件に合う場合は候補になります。お酒は記録用です。</p>
+</div></details>
       <div class="planner-layout">
         <aside class="settings-panel panel" aria-labelledby="settings-title"><h3 id="settings-title">献立の条件</h3>
 <form id="plan-form">
@@ -406,8 +419,8 @@
 <p><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/meal_planner.ipynb">Pythonで献立の選び方を学ぶColab教材</a>では、条件の確認やレシピの組み合わせを試せます。ブラウザー版の全機能を移植したものではありません。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/recipe_suggester.ipynb">初期のColab教材</a>も残しています。</p>
 <p class="about-links"><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/manual.md">使い方</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/sources.md">データと出典</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/recipe-suggester">コードを見る</a></p>
 </div></details>
-  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v3.4.0</small></span><div class="footer-links">
-<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v3.4.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
+  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v3.5.0</small></span><div class="footer-links">
+<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v3.5.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
 </div></footer>
 </div>
 </div>

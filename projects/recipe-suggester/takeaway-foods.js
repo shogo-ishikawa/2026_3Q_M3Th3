@@ -842,26 +842,47 @@ const PRODUCTS=[
   }
 ];
 
+// 一覧の料理名は店舗に依存しない表記にし、参照商品は出典だけに残します。
+const RECORD_LABELS=Object.freeze({
+  "yakitori-momo-tare": "焼き鳥・もも（たれ・テイクアウト）",
+  "yakitori-momo-salt": "焼き鳥・もも（塩・テイクアウト）",
+  "yakitori-negima-tare": "焼き鳥・ねぎま（たれ・テイクアウト）",
+  "yakitori-tsukune-tare": "つくね串（たれ・テイクアウト）",
+  "yakitori-kawa-tare": "焼き鳥・皮（たれ・テイクアウト）",
+  "yakitori-sunagimo-salt": "焼き鳥・砂肝（塩・テイクアウト）",
+  "eel-kabayaki": "うなぎの蒲焼き（テイクアウト・中串）",
+  "unaju": "うな重（テイクアウト）",
+  "shumai": "シュウマイ（惣菜）",
+  "frozen-suigyoza": "水餃子（冷凍・12個入り）",
+  "spring-roll": "五目春巻き（惣菜）",
+  "tempura-shrimp": "えびの天ぷら（外食・単品）",
+  "tempura-squid": "いかの天ぷら（外食・単品）",
+  "tempura-maitake": "まいたけの天ぷら（外食・単品）",
+  "beef-karubi": "牛カルビ焼き（惣菜）"
+});
+const recordName=product=>RECORD_LABELS[product.slug]??product.name;
+const referenceNote=product=>RECORD_LABELS[product.slug]?`栄養値の参照商品：${product.name}。出典の商品を参考にした記録例で、同じ料理でも量や栄養は異なります。`:'';
+
 export const TAKEAWAY_INGREDIENTS=Object.fromEntries(PRODUCTS.map(product=>[
   `takeaway_${product.slug.replaceAll('-','_')}`,
-  {name:`${product.name}（購入品）`,unit:product.purchaseUnit,allergens:product.allergens,
+  {name:`${recordName(product)}（購入品）`,unit:product.purchaseUnit,allergens:product.allergens,
    groups:[],proteinSources:[],
-   note:`購入する完成品の数量です。${productNotice}確認日${CHECKED}。${product.source}`},
+   note:`購入する完成品の数量です。${referenceNote(product)}${productNotice}確認日${CHECKED}。${product.source}`},
 ]));
 
 export const TAKEAWAY_RECIPES=PRODUCTS.map(product=>{
   const mainDish=product.role==='main'||product.role==='side';
-  return {id:`takeaway-${product.slug}`,name:product.name,role:product.role,genre:product.genre,
-    family:product.family,variantLabel:product.name,nature:product.nature,
+  return {id:`takeaway-${product.slug}`,name:recordName(product),role:product.role,genre:product.genre,
+    family:product.family,variantLabel:recordName(product),nature:product.nature,
     servings:2,minutes:product.nature==='instant'?5:2,
     ingredients:[{id:`takeaway_${product.slug.replaceAll('-','_')}`,amount:product.purchasePerPortion*2},
       ...(product.water?[{id:'water',amount:product.water*2}]:[])],
-    portion:{amount:product.basisAmount,unit:product.portionUnit,label:product.portionLabel},
+    portion:{amount:product.basisAmount,unit:product.portionUnit,label:product.slug==='unaju'?'中サイズ1折（ご飯込み）。出典の商品を基準にした記録例です。':product.portionLabel},
     staple:product.role==='staple',mealBase:product.role==='staple',processed:true,
     allergensKnown:false,ingredientsKnown:false,shoppingKnown:true,
     tags:product.role==='staple'?[]:['時短'],steps:[],
     manualNutrition:Object.fromEntries(KEYS.map((key,index)=>[key,product.nutrients[index]])),
     ...(mainDish?{displayCategory:product.foodCategory,displayMethod:product.cookingMethod}:{}),
-    sourceNote:`${product.note} ${productNotice}全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日${CHECKED}。出典: ${product.source}`,
+    sourceNote:`${referenceNote(product)}${product.note} ${productNotice}全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日${CHECKED}。出典: ${product.source}`,
   };
 });

@@ -37,6 +37,13 @@ const auditedFamilies = {
     calendar-side-lotus-edamame calendar-side-okra-corn calendar-side-turnip-leaf
     snack-edamame snack-pumpkin snack-soybean snack-cheese-tomato
     snack-sesame-potato breakfast-natto-okra daily-snack-bacon-cheese-roll`,
+  // 元のIDと量を保ち、既存のお菓子も新しい選択肢から探せるようにする。
+  'salty-snack': 'daily-snack-potato-chips',
+  'rice-snack': 'daily-snack-rice-cracker',
+  'biscuit': 'daily-snack-butter-cookie daily-snack-chocolate-cookie',
+  'chocolate': 'daily-snack-chocolate',
+  'ice-dessert': 'daily-snack-vanilla-ice daily-snack-cocoa-ice',
+  'cake': 'daily-snack-banana-cake daily-snack-chocolate-cake',
 };
 
 const readyToEatIds = new Set(`

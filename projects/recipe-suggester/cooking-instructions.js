@@ -320,7 +320,7 @@ export function decorateCookingInstructions(recipe, ingredients = {}) {
   if(nature!=='home-cooked')return recipe;
   // 新しい家庭料理集は下ごしらえから仕上げまで個別に記述済みです。
   // 工程が4つや5つでも、共通の説明を重ねて水増ししません。
-  if(recipe.id?.startsWith('varied-')&&(recipe.steps?.length??0)>=4)return {...recipe,steps:[...recipe.steps]};
+  if(['varied-','comfort-'].some(prefix=>recipe.id?.startsWith(prefix))&&(recipe.steps?.length??0)>=4)return {...recipe,steps:[...recipe.steps]};
   if((recipe.steps?.length??0)>=6)return {...recipe,steps:[...recipe.steps]};
   let steps=null;
   if(['beef-hamburg','tofu-burger','classic-hamburg','familiar-hamburg-oroshi','familiar-hamburg-stew','familiar-hamburg-cheese'].includes(recipe.id))steps=hamburg(recipe);

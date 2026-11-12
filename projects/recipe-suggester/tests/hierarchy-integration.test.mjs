@@ -8,6 +8,9 @@ import {SUSHI_INGREDIENTS, SUSHI_RECIPES} from '../sushi-foods.js';
 import {PERFORMANCE_INGREDIENTS, PERFORMANCE_RECIPES} from '../performance-foods.js';
 import {TAKEAWAY_INGREDIENTS, TAKEAWAY_RECIPES} from '../takeaway-foods.js';
 import {VARIED_INGREDIENTS, VARIED_RECIPES} from '../varied-recipes.js';
+import {COMFORT_INGREDIENTS, COMFORT_RECIPES} from '../comfort-foods.js';
+import {CONFECTIONERY_INGREDIENTS, CONFECTIONERY_RECIPES} from '../confectionery-foods.js';
+import {DESSERT_INGREDIENTS, DESSERT_RECIPES} from '../dessert-foods.js';
 import {CATALOG_CATEGORIES, recipePortion} from '../catalog.js';
 import {dishSection, dishClassification, browseDishes, availableDishCategories, availableCookingMethods} from '../dish-hierarchy.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan} from '../planner.js';
@@ -17,26 +20,31 @@ import {shoppingForEntries} from '../shopping.js';
 
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const incoming = [...FAMILIAR_MAIN_RECIPES, ...FAMILIAR_SIDE_RECIPES];
-const additions = [...incoming, ...SUSHI_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...VARIED_RECIPES];
+const additions = [...incoming, ...SUSHI_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...VARIED_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES];
 const addedIds = new Set(additions.map(recipe => recipe.id));
-const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS), ...Object.keys(SUSHI_INGREDIENTS), ...Object.keys(PERFORMANCE_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(VARIED_INGREDIENTS)]);
+const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS), ...Object.keys(SUSHI_INGREDIENTS), ...Object.keys(PERFORMANCE_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(VARIED_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS)]);
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const entry = (id, items, status = 'planned') => ({id, date: '2026-11-12', meal: 'dinner', status, note: '', items});
 const snapshot = (recipe, quantity = 1) => ({...itemFromRecipe(describeRecipe(recipe.id, data), data, quantity), portion: recipePortion(recipe, data)});
 const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 1e-8, `${label}: ${actual} != ${expected}`);
 
-test('既存料理の手順を改訂しても材料・量・栄養・表示先と一意性を保つ', () => {
+test('既存580品は手順と表示文言・間食分類の整理以外の材料・量・栄養・一意性を保つ', () => {
   const originalRecipes = RECIPES.filter(recipe => !addedIds.has(recipe.id));
   const originalIngredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredientIds.has(id)));
   assert.equal(originalRecipes.length, 580);
   assert.equal(Object.keys(originalIngredients).length, 235);
-  // 寿司・飲料の8品は下で意図を検査します。今回改訂するstepsだけを除き、572品と235食材の既存内容を保持します。
+  // 寿司・飲料の8品は下で意図を検査します。572品・235食材の基準件数は維持します。
+  // v3.5は間食9品のfamilyと購入品の表示名・説明を整理します。stepsの既存の除外に加え、
+  // name/variantLabel/family/sourceNote/portion.label（食材はname/note）だけを投影から除きます。
+  // 固定ハッシュはクリーンなv3.4.0公開DBから独立計算済み。材料・量・単位・栄養は除外しません。
   const changedIds = new Set(['classic-sushi-tuna', 'classic-sushi-salmon', 'classic-sushi-shrimp', 'classic-sushi-squid',
     'classic-sushi-assorted', 'drink-milk-cocoa', 'drink-soy-cocoa', 'drink-yogurt']);
-  const stableRecipes = originalRecipes.filter(recipe => !changedIds.has(recipe.id)).map(({steps,...recipe})=>recipe);
+  const stableRecipes = originalRecipes.filter(recipe => !changedIds.has(recipe.id)).map(({steps,name,variantLabel,family,sourceNote,...recipe})=>({...recipe,
+    ...(recipe.portion?{portion:Object.fromEntries(Object.entries(recipe.portion).filter(([key])=>key!=='label'))}:{})}));
+  const stableIngredients = Object.fromEntries(Object.entries(originalIngredients).map(([id,{name,note,...ingredient}])=>[id,ingredient]));
   assert.equal(stableRecipes.length, 572);
-  const digest = createHash('sha256').update(JSON.stringify({RECIPES: stableRecipes, INGREDIENTS: originalIngredients})).digest('hex');
-  assert.equal(digest, '25b1d410c20a1ef0306a284239500285b753fb7bd99c1ded12312d3ba8fd4e10');
+  const digest = createHash('sha256').update(JSON.stringify({RECIPES: stableRecipes, INGREDIENTS: stableIngredients})).digest('hex');
+  assert.equal(digest, '74f349c1874544d03436ab77ffa3e472a181468f40c3fb04a8643435d37bc5d8');
   for (const id of ['classic-sushi-tuna', 'classic-sushi-salmon', 'classic-sushi-shrimp', 'classic-sushi-squid']) {
     const recipe = byId.get(id);
     assert.equal(recipe.portion.amount, 1, id);

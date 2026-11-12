@@ -495,6 +495,15 @@ const PRODUCTS=[
   }
 ];
 
+// 食品名と参照した店舗を分け、量や栄養の出典は説明へ残します。
+const CHICKEN_RECORD_NAMES=Object.freeze({
+  perf_chicken_plain:'サラダチキン（プレーン・市販品110g）',
+  perf_chicken_herb:'サラダチキン（ハーブ・市販品110g）',
+  perf_chicken_smoke:'サラダチキン（スモーク・市販品110g）',
+});
+const recordName=item=>CHICKEN_RECORD_NAMES[item.id]??item.name;
+const referenceNote=item=>CHICKEN_RECORD_NAMES[item.id]?`栄養値の参照商品：${item.name}。出典の商品を参考にした記録例で、同じ料理でも量や栄養は異なります。`:'';
+
 const ingredient=(name,unit,allergens,groups=[],proteinSources=[],note='')=>({name,unit,allergens,groups,proteinSources,note});
 export const PERFORMANCE_INGREDIENTS={};
 for(const item of ALCOHOL){
@@ -503,7 +512,7 @@ for(const item of ALCOHOL){
 for(const item of PRODUCTS){
   const dairy=['powder','protein-ready'].includes(item.kind)&&item.id!=='perf_soy_powder';
   const protein=['powder','protein-ready','bar','chicken'].includes(item.kind);
-  PERFORMANCE_INGREDIENTS[item.id]=ingredient(item.name,item.unit,item.allergens,[...(protein?['protein']:[]),...(dairy?['dairy']:[])],item.kind==='chicken'?['meat']:item.id==='perf_soy_powder'?['soy']:[],`${item.ingredientSummary} ${item.unknownNote} 商品単体の栄養はこの辞書では未登録です。メニューの基準量に対する公式表示を使います。${notice}`);
+  PERFORMANCE_INGREDIENTS[item.id]=ingredient(recordName(item),item.unit,item.allergens,[...(protein?['protein']:[]),...(dairy?['dairy']:[])],item.kind==='chicken'?['meat']:item.id==='perf_soy_powder'?['soy']:[],`${referenceNote(item)}${item.ingredientSummary} ${item.unknownNote} 商品単体の栄養はこの辞書では未登録です。メニューの基準量に対する公式表示を使います。${notice}`);
 }
 function menu(slug,name,family,variant,items,portion,{manualNutrition,sourceNote,nature='ready-to-eat',role=family==='functional-snack'?'snack':'drink',steps}={}){
   return {id:`performance-${slug}`,name,role,genre:'その他',minutes:2,servings:2,
@@ -539,9 +548,9 @@ const PACKAGED=PRODUCTS.filter(item=>item.kind!=='powder').map(item=>{
   const liquid=['soft','protein-ready'].includes(item.kind),amount=liquid?(item.kind==='soft'?250:200):item.kind==='block'?4:1;
   const multiplier=liquid?amount/item.basisAmount:1;
   const portion={amount,unit:liquid?'ml':item.kind==='block'?'本':item.unit,
-    label:liquid?`基準${amount}ml。公式の${item.basisAmount}ml表示から換算。`:item.kind==='block'?'4本80g（4本入り1箱）が基準。2本食べた場合は2本と入力。':`1${item.unit}が基準。${item.name}`};
-  return menu(item.id.replace('perf_',''),item.name,liquid?(item.kind==='soft'?'soft-drink':'protein-drink'):'functional-snack',item.variantLabel,
+    label:liquid?`基準${amount}ml。公式の${item.basisAmount}ml表示から換算。`:item.kind==='block'?'4本80g（4本入り1箱）が基準。2本食べた場合は2本と入力。':`1${item.unit}が基準。${recordName(item)}`};
+  return menu(item.id.replace('perf_',''),recordName(item),liquid?(item.kind==='soft'?'soft-drink':'protein-drink'):'functional-snack',item.variantLabel,
     [[item.id,liquid?amount*2:2]],portion,
-    {manualNutrition:scaled(item.nutritionAtBasis,multiplier),sourceNote:`公式表示の${item.basisAmount}${item.basisUnit}当たりの値を基準にしています。${item.ingredientSummary} ${item.unknownNote} ${item.sourceURL}`});
+    {manualNutrition:scaled(item.nutritionAtBasis,multiplier),sourceNote:`${referenceNote(item)}公式表示の${item.basisAmount}${item.basisUnit}当たりの値を基準にしています。${item.ingredientSummary} ${item.unknownNote} ${item.sourceURL}`});
 });
 export const PERFORMANCE_RECIPES=[...DRINKS,...POWDERS,...PACKAGED];
