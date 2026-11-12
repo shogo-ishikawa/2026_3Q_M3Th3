@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultState, STORAGE_KEY} from '../storage.js';
 import {JOURNAL_KEY, NUTRIENT_KEYS, DEFAULT_TARGETS, defaultJournal, validateJournal, parseJournal, readJournal, writeJournal, dateKey, dateIsValid, monthIsValid, monthCells, shiftDate, entriesForDay} from '../journal.js';
+import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 
 const all = (kcal, protein = 0, fat = 0, carbs = 0, fiber = 0, salt = 0) => ({kcal, protein, fat, carbs, fiber, salt});
 const unknown = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
@@ -101,7 +102,28 @@ test('known custom materials inherit all ancestor allergens alongside manually s
   source.customRecipes = [{...custom(), ingredients: [{id: 'butter', amount: 5}], ingredientsKnown: true, allergensKnown: true, allergens: ['soy']}];
   const recipe = validateJournal(source, data).customRecipes[0];
   assert.deepEqual(recipe.allergens, ['soy', 'milk']);
-  assert.deepEqual(recipe.groups, ['dairy']);
+  assert.deepEqual(recipe.groups, []); // バターは乳を含みますが乳製品1食分とは数えません。
+});
+
+test('custom condiment metadata inherits ancestor allergens without ancestor food-group servings', () => {
+  const builtin={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
+  const source=state();
+  source.customRecipes=[{...custom(),ingredients:[{id:'soy_sauce',amount:10},{id:'miso',amount:10},{id:'butter',amount:5}],ingredientsKnown:true,allergensKnown:true}];
+  const recipe=validateJournal(source,builtin).customRecipes[0];
+  assert.deepEqual(recipe.groups,[]);
+  assert.deepEqual(recipe.proteinSources,[]);
+  for(const allergen of ['soy','wheat','milk'])assert.ok(recipe.allergens.includes(allergen));
+});
+
+test('legacy recipe migration does not turn condiments into a protein-source meal', () => {
+  const seasoning={id:'seasoning-only',name:'調味料の確認用',role:'side',servings:1,ingredients:[{id:'soy_sauce',amount:10}],steps:['確認する。']};
+  const builtin={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:[...RECIPES,seasoning]};
+  const source=defaultState('2026-11-12');
+  source.history=[{id:'old-seasoning',date:'2026-11-11',meal:'dinner',recipeIds:['seasoning-only'],groups:[],proteinSources:[],note:''}];
+  const snapshot=validateJournal(source,builtin).entries[0].items[0];
+  assert.deepEqual(snapshot.groups,[]);
+  assert.deepEqual(snapshot.proteinSources,[]);
+  assert.ok(snapshot.allergens.includes('soy'));
 });
 
 test('custom IDs cannot duplicate one another or overwrite a built-in record', () => {

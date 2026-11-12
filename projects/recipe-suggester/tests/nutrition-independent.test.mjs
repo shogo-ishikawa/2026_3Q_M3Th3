@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {recipeNutrition, itemFromRecipe, itemNutrition, sumNutrition, summariseEntries} from '../nutrition.js';
+import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 
 // Deliberately tiny food table: expected results below are calculated by hand.
 const nutrient = (kcal, protein, fat, carbs, fiber, salt) => ({kcal, protein, fat, carbs, fiber, salt});
@@ -92,6 +93,22 @@ test('派生元の循環や不明な材料を確認済みの食事として記�
   const broken={...recipe,ingredients:[{id:'not-in-table',amount:100}]};
   assert.throws(()=>itemFromRecipe(broken,data),/材料/);
   assert.throws(()=>recipeNutrition(broken,data),/材料/);
+});
+
+test('実データのしょうゆ・みそ・バターは祖先アレルゲンを保持し食品群を水増ししない',()=>{
+  const builtin={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
+  for(const id of ['soy_sauce','miso','butter']){
+    const recipe={id:`test-${id}`,name:INGREDIENTS[id].name,role:'side',servings:1,ingredients:[{id,amount:10}],steps:[]};
+    const snapshot=itemFromRecipe(recipe,builtin);
+    assert.deepEqual(snapshot.groups,[],id);
+    assert.deepEqual(snapshot.proteinSources,[],id);
+    for(const allergen of INGREDIENTS[id].allergens)assert.ok(snapshot.allergens.includes(allergen),`${id}:${allergen}`);
+    // 食品群の回数と定量的なたんぱく質量は別です。実際の微量成分は集計します。
+    assert.ok(snapshot.nutrition.protein>0,id);
+  }
+  const tofu=itemFromRecipe({id:'tofu-test',name:'豆腐',role:'side',servings:1,ingredients:[{id:'tofu',amount:100}],steps:[]},builtin);
+  assert.deepEqual(tofu.groups,['protein']);
+  assert.deepEqual(tofu.proteinSources,['soy']);
 });
 
 test('摂取集計は期間両端を含め食べた食事だけを数え間食も含める', () => {
