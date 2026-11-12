@@ -7,6 +7,9 @@ import {PREPARED_RECIPES} from '../prepared-foods.js';
 import {PERFORMANCE_RECIPES} from '../performance-foods.js';
 import {SUSHI_RECIPES} from '../sushi-foods.js';
 import {TAKEAWAY_RECIPES} from '../takeaway-foods.js';
+import {COMFORT_RECIPES} from '../comfort-foods.js';
+import {CONFECTIONERY_RECIPES} from '../confectionery-foods.js';
+import {DESSERT_RECIPES} from '../dessert-foods.js';
 import {CATALOG_CATEGORIES, FOOD_NATURES, recipePortion, quantityFromAmount} from '../catalog.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan, replaceRecipe} from '../planner.js';
 import {itemFromRecipe, itemNutrition, NUTRIENT_KEYS} from '../nutrition.js';
@@ -16,7 +19,7 @@ import {shoppingForEntries} from '../shopping.js';
 // 各追加モジュールの単体テストとは別に、公開アプリが import する完成DBを使います。
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
-const unconfirmedIds = new Set([...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES].filter(recipe => recipe.allergensKnown === false).map(recipe => recipe.id));
+const unconfirmedIds = new Set([...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES].filter(recipe => recipe.allergensKnown === false).map(recipe => recipe.id));
 const settings = {startDate: '2026-11-12', days: 7, servings: 3, meal: 'dinner', seed: 73};
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const snapshot = (id, amount) => {
@@ -37,7 +40,7 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
     assert.ok(typeof recipe.variantLabel === 'string' && recipe.variantLabel.trim(), recipe.id);
     assert.equal(typeof recipe.mealBase, 'boolean', recipe.id);
   }
-  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES, ...TAKEAWAY_RECIPES]) {
+  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES]) {
     const integrated = byId.get(source.id);
     assert.ok(integrated, source.id);
     assert.deepEqual(integrated.ingredients, source.ingredients, source.id);
@@ -69,7 +72,7 @@ test('統合後も未確認商品を記録用に残し、自動献立と差し�
   }
 });
 
-test('公開DBの全580品を数量付きv3記録へ写し、分類・商品説明・確認状況を保存できる', () => {
+test('公開DBの全メニューを数量付きv3記録へ写し、分類・商品説明・確認状況を保存できる', () => {
   const state = defaultJournal('2026-11-12');
   state.entries = RECIPES.map((recipe, index) => entry(`integrated-${index}`, [snapshot(recipe.id, recipePortion(recipe, data).amount * 1.5)], 'eaten'));
   const imported = parseJournal(JSON.stringify(state), data);

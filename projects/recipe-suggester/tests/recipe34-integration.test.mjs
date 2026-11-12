@@ -4,6 +4,9 @@ import {createHash} from 'node:crypto';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {VARIED_INGREDIENTS, VARIED_RECIPES} from '../varied-recipes.js';
 import {TAKEAWAY_INGREDIENTS, TAKEAWAY_RECIPES} from '../takeaway-foods.js';
+import {COMFORT_INGREDIENTS, COMFORT_RECIPES} from '../comfort-foods.js';
+import {CONFECTIONERY_INGREDIENTS, CONFECTIONERY_RECIPES} from '../confectionery-foods.js';
+import {DESSERT_INGREDIENTS, DESSERT_RECIPES} from '../dessert-foods.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan} from '../planner.js';
 import {browseDishes, dishClassification} from '../dish-hierarchy.js';
 import {defaultJournal, parseJournal} from '../journal.js';
@@ -13,22 +16,27 @@ import {shoppingForEntries} from '../shopping.js';
 
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
-const additions = [...VARIED_RECIPES, ...TAKEAWAY_RECIPES];
+const additions = [...VARIED_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES];
 const addedIds = new Set(additions.map(recipe => recipe.id));
-const addedIngredients = new Set([...Object.keys(VARIED_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS)]);
+const addedIngredients = new Set([...Object.keys(VARIED_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS)]);
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const close = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const snapshot = (id, quantity = 1) => ({...itemFromRecipe(describeRecipe(id, data), data, quantity), portion: recipePortion(byId.get(id), data)});
 const entry = (id, items, status = 'eaten') => ({id, date: '2026-11-13', meal: 'dinner', status, items, note: ''});
 
-test('旧711品は手順だけを改訂し、ID・材料・分量・栄養・分類と旧268食材を保持する', () => {
+test('旧711品・268食材は手順と表示文言・間食分類の整理以外のID・材料・分量・栄養を保持する', () => {
   const original = RECIPES.filter(recipe => !addedIds.has(recipe.id));
   const ingredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredients.has(id)));
   assert.equal(original.length, 711);
   assert.equal(Object.keys(ingredients).length, 268);
-  // v3.3.0の公開DBから、今回意図して改訂するstepsだけを除いた独立の固定値です。
-  assert.equal(hash(original.map(({steps, ...recipe}) => recipe)), 'df636cb8749e5d2725283f61477ed787a921632d5d539e0ae4c73dd9c82921e5');
-  assert.equal(hash(ingredients), '83d9067d66389386be620f38ca56cab86c2675239680e0259ee6bc12e7aea543');
+  // v3.5の変更は表示名・説明と間食9品のfamilyです。stepsは従来どおり除外し、
+  // name/variantLabel/family/sourceNote/portion.label（食材はname/note）だけを追加で除外。
+  // クリーンなv3.4.0の同じ711品・268食材から計算した固定値で、量・単位・栄養は厳守します。
+  const stable = original.map(({steps,name,variantLabel,family,sourceNote,...recipe})=>({...recipe,
+    ...(recipe.portion?{portion:Object.fromEntries(Object.entries(recipe.portion).filter(([key])=>key!=='label'))}:{})}));
+  const stableIngredients = Object.fromEntries(Object.entries(ingredients).map(([id,{name,note,...ingredient}])=>[id,ingredient]));
+  assert.equal(hash(stable), '973426e8109f970adae4389b09d12190c0f10f4f1d7a4d60b2f6a66a8ee4a298');
+  assert.equal(hash(stableIngredients), '1f37222ab10c64c9d9c678656a83cb0c18cee691f8d8d200815bd468c7df777c');
   assert.equal(RECIPES.length, 711 + additions.length);
 });
 

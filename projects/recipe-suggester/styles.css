@@ -376,6 +376,12 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 .ingredient-list > li { border-bottom: 1px solid var(--line); padding: 9px 3px; font-size: 12px; line-height: 1.8; }
 .recipe-steps { padding-left: 24px; font-size: 13px; line-height: 1.9; }
 .recipe-steps li { padding: 0 0 10px 3px; }
+.planner-explanation { margin: 0 0 24px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.planner-explanation > summary { padding: 15px 18px; color: var(--teal); font-size: 13px; font-weight: 600; }
+.planner-explanation .details-content { padding: 0 18px 14px; font-size: 13px; line-height: 1.9; }
+.planner-explanation ol { padding-left: 23px; }
+.planner-explanation li { margin-bottom: 10px; }
+.planner-explanation h4 { margin: 18px 0 8px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @media (min-width: 1650px) {
   .app-layout { grid-template-columns: 228px minmax(0, 1fr); }
@@ -615,7 +621,7 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 .recipe-facets > label { min-width:0; width:100%; }
 .food-confirmation { display:inline-block; margin-top:9px; padding:3px 7px; border:1px solid #d9cba0; border-radius:3px; color:#72622a; background:#fff9e9; font-size:10px; }
 .food-nature { color:var(--teal); font-weight:600; }
-.source-note { padding:12px; border-left:3px solid var(--teal); background:#f0f6f3; font-size:12px; line-height:1.8; }
+.source-note { overflow-wrap:anywhere; padding:12px; border-left:3px solid var(--teal); background:#f0f6f3; font-size:12px; line-height:1.8; }
 #catalog-type-note { margin-top:0; }
 @media(max-width:640px){ .recipe-facets { grid-template-columns:1fr; gap:10px; } }
 
