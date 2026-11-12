@@ -10,18 +10,24 @@ export const FOOD_CATEGORIES = Object.freeze([
 
 /** 料理の形を表します。手作り・即席などの nature とは区別します。 */
 export const COOKING_METHODS = Object.freeze([
-  ['karaage', '唐揚げ'], ['cutlet', 'フライ・カツ'], ['croquette', 'コロッケ'],
+  ['fried', '揚げ物'],
   ['sashimi', '刺身'], ['grill', '焼き物'], ['simmer', '煮物'],
   ['hotpot', '鍋料理'], ['stew', '煮込み'],
   ['meuniere', 'ムニエル'], ['stir-fry', '炒め物'], ['steam', '蒸し物'],
   ['boil', 'ゆで物'], ['dressed', '和え物'], ['salad', 'サラダ'],
-  ['pickled', '酢の物・漬物'], ['cold', '冷菜'], ['fry', 'その他の揚げ物'],
+  ['pickled', '酢の物・漬物'], ['cold', '冷菜'],
   ['other', 'その他'],
 ].map(([id, label]) => Object.freeze({id, label})));
 
 const familyById = new Map(CATALOG_CATEGORIES.map(item => [item.id, item]));
 const categoryById = new Map(FOOD_CATEGORIES.map(item => [item.id, item]));
 const methodById = new Map(COOKING_METHODS.map(item => [item.id, item]));
+// 料理名・旧ソースにある細分類は保ちながら、選択肢は一つにまとめます。
+const friedDetails = new Map([
+  ['karaage', '唐揚げ'], ['cutlet', 'フライ・カツ'],
+  ['croquette', 'コロッケ'], ['fry', 'その他の揚げ物'],
+]);
+const normaliseMethod = method => friedDetails.has(method) ? 'fried' : method;
 const natureById = new Map(FOOD_NATURES.map(item => [item.id, item]));
 const sections = new Set(['main', 'side', 'staple', 'soup', 'drink', 'snack']);
 const normalise = value => String(value ?? '').normalize('NFKC').toLocaleLowerCase('ja-JP').trim();
@@ -347,7 +353,7 @@ const auditedRows = [
 
 const audited = new Map();
 for (const [id, category, method, ...secondaryCategories] of auditedRows) {
-  if (audited.has(id) || !categoryById.has(category) || !methodById.has(method) ||
+  if (audited.has(id) || !categoryById.has(category) || !methodById.has(normaliseMethod(method)) ||
       secondaryCategories.some(value => !categoryById.has(value) || value === category) ||
       new Set(secondaryCategories).size !== secondaryCategories.length) {
     throw new Error(`料理の階層分類を確認してください: ${id}`);
@@ -366,7 +372,7 @@ function sourceClassification(recipe) {
   const category = recipe.displayCategory, method = recipe.displayMethod;
   const secondaryCategories = recipe.displaySecondaryCategories === undefined ? [] : recipe.displaySecondaryCategories;
   if (!Object.hasOwn(recipe, 'displayCategory') || !Object.hasOwn(recipe, 'displayMethod') ||
-      !categoryById.has(category) || !methodById.has(method) || !Array.isArray(secondaryCategories) ||
+      !categoryById.has(category) || !methodById.has(normaliseMethod(method)) || !Array.isArray(secondaryCategories) ||
       secondaryCategories.some(id => !categoryById.has(id) || id === category) ||
       new Set(secondaryCategories).size !== secondaryCategories.length) {
     throw new Error(`料理の表示用分類を確認してください: ${recipe.id ?? recipe.name ?? ''}`);
@@ -380,7 +386,8 @@ export function dishClassification(recipe) {
   // source 専用の表示情報です。保存形式や手入力の項目を増やしません。
   const entry = isDish(section) && recipe.custom !== true ? sourceClassification(recipe) ?? audited.get(recipe.id) : undefined;
   return {section, category:entry?.category ?? 'other',
-    secondaryCategories:[...(entry?.secondaryCategories ?? [])], method:entry?.method ?? 'other'};
+    secondaryCategories:[...(entry?.secondaryCategories ?? [])], method:normaliseMethod(entry?.method ?? 'other'),
+    ...(friedDetails.has(entry?.method) ? {methodDetail:entry.method} : {})};
 }
 
 function checkedOptions(options) {
@@ -388,11 +395,11 @@ function checkedOptions(options) {
   const {section = 'all', category = 'all', method = 'all', query = '', nature = 'all'} = options ?? {};
   if ((section !== 'all' && !sections.has(section)) ||
       (category !== 'all' && !categoryById.has(category)) ||
-      (method !== 'all' && !methodById.has(method)) ||
+      (method !== 'all' && !methodById.has(normaliseMethod(method))) ||
       (nature !== 'all' && !natureById.has(nature)) || typeof query !== 'string') {
     throw new Error('料理を探す条件を確認してください。');
   }
-  return {section, category, method, query:normalise(query), nature};
+  return {section, category, method:normaliseMethod(method), query:normalise(query), nature};
 }
 
 function matchesQuery(recipe, classification, query) {
@@ -402,6 +409,7 @@ function matchesQuery(recipe, classification, query) {
     ...(recipe.tags ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)];
   if (isDish(classification.section)) words.push(categoryById.get(classification.category).label,
     methodById.get(classification.method).label,
+    friedDetails.get(classification.methodDetail) ?? '',
     ...classification.secondaryCategories.map(id => categoryById.get(id).label));
   return normalise(words.join(' ')).includes(query);
 }

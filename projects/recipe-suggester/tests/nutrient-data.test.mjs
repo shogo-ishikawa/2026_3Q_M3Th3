@@ -313,3 +313,18 @@ test('familiar cooked dishes use the actual raw cut or species and drained produ
   assert.match(INGREDIENT_NUTRITION.pork_belly.nutritionSource, /調理前の重量/);
   close(value('parmesan_cheese', 'salt', 5), 0.19);
 });
+
+test('追加のいくらと酒類は公式値と体積換算を使い、数字の0を不明値にしない',()=>{
+  close(value('ikura_salted','kcal',100),252);close(value('ikura_salted','protein',100),32.6);close(value('ikura_salted','salt',100),2.3);
+  close(value('perf_beer','kcal',350),39*1.008*3.5);
+  for(const key of ['fat','fiber','salt'])assert.equal(INGREDIENT_NUTRITION.perf_beer.nutritionPerUnit[key],0);
+  close(value('perf_wine_white','carbs',150),2*0.998*1.5);
+  assert.equal(INGREDIENT_NUTRITION.perf_chuhai.nutritionPerUnit.fat,null);
+});
+
+test('商品用の購入材料は未測定値を残し、商品表示と一般成分表を混同しない',()=>{
+  for(const [id,meta]of Object.entries(INGREDIENT_NUTRITION).filter(([id])=>id.startsWith('perf_')&&!['perf_beer','perf_black_beer','perf_sake','perf_wine_red','perf_wine_white','perf_shochu','perf_whisky','perf_umeshu','perf_chuhai'].includes(id))){
+    assert.deepEqual(Object.values(meta.nutritionPerUnit),[null,null,null,null,null,null],id);
+    assert.match(meta.nutritionSource,/公式表示|商品/);
+  }
+});

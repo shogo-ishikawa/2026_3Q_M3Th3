@@ -147,6 +147,46 @@ test('sushi piece counts and packaged meal counts scale the original serving', (
   assert.equal(quantityFromAmount(sushi,data,4),0.5);
   const instant = meal('cup','カップ麺','staple',{family:'ramen',portion:{amount:1,unit:'食'}});
   assert.equal(quantityFromAmount(instant,data,2),2);
+  const maki = meal('maki','細巻き','staple',{family:'sushi',portion:{amount:1,unit:'切れ'}});
+  assert.equal(quantityFromAmount(maki,data,3),3);
+  const bar = meal('bar','補食バー','snack',{family:'functional-snack',portion:{amount:1,unit:'本'}});
+  assert.equal(quantityFromAmount(bar,data,0.5),0.5);
+});
+
+test('清涼飲料水と酒・プロテイン飲料・その他の飲み物を分ける', () => {
+  const categories = new Map(CATALOG_CATEGORIES.map(category=>[category.id,category]));
+  assert.equal(categories.get('soft-drink').label,'清涼飲料水');
+  for (const family of ['alcohol','protein-drink','other-drink']) assert.equal(categories.get(family).role,'drink');
+  assert.equal(categories.get('functional-snack').role,'snack');
+  for (const name of ['コーラ','スポーツドリンク','エナジードリンク','レモネード']) {
+    assert.equal(recipeFamily(meal('custom-'+name,name,'drink')),'soft-drink',name);
+  }
+  for (const name of ['ビール','赤ワイン','日本酒','焼酎','ウイスキー','ハイボール']) {
+    const recipe=meal('custom-'+name,name,'drink');
+    assert.equal(recipeFamily(recipe),'alcohol',name);
+    assert.equal(isCompleteMeal(recipe),false,name);
+  }
+  assert.equal(recipeFamily(meal('non-alcoholic-beer','ノンアルコールビール','drink')),'soft-drink');
+  for (const name of ['ホエイプロテイン','ソイプロテイン']) {
+    assert.equal(recipeFamily(meal('custom-'+name,name,'drink')),'protein-drink',name);
+  }
+  for (const id of ['drink-milk-cocoa','drink-soy-cocoa','drink-yogurt']) assert.equal(recipeFamily(byId(id)),'other-drink',id);
+  for (const id of ['daily-drink-cola','daily-drink-sports','daily-drink-lemonade']) assert.equal(recipeFamily(byId(id)),'soft-drink',id);
+  for (const name of ['プロテインバー','サラダチキン','バランス栄養食品']) {
+    assert.equal(recipeFamily(meal('custom-'+name,name,'snack')),'functional-snack',name);
+  }
+});
+
+test('新飲料の量は元の基準量を使い、プロテインの粉gを完成mlへ足さない', () => {
+  const beer=meal('beer','ビール','drink',{family:'alcohol',portion:{amount:350,unit:'ml'}});
+  assert.equal(quantityFromAmount(beer,data,175),0.5);
+  const ingredients={...INGREDIENTS,protein_powder:{unit:'g'}};
+  const mixed=meal('soy-protein','ソイプロテイン','drink',{family:'protein-drink',ingredients:[{id:'water',amount:400},{id:'protein_powder',amount:60}]});
+  assert.equal(recipePortion(mixed,{ingredients}).unit,'杯');
+  const ready={...mixed,portion:{amount:200,unit:'ml'}};
+  assert.equal(quantityFromAmount(ready,{ingredients},100),0.5);
+  assert.equal(catalogVariants([beer,mixed], 'protein-drink').length,1);
+  assert.deepEqual(catalogFamilies([beer,mixed],{role:'snack'}),[]);
 });
 
 test('cooking form filters refine dish families without replacing them', () => {

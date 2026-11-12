@@ -59,7 +59,10 @@
         "catalog-metadata.js",
         "dish-hierarchy.js",
         "familiar-mains.js",
-        "familiar-sides.js"
+        "familiar-sides.js",
+        "record-actions.js",
+        "sushi-foods.js",
+        "performance-foods.js"
       ]
     },
     {

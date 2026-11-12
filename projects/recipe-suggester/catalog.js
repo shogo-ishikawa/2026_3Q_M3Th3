@@ -19,11 +19,14 @@ export const CATALOG_CATEGORIES = Object.freeze([
   ['miso-soup', 'みそ汁', 'soup'], ['soup', 'スープ・汁物', 'soup'],
   ['water', '水・炭酸水', 'drink'], ['tea', 'お茶・紅茶', 'drink'],
   ['coffee', 'コーヒー', 'drink'], ['milk', '牛乳・豆乳', 'drink'],
-  ['juice', 'ジュース', 'drink'], ['soft-drink', 'その他の飲み物', 'drink'],
+  ['juice', 'ジュース', 'drink'], ['soft-drink', '清涼飲料水', 'drink'],
+  ['protein-drink', 'プロテイン飲料', 'drink'], ['alcohol', 'お酒', 'drink'],
+  ['other-drink', 'その他の飲み物', 'drink'],
   ['snack', 'スナック', 'snack'], ['sweets', 'お菓子', 'snack'],
   ['dessert', 'スイーツ', 'snack'], ['cheese', 'チーズ', 'snack'],
   ['hot-snack', 'ホットスナック', 'snack'], ['fruit', '果物', 'snack'],
   ['nuts', 'ナッツ', 'snack'], ['yoghurt', 'ヨーグルト', 'snack'],
+  ['functional-snack', '補食・栄養補助食品', 'snack'],
 ].map(([id, label, role]) => Object.freeze({id, label, role})));
 
 /** 料理の種類とは別に扱う調理・提供形態。栄養の良し悪しを表しません。 */
@@ -35,7 +38,7 @@ export const FOOD_NATURES = Object.freeze([
 
 const categories = new Map(CATALOG_CATEGORIES.map(category => [category.id, category]));
 const natures = new Set(FOOD_NATURES.map(nature => nature.id));
-const portionUnits = new Set(['g', 'ml', '個', '皿', '杯', '枚', '袋', '貫', '食', '人分']);
+const portionUnits = new Set(['g', 'ml', '個', '皿', '杯', '枚', '袋', '貫', '切れ', '本', '食', '人分']);
 const completeFamilies = new Set(['pasta', 'curry', 'fried-rice', 'udon', 'soba', 'yakisoba', 'donburi', 'ramen', 'pizza', 'somen', 'sushi', 'omelette-rice', 'burger']);
 const riceIngredients = new Set(['rice', 'brown_rice', 'cooked_barley']);
 const drinkFlavourings = new Set(['sugar', 'salt', 'ginger', 'lemon_slice']);
@@ -70,14 +73,19 @@ export function recipeFamily(recipe) {
   const id = String(recipe.id ?? ''), name = String(recipe.name ?? ''), text = normalise(`${id} ${name}`);
   if (recipe.role === 'soup') return /みそ汁|味噌汁|豚汁|miso-soup/.test(text) ? 'miso-soup' : 'soup';
   if (recipe.role === 'drink') {
+    const alcoholFree = /ノンアル|non[- ]?alcohol|alcohol[- ]?free/.test(text);
+    if (!alcoholFree && /alcohol|beer|wine|shochu|whisk(?:y|ey)|chuhai|highball|ビール|ワイン|日本酒|焼酎|ウイスキー|ウォッカ|ラム酒|カクテル|リキュール|チューハイ|酎ハイ|ハイボール/.test(text)) return 'alcohol';
+    if (/protein|プロテイン/.test(text)) return 'protein-drink';
     if (/water|レモン水|炭酸水/.test(text) || name === '水') return 'water';
     if (/coffee|latte|cafe-au-lait|コーヒー|カフェオレ|ラテ/.test(text)) return 'coffee';
     if (/tea|紅茶|緑茶|ほうじ茶|麦茶|ウーロン茶|烏龍茶/.test(text)) return 'tea';
     if (/juice|ジュース/.test(text)) return 'juice';
     if (/milk|soy-milk|牛乳|豆乳/.test(text) && !/cocoa|ココア|yogurt|yoghurt|ヨーグルト/.test(text)) return 'milk';
-    return 'soft-drink';
+    if (alcoholFree || /soft-drink|cola|sports-drink|energy-drink|コーラ|スポーツドリンク|エナジードリンク|レモネード|サイダー|ラムネ/.test(text)) return 'soft-drink';
+    return 'other-drink';
   }
   if (recipe.role === 'snack') {
+    if (/protein[-_ ]?bar|energy[-_ ]?bar|meal[-_ ]?block|salad[-_ ]?chicken|プロテインバー|栄養調整食品|バランス栄養食品|サラダチキン|カロリーメイト/.test(text)) return 'functional-snack';
     if (/hot-snack|chicken|karaage|takoyaki|fries|nikuman|唐揚|から揚|チキン|たこ焼|フライドポテト|肉まん/.test(text)) return 'hot-snack';
     if (/yogurt|yoghurt|ヨーグルト/.test(text)) return 'yoghurt';
     if (/cheese|チーズ/.test(text)) return 'cheese';

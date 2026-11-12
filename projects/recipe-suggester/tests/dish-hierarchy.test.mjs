@@ -65,11 +65,36 @@ test('同じ揚げ物の大分類でも主材料と料理の形で正しく分�
   for (const [id,category,method] of expected) {
     const result = dishClassification(byId(id));
     assert.equal(result.category,category,id);
-    assert.equal(result.method,method,id);
+    assert.equal(result.method,'fried',id);
+    assert.equal(result.methodDetail,method,id);
   }
   assert.equal(recipeFamily(byId('classic-menchi')),'cutlet');
   assert.equal(recipeFamily(byId('classic-croquette-potato')),'cutlet');
   assert.equal(recipeFamily(byId('classic-aji-fry')),'cutlet');
+});
+
+test('揚げ物の選択肢を一つにまとめ、旧ソースと旧フィルターを受け付ける', () => {
+  const oldMethods = new Set(['karaage','cutlet','croquette','fry']);
+  assert.ok(COOKING_METHODS.some(item => item.id === 'fried' && item.label === '揚げ物'));
+  assert.ok(!COOKING_METHODS.some(item => oldMethods.has(item.id)));
+  const fried = browseDishes(RECIPES,{method:'fried'});
+  assert.ok(fried.length>10);
+  assert.equal(new Set(ids(fried)).size,fried.length);
+  assert.ok(fried.every(recipe => dishClassification(recipe).method === 'fried'));
+  assert.ok(fried.includes(byId('classic-croquette-potato')));
+  assert.ok(fried.includes(byId('classic-menchi')));
+  assert.ok(fried.includes(byId('daily-snack-oven-karaage')));
+  assert.ok(fried.includes(byId('familiar-side-agedashi-tofu')));
+  for (const method of oldMethods) assert.deepEqual(browseDishes(RECIPES,{method}),fried,method);
+  assert.deepEqual(availableCookingMethods(RECIPES,{method:'fried'}),[{id:'fried',label:'揚げ物',count:fried.length}]);
+  assert.equal(availableCookingMethods(RECIPES).filter(item => item.id === 'fried').length,1);
+  for (const method of oldMethods) {
+    const source={id:'legacy-'+method,name:'旧ソースの料理',role:'main',family:'main',displayCategory:'meat',displayMethod:method};
+    assert.deepEqual(dishClassification(source),{section:'main',category:'meat',secondaryCategories:[],method:'fried',methodDetail:method});
+  }
+  const source={id:'new-fried',name:'新ソースの料理',role:'main',family:'main',displayCategory:'meat',displayMethod:'fried'};
+  assert.deepEqual(dishClassification(source),{section:'main',category:'meat',secondaryCategories:[],method:'fried'});
+  assert.ok(browseDishes(RECIPES,{query:'揚げ物',method:'fried'}).length>=fried.length);
 });
 
 test('卵・豆・野菜の小鉢は料理の実態を使い、調味料の原料では分類しない', () => {

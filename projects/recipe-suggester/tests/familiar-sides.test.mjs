@@ -26,7 +26,7 @@ test('生野菜と定番の副菜31品・汁物6品を既存DBと重複なく追
 });
 
 test('添え物を含む材料・人数可変の手順・表示用階層を明示する',()=>{
-  const categories=new Set(FOOD_CATEGORIES.map(item=>item.id)),methods=new Set(COOKING_METHODS.map(item=>item.id));
+  const categories=new Set(FOOD_CATEGORIES.map(item=>item.id)),methods=new Set([...COOKING_METHODS.map(item=>item.id),'karaage','cutlet','croquette','fry']);
   for(const recipe of FAMILIAR_SIDE_RECIPES){
     assert.equal(recipe.servings,2,recipe.id);assert.equal(recipe.nature,'home-cooked',recipe.id);
     assert.equal(recipe.allergensKnown,true,recipe.id);assert.equal(recipe.ingredientsKnown,true,recipe.id);
@@ -44,7 +44,7 @@ test('添え物を含む材料・人数可変の手順・表示用階層を明�
     assert.equal(new Set(recipe.ingredients.map(part=>part.id)).size,recipe.ingredients.length,recipe.id);
     assert.doesNotThrow(()=>describeRecipe(recipe.id,data),recipe.id);
     if(recipe.role==='side'){
-      const display=dishClassification(recipe);assert.equal(display.category,recipe.displayCategory,recipe.id);assert.equal(display.method,recipe.displayMethod,recipe.id);
+      const display=dishClassification(recipe);assert.equal(display.category,recipe.displayCategory,recipe.id);assert.equal(display.method,['karaage','cutlet','croquette','fry'].includes(recipe.displayMethod)?'fried':recipe.displayMethod,recipe.id);
     }else assert.equal(dishClassification(recipe).section,'soup',recipe.id);
   }
 });
