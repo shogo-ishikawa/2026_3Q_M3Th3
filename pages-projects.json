@@ -56,7 +56,10 @@
         "classics-mains.js",
         "classics-sides.js",
         "prepared-foods.js",
-        "catalog-metadata.js"
+        "catalog-metadata.js",
+        "dish-hierarchy.js",
+        "familiar-mains.js",
+        "familiar-sides.js"
       ]
     },
     {

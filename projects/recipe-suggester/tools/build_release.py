@@ -8,7 +8,7 @@ FILES = (
     "README.md", "VERSION", "package.json", "CLAUDE_CODE_PROMPT.md",
     "index.html", "styles.css", "app.js", "storage.js", "planner.js", "data.js",
     "recipe_suggester.ipynb", "meal_planner.ipynb",
-    "classics-mains.js", "classics-sides.js", "prepared-foods.js", "catalog-metadata.js",
+    "classics-mains.js", "classics-sides.js", "prepared-foods.js", "catalog-metadata.js", "dish-hierarchy.js", "familiar-mains.js", "familiar-sides.js",
     "catalog.js", "dietary-reference.js", "intake.js", "tabs.js", "everyday-foods.js", "app-icon.svg",
     "journal.js", "nutrition.js", "shopping.js", "ingredient-nutrients.js", "expanded-foods.js",
 )

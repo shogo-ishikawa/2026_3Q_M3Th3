@@ -290,3 +290,26 @@ test('unidentified bought products keep unknown components separate from complet
     assert.doesNotMatch(INGREDIENT_NUTRITION[id].nutritionSource, /食品番号/);
   }
 });
+
+test('familiar cooked dishes use the actual raw cut or species and drained product weight', () => {
+  // MEXT 2026-03-27 corrected table: kcal, protein, fat, carbs, fibre, salt per edible 100g.
+  for (const [id, code, expected] of [
+    ['flounder', '10100', [89, 19.6, 1.3, 0.1, 0, 0.3]],
+    ['yellowtail', '10241', [222, 21.4, 17.6, 0.3, 0, 0.1]],
+    ['beef_stew_cut', '11064', [221, 17.9, 17.4, 0.1, 0, 0.1]],
+    ['pork_belly', '11129', [366, 14.4, 35.4, 0.1, 0, 0.1]],
+    ['shirataki', '02005', [7, 0.2, null, 3, 2.9, 0]],
+    ['parmesan_cheese', '13038', [445, 44, 30.8, 1.9, 0, 3.8]],
+  ]) {
+    for (const [index, key] of keys.entries()) {
+      if (expected[index] === null) assert.equal(INGREDIENT_NUTRITION[id].nutritionPerUnit[key], null);
+      else close(value(id, key, 100), expected[index]);
+    }
+    assert.match(INGREDIENT_NUTRITION[id].nutritionSource, new RegExp(`食品番号${code}`));
+  }
+  assert.deepEqual(INGREDIENT_NUTRITION.beef_stew_cut.nutritionPerUnit, INGREDIENT_NUTRITION.beef.nutritionPerUnit);
+  assert.deepEqual(INGREDIENT_NUTRITION.yellowtail.nutritionPerUnit, INGREDIENT_NUTRITION.yellowtail_sashimi.nutritionPerUnit);
+  assert.match(INGREDIENT_NUTRITION.flounder.nutritionSource, /骨付き切り身の総重量とは区別/);
+  assert.match(INGREDIENT_NUTRITION.pork_belly.nutritionSource, /調理前の重量/);
+  close(value('parmesan_cheese', 'salt', 5), 0.19);
+});

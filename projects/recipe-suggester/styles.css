@@ -618,3 +618,11 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 .source-note { padding:12px; border-left:3px solid var(--teal); background:#f0f6f3; font-size:12px; line-height:1.8; }
 #catalog-type-note { margin-top:0; }
 @media(max-width:640px){ .recipe-facets { grid-template-columns:1fr; gap:10px; } }
+
+/* Main and side dishes: section > ingredient category > cooking method. */
+.hierarchy-guide { margin:18px 0 0; color:var(--muted); font-size:12px; line-height:1.8; }
+.recipe-facets { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.recipe-results-count { margin:20px 0 0; font-size:11px; color:var(--teal); }
+.menu-picker .catalog-item-label { grid-column:1/-1; }
+.recipe-card .recipe-meta { line-height:1.7; }
+@media(max-width:640px){ .recipe-facets { grid-template-columns:1fr; } }

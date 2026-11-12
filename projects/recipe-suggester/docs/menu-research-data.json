@@ -1,0 +1,1048 @@
+{
+  "reviewedOn": "2026-11-13",
+  "version": "3.2.0",
+  "scope": "一般料理の品揃えと分類を確認するための一次資料。店舗の商品レシピ・栄養値の再現ではありません。",
+  "mainAndStaples": {
+    "checkedDate": "2026-11-12",
+    "scope": "公式メニューで一般的な料理の見落としを確認。商品名の独自部分、写真、説明文、配合、手順、商品栄養値は転載しない。新しい手順は本アプリ向けの家庭用の一般例。",
+    "count": 50,
+    "mainCount": 37,
+    "stapleCount": 13,
+    "newIngredientIds": [
+      "flounder",
+      "yellowtail",
+      "beef_stew_cut",
+      "pork_belly",
+      "shirataki"
+    ],
+    "sources": [
+      {
+        "shop": "かつや",
+        "url": "https://www.arclandservice.co.jp/katsuya/menu/",
+        "confirmedGeneralDishes": [
+          "カツ丼",
+          "ソースカツ丼",
+          "チキンカツ丼"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-katsudon",
+          "familiar-sauce-katsudon",
+          "familiar-chicken-katsudon"
+        ],
+        "notes": "チキンカツ丼は固有のねぎタル商品を再現せず、卵とじの家庭用一般例を作成。"
+      },
+      {
+        "shop": "天丼てんや",
+        "url": "https://www.tenya.co.jp/menu/",
+        "confirmedGeneralDishes": [
+          "天丼",
+          "野菜天丼",
+          "天ぷら",
+          "海鮮かき揚げ天丼"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-tendon",
+          "familiar-kakiage-don",
+          "familiar-tempura-assorted"
+        ],
+        "notes": "かき揚げ丼は家庭で作りやすい野菜配合とし、店固有の天種やたれを再現しない。"
+      },
+      {
+        "shop": "やよい軒",
+        "url": "https://www.yayoiken.com/menu_list/index/27",
+        "confirmedGeneralDishes": [
+          "和風おろしハンバーグ",
+          "デミハンバーグ",
+          "チーズハンバーグ",
+          "エビフライ",
+          "白身フライ",
+          "すき焼き",
+          "かつ丼"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-hamburg-oroshi",
+          "familiar-hamburg-cheese",
+          "familiar-shrimp-fry",
+          "familiar-white-fish-fry",
+          "familiar-sukiyaki",
+          "familiar-katsudon"
+        ],
+        "notes": "煮込みハンバーグはソース違いを実際の調理の違いとして補完した家庭例。"
+      },
+      {
+        "shop": "ロイヤルホスト",
+        "url": "https://www.royalhost.jp/menu/grand/yoshoku/",
+        "confirmedGeneralDishes": [
+          "ビーフシチュー",
+          "マカロニグラタン",
+          "シーフードドリア",
+          "ポークロースステーキ"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-beef-stew",
+          "familiar-chicken-macaroni-gratin",
+          "familiar-seafood-doria",
+          "familiar-pork-saute"
+        ],
+        "notes": "グラタンはチキン、ドリアは手持ち食材のえび/いかで構成。店舗商品の具材や重量を再現しない。"
+      },
+      {
+        "shop": "ロイヤルホスト",
+        "url": "https://www.royalhost.jp/menu/grand/royalhost_hamburg/",
+        "confirmedGeneralDishes": [
+          "ハンバーグ",
+          "和風おろしハンバーグ",
+          "ビーフシチューハンバーグ"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-hamburg-oroshi",
+          "familiar-hamburg-stew"
+        ],
+        "alreadyCovered": [
+          "classic-hamburg"
+        ],
+        "notes": "普通の合いびきハンバーグは既存を再利用し、新IDで二重登録しない。"
+      },
+      {
+        "shop": "餃子の王将",
+        "url": "https://www.ohsho.co.jp/menu/east/",
+        "confirmedGeneralDishes": [
+          "油淋鶏",
+          "棒々鶏",
+          "酢豚",
+          "豚キムチ",
+          "天津飯",
+          "中華飯",
+          "野菜炒め"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-yurinchi",
+          "familiar-bangbangji",
+          "familiar-sweet-sour-pork",
+          "familiar-pork-kimchi",
+          "familiar-tenshinhan"
+        ],
+        "alreadyCovered": [
+          "daily-donburi-chinese",
+          "pork-vinegar",
+          "tofu-mapo",
+          "shrimp-chilli"
+        ],
+        "notes": "酢豚のみ、既存の揚げない作り方に対して実際に衣を付けて揚げる例として追加。中華飯は既存中華丼を案内。"
+      },
+      {
+        "shop": "大阪王将",
+        "url": "https://www.osaka-ohsho.com/store/upload/25AFWN7-menu2.pdf",
+        "confirmedGeneralDishes": [
+          "八宝菜",
+          "麻婆茄子"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-happosai",
+          "familiar-mapo-aubergine"
+        ],
+        "notes": "調査担当が公式店舗メニューPDFで確認。標準名のみ参考にし、野菜を主材料として分類。"
+      },
+      {
+        "shop": "木曽路",
+        "url": "https://shabu-shabu.kisoji.co.jp/menu/",
+        "confirmedGeneralDishes": [
+          "しゃぶしゃぶ",
+          "すきやき"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-pork-shabu",
+          "familiar-sukiyaki"
+        ],
+        "notes": "しゃぶしゃぶは家庭用の豚肉配合。店固有の肉種やごまだれを再現しない。"
+      },
+      {
+        "shop": "博多華味鳥",
+        "url": "https://www.hanamidori.net/menu-lunch/",
+        "confirmedGeneralDishes": [
+          "水炊き"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-mizutaki"
+        ],
+        "notes": "骨なし鶏肉と野菜の家庭用の水炊きとして新規構成。"
+      },
+      {
+        "shop": "夢庵",
+        "url": "https://www.skylark.co.jp/yumean/menu/syabusyabu/index.html",
+        "confirmedGeneralDishes": [
+          "寄せ鍋",
+          "ちゃんこ鍋"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-yose-nabe",
+          "familiar-chanko-nabe"
+        ],
+        "notes": "鍋という料理の不足を確認。店のだしや食べ放題セットの配合は使用しない。"
+      },
+      {
+        "shop": "鳥貴族",
+        "url": "https://torikizoku.co.jp/menu/yakitori/",
+        "confirmedGeneralDishes": [
+          "鶏もも肉とねぎの串焼き"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-yakitori-negima"
+        ],
+        "notes": "一般名のねぎまとして、家庭用のフライパン調理を作成。"
+      },
+      {
+        "shop": "やよい軒",
+        "url": "https://www.yayoiken.com/menu_list/view/29/747",
+        "confirmedGeneralDishes": [
+          "肉野菜炒め"
+        ],
+        "adoptedRecipeIds": [
+          "familiar-meat-vegetable-stir-fry"
+        ],
+        "notes": "調査担当確認。既存の特定野菜/みそ味/蒸し料理と区別し、キャベツ・もやし・にらを炒める一般例。"
+      }
+    ],
+    "supplementaryPrimarySources": [
+      {
+        "organisation": "農林水産省",
+        "url": "https://www.maff.go.jp/j/balance_guide/b_sizai/pdf/all_5.pdf",
+        "use": "さけのムニエルという主菜の一般名を確認。レシピや栄養値は転用しない。"
+      },
+      {
+        "organisation": "生活協同組合コープこうべ",
+        "url": "https://cooking.coop-kobe.net/recipe/61547.php",
+        "use": "鮭のムニエルという料理名を補助確認。ソースや手順の転載はしない。"
+      }
+    ],
+    "duplicateDecisions": [
+      {
+        "existingId": "classic-hamburg",
+        "existingName": "合いびきハンバーグ",
+        "decision": "牛豚各150gの一般的なハンバーグが既存。名前の入口不足として案内し、同じ中身の新しい「ハンバーグ」を作らない。"
+      },
+      {
+        "existingId": "daily-donburi-chinese",
+        "existingName": "中華丼",
+        "decision": "中華飯は同系統の一般名。重複追加せず既存の主食を案内。"
+      },
+      {
+        "existingId": "pork-cabbage",
+        "existingName": "豚肉とキャベツのみそ炒め",
+        "decision": "回鍋肉に近い既存料理。名前だけを変える追加をしない。"
+      },
+      {
+        "existingId": "beef-pepper",
+        "existingName": "牛肉とピーマンの細切り炒め",
+        "decision": "青椒肉絲に近い既存料理。名前だけを変える追加をしない。"
+      },
+      {
+        "existingId": "pork-vinegar",
+        "existingName": "揚げない酢豚",
+        "newId": "familiar-sweet-sour-pork",
+        "decision": "元版を保持し、揚げる酢豚を明示的に別調理法として追加。"
+      }
+    ],
+    "homeCookingComplements": [
+      {
+        "id": "familiar-salmon-meuniere",
+        "name": "鮭のムニエル",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-cod-meuniere",
+        "name": "たらのムニエル",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-aji-meuniere",
+        "name": "あじのムニエル",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-flounder-simmer",
+        "name": "かれいの煮付け",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-buri-daikon",
+        "name": "ぶり大根",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-buri-teriyaki",
+        "name": "ぶりの照り焼き",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-mackerel-tatsuta",
+        "name": "さばの竜田揚げ",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-squid-rings",
+        "name": "いかリングフライ",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-chicken-cream-stew",
+        "name": "チキンクリームシチュー",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-pork-cream-stew",
+        "name": "ポーククリームシチュー",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-pork-kakuni",
+        "name": "豚の角煮",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-cabbage-roll",
+        "name": "ロールキャベツ",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-kimchi-nabe",
+        "name": "キムチ鍋",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-sesame-soy-nabe",
+        "name": "ごま豆乳鍋",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-yudofu",
+        "name": "湯豆腐",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-sundubu",
+        "name": "スンドゥブ",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-kaisen-don",
+        "name": "海鮮丼",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-tekka-don",
+        "name": "鉄火丼",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-salmon-don",
+        "name": "サーモン丼",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-loco-moco",
+        "name": "ロコモコ",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      },
+      {
+        "id": "familiar-hayashi-rice",
+        "name": "ハヤシライス",
+        "reason": "不足していた家庭料理・魚種・丼の選択肢を補う一般例。特定店舗の直接掲載を根拠としていない。"
+      }
+    ],
+    "recipes": [
+      {
+        "id": "familiar-salmon-meuniere",
+        "name": "鮭のムニエル",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "meuniere",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-cod-meuniere",
+        "name": "たらのムニエル",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "meuniere",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-aji-meuniere",
+        "name": "あじのムニエル",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "meuniere",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-flounder-simmer",
+        "name": "かれいの煮付け",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "simmer",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-buri-daikon",
+        "name": "ぶり大根",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "simmer",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-buri-teriyaki",
+        "name": "ぶりの照り焼き",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-mackerel-tatsuta",
+        "name": "さばの竜田揚げ",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "karaage",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-shrimp-fry",
+        "name": "エビフライ",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "cutlet",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-white-fish-fry",
+        "name": "白身魚のフライ",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "cutlet",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-squid-rings",
+        "name": "いかリングフライ",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "cutlet",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-tempura-assorted",
+        "name": "えびと野菜の天ぷら",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "fry",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-hamburg-oroshi",
+        "name": "和風おろしハンバーグ",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-hamburg-stew",
+        "name": "煮込みハンバーグ",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "stew",
+        "displaySecondaryCategories": [
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-hamburg-cheese",
+        "name": "チーズハンバーグ",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": [
+          "dairy"
+        ]
+      },
+      {
+        "id": "familiar-beef-stew",
+        "name": "ビーフシチュー",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "stew",
+        "displaySecondaryCategories": [
+          "vegetable",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-chicken-cream-stew",
+        "name": "チキンクリームシチュー",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "stew",
+        "displaySecondaryCategories": [
+          "vegetable",
+          "dairy"
+        ]
+      },
+      {
+        "id": "familiar-pork-cream-stew",
+        "name": "ポーククリームシチュー",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "stew",
+        "displaySecondaryCategories": [
+          "vegetable",
+          "dairy",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-pork-kakuni",
+        "name": "豚の角煮",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "simmer",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-cabbage-roll",
+        "name": "ロールキャベツ",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "stew",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-pork-saute",
+        "name": "ポークソテー",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-pork-kimchi",
+        "name": "豚キムチ",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "stir-fry",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-happosai",
+        "name": "八宝菜",
+        "role": "main",
+        "displayCategory": "vegetable",
+        "displayMethod": "stir-fry",
+        "displaySecondaryCategories": [
+          "meat",
+          "fish",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-sweet-sour-pork",
+        "name": "酢豚",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "fry",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-yurinchi",
+        "name": "油淋鶏",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "karaage",
+        "displaySecondaryCategories": []
+      },
+      {
+        "id": "familiar-bangbangji",
+        "name": "棒々鶏",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "steam",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-mapo-aubergine",
+        "name": "麻婆なす",
+        "role": "main",
+        "displayCategory": "vegetable",
+        "displayMethod": "stir-fry",
+        "displaySecondaryCategories": [
+          "meat"
+        ]
+      },
+      {
+        "id": "familiar-meat-vegetable-stir-fry",
+        "name": "肉野菜炒め",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "stir-fry",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-yakitori-negima",
+        "name": "焼き鳥（ねぎま）",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-yose-nabe",
+        "name": "寄せ鍋",
+        "role": "main",
+        "displayCategory": "fish",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "meat",
+          "bean",
+          "vegetable",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-kimchi-nabe",
+        "name": "キムチ鍋",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "bean",
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-mizutaki",
+        "name": "水炊き",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "vegetable",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-sukiyaki",
+        "name": "すき焼き",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "bean",
+          "vegetable",
+          "egg",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-pork-shabu",
+        "name": "豚しゃぶしゃぶ",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "vegetable",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-sesame-soy-nabe",
+        "name": "ごま豆乳鍋",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "bean",
+          "vegetable",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-chanko-nabe",
+        "name": "鶏つくねのちゃんこ鍋",
+        "role": "main",
+        "displayCategory": "meat",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "vegetable",
+          "bean",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-yudofu",
+        "name": "湯豆腐",
+        "role": "main",
+        "displayCategory": "bean",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-sundubu",
+        "name": "スンドゥブ",
+        "role": "main",
+        "displayCategory": "bean",
+        "displayMethod": "hotpot",
+        "displaySecondaryCategories": [
+          "fish",
+          "meat",
+          "egg"
+        ]
+      },
+      {
+        "id": "familiar-katsudon",
+        "name": "カツ丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "simmer",
+        "displaySecondaryCategories": [
+          "meat",
+          "egg"
+        ]
+      },
+      {
+        "id": "familiar-sauce-katsudon",
+        "name": "ソースカツ丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "cutlet",
+        "displaySecondaryCategories": [
+          "meat",
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-chicken-katsudon",
+        "name": "チキンカツ丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "simmer",
+        "displaySecondaryCategories": [
+          "meat",
+          "egg"
+        ]
+      },
+      {
+        "id": "familiar-tendon",
+        "name": "天丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "fry",
+        "displaySecondaryCategories": [
+          "fish",
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-kakiage-don",
+        "name": "野菜かき揚げ丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "fry",
+        "displaySecondaryCategories": [
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-tenshinhan",
+        "name": "天津飯",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": [
+          "egg",
+          "fish"
+        ]
+      },
+      {
+        "id": "familiar-kaisen-don",
+        "name": "海鮮丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "sashimi",
+        "displaySecondaryCategories": [
+          "fish"
+        ]
+      },
+      {
+        "id": "familiar-tekka-don",
+        "name": "鉄火丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "sashimi",
+        "displaySecondaryCategories": [
+          "fish"
+        ]
+      },
+      {
+        "id": "familiar-salmon-don",
+        "name": "サーモン丼",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "sashimi",
+        "displaySecondaryCategories": [
+          "fish"
+        ]
+      },
+      {
+        "id": "familiar-loco-moco",
+        "name": "ロコモコ",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": [
+          "meat",
+          "egg",
+          "vegetable"
+        ]
+      },
+      {
+        "id": "familiar-hayashi-rice",
+        "name": "ハヤシライス",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "stew",
+        "displaySecondaryCategories": [
+          "meat",
+          "vegetable",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-chicken-macaroni-gratin",
+        "name": "チキンマカロニグラタン",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": [
+          "meat",
+          "dairy",
+          "mushroom"
+        ]
+      },
+      {
+        "id": "familiar-seafood-doria",
+        "name": "シーフードドリア",
+        "role": "staple",
+        "displayCategory": "grain",
+        "displayMethod": "grill",
+        "displaySecondaryCategories": [
+          "fish",
+          "dairy"
+        ]
+      }
+    ]
+  },
+  "sidesAndSoups": {
+    "checkedOn": "2026-11-12",
+    "scope": "副菜・野菜料理・汁物。料理名と組み合わせの確認に一次資料を使い、家庭向けの材料・分量・手順は独自に記述した。商品説明文、写真、店舗商品の栄養値、非公開レシピは転載していない。",
+    "addedRecipes": 37,
+    "roleCounts": {
+      "side": 31,
+      "soup": 6
+    },
+    "addedIngredientIds": [
+      "parmesan_cheese"
+    ],
+    "sources": [
+      {
+        "name": "ファミリーマート公式商品情報",
+        "url": "https://www.family.co.jp/goods/salad/1211023.html",
+        "observedMenus": [
+          "野菜スティック（味噌マヨ）"
+        ],
+        "implementedIds": [
+          "familiar-side-sticks-miso-mayo"
+        ],
+        "adaptation": "添えるみそマヨを含めることを確認。家庭向けにはセロリも使い、みそ・マヨネーズ・砂糖を材料に明示した。実商品の配合やアレルゲンの転載ではない。"
+      },
+      {
+        "name": "デニーズ公式サラダ一覧",
+        "url": "https://www.dennys.jp/menu/salad/",
+        "observedMenus": [
+          "グリーンミックスサラダ"
+        ],
+        "implementedIds": [
+          "familiar-side-raw-vegetable",
+          "familiar-side-green-vinaigrette"
+        ],
+        "adaptation": "基本の生野菜皿と、家庭で調製するフレンチドレッシング付きの皿を区別した。ドレッシングなしの値にドレッシングを暗黙に含めない。"
+      },
+      {
+        "name": "ロイヤルホスト公式スープ・サラダ一覧",
+        "url": "https://www.royalhost.jp/menu/grand/salad/",
+        "observedMenus": [
+          "オニオングラタンスープ",
+          "コーンのポタージュ",
+          "グリルチキンサラダ"
+        ],
+        "implementedIds": [
+          "familiar-side-onion-gratin-soup",
+          "familiar-side-corn-potage",
+          "familiar-side-chicken-sesame-salad"
+        ],
+        "adaptation": "パンとチーズを含むスープ、なめらかなポタージュ、肉をのせるサラダの定番性を確認。チキンサラダは蒸し鶏とごまだれによる独自の家庭向け例。"
+      },
+      {
+        "name": "サイゼリヤ公式人気メニュー",
+        "url": "https://www.saizeriya.co.jp/menu-popular/1425/",
+        "observedMenus": [
+          "柔らか青豆の温サラダ"
+        ],
+        "implementedIds": [
+          "familiar-side-green-pea-egg"
+        ],
+        "adaptation": "豆・卵・チーズを合わせる温かい副菜の例を確認。家庭向けはグリーンピース、ゆで卵、ベーコン、パルメザンで独自に記述した。"
+      },
+      {
+        "name": "サイゼリヤ公式人気メニュー",
+        "url": "https://www.saizeriya.co.jp/menu-popular/1202/",
+        "observedMenus": [
+          "小エビのサラダ"
+        ],
+        "implementedIds": [
+          "familiar-side-shrimp-salad"
+        ],
+        "adaptation": "えびと葉物を合わせるサラダの定番性を確認。家庭向けはえびをゆで、油とレモンのドレッシングを使う独自レシピ。"
+      },
+      {
+        "name": "民芸炉ばた馬籠・店舗公式お品書き",
+        "url": "https://robata-magome.com/menu",
+        "observedMenus": [
+          "野菜サラダ",
+          "豆腐ヘルシーサラダ",
+          "大根サラダ",
+          "コーンバター",
+          "じゃがバター",
+          "えのきバター",
+          "山芋たんざく",
+          "オニオンスライス",
+          "梅きゅう"
+        ],
+        "implementedIds": [
+          "familiar-side-tofu-seaweed-salad",
+          "familiar-side-daikon-shirasu-salad",
+          "familiar-side-corn-butter",
+          "familiar-side-potato-butter",
+          "familiar-side-enoki-butter",
+          "familiar-side-yam-tanzaku",
+          "familiar-side-onion-slice",
+          "familiar-side-ume-cucumber"
+        ],
+        "adaptation": "居酒屋で選びやすい基本の小鉢と野菜料理を確認。だれや薬味も独自の材料表に含めた。"
+      },
+      {
+        "name": "鳥貴族公式スピードメニュー",
+        "url": "https://torikizoku.co.jp/menu/speed/",
+        "observedMenus": [
+          "味付煮玉子",
+          "キャベツ盛"
+        ],
+        "implementedIds": [
+          "familiar-side-seasoned-egg",
+          "familiar-side-salt-cabbage"
+        ],
+        "adaptation": "卵や生キャベツを小鉢として選ぶ入口を確認。キャベツの家庭向け例は塩・ごま油・レモンだれで店舗商品の味や配合を再現しない。"
+      },
+      {
+        "name": "千葉大学生協の公式案内からリンクされたCoMenu+食堂メニュー",
+        "entryUrl": "https://www.univcoop.jp/chiba-u/info/info_84.html",
+        "url": "https://comenu.jp/chiba-univ/391606/menu",
+        "observedMenus": [
+          "オクラおひたし",
+          "ブロッコリーシーザー和え"
+        ],
+        "implementedIds": [
+          "familiar-side-okra-ohitashi",
+          "familiar-side-broccoli-egg-salad"
+        ],
+        "adaptation": "学食の基本小鉢の不足を確認し、オクラのお浸しを追加した。ブロッコリーはシーザーの同名品を増やさず、ゆで卵と合わせる家庭向けサラダとして追加。"
+      }
+    ],
+    "directRequestsAndIndependentExamples": [
+      {
+        "menu": "シーザーサラダ",
+        "implementedId": "familiar-side-caesar",
+        "note": "ユーザー直接指定。卵・パルメザン・クルトン・ベーコンとドレッシングを材料に明示。"
+      },
+      {
+        "menu": "ポトフ",
+        "implementedId": "familiar-side-pot-au-feu",
+        "note": "ユーザー直接指定。ベーコンと野菜を煮る家庭向け例で、具と汁を含む汁物に固定。"
+      },
+      {
+        "menu": "温野菜・ロースト野菜",
+        "implementedIds": [
+          "familiar-side-warm-vegetables",
+          "familiar-side-roast-vegetables"
+        ],
+        "note": "蒸し物と焼き物を区別し、温野菜のごまだれも材料に含める。"
+      }
+    ],
+    "existingDatabaseReview": [
+      {
+        "id": "side-050",
+        "name": "野菜のラタトゥイユ",
+        "decision": "既存に本来の定番があるので重複追加しない。"
+      },
+      {
+        "id": "side-044",
+        "name": "にんじんとキャベツのコールスロー",
+        "decision": "基本例は維持し、コーンを主要な具に加えた別例だけを追加した。"
+      },
+      {
+        "id": "soup-011",
+        "name": "玉ねぎのあめ色スープ",
+        "decision": "基本スープは維持し、パンとチーズを含むグラタンスープを別レシピにした。"
+      },
+      {
+        "id": "soup-009",
+        "name": "コーンと玉ねぎのミルクスープ",
+        "decision": "粒のあるスープは維持し、つぶしてなめらかにするポタージュを別レシピにした。"
+      },
+      {
+        "id": "classic-side-smashed-cucumber",
+        "name": "たたききゅうり（ごま油）",
+        "decision": "同等になる塩だれきゅうりは追加しない。梅きゅうりとみそきゅうりは添え物も含めて独立した例にした。"
+      }
+    ],
+    "validation": [
+      "全新規ID・名称と旧DBに重複なし",
+      "1人分へ正規化した材料と数量が既存・新規同士で一致するレシピなし",
+      "副菜31品は主材料と調理法のsourceメタデータを明示",
+      "添えるたれ・クルトン・卵・粉チーズを栄養とアレルゲンに反映",
+      "固定人数や固定皿数の調理手順なし",
+      "独立分類監査の味付け煮卵の調理法をboilへ修正",
+      "familiar-sides単独6テストと既存dataを含む25テスト成功"
+    ]
+  }
+}

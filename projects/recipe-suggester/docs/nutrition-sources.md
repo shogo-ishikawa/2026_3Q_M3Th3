@@ -329,6 +329,21 @@ Meal Palette（ミールパレット）の栄養値は食材や調理済み食�
 
 成分表で括弧付きの数値は参考値として数値を保持し、`Tr` や `-` は `null` を保ちます。追加分では板こんにゃくの脂質、白身フライとささみフライの食物繊維がこれに該当します。しらすや海藻の塩分も無塩の0に置き換えていません。
 
+## v3.2の定番料理に使う追加食材
+
+2026年11月12日に公式修正版Excelの6成分を照合し、次の6食材を追加しました。既存235食材の栄養値と出典は維持しています。新しい食材はすべてg単位で、材料1gを成分表の可食部1gに対応させます。
+
+| 食材ID | 食品番号と成分表の食品・状態 | 重量と代表値の範囲 |
+|---|---|---|
+| `flounder` | [10100 まがれい・生](https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=10_10100_7) | かれいの代表値。頭、内臓、骨、ひれを除いた可食重量で、骨付き切り身の総重量や子持ちがれいとは区別します。 |
+| `yellowtail` | [10241 ぶり・成魚・生](https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=10_10241_7) | 加熱用の生の可食重量。刺身用IDとは用途を分けますが、魚種と状態が同じなので対応する成分表の値は共通です。 |
+| `beef_stew_cut` | [11064 輸入牛肉・かたロース・脂身つき・生](https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=11_11064_7) | かたまり肉の可食重量。同じ部位の既存`beef`と成分は同じで、肉の形状だけを理由に別の栄養値を作りません。 |
+| `pork_belly` | [11129 ぶた・大型種肉・ばら・脂身つき・生](https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=11_11129_7) | かたまり肉の調理前の可食重量。かたロースやロースの値を流用しません。 |
+| `shirataki` | [02005 こんにゃく・しらたき](https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=2_02005_7) | 水切りした無調味の製品重量。脂質の`Tr`は`null`を維持し、0と区別します。 |
+| `parmesan_cheese` | [13038 ナチュラルチーズ・パルメザン](https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=13_13038_7) | 成分表の備考は「粉末状」。チーズ自体の食塩を含み、植物性油脂などを含むブレンド品は別途商品表示を確認します。 |
+
+魚や肉は調理前の材料から求める概算です。煮込みや下ゆでで溶け出した脂質、捨てた煮汁、調理後の水分変化までは補正していません。かれいの煮付けや豚の角煮なども、完成料理の実測値としては扱いません。
+
 ## アレルゲン一覧の確認
 
 2026年11月12日に消費者庁の[食物アレルギー表示に関する情報](https://www.caa.go.jp/policies/policy/food_labeling/food_sanitation/allergy/)と[2026年4月時点の一覧](https://www.caa.go.jp/policies/policy/food_labeling/food_sanitation/allergy/assets/food_labeling_cms204_260401_01.pdf)を確認しました。本アプリの区分は特定原材料9品目と特定原材料に準ずるもの20品目の計29品目です。
