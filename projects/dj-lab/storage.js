@@ -18,6 +18,11 @@ export function validateSession(data) {
   const bounds = {volume:[0,1.5],filter:[0,1],echo:[0,0.4],low:[-12,12],high:[-12,12]};
   const master = {};
   for (const [key,[min,max]] of Object.entries(bounds)) master[key] = number(data.master?.[key],min,max,key);
+  master.balance=number(data.master?.balance??0.5,0,1,'パートミックス');
+  const demoPack=data.demoPack??'house';
+  if(!['house','lofi','techno'].includes(demoPack))throw new Error('保存したデモセットが不正です。');
+  const sampler={volume:number(data.sampler?.volume??0.7,0,1,'サンプラー音量'),quantise:data.sampler?.quantise??0};
+  if(![0,1].includes(sampler.quantise))throw new Error('サンプラーの発音タイミングが不正です。');
   let bytes = 0;
   const slots = data.slots.map((slot,index) => {
     if (slot === null) return null;
@@ -31,7 +36,7 @@ export function validateSession(data) {
     return {name:String(slot.name ?? '').slice(0,180),kind:slot.kind,demoId:slot.kind==='demo'?slot.demoId:null,raw:slot.kind==='file'?raw:null,
       volume:number(slot.volume,0,1.5,'音源音量'),pan:number(slot.pan,-1,1,'パン'),beats:number(slot.beats,1,64,'拍数'),loop:slot.loop,sync:slot.sync,muted:slot.muted};
   });
-  return {version:1,bpm:data.bpm,quantise:data.quantise,exclusive:data.exclusive,master,slots};
+  return {version:1,demoPack,sampler,bpm:data.bpm,quantise:data.quantise,exclusive:data.exclusive,master,slots};
 }
 
 function openDatabase() {

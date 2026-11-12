@@ -1,7 +1,8 @@
-import { DJEngine } from './engine.js';
-import { KEYS } from './core.js';
-import { DEMO_CLIPS, DEMO_BPM, DEMO_BEATS, createDemoBuffer } from './demo.js';
-import { saveSession, readSession, deleteSession, MAX_FILE_BYTES, MAX_PCM_BYTES, MAX_AUDIO_SECONDS } from './storage.js';
+import { DJEngine } from './engine.js?v=1.1.0';
+import { KEYS, partGains } from './core.js?v=1.1.0';
+import { DEMO_CLIPS, DEMO_PACKS, DEMO_BEATS, getDemoClips, findDemoClip, createDemoBuffer } from './demo.js?v=1.1.0';
+import { SAMPLE_META, SAMPLE_KEYS, createSampleBuffer } from './sampler.js?v=1.1.0';
+import { saveSession, readSession, deleteSession, MAX_FILE_BYTES, MAX_PCM_BYTES, MAX_AUDIO_SECONDS } from './storage.js?v=1.1.0';
 
 const $ = id => document.getElementById(id);
 const engine = new DJEngine();
@@ -16,11 +17,17 @@ let recordingUrl = null;
 let recordPreparing = false;
 let operationId = 0;
 let recordLimitTimer = null;
+let activePack = 'house';
+let sampleCacheBpm = null;
+const sampleCache = new Map();
+const samplePads = [];
+const heldEffects = {filter:false,echo:false,bass:false};
 const generations = Array(16).fill(0);
 const peaks = Array.from({length:16},()=>[]);
 const demoCache = new Map();
 const pads = [];
 let lastRender = 0;
+$('demo-pack').replaceChildren(...DEMO_PACKS.map(pack=>new Option(`${pack.name} · ${pack.bpm} BPM`,pack.id)));
 
 function say(message,error=false) {
   $('status').textContent=message;
@@ -63,6 +70,26 @@ for(let index=0;index<16;index++) {
   pads.push({card,button,canvas:button.querySelector('canvas'),name:button.querySelector('.pad-name'),status:button.querySelector('.pad-status'),settings});
 }
 for(let i=0;i<8;i++) { const dot=document.createElement('span');dot.textContent=i+1;dot.setAttribute('aria-hidden','true');$('beat-dots').append(dot); }
+for(let index=0;index<SAMPLE_META.length;index++){
+  const meta=SAMPLE_META[index],button=document.createElement('button');
+  button.type='button';button.className='sample-pad';
+  const key=document.createElement('kbd');key.className='sample-key';key.textContent=SAMPLE_KEYS[index].toUpperCase();
+  const name=document.createElement('span');name.className='sample-name';name.textContent=meta.name;
+  const group=document.createElement('span');group.className='sample-group';group.textContent=meta.group;
+  button.append(key,name,group);button.title=meta.description||meta.name;
+  button.addEventListener('click',action(()=>playSample(index)));
+  $('sample-pads').append(button);samplePads.push(button);
+}
+function sampleBuffer(index){
+  if(sampleCacheBpm!==engine.bpm){sampleCache.clear();sampleCacheBpm=engine.bpm;}
+  if(!sampleCache.has(index))sampleCache.set(index,createSampleBuffer(engine.context,index,engine.bpm));
+  return sampleCache.get(index);
+}
+async function playSample(index){
+  if(busy)return;
+  const operation=operationId;await engine.initialise();if(operation!==operationId)return;
+  engine.triggerSample(index,sampleBuffer(index),{volume:1,quantise:Number($('sample-quantise').value)});
+}
 
 function select(index) { selected=index;refreshInspector();render(); }
 async function trigger(index) {
@@ -94,37 +121,43 @@ function checkPcm(buffers) {
   }
   if(size>MAX_PCM_BYTES) throw new Error('読み込む音源の合計が大きすぎます。不要なパッドを外すか、短い音源を選んでください。');
 }
-async function demoBuffer(index) {
-  if(!demoCache.has(index)) demoCache.set(index,createDemoBuffer(engine.context,index));
-  return demoCache.get(index);
+async function demoBuffer(index,packId='house') {
+  const key=`${packId}:${index}`;
+  if(!demoCache.has(key)) demoCache.set(key,createDemoBuffer(engine.context,index,packId));
+  return demoCache.get(key);
 }
 
 async function loadDemo() {
   if(busy) return;
   if(engine.slots.some(s=>s.kind==='file'&&s.buffer) && !window.confirm('現在の音源をデモに置き換えます。残したい配置は、先にブラウザ保存してください。')) return;
+  const pack=DEMO_PACKS.find(p=>p.id===$('demo-pack').value)||DEMO_PACKS[0];
+  const clips=getDemoClips(pack.id);
   busy=true;const operation=++operationId;generations.forEach((_,i)=>generations[i]++);$('demo-start').disabled=true;
   try {
-    say('16個のデモ音源を準備しています…');
+    say(`${pack.name}の16個のループ音源を準備しています…`);
     await engine.initialise();
     engine.stop();generations.forEach((_,i)=>generations[i]++);
     const buffers=[];
     for(let i=0;i<16;i++) {
-      buffers.push(await demoBuffer(i));
+      buffers.push(await demoBuffer(i,pack.id));
       if(i%4===3) await new Promise(resolve=>requestAnimationFrame(resolve));
     }
     if(operation!==operationId){say('デモの開始を取り消しました。');return;}
-    checkPcm(buffers);engine.setBpm(DEMO_BPM);engine.setQuantise(8);engine.setExclusive(true);
+    checkPcm(buffers);engine.setBpm(pack.bpm);engine.setQuantise(8);engine.setExclusive(true);activePack=pack.id;
     for(let i=0;i<16;i++) {
-      engine.load(i,{buffer:buffers[i],name:DEMO_CLIPS[i].name,kind:'demo',demoId:DEMO_CLIPS[i].id,beats:DEMO_BEATS,loop:true,sync:true});
+      engine.load(i,{buffer:buffers[i],name:clips[i].name,kind:'demo',demoId:clips[i].id,beats:DEMO_BEATS,loop:true,sync:true});
       engine.updateSlot(i,{volume:0.75,pan:0,muted:false});peaks[i]=waveform(buffers[i]);
     }
-    engine.setMaster({volume:0.75,filter:1,echo:0,low:0,high:0});syncGlobalControls();select(0);
+    engine.setMaster({volume:0.75,filter:1,echo:0,low:0,high:0,balance:0.5});syncGlobalControls();select(0);
     [0,4,8,12].forEach(i=>engine.toggle(i));engine.start();
     setPerformanceMode(true);
-    say('デモを再生中。別のパッドを押すと、次の8拍の頭で同じパートが切り替わります。');
+    say(`${pack.name}を再生中。ループを切り替え、サンプラーやDJエフェクトで展開をつけてみましょう。`);
   } finally { busy=false;$('demo-start').disabled=false; }
 }
 $('demo-start').addEventListener('click',action(loadDemo));
+$('load-pack').addEventListener('click',action(loadDemo));
+$('demo-pack').addEventListener('change',updatePackDescription);
+function updatePackDescription(){const pack=DEMO_PACKS.find(p=>p.id===$('demo-pack').value)||DEMO_PACKS[0];$('demo-pack-description').textContent=`${pack.bpm} BPM · ${pack.description}`;}
 $('transport').addEventListener('click',action(async()=>{
   if(busy)return;
   if(engine.running){stopAll();return;}
@@ -134,7 +167,7 @@ $('transport').addEventListener('click',action(async()=>{
   engine.start();say(engine.slots.some(s=>s.pending)?'予約した音源を再生します。':'クロックを開始しました。鳴らしたいパッドを選んでください。');
 }));
 $('stop-all').addEventListener('click',stopAll);
-function stopAll(){operationId++;engine.stop();say('すべての音と予約を停止しました。');render();}
+function stopAll(){operationId++;releasePerformance();engine.stop();say('ループ・サンプル音・予約・DJエフェクトをすべて停止しました。');render();}
 function setPerformanceMode(enabled){
   document.body.classList.toggle('is-performance',enabled);
   const button=$('performance-mode');
@@ -142,7 +175,7 @@ function setPerformanceMode(enabled){
   if(enabled)$('studio').scrollIntoView({block:'start',behavior:'instant'});
 }
 $('performance-mode')?.addEventListener('click',()=>setPerformanceMode(!document.body.classList.contains('is-performance')));
-$('bpm').addEventListener('change',action(()=>{engine.setBpm(Number($('bpm').value));syncGlobalControls();}));
+$('bpm').addEventListener('change',action(()=>{try{engine.setBpm(Number($('bpm').value));}finally{$('bpm').value=engine.bpm;}syncGlobalControls();}));
 $('quantise').addEventListener('change',action(()=>engine.setQuantise(Number($('quantise').value))));
 $('exclusive').addEventListener('change',action(()=>engine.setExclusive($('exclusive').checked)));
 
@@ -197,6 +230,9 @@ function syncGlobalControls() {
   $('bpm').value=engine.bpm;$('quantise').value=engine.quantise;$('exclusive').checked=engine.exclusive;
   for(const [id,key] of [['master-volume','volume'],['filter','filter'],['echo','echo'],['low-eq','low'],['high-eq','high']]) $(id).value=engine.master[key];
   updateMasterLabels();
+  $('part-balance').value=engine.master.balance;
+  $('sample-volume').value=engine.sampleVolume;$('sample-volume-value').textContent=`${Math.round(engine.sampleVolume*100)}%`;
+  updatePartLabel();
 }
 function updateMasterLabels() {
   $('master-volume-value').textContent=`${Math.round(engine.master.volume*100)}%`;
@@ -206,22 +242,47 @@ function updateMasterLabels() {
   $('high-eq-value').textContent=`${engine.master.high>0?'+':''}${engine.master.high} dB`;
 }
 for(const [id,key] of [['master-volume','volume'],['filter','filter'],['echo','echo'],['low-eq','low'],['high-eq','high']]) $(id).addEventListener('input',action(()=>{engine.setMaster({[key]:Number($(id).value)});updateMasterLabels();}));
+function updatePartLabel(){const [rhythm,melody]=partGains(engine.master.balance);$('part-balance-value').textContent=`リズム ${Math.round(rhythm*100)}% / メロディ ${Math.round(melody*100)}%`;}
+$('part-balance').addEventListener('input',action(()=>{engine.setMaster({balance:Number($('part-balance').value)});updatePartLabel();}));
+$('sample-volume').addEventListener('input',action(()=>{engine.setSampleVolume(Number($('sample-volume').value));$('sample-volume-value').textContent=`${Math.round(engine.sampleVolume*100)}%`;}));
+
+function releasePerformance(){
+  for(const effect of Object.keys(heldEffects)){heldEffects[effect]=false;engine.setPerformance(effect,false);}
+}
+for(const button of document.querySelectorAll('[data-performance]')){
+  const effect=button.dataset.performance;
+  const release=()=>{heldEffects[effect]=false;engine.setPerformance(effect,false);};
+  const press=action(async()=>{
+    if(busy)return;
+    heldEffects[effect]=true;const operation=operationId;
+    await engine.initialise();
+    if(heldEffects[effect]&&operation===operationId)engine.setPerformance(effect,true);
+  });
+  button.addEventListener('pointerdown',event=>{event.preventDefault();button.setPointerCapture(event.pointerId);press(event);});
+  for(const event of ['pointerup','pointercancel','lostpointercapture','blur'])button.addEventListener(event,release);
+  button.addEventListener('keydown',event=>{if([' ','Enter'].includes(event.key)){event.preventDefault();if(!event.repeat)press(event);}});
+  button.addEventListener('keyup',event=>{if([' ','Enter'].includes(event.key)){event.preventDefault();release();}});
+}
+window.addEventListener('blur',releasePerformance);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)releasePerformance();});
 
 document.querySelectorAll('[data-scene]').forEach(button=>button.addEventListener('click',action(async()=>{
   if(busy)return;
-  const choices={minimal:[0,4],full:[1,5,8,12],break:[9,14]},want=choices[button.dataset.scene];
+  const choices={minimal:[0,4],groove:[1,4,8],full:[1,5,8,12],break:[9,14],build:[3,7,10,13],drop:[0,6,11,15]},want=choices[button.dataset.scene];
   if(want.some(i=>!engine.slots[i].buffer))throw new Error('先にデモ音源を読み込んでください。');
   const operation=operationId;
   await engine.initialise();
   if(operation!==operationId)return;
-  engine.setScene(want);
+  const impact=button.dataset.scene==='drop'?sampleBuffer(10):null;
   if(!engine.running)engine.start();
+  const at=engine.setScene(want);
+  if(impact)engine.triggerSample(10,impact,{volume:1,at,tag:'scene'});
   say(`「${button.textContent.trim()}」の組み合わせを予約しました。`);
 })));
 
 $('save-session').addEventListener('click',action(async()=>{
   if(busy)throw new Error('音源の準備が終わってから保存してください。');
-  const data={version:1,bpm:engine.bpm,quantise:engine.quantise,exclusive:engine.exclusive,master:{...engine.master},slots:engine.slots.map(s=>!s.buffer?null:({name:s.name,kind:s.kind,demoId:s.demoId,raw:s.raw,volume:s.volume,pan:s.pan,beats:s.beats,loop:s.loop,sync:s.sync,muted:s.muted}))};
+  const data={version:1,demoPack:activePack,sampler:{volume:engine.sampleVolume,quantise:Number($('sample-quantise').value)},bpm:engine.bpm,quantise:engine.quantise,exclusive:engine.exclusive,master:{...engine.master},slots:engine.slots.map(s=>!s.buffer?null:({name:s.name,kind:s.kind,demoId:s.demoId,raw:s.raw,volume:s.volume,pan:s.pan,beats:s.beats,loop:s.loop,sync:s.sync,muted:s.muted}))};
   await saveSession(data);say('音源と配置をこのブラウザに保存しました。前回の保存データを更新しています。');
 }));
 $('restore-session').addEventListener('click',action(async()=>{
@@ -234,9 +295,9 @@ $('restore-session').addEventListener('click',action(async()=>{
     for(const slot of data.slots) {
       if(!slot){buffers.push(null);continue;}
       if(slot.kind==='demo') {
-        const index=DEMO_CLIPS.findIndex(d=>d.id===slot.demoId);
-        if(index<0)throw new Error('保存したデモ音源を見つけられませんでした。');
-        buffers.push(await demoBuffer(index));
+        const found=findDemoClip(slot.demoId);
+        if(!found)throw new Error('保存したデモ音源を見つけられませんでした。');
+        buffers.push(await demoBuffer(found.index,found.packId));
       } else buffers.push(await engine.context.decodeAudioData(slot.raw.slice(0)));
       checkPcm(buffers);
     }
@@ -247,6 +308,8 @@ $('restore-session').addEventListener('click',action(async()=>{
       else peaks[i]=[];
     }
     engine.setBpm(data.bpm);engine.setQuantise(data.quantise);engine.setExclusive(data.exclusive);engine.setMaster(data.master);
+    activePack=data.demoPack;$('demo-pack').value=activePack;updatePackDescription();
+    engine.setSampleVolume(data.sampler.volume);$('sample-quantise').value=data.sampler.quantise;
     syncGlobalControls();refreshInspector();say('音源と設定を復元しました。鳴らしたいパッドを選び、再生してください。');
   } finally {busy=false;}
 }));
@@ -300,6 +363,7 @@ window.addEventListener('keydown',action(async event=>{
   if(key==='0'){event.preventDefault();stopAll();return;}
   if(key==='p'){event.preventDefault();$('transport').click();return;}
   const index=KEYS.indexOf(key);if(index>=0){event.preventDefault();await trigger(index);}
+  const sampleIndex=SAMPLE_KEYS.indexOf(key);if(sampleIndex>=0){event.preventDefault();await playSample(sampleIndex);}
 }));
 
 function drawDisc(pad,slot) {
@@ -343,7 +407,7 @@ function render() {
   $('bpm').disabled=state.running||busy;$('derive-bpm').disabled=state.running||!engine.slots[selected].buffer||busy;
   $('beat-label').textContent=`${state.beat} / 8`;
   [...$('beat-dots').children].forEach((dot,i)=>dot.classList.toggle('active',state.running&&i===state.beat-1));
-  const engineText=`${state.running?'PLAYING':'STOPPED'} · ${state.playingCount}音源 / ${state.queuedCount}予約`;
+  const engineText=`${state.running?'PLAYING':state.sampleCount?'SAMPLER':'STOPPED'} · ${state.playingCount}ループ + ${state.sampleCount}サンプル / ${state.queuedCount+state.sampleQueuedCount}予約`;
   if($('engine-status').textContent!==engineText)$('engine-status').textContent=engineText;
   state.slots.forEach(slot=>{
     const pad=pads[slot.index];let label=!slot.loaded?'音源を追加':slot.pending==='start'?'再生予約中':slot.pending==='stop'?'停止予約中':slot.playing?(slot.muted?'再生中・ミュート':'再生中'):'待機中';
@@ -356,11 +420,17 @@ function render() {
   const editable=!state.slots[selected].playing&&!state.slots[selected].pending&&!busy;
   for(const id of ['slot-loop','slot-sync','slot-beats'])$(id).disabled=!editable;
   $('slot-file').disabled=!editable;$('restore-session').disabled=busy;$('save-session').disabled=busy;
+  $('load-pack').disabled=busy;$('demo-pack').disabled=busy;
+  state.samples.forEach(sample=>{
+    const button=samplePads[sample.index];button.classList.toggle('is-playing',sample.playing);button.classList.toggle('is-queued',sample.pending);
+    button.setAttribute('aria-label',`${SAMPLE_META[sample.index].name} ${sample.pending?'発音予約中':sample.playing?'再生中':'ワンショット'}。キー ${SAMPLE_KEYS[sample.index].toUpperCase()}`);
+  });
+  for(const button of document.querySelectorAll('[data-performance]'))button.setAttribute('aria-pressed',String(state.performance[button.dataset.performance]));
   if(recorder?.state==='recording')$('record-time').textContent=formatTime((performance.now()-recordStarted)/1000);
   drawScope();
 }
 function animate(now) {if(now-lastRender>40){render();lastRender=now;}requestAnimationFrame(animate);}
-window.addEventListener('pagehide',()=>{engine.stop();if(recorder?.state==='recording')recorder.stop();});
+window.addEventListener('pagehide',()=>{releasePerformance();engine.stop();if(recorder?.state==='recording')recorder.stop();});
 if(!globalThis.MediaRecorder){$('record').disabled=true;$('record').title='このブラウザは録音に対応していません';}
 if(!globalThis.AudioContext&&!globalThis.webkitAudioContext){$('demo-start').disabled=true;$('transport').disabled=true;say('Web Audio対応のブラウザで開いてください。',true);}
-syncGlobalControls();refreshInspector();render();requestAnimationFrame(animate);
+updatePackDescription();syncGlobalControls();refreshInspector();render();requestAnimationFrame(animate);
