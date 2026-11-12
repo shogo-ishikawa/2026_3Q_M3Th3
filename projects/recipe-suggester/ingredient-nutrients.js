@@ -227,6 +227,17 @@ const FOOD_PROFILES = Object.freeze({
   '13038': [445.0, 44.0, 30.8, 1.9, 0.0, 3.8], // ＜牛乳及び乳製品＞ （チーズ類） ナチュラルチーズ パルメザン
   water: [0, 0, 0, 0, 0, 0], // 無糖・無塩の水という定義値
   unknown: [null, null, null, null, null, null],
+
+  "16006": [39, 0.3, 0.0, 3.1, 0.0, 0.0], // ビール（淡色・一般例）
+  "16007": [45, 0.4, null, 3.6, 0.2, 0.0], // 黒ビール（一般例）
+  "16001": [107, 0.4, null, 4.9, 0.0, 0.0], // 日本酒・普通酒（飲用・一般例）
+  "16011": [68, 0.2, null, 1.5, null, 0.0], // 赤ワイン（一般例）
+  "16010": [75, 0.1, null, 2.0, null, 0.0], // 白ワイン（一般例）
+  "16015": [144, 0.0, 0.0, 0.0, 0.0, null], // 焼酎・単式蒸留25度（一般例）
+  "16016": [234, 0.0, 0.0, 0.0, 0.0, 0.0], // ウイスキー40度（一般例）
+  "16022": [155, 0.1, null, 20.7, null, 0.0], // 梅酒（一般例）
+  "16059": [51, 0.0, null, 2.9, 0.1, 0.0], // 缶チューハイ・レモン風味（一般例）
+  "10140": [252, 32.6, 15.6, 0.2, 0.0, 2.3], // しろさけ・イクラ（塩蔵）
 });
 
 // [食品番号, 1宣言単位当たりの対応食品の可食重量g, 換算・対応上の補足]
@@ -472,6 +483,34 @@ const INGREDIENT_PROFILES = Object.freeze({
   pork_belly: ["11129", 1, "大型種の豚ばら脂身つき・生の可食重量。かたまり肉を調理前の重量で記録します。煮汁や下ゆでで流出する脂質の量までは補正していません。"],
   shirataki: ["02005", 1, "水切りした無調味のしらたき（糸こんにゃく）の重量。乾物や調味済み製品とは区別し、微量の脂質を確定値の0に置き換えません。"],
   parmesan_cheese: ["13038", 1, "粉末状のナチュラルチーズ・パルメザンの製品重量。チーズ自体の食塩を含みます。植物性油脂などを含むブレンド粉チーズの値ではありません。"],
+
+  perf_beer: ["16006", 1.008, "ビール（淡色・一般例）。原表の体積換算に従い1ml=1.008g。個別製品の表示とは異なる一般値です。"],
+  perf_black_beer: ["16007", 1.01, "黒ビール（一般例）。原表の体積換算に従い1ml=1.01g。個別製品の表示とは異なる一般値です。"],
+  perf_sake: ["16001", 0.999, "日本酒・普通酒（飲用・一般例）。原表の体積換算に従い1ml=0.999g。個別製品の表示とは異なる一般値です。"],
+  perf_wine_red: ["16011", 0.996, "赤ワイン（一般例）。原表の体積換算に従い1ml=0.996g。個別製品の表示とは異なる一般値です。"],
+  perf_wine_white: ["16010", 0.998, "白ワイン（一般例）。原表の体積換算に従い1ml=0.998g。個別製品の表示とは異なる一般値です。"],
+  perf_shochu: ["16015", 0.97, "焼酎・単式蒸留25度（一般例）。原表の体積換算に従い1ml=0.97g。個別製品の表示とは異なる一般値です。"],
+  perf_whisky: ["16016", 0.952, "ウイスキー40度（一般例）。原表の体積換算に従い1ml=0.952g。個別製品の表示とは異なる一般値です。"],
+  perf_umeshu: ["16022", 1.039, "梅酒（一般例）。原表の体積換算に従い1ml=1.039g。個別製品の表示とは異なる一般値です。"],
+  perf_chuhai: ["16059", 1.001, "缶チューハイ・レモン風味（一般例）。原表の体積換算に従い1ml=1.001g。個別製品の表示とは異なる一般値です。"],
+  ikura_salted: ["10140", 1, "しろさけの塩蔵いくらの可食部。しょうゆ漬け製品とは異なり、追加の調味料は別に計算します。"],
+  perf_soy_powder: ["unknown", 1, "ザバス ソイプロテイン100 ココア味（粉末）の購入品。製品レシピの栄養は公式表示の28gを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.meiji.co.jp/sports/savas/products/shape_wellness/soy100.html"],
+  perf_whey_powder: ["unknown", 1, "ザバス ホエイプロテイン100 リッチショコラ味（粉末）の購入品。製品レシピの栄養は公式表示の28gを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.meiji.co.jp/sports/savas/products/muscle_sports/whey100.html"],
+  perf_milk_protein: ["unknown", 1, "ザバス MILK PROTEIN 脂肪0 ココア風味（200ml）の購入品。製品レシピの栄養は公式表示の200mlを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.meiji.co.jp/products/sports/4902705014541.html"],
+  perf_cola_zero: ["unknown", 1, "コカ・コーラ ゼロの購入品。製品レシピの栄養は公式表示の100mlを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.coca-cola.com/jp/ja/brands/coca-cola/products"],
+  perf_ion_water: ["unknown", 1, "ポカリスエット イオンウォーター（液体）の購入品。製品レシピの栄養は公式表示の100mlを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.otsuka.co.jp/nutraceutical/products/ionwater/"],
+  perf_energy: ["unknown", 1, "レッドブル エナジードリンクの購入品。製品レシピの栄養は公式表示の100mlを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.redbull.com/jp-ja/energydrink/products/red-bull-energy-drink-ingredients-list"],
+  perf_energy_zero: ["unknown", 1, "レッドブル シュガーフリーの購入品。製品レシピの栄養は公式表示の100mlを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.redbull.com/jp-ja/energydrink/products/red-bull-sugarfree-ingredients-list"],
+  perf_ginger_ale: ["unknown", 1, "カナダドライ ジンジャーエールの購入品。製品レシピの栄養は公式表示の100mlを基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.coca-cola.com/jp/ja/brands/canada-dry"],
+  perf_bar_baked_choco: ["unknown", 1, "inバープロテイン ベイクドチョコ（42g）の購入品。製品レシピの栄養は公式表示の1本を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.morinaga.co.jp/products/detail.php?id=PRD2009-09-0164"],
+  perf_bar_baked_bitter: ["unknown", 1, "inバープロテイン ベイクドビター（42g）の購入品。製品レシピの栄養は公式表示の1本を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.morinaga.co.jp/products/detail.php?id=PRD2018-02-0014"],
+  perf_bar_manzoku: ["unknown", 1, "1本満足バー プロテインチョコ（39g）の購入品。製品レシピの栄養は公式表示の1本を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.asahi-gf.co.jp/products/health/support-food/1pon-manzoku/protein/4946842526345.html"],
+  perf_chicken_plain: ["unknown", 1, "ローソン サラダチキン プレーン（110g）の購入品。製品レシピの栄養は公式表示の1袋を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.lawson.co.jp/sp/recommend/original/detail/1507463_2168.html"],
+  perf_chicken_herb: ["unknown", 1, "ローソン サラダチキン ハーブ（110g）の購入品。製品レシピの栄養は公式表示の1袋を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://mldata.lawson.co.jp/recommend/original/detail/1390764_1996.html"],
+  perf_chicken_smoke: ["unknown", 1, "ローソン サラダチキン スモーク（110g）の購入品。製品レシピの栄養は公式表示の1袋を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://mldata.lawson.co.jp/recommend/original/detail/1450533_1996.html"],
+  perf_calorie_block_choco: ["unknown", 1, "カロリーメイト ブロック チョコレート味（4本80g）の購入品。製品レシピの栄養は公式表示の1箱を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.otsuka.co.jp/nutraceutical/products/caloriemate/"],
+  perf_calorie_block_cheese: ["unknown", 1, "カロリーメイト ブロック チーズ味（4本80g）の購入品。製品レシピの栄養は公式表示の1箱を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.otsuka.co.jp/nutraceutical/products/caloriemate/"],
+  perf_calorie_jelly_apple: ["unknown", 1, "カロリーメイト ゼリー アップル味（215g）の購入品。製品レシピの栄養は公式表示の1袋を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.otsuka.co.jp/nutraceutical/products/caloriemate/"],
 });
 
 export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(

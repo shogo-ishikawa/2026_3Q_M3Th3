@@ -626,3 +626,23 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 .menu-picker .catalog-item-label { grid-column:1/-1; }
 .recipe-card .recipe-meta { line-height:1.7; }
 @media(max-width:640px){ .recipe-facets { grid-template-columns:1fr; } }
+
+/* Planning flow and direct diary actions. */
+#fixed-staple-fields { margin-top:14px; }
+.plan-date-group { grid-column:1/-1; margin:12px 0 0; font-size:18px; }
+.plan-staple-controls { margin:12px 18px; padding:12px 0; border-top:1px solid var(--line); }
+.plan-staple-controls summary { font-size:11px; color:var(--teal); }
+.plan-staple-controls form { display:grid; grid-template-columns:minmax(0,1fr) 90px; gap:10px; margin-top:12px; }
+.plan-staple-controls form button { grid-column:1/-1; }
+.plan-staple-controls label { min-width:0; }
+.plan-staple-note { margin:12px 18px; color:var(--muted); font-size:10px; line-height:1.8; }
+.catalog-record-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0 0 24px; padding:18px; background:#f0f7f3; border:1px solid #d5e7dc; border-radius:8px; }
+.catalog-record-form h3 { grid-column:1/-1; margin:0; }
+.catalog-record-form button { grid-column:1/-1; }
+.catalog-record-form label { min-width:0; }
+.record-reset { margin-top:24px; padding:18px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+.record-reset > summary { color:var(--teal); font-size:13px; }
+.reset-range-form { max-width:650px; margin:18px 0 0; display:grid; gap:12px; }
+.reset-range-form > .field-pair { margin:0; }
+#undo-reset { margin-top:14px; color:var(--teal); }
+@media(max-width:640px){.catalog-record-form { grid-template-columns:1fr; padding:14px; }.plan-staple-controls form { grid-template-columns:minmax(0,1fr) 85px; }.record-reset { padding:14px; }}

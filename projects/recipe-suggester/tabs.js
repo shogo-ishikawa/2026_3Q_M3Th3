@@ -4,7 +4,7 @@ const HASHES={record:'calendar',nutrition:'nutrition',planner:'planner',kitchen:
 export function setupTabs(){
   const buttons=[...document.querySelectorAll('[role="tab"][data-tab]')];
   function activate(id,{focus=false,update=true,scroll=true}={}){
-    if(!Object.hasOwn(HASHES,id))id='record';
+    if(!Object.hasOwn(HASHES,id))id='planner';
     for(const button of buttons){const active=button.dataset.tab===id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;const panel=document.getElementById(button.getAttribute('aria-controls'));if(panel)panel.hidden=!active;}
     document.body.dataset.activeTab=id;
     if(update)history.replaceState(null,'',`#${HASHES[id]}`);
@@ -22,7 +22,7 @@ export function setupTabs(){
     });
   }
   document.addEventListener('click',event=>{const link=event.target.closest('a[href^="#"]');if(!link)return;const hash=link.getAttribute('href').slice(1);if(ROUTES[hash])activate(ROUTES[hash],{update:false,scroll:false});});
-  window.addEventListener('hashchange',()=>activate(ROUTES[location.hash.slice(1)]??'record',{update:false,scroll:false}));
-  activate(ROUTES[location.hash.slice(1)]??'record',{update:false,scroll:false});
+  window.addEventListener('hashchange',()=>activate(ROUTES[location.hash.slice(1)]??'planner',{update:false,scroll:false}));
+  activate(ROUTES[location.hash.slice(1)]??'planner',{update:false,scroll:false});
   return activate;
 }

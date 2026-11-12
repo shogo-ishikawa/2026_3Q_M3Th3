@@ -4,6 +4,8 @@ import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {CLASSIC_MAIN_RECIPES} from '../classics-mains.js';
 import {CLASSIC_SIDE_RECIPES} from '../classics-sides.js';
 import {PREPARED_RECIPES} from '../prepared-foods.js';
+import {PERFORMANCE_RECIPES} from '../performance-foods.js';
+import {SUSHI_RECIPES} from '../sushi-foods.js';
 import {CATALOG_CATEGORIES, FOOD_NATURES, recipePortion, quantityFromAmount} from '../catalog.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan, replaceRecipe} from '../planner.js';
 import {itemFromRecipe, itemNutrition, NUTRIENT_KEYS} from '../nutrition.js';
@@ -13,7 +15,7 @@ import {shoppingForEntries} from '../shopping.js';
 // 各追加モジュールの単体テストとは別に、公開アプリが import する完成DBを使います。
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
-const preparedIds = new Set(PREPARED_RECIPES.map(recipe => recipe.id));
+const unconfirmedIds = new Set([...PREPARED_RECIPES, ...PERFORMANCE_RECIPES].filter(recipe => recipe.allergensKnown === false).map(recipe => recipe.id));
 const settings = {startDate: '2026-11-12', days: 7, servings: 3, meal: 'dinner', seed: 73};
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const snapshot = (id, amount) => {
@@ -34,7 +36,7 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
     assert.ok(typeof recipe.variantLabel === 'string' && recipe.variantLabel.trim(), recipe.id);
     assert.equal(typeof recipe.mealBase, 'boolean', recipe.id);
   }
-  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES]) {
+  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES]) {
     const integrated = byId.get(source.id);
     assert.ok(integrated, source.id);
     assert.deepEqual(integrated.ingredients, source.ingredients, source.id);
@@ -48,12 +50,11 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
   assert.equal(byId.get('daily-snack-oven-karaage').family, 'karaage');
 });
 
-test('統合後も未確認35品を記録用に残し、自動献立と差し替えには入れない', () => {
+test('統合後も未確認商品を記録用に残し、自動献立と差し替えには入れない', () => {
   const unconfirmed = new Set(RECIPES.filter(recipe => describeRecipe(recipe.id, data).allergensKnown === false).map(recipe => recipe.id));
-  assert.equal(unconfirmed.size, 35);
-  assert.deepEqual(unconfirmed, preparedIds);
+  assert.deepEqual(unconfirmed, unconfirmedIds);
   const safe = new Set(eligibleRecipes({}, data).map(recipe => recipe.id));
-  assert.equal(safe.size, RECIPES.length - unconfirmed.size);
+  assert.equal(safe.size, RECIPES.filter(recipe => !unconfirmed.has(recipe.id) && recipe.family !== 'alcohol').length);
   const plan = generateCalendarPlan(settings, data);
   assert.equal(plan.ok, true);
   for (const [dayIndex, day] of plan.days.entries()) {
@@ -90,14 +91,14 @@ test('公開DBの全580品を数量付きv3記録へ写し、分類・商品説�
 test('寿司は貫数、刺身は魚介のg数で記録し、固定寿司へ別の主食や主菜を重ねない', () => {
   const sushi = snapshot('classic-sushi-salmon', 4), sashimi = snapshot('classic-sashimi-tuna', 150);
   assert.equal(sushi.portion.unit, '貫');
-  assert.equal(sushi.quantity, 0.5);
+  assert.equal(sushi.quantity, 4);
   assert.equal(sashimi.portion.unit, 'g');
   assert.equal(sashimi.quantity, 1.5);
   assert.equal(sashimi.nature, 'ready-to-eat');
   near(sashimi.ingredients.find(part => part.id === 'tuna_lean_sashimi').amount * sashimi.quantity, 150);
   const plan = generateCalendarPlan({...settings, days: 1, stapleId: 'classic-sushi-salmon', stapleAmount: 4}, data);
   assert.equal(plan.ok, true);
-  assert.equal(plan.days[0].quantities['classic-sushi-salmon'], 0.5);
+  assert.equal(plan.days[0].quantities['classic-sushi-salmon'], 4);
   assert.deepEqual(plan.days[0].recipeIds.filter(id => ['main', 'staple'].includes(byId.get(id).role)), ['classic-sushi-salmon']);
   const state = defaultJournal('2026-11-12');
   state.entries = [entry('historical-sushi-and-fish', [sushi, sashimi], 'eaten')];

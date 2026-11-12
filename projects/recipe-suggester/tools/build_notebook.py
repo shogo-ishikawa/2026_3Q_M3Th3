@@ -64,6 +64,9 @@ def recipe_features(recipe):
 def is_candidate(recipe):
     if not isinstance(recipe, dict) or recipe.get("role") != role:
         return False
+    # お酒は食事の自動提案に使わず、ブラウザーで飲食の記録に使います。
+    if recipe.get("family") == "alcohol":
+        return False
     if "nature" in recipe and (not isinstance(recipe["nature"], str) or recipe["nature"] not in KNOWN_NATURES):
         return False
     # 確認状況はTrue/Falseで指定します。文字列の"false"などは受け付けません。

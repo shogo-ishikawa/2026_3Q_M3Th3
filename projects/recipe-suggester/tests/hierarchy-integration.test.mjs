@@ -4,6 +4,8 @@ import {createHash} from 'node:crypto';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {FAMILIAR_MAIN_INGREDIENTS, FAMILIAR_MAIN_RECIPES} from '../familiar-mains.js';
 import {FAMILIAR_SIDE_INGREDIENTS, FAMILIAR_SIDE_RECIPES} from '../familiar-sides.js';
+import {SUSHI_INGREDIENTS, SUSHI_RECIPES} from '../sushi-foods.js';
+import {PERFORMANCE_INGREDIENTS, PERFORMANCE_RECIPES} from '../performance-foods.js';
 import {CATALOG_CATEGORIES, recipePortion} from '../catalog.js';
 import {dishSection, dishClassification, browseDishes, availableDishCategories, availableCookingMethods} from '../dish-hierarchy.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan} from '../planner.js';
@@ -13,22 +15,41 @@ import {shoppingForEntries} from '../shopping.js';
 
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const incoming = [...FAMILIAR_MAIN_RECIPES, ...FAMILIAR_SIDE_RECIPES];
-const addedIds = new Set(incoming.map(recipe => recipe.id));
-const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS)]);
+const additions = [...incoming, ...SUSHI_RECIPES, ...PERFORMANCE_RECIPES];
+const addedIds = new Set(additions.map(recipe => recipe.id));
+const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS), ...Object.keys(SUSHI_INGREDIENTS), ...Object.keys(PERFORMANCE_INGREDIENTS)]);
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const entry = (id, items, status = 'planned') => ({id, date: '2026-11-12', meal: 'dinner', status, note: '', items});
 const snapshot = (recipe, quantity = 1) => ({...itemFromRecipe(describeRecipe(recipe.id, data), data, quantity), portion: recipePortion(recipe, data)});
 const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 1e-8, `${label}: ${actual} != ${expected}`);
 
-test('既存580品の内容と主食の表示先を保ち、新87品を加えて全667品を一度ずつ表示する', () => {
+test('既存料理は寿司の基準量と飲料3品の分類だけを改訂し、表示先と全品の一意性を保つ', () => {
   const originalRecipes = RECIPES.filter(recipe => !addedIds.has(recipe.id));
   const originalIngredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredientIds.has(id)));
   assert.equal(originalRecipes.length, 580);
   assert.equal(Object.keys(originalIngredients).length, 235);
-  // v3.1.0 の全レシピ・全食材を変更前に記録した値です。意図的なDB改訂時のみ更新します。
-  const digest = createHash('sha256').update(JSON.stringify({RECIPES: originalRecipes, INGREDIENTS: originalIngredients})).digest('hex');
-  assert.equal(digest, 'ac8f808b7f6e796eedb989acd82f0b85c6a56d01cfc02b1f434f81bfba6d3158');
-  assert.equal(RECIPES.length, 580 + incoming.length);
+  // 改訂した8品は下で意図を検査し、残る572品と235食材はv3.1.0の内容を保持します。
+  const changedIds = new Set(['classic-sushi-tuna', 'classic-sushi-salmon', 'classic-sushi-shrimp', 'classic-sushi-squid',
+    'classic-sushi-assorted', 'drink-milk-cocoa', 'drink-soy-cocoa', 'drink-yogurt']);
+  const stableRecipes = originalRecipes.filter(recipe => !changedIds.has(recipe.id));
+  assert.equal(stableRecipes.length, 572);
+  const digest = createHash('sha256').update(JSON.stringify({RECIPES: stableRecipes, INGREDIENTS: originalIngredients})).digest('hex');
+  assert.equal(digest, '7fb9ac06e59e7d908ee000d277608e8af4d1bac4d027ab15195cb5a274de8a3d');
+  for (const id of ['classic-sushi-tuna', 'classic-sushi-salmon', 'classic-sushi-shrimp', 'classic-sushi-squid']) {
+    const recipe = byId.get(id);
+    assert.equal(recipe.portion.amount, 1, id);
+    assert.equal(recipe.portion.unit, '貫', id);
+    assert.equal(recipe.servings, 2, id);
+    assert.equal(recipe.ingredients.find(part => part.id === 'rice').amount, 45, id);
+    assert.equal(recipe.ingredients.find(part => part.id === 'soy_sauce').amount, 1, id);
+    assert.equal(recipe.mealBase, true, id);
+  }
+  assert.equal(byId.get('classic-sushi-assorted').portion.amount, 1);
+  assert.equal(byId.get('classic-sushi-assorted').portion.unit, '皿');
+  assert.match(byId.get('classic-sushi-assorted').portion.label, /8貫/);
+  assert.equal(byId.get('classic-sushi-assorted').ingredients.find(part => part.id === 'rice').amount, 360);
+  for (const id of ['drink-milk-cocoa', 'drink-soy-cocoa', 'drink-yogurt']) assert.equal(byId.get(id).family, 'other-drink', id);
+  assert.equal(RECIPES.length, 580 + additions.length);
   assert.equal(incoming.length, 87);
   assert.equal(Object.keys(INGREDIENTS).length, 235 + addedIngredientIds.size);
   assert.equal(new Set(RECIPES.map(recipe => recipe.id)).size, RECIPES.length);
@@ -65,7 +86,7 @@ test('新87品の階層が統合後も使え、別の食材カテゴリから同
     assert.equal(display.section, source.role, source.id);
     if (['main', 'side'].includes(display.section)) {
       assert.equal(display.category, source.displayCategory, source.id);
-      assert.equal(display.method, source.displayMethod, source.id);
+      assert.equal(display.method, ['karaage','cutlet','croquette','fry'].includes(source.displayMethod) ? 'fried' : source.displayMethod, source.id);
       for (const category of [display.category, ...display.secondaryCategories]) {
         const result = browseDishes(RECIPES, {section: display.section, category, method: display.method});
         assert.equal(result.filter(item => item.id === recipe.id).length, 1, `${recipe.id}/${category}`);
@@ -100,7 +121,7 @@ test('新メニューの記録は既存v3形式のまま数量・栄養・説明
     assert.deepEqual(item.portion, recipePortion(recipe, data));
     assert.equal(item.allergensKnown, true);
     assert.equal(item.ingredientsKnown, true);
-    for (const key of ['displayCategory', 'displayMethod', 'displaySecondaryCategories', 'category', 'method']) assert.ok(!Object.hasOwn(item, key), `${recipe.id}/${key}`);
+    for (const key of ['displayCategory', 'displayMethod', 'displaySecondaryCategories', 'category', 'method', 'methodDetail']) assert.ok(!Object.hasOwn(item, key), `${recipe.id}/${key}`);
     const actual = itemNutrition(item);
     for (const key of NUTRIENT_KEYS) {
       if (base.nutrition[key] === null) assert.equal(actual[key], null, `${recipe.id}/${key}`);
@@ -140,7 +161,8 @@ test('表示階層を絞ってもアレルゲン条件と未確認商品の除�
   const allowedIds = new Set(eligibleRecipes({}, data).map(recipe => recipe.id));
   assert.ok(plan.ok);
   assert.ok(plan.days.every(day => day.recipeIds.every(id => allowedIds.has(id))));
-  assert.equal(RECIPES.filter(recipe => !allowedIds.has(recipe.id)).length, 35);
+  assert.deepEqual(new Set(RECIPES.filter(recipe => !allowedIds.has(recipe.id)).map(recipe => recipe.id)),
+    new Set(RECIPES.filter(recipe => describeRecipe(recipe.id, data).allergensKnown === false || recipe.family === 'alcohol').map(recipe => recipe.id)));
   assert.deepEqual(generateCalendarPlan(options, data), plan);
   assert.deepEqual(RECIPES, before);
 });

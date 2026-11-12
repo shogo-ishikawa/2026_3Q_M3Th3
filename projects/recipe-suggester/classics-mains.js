@@ -129,13 +129,18 @@ const OMELETTE_RICE = [
     '残りの油で卵を人数分焼き、中まで火を通してライスにのせ、ソースをかける。'],{role:'staple',staple:true,mealBase:true,genre:'洋食',minutes:25,tags:['定番']}),
 ];
 const sushiRice=[['rice',360],['vinegar',24],['sugar',10],['salt',1]];
-const nigiri=(id,name,variant,fishParts)=>dish(id,name,'sushi',variant,[...sushiRice,...fishParts,['soy_sauce',8]],[
-  '温かいご飯に米酢、砂糖、塩を合わせ、混ぜて冷まし、1人8貫を目安に小さく分ける。',
+// 単種握りは1貫を基準にする。servings=2なので材料欄は2貫分です。
+const nigiri=(id,name,variant,fishParts)=>dish(id,name,'sushi',variant,[...sushiRice.map(([id,amount])=>[id,amount/8]),...fishParts.map(([id,amount])=>[id,amount/8]),['soy_sauce',1]],[
+  '温かいご飯に米酢、砂糖、塩を合わせ、混ぜて冷ます。作る貫数に合わせて小さく分ける。',
   '生の魚は必ず刺身用を使う。えびなど加熱用の具は十分加熱し、冷ましてから用意する。',
   '清潔な手や器具で酢飯と具を合わせ、しょうゆを添える。実際に食べた貫数で記録する。'],
-  {role:'staple',staple:true,mealBase:true,portion:{amount:8,unit:'貫'},minutes:25,tags:['定番'],sourceNote:['家庭用の酢飯と具の一般例です。市販・外食の大きさや配合とは異なります。',...fishParts.map(([id])=>CLASSIC_MAIN_INGREDIENTS[id]?.note)].filter(Boolean).join(' ')});
+  {role:'staple',staple:true,mealBase:true,portion:{amount:1,unit:'貫',label:'単種の握り1貫（ご飯約22.5g）'},minutes:25,tags:['定番'],sourceNote:['単種の握り1貫を基準にした目安です。基準レシピは2貫分です。画面の材料と栄養は選んだ貫数に合わせて換算しています。市販・外食の大きさや配合とは異なります。',...fishParts.map(([id])=>CLASSIC_MAIN_INGREDIENTS[id]?.note)].filter(Boolean).join(' ')});
 const SUSHI = [
-  nigiri('sushi-assorted','にぎり寿司の盛り合わせ','にぎり盛り合わせ',[['tuna_lean_sashimi',80],['salmon_sashimi',80],['shrimp',40]]),
+  dish('sushi-assorted','にぎり寿司の盛り合わせ','sushi','にぎり盛り合わせ',[...sushiRice,['tuna_lean_sashimi',80],['salmon_sashimi',80],['shrimp',40],['soy_sauce',8]],[
+    '温かいご飯に米酢、砂糖、塩を合わせ、混ぜて冷ます。',
+    'まぐろとサーモンは刺身用を使う。えびは十分加熱して冷まし、清潔な器具でネタを準備する。',
+    '酢飯とネタを合わせ、種類を取り混ぜて皿へ盛り、しょうゆを添える。'],
+    {role:'staple',staple:true,mealBase:true,portion:{amount:1,unit:'皿',label:'1皿＝約8貫の盛り合わせ'},minutes:25,tags:['定番'],sourceNote:'まぐろ、サーモン、えびを合わせた約8貫で1皿の目安です。単種の握りは別メニューで1貫ずつ記録できます。サーモンの栄養は皮なしサーモントラウトの代表値です。'}),
   nigiri('sushi-tuna','まぐろのにぎり寿司','まぐろ',[['tuna_lean_sashimi',200]]),
   nigiri('sushi-salmon','サーモンのにぎり寿司','サーモン',[['salmon_sashimi',200]]),
   nigiri('sushi-shrimp','えびのにぎり寿司','えび',[['shrimp',200]]),

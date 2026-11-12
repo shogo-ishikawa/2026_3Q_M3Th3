@@ -82,8 +82,8 @@ test('寿司とオムライスは一品の主食として扱い、米や主菜�
   for(const recipe of CLASSIC_MAIN_RECIPES.filter(recipe=>['sushi','omelette-rice'].includes(recipe.family))){
     assert.equal(recipe.role,'staple',recipe.id);assert.equal(recipe.mealBase,true,recipe.id);assert.equal(recipe.staple,true,recipe.id);assert.equal(isCompleteMeal(recipe),true,recipe.id);
   }
-  const sushi=get('sushi-salmon');assert.equal(recipePortion(sushi,data).amount,8);assert.equal(recipePortion(sushi,data).unit,'貫');
-  assert.equal(quantityFromAmount(sushi,data,4),0.5);
+  const sushi=get('sushi-salmon');assert.equal(recipePortion(sushi,data).amount,1);assert.equal(recipePortion(sushi,data).unit,'貫');
+  assert.equal(quantityFromAmount(sushi,data,4),4);
   assert.equal(quantityFromAmount(get('sashimi-tuna'),data,150),1.5);
   assert.equal(quantityFromAmount(get('boiled-egg'),data,2),2);
 });

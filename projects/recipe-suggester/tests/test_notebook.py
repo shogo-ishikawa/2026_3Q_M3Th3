@@ -178,5 +178,17 @@ class NotebookTests(unittest.TestCase):
                 self.assertFalse(namespace["is_candidate"]({**base, "nature": invalid_nature}))
 
 
+    def test_alcohol_stays_record_only_even_with_confirmed_ingredients(self):
+        namespace = self.notebook_namespace()
+        namespace["avoid_ids"] = set()
+        namespace["excluded_ingredients"] = []
+        namespace["role"] = "drink"
+        alcohol = [r for r in namespace["RECIPES"] if r.get("family") == "alcohol"]
+        self.assertEqual(len(alcohol), 10)
+        for source in alcohol:
+            recipe = dict(source, allergensKnown=True, ingredientsKnown=True)
+            self.assertFalse(namespace["is_candidate"](recipe), recipe["id"])
+
+
 if __name__ == "__main__":
     unittest.main()

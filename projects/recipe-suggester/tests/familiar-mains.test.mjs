@@ -49,11 +49,11 @@ test('ムニエル3品は魚に小麦粉をまぶしてバターで焼き、フ�
     assert.ok(!recipe.ingredients.some(part=>part.id==='breadcrumbs'));assert.ok(recipe.steps.some(step=>/薄力粉/.test(step)));
     assert.ok(recipe.steps.some(step=>/バター/.test(step)));assert.equal(dishClassification(recipe).method,'meuniere');
   }
-  assert.equal(dishClassification(get('shrimp-fry')).method,'cutlet');assert.equal(dishClassification(get('shrimp-fry')).category,'fish');
+  assert.equal(dishClassification(get('shrimp-fry')).method,'fried');assert.equal(dishClassification(get('shrimp-fry')).methodDetail,'cutlet');assert.equal(dishClassification(get('shrimp-fry')).category,'fish');
 });
 
 test('鍋9品と煮込みを表示用metadataで整理し、混合料理を他の材料からも探せる',()=>{
-  const categories=new Set(FOOD_CATEGORIES.map(category=>category.id)),methods=new Set(COOKING_METHODS.map(method=>method.id));
+  const categories=new Set(FOOD_CATEGORIES.map(category=>category.id)),methods=new Set([...COOKING_METHODS.map(method=>method.id),'karaage','cutlet','croquette','fry']);
   for(const recipe of FAMILIAR_MAIN_RECIPES){
     assert.ok(categories.has(recipe.displayCategory),recipe.id);assert.ok(methods.has(recipe.displayMethod),recipe.id);
     assert.equal(new Set(recipe.displaySecondaryCategories).size,recipe.displaySecondaryCategories.length,recipe.id);
