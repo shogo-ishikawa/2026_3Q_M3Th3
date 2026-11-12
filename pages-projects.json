@@ -79,6 +79,24 @@
         "storage.js",
         "dist/dj-lab_v1.1.0.zip"
       ]
+    },
+    {
+      "source": "projects/shift-planner",
+      "destination": "projects/shift-planner",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "solver.js",
+        "worker.js",
+        "demo.js",
+        "io.js",
+        "vendor",
+        "README.md",
+        "THIRD_PARTY_NOTICES.md",
+        "docs",
+        "dist/shift-planner_v1.0.0.zip"
+      ]
     }
   ]
 }

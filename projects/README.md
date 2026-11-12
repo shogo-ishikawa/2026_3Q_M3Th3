@@ -40,3 +40,5 @@
 - [FACEGATE](face-recognition-lab/)：学生への配布用に[元提出ZIP](face-recognition-lab/original/facegate-submitted.zip)を未改変で保存しています。[ブラウザ発展版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/face-recognition-lab/)では高速照合・複数人処理を追加しています。
 
 - [LOOP ROOM](dj-lab/)：学生のDJアプリをもとに公開用に整理・改良したDJループスタジオです。オリジナルの合成デモで16音源の重ね合わせ、テンポ同期、音量調整、エフェクト、録音を試せます。設定はブラウザ内に保存できます。[ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/dj-lab/) ／ [使い方](dj-lab/docs/manual.md)。
+
+- [シフトスタジオ](shift-planner/)：学生のアルバイトシフト作成アプリをもとに、日付ごとの勤務枠、勤務可能日時、勤務時間・日数の上限などを扱う公開用発展版です。必要人数を満たす案を探索し、過去実績と希望する勤務量の比率も考慮します。CSV・Excelの入力と出力、画面からの直接編集に対応します。[ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/shift-planner/) ／ [使い方](shift-planner/docs/manual.md)。
