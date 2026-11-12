@@ -1,8 +1,9 @@
 /** 献立候補の教材用データ。材料・分量・手順は本教材用に記述しています。 */
 import { EXTRA_INGREDIENTS, EXPANDED_RECIPES } from './expanded-foods.js';
+import { EVERYDAY_INGREDIENTS, EVERYDAY_RECIPES } from './everyday-foods.js';
 import { INGREDIENT_NUTRITION } from './ingredient-nutrients.js';
 
-export const DATA_VERSION = '2.0.0';
+export const DATA_VERSION = '3.0.0';
 
 // 2026年の消費者庁の表示対象。特定原材料9品目と推奨20品目。
 export const ALLERGENS = [
@@ -270,7 +271,7 @@ const DERIVED_FROM = {
 };
 for (const [id, parents] of Object.entries(DERIVED_FROM)) INGREDIENTS[id].derivedFrom = parents;
 
-Object.assign(INGREDIENTS, EXTRA_INGREDIENTS);
+Object.assign(INGREDIENTS, EXTRA_INGREDIENTS, EVERYDAY_INGREDIENTS);
 for (const [id, item] of Object.entries(INGREDIENTS)) {
   // 材料の宣言単位あたりの参考値。未登録成分はゼロにせず不明のまま扱います。
   Object.assign(item, INGREDIENT_NUTRITION[id] ?? {
@@ -5567,4 +5568,22 @@ export const RECIPES = [...MAIN_RECIPES, ...EXTRA_MAIN_SIDE_RECIPES, ...SIDE_SOU
   {id:'plain-rice',name:'ご飯',role:'staple',genre:'和食',minutes:5,servings:2,
    ingredients:[{id:'rice',amount:300}],steps:['炊飯済みのご飯を十分温め、人数分に分けて盛る。'],tags:[],staple:true},
   ...EXPANDED_RECIPES,
+  ...EVERYDAY_RECIPES,
 ].map(applyPreferences);
+
+// 選び慣れたご飯・おにぎりを別の種類として扱い、旧レシピIDも保持します。
+const FAMILIAR_PORTIONS = {
+  'plain-rice': {family:'rice',variantLabel:'白米',portion:{amount:150,unit:'g'},mealBase:false},
+  'staple-brown-rice': {family:'rice',variantLabel:'玄米',portion:{amount:150,unit:'g'},mealBase:false},
+  'staple-mixed-rice': {family:'rice',variantLabel:'白米と玄米',portion:{amount:150,unit:'g'},mealBase:false},
+  'staple-barley-rice': {family:'rice',variantLabel:'麦ご飯',portion:{amount:150,unit:'g'},mealBase:false},
+  'staple-wakame-rice': {family:'rice',variantLabel:'わかめ',portion:{amount:150,unit:'g'},mealBase:false},
+  'staple-salt-onigiri': {family:'onigiri',variantLabel:'塩（大きめ）',portion:{amount:1,unit:'個',label:'1人分＝大きめ1個（ご飯150g）'},mealBase:false},
+  'staple-grilled-onigiri': {family:'onigiri',variantLabel:'しょうゆ焼き（大きめ）',portion:{amount:1,unit:'個',label:'1人分＝大きめ1個（ご飯150g）'},mealBase:false},
+  'drink-water': {family:'water',variantLabel:'水',portion:{amount:200,unit:'ml'},mealBase:false},
+  'drink-lemon-water': {family:'water',variantLabel:'レモン水',portion:{amount:200,unit:'ml'},mealBase:false},
+  'soup-001': {family:'miso-soup',variantLabel:'豆腐・わかめ',portion:{amount:1,unit:'杯'},mealBase:false},
+  'soup-002': {family:'miso-soup',variantLabel:'なめこ・長ねぎ',portion:{amount:1,unit:'杯'},mealBase:false},
+  'soup-003': {family:'miso-soup',variantLabel:'大根・豚肉',portion:{amount:1,unit:'杯'},mealBase:false},
+};
+for (const recipe of RECIPES) if (FAMILIAR_PORTIONS[recipe.id]) Object.assign(recipe,FAMILIAR_PORTIONS[recipe.id]);

@@ -1,4 +1,5 @@
 import {recipeNutrition} from './nutrition.js';
+import {quantityFromAmount, isCompleteMeal, recipeFamily} from './catalog.js';
 
 // 材料の確認 → 食べられる候補 → 履歴との比較、の順に処理します。
 // 食品群の回数は献立の組合せを考える目安です。栄養量の計算ではありません。
@@ -274,7 +275,7 @@ function summariseGenres(settings, days, data) {
     const active = new Set(activeRecipeIds(day));
     for (const id of day.recipeIds) {
       const recipe = describeRecipe(id, data);
-      if (recipe.role !== 'main') continue;
+      if (recipe.role !== 'main' && !(day.meal && recipe.id === settings.stapleId && isCompleteMeal(recipe))) continue;
       if (!active.has(id)) omittedMainCount++;
       else if (GENRES.includes(recipe.genre)) actual[recipe.genre]++;
     }
@@ -529,7 +530,7 @@ export function generatePlan(settings = {}, data) {
 
 // カレンダーは「食べた」記録のスナップショットだけを比較に使います。
 // 献立の予定や現在のDBで過去の食事を置き換えることはしません。
-function calendarEvidence(entries, date, meal, data) {
+function calendarEvidence(entries, date, meal, data, completedDays) {
   const from = nextDate(date, -6);
   const filtered = entries.filter(entry => entry && entry.status === 'eaten' && validDate(entry.date) &&
     MEALS.includes(entry.meal) && entry.date >= from && entry.date <= date &&
@@ -538,6 +539,11 @@ function calendarEvidence(entries, date, meal, data) {
   const values = Object.fromEntries(NUTRIENTS.map(key => [key, null]));
   const knownCounts = emptyCounts(NUTRIENTS);
   const knownDates = Object.fromEntries(NUTRIENTS.map(key => [key, new Set()]));
+  const completed = completedDays === undefined ? null : new Set(completedDays);
+  // 完了を明示した空の日も、飲食量0の日として平均の分母へ含めます。
+  // 未完了の空の日はここに作らず、0と推測しません。
+  const daily = new Map([...(completed ?? [])].filter(key => key >= from && key < date)
+    .map(key => [key, {count: 0, values: emptyCounts(NUTRIENTS), known: emptyCounts(NUTRIENTS)}]));
   const todayValues = Object.fromEntries(NUTRIENTS.map(key => [key, null]));
   const todayKnownCounts = emptyCounts(NUTRIENTS);
   let itemCount = 0;
@@ -555,9 +561,14 @@ function calendarEvidence(entries, date, meal, data) {
           groups: recipe.groups, proteinSources: recipe.proteinSources}];
       } catch { return []; }
     });
+    // メモだけの実食は未知の飲食1品です。既知の朝食などと同じ日に
+    // 並んでも、その日全体を既知の少量として確定させません。
+    if (!items.length) items = [{quantity: 1, nutrition: {}}];
     for (const item of items) {
       if (!item || !finitePositive(item.quantity)) continue;
       itemCount++;
+      if (!daily.has(entry.date)) daily.set(entry.date, {count: 0, values: emptyCounts(NUTRIENTS), known: emptyCounts(NUTRIENTS)});
+      const day = daily.get(entry.date); day.count++;
       if (entry.date === date) todayItemCount++;
       (item.groups ?? []).filter(group => FOOD_GROUPS.includes(group)).forEach(group => tags.groups.add(group));
       (item.proteinSources ?? []).filter(source => PROTEIN_SOURCES.includes(source)).forEach(source => tags.sources.add(source));
@@ -566,6 +577,7 @@ function calendarEvidence(entries, date, meal, data) {
         const amount = item.nutrition?.[key];
         if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) continue;
         const total = amount * item.quantity;
+        day.values[key] += total; day.known[key]++;
         values[key] = (values[key] ?? 0) + total;
         knownCounts[key]++;
         knownDates[key].add(entry.date);
@@ -586,10 +598,16 @@ function calendarEvidence(entries, date, meal, data) {
     entry.recipes.forEach(id => { recipeCounts[id] = (recipeCounts[id] ?? 0) + 1; });
     if (entry.groups.size || entry.sources.size || entry.recipes.size) taggedMealCount++;
   }
+  const completePriorDays = [...daily.entries()].filter(([key]) => key < date && completed?.has(key));
+  const dailyMeans = Object.fromEntries(NUTRIENTS.map(key => {
+    if (!completed) return [key, knownDates[key].size ? values[key] / knownDates[key].size : null];
+    const knownDays = completePriorDays.filter(([, day]) => day.known[key] === day.count);
+    return [key, knownDays.length ? knownDays.reduce((sum, [, day]) => sum + day.values[key], 0) / knownDays.length : null];
+  }));
   const basis = {from, untilDate: date, beforeMeal: meal, entryCount: filtered.length, itemCount,
     values, knownCounts,
     complete: Object.fromEntries(NUTRIENTS.map(key => [key, itemCount > 0 && knownCounts[key] === itemCount])),
-    dailyMeans: Object.fromEntries(NUTRIENTS.map(key => [key, knownDates[key].size ? values[key] / knownDates[key].size : null])),
+    dailyMeans, usesCompletedDays: completed !== null, completedDayCount: completePriorDays.length,
     today: {values: todayValues, knownCounts: todayKnownCounts,
       complete: Object.fromEntries(NUTRIENTS.map(key => [key, todayItemCount > 0 && todayKnownCounts[key] === todayItemCount]))}};
   return {basis, history: {groups, proteinSources, recipeCounts, taggedMealCount,
@@ -612,7 +630,7 @@ function calendarNutrientScore(recipe, basis, targets, selected, data, meal) {
   let score = 0;
   for (const key of ['kcal', 'salt', 'protein', 'fiber']) {
     const target = targets[key];
-    if (target === undefined || basis.dailyMeans[key] === null) continue;
+    if (target === undefined || (basis.dailyMeans[key] === null && (!['kcal', 'salt'].includes(key) || basis.today.values[key] === null))) continue;
     const amount = nutrition[key];
     // 不明な栄養量を0とみなして「少ない料理」として優先しません。
     if (amount === null || amount === undefined) { score -= 20; continue; }
@@ -622,7 +640,7 @@ function calendarNutrientScore(recipe, basis, targets, selected, data, meal) {
       const available = Math.max(0, target - already);
       const denominator = Math.max(target, 1);
       const excess = Math.max(0, amount - available) / denominator;
-      const previousExcess = target === 0 ? (basis.dailyMeans[key] > 0 ? 1 : 0) : Math.max(0, basis.dailyMeans[key] / target - 1);
+      const previousExcess = target === 0 ? ((basis.dailyMeans[key] ?? 0) > 0 ? 1 : 0) : Math.max(0, (basis.dailyMeans[key] ?? 0) / target - 1);
       score -= 16 * Math.min(1, excess + Math.min(previousExcess, 1) * amount / (denominator * share));
     } else {
       const difference = Math.max(0, 1 - basis.dailyMeans[key] / target);
@@ -641,17 +659,18 @@ function calendarNotes(selected, evidence, settings, targets, targetGenre, meal,
     notes.reasons.push('間食として食べる量を調整しやすい1品を選んでいます。');
   }
   const nutrientLabels = {kcal: 'エネルギー', salt: '食塩相当量', protein: 'たんぱく質', fiber: '食物繊維'};
-  if (!basis.itemCount) {
+  if (!basis.itemCount && !basis.completedDayCount) {
     notes.reasons.push('この食事より前の7日間に食べた記録がないため、栄養量による比較は行っていません。');
   } else {
     notes.reasons.push(`${basis.from}からこの食事の直前までに「食べた」と記録した${basis.entryCount}件を比較しました。予定の食事は摂取量に含めていません。`);
+    if (basis.usesCompletedDays) notes.reasons.push(`過去の栄養の平均は、飲食の記録を完了した${basis.completedDayCount}日だけを対象にします。栄養が不明な日はその成分の平均から除きます。`);
     const lower = ['kcal', 'salt'].filter(key => targets[key] !== undefined && basis.dailyMeans[key] !== null &&
       (basis.dailyMeans[key] > targets[key] || (basis.today.values[key] ?? 0) >= targets[key]));
     const higher = ['protein', 'fiber'].filter(key => targets[key] && basis.dailyMeans[key] !== null &&
       basis.dailyMeans[key] < targets[key] && selected.some(recipe => (recipeNutrition(recipe, data)[key] ?? 0) > 0));
     if (lower.length) notes.reasons.push(`登録された${lower.map(key => nutrientLabels[key]).join('・')}が比較値を上回るため、量が分かる候補の中で控えめな組合せを優先しました。`);
     if (higher.length) notes.reasons.push(`記録された範囲で${higher.map(key => nutrientLabels[key]).join('・')}の1日平均が比較値より少ないため、これらを含む候補を優先しました。`);
-    if (NUTRIENTS.some(key => !basis.complete[key])) notes.warnings.push('記録の一部に未登録の栄養量があります。比較は分かる範囲の参考値です。');
+    if (basis.itemCount > 0 && NUTRIENTS.some(key => !basis.complete[key])) notes.warnings.push('記録の一部に未登録の栄養量があります。比較は分かる範囲の参考値です。');
   }
   if (selected.some(recipe => NUTRIENTS.some(key => recipeNutrition(recipe, data)[key] == null))) {
     notes.warnings.push('この献立には栄養量が未登録の項目があります。0として計算していません。');
@@ -660,80 +679,114 @@ function calendarNotes(selected, evidence, settings, targets, targetGenre, meal,
   return {reasons: unique(notes.reasons), warnings: unique(notes.warnings)};
 }
 
+function calendarAmount(value, label) {
+  if (value === undefined || value === null) return null;
+  if (!finitePositive(value) || value > 100000) throw new Error(`${label}は0より大きい数値で指定してください。`);
+  return value;
+}
+
+function calendarQuantity(recipe, settings, data) {
+  const amount = recipe.id === settings.stapleId ? settings.stapleAmount : recipe.id === settings.drinkId ? settings.drinkAmount : null;
+  const quantity = amount === null || amount === undefined ? 1 : quantityFromAmount(recipe, data, amount);
+  if (!finitePositive(quantity) || quantity > 1000) throw new Error('主食または飲み物の量が大きすぎます。基準量の1000倍以内で指定してください。');
+  return quantity;
+}
+
+function calendarScaled(recipe, settings, data, quantity = calendarQuantity(recipe, settings, data)) {
+  if (quantity === 1) return recipe;
+  return {...recipe, ingredients: recipe.ingredients.map(part => ({...part, amount: part.amount * quantity})),
+    ...(recipe.manualNutrition ? {manualNutrition: Object.fromEntries(NUTRIENTS.map(key => [key, recipe.manualNutrition[key] == null ? null : recipe.manualNutrition[key] * quantity]))} : {})};
+}
+
+function checkedCompletedDays(value) {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 36600 || value.some(date => !validDate(date) || date < '2000-01-01' || date > '2100-12-31') || new Set(value).size !== value.length) throw new Error('飲食の記録を完了した日付を確認してください。');
+  return value;
+}
+
 export function generateCalendarPlan(settings = {}, data, options = {}) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('カレンダーの提案条件を確認してください。');
   const meal = options.meal ?? settings.meal ?? 'dinner';
   const stapleId = options.stapleId ?? settings.stapleId ?? 'auto';
   const drinkId = options.drinkId ?? settings.drinkId ?? 'none';
-  const normalised = {...normaliseSettings({...settings, meal}, data, {allowSnack: true}), stapleId, drinkId};
+  const stapleAmount = calendarAmount(Object.hasOwn(options, 'stapleAmount') ? options.stapleAmount : settings.stapleAmount, '主食の量');
+  const drinkAmount = calendarAmount(Object.hasOwn(options, 'drinkAmount') ? options.drinkAmount : settings.drinkAmount, '飲み物の量');
+  const normalised = {...normaliseSettings({...settings, meal}, data, {allowSnack: true}), stapleId, drinkId, stapleAmount, drinkAmount};
   if (typeof stapleId !== 'string' || typeof drinkId !== 'string') throw new Error('主食と飲み物の選択を確認してください。');
   const entries = options.entries ?? [];
   if (!Array.isArray(entries)) throw new Error('カレンダーの食事記録を確認してください。');
+  const completedDays = checkedCompletedDays(options.completedDays);
   const targets = comparisonTargets(options.targets);
   const pantry = options.pantry ?? [];
   if (!Array.isArray(pantry) || pantry.some(part => !part || typeof part.id !== 'string' ||
-      !Object.hasOwn(data.ingredients, part.id) || typeof part.amount !== 'number' || !Number.isFinite(part.amount) || part.amount < 0)) {
-    throw new Error('手持ち食材の分量を確認してください。');
-  }
+      !Object.hasOwn(data.ingredients, part.id) || typeof part.amount !== 'number' || !Number.isFinite(part.amount) || part.amount < 0)) throw new Error('手持ち食材の分量を確認してください。');
   const catalog = catalogue(data);
   const safe = catalog.recipes.filter(recipe => allowed(recipe, normalised));
   const byRole = Object.fromEntries(ROLES.map(role => [role, safe.filter(recipe => recipe.role === role)]));
+  const staples = safe.filter(recipe => recipe.role === 'staple' || recipe.role === 'main' && recipe.staple);
   const warnings = [...preferenceWarnings(normalised, data),
     ...(catalog.invalidIds.length ? [`材料・手順・確認情報が不足する${catalog.invalidIds.length}品は提案から除外しました。`] : [])];
-  const unavailableSelection = (id, role) => !['none', 'auto'].includes(id) && !byRole[role].some(recipe => recipe.id === id);
-  if ((meal !== 'snack' && unavailableSelection(stapleId, 'staple')) || unavailableSelection(drinkId, 'drink')) {
-    return {...incomplete(normalised, [meal !== 'snack' && unavailableSelection(stapleId, 'staple') ? 'staple' : 'drink'], warnings), mode: 'calendar',
+  const fixedStaple = !['auto', 'none'].includes(stapleId) ? staples.find(recipe => recipe.id === stapleId) : null;
+  const fixedDrink = !['auto', 'none'].includes(drinkId) ? byRole.drink.find(recipe => recipe.id === drinkId) : null;
+  if (meal !== 'snack' && !['auto', 'none'].includes(stapleId) && !fixedStaple || !['auto', 'none'].includes(drinkId) && !fixedDrink) {
+    const missing = meal !== 'snack' && !['auto', 'none'].includes(stapleId) && !fixedStaple ? 'staple' : 'drink';
+    return {...incomplete(normalised, [missing], warnings), mode: 'calendar',
       warnings: [...warnings, '指定した主食または飲み物を用意できません。登録内容と除外条件を確認してください。']};
   }
+  const completeBase = fixedStaple && isCompleteMeal(fixedStaple);
+  const brothBase = completeBase && ['udon', 'soba', 'ramen', 'somen'].includes(recipeFamily(fixedStaple));
   let mains = byRole.main;
-  if (!['none', 'auto'].includes(stapleId)) mains = mains.filter(recipe => !recipe.staple);
+  if (fixedStaple) mains = mains.filter(recipe => !recipe.staple);
   else if (stapleId === 'auto') mains = mains.filter(recipe => recipe.staple || byRole.staple.length);
-  const missing = meal === 'snack' ? (byRole.snack.length ? [] : ['snack']) : ['side', 'soup'].filter(role => !byRole[role].length);
-  if (meal !== 'snack' && !mains.length) missing.push(byRole.main.length && stapleId === 'auto' ? 'staple' : 'main');
+  const missing = meal === 'snack' ? (byRole.snack.length ? [] : ['snack']) : ['side', ...(brothBase ? [] : ['soup'])].filter(role => !byRole[role].length);
+  if (meal !== 'snack' && !completeBase && !mains.length) missing.push(byRole.main.length && stapleId === 'auto' ? 'staple' : 'main');
   if (drinkId === 'auto' && !byRole.drink.length) missing.push('drink');
   if (missing.length) {
     const failed = {...incomplete(normalised, missing, warnings), mode: 'calendar'};
-    if (meal !== 'snack' && !['auto', 'none'].includes(stapleId) && byRole.main.length && !mains.length) {
-      failed.warnings.push('指定した主食と重複しない主菜がありません。主食を含まない主菜を追加するか、主食の指定を変更してください。');
-    }
+    if (meal !== 'snack' && fixedStaple && !completeBase && byRole.main.length && !mains.length) failed.warnings.push('指定した主食と重複しない主菜がありません。主食を含まない主菜を追加するか、主食の指定を変更してください。');
     return failed;
   }
-  const days = [];
-  const used = new Set();
-  const genres = genreSchedule(normalised);
+  // 固定量の不正値は候補選びの前に検出します。
+  if (fixedStaple && meal !== 'snack') calendarQuantity(fixedStaple, normalised, data);
+  if (fixedDrink) calendarQuantity(fixedDrink, normalised, data);
+  const days = [], used = new Set(), genres = genreSchedule(normalised);
   let lastSources = [];
   for (let index = 0; index < normalised.days; index++) {
     const date = nextDate(normalised.startDate, index);
-    const evidence = calendarEvidence(entries, date, meal, data);
-    const selected = [];
+    const evidence = calendarEvidence(entries, date, meal, data, completedDays);
+    const selected = [], quantities = {};
     const context = {used, groups: new Set(), lastSources, targetGenre: genres[index], scoreRecipe: recipe =>
-      calendarNutrientScore(recipe, evidence.basis, targets, selected, data, meal) +
+      calendarNutrientScore(calendarScaled(recipe, normalised, data), evidence.basis, targets, selected, data, meal) +
       recipe.ingredients.filter(part => pantry.some(stock => stock.id === part.id && stock.amount > 0)).length * 3};
     const add = recipe => {
       if (!recipe || selected.some(item => item.id === recipe.id)) return;
-      selected.push(recipe); used.add(recipe.id); recipe.groups.forEach(group => context.groups.add(group));
+      quantities[recipe.id] = calendarQuantity(recipe, normalised, data);
+      selected.push(calendarScaled(recipe, normalised, data, quantities[recipe.id])); used.add(recipe.id); recipe.groups.forEach(group => context.groups.add(group));
     };
     if (meal === 'snack') add(pick(byRole.snack, normalised, evidence.history, context, date, 'snack'));
     else {
-      const main = pick(mains, normalised, evidence.history, context, date, 'main');
+      const main = completeBase ? fixedStaple : pick(mains, normalised, evidence.history, context, date, 'main');
       add(main);
       add(pick(byRole.side, normalised, evidence.history, context, date, 'side'));
-      add(pick(byRole.soup, normalised, evidence.history, context, date, 'soup'));
-      if (!main.staple && stapleId !== 'none') add(stapleId === 'auto' ?
-        pick(byRole.staple, normalised, evidence.history, context, date, 'staple') : byRole.staple.find(recipe => recipe.id === stapleId));
+      if (!brothBase) add(pick(byRole.soup, normalised, evidence.history, context, date, 'soup'));
+      if (!completeBase && !main.staple && stapleId !== 'none') add(stapleId === 'auto' ?
+        pick(byRole.staple, normalised, evidence.history, context, date, 'staple') : fixedStaple);
       lastSources = main.proteinSources;
     }
-    if (drinkId !== 'none') add(drinkId === 'auto' ? pick(byRole.drink, normalised, evidence.history, context, date, 'drink') :
-      byRole.drink.find(recipe => recipe.id === drinkId));
+    if (drinkId !== 'none') add(drinkId === 'auto' ? pick(byRole.drink, normalised, evidence.history, context, date, 'drink') : fixedDrink);
     const notes = calendarNotes(selected, evidence, normalised, targets, genres[index], meal, data);
+    if (completeBase) {
+      notes.warnings = notes.warnings.filter(message => !message.includes('希望ジャンル以外の主菜'));
+      notes.reasons.push('指定した一品の主食を食事の中心にし、主菜を重ねずに組み合わせています。');
+      if (brothBase) notes.reasons.push('麺料理を中心とするため、別の汁物は付けていません。');
+    }
     if (stapleId === 'none' && meal !== 'snack' && !selected.some(recipe => recipe.staple)) {
       notes.warnings = notes.warnings.filter(message => !message.includes('主食の食品群'));
       notes.reasons.push('主食を別に付けない設定で提案しています。');
     }
-    if (selected.some(recipe => recipe.ingredients.some(part => pantry.some(stock => stock.id === part.id && stock.amount > 0)))) {
-      notes.reasons.push('手持ちの食材を使う候補に優先度を付けています。');
-    }
-    days.push({date, meal, targetGenre: genres[index], recipeIds: selected.map(recipe => recipe.id), omittedRecipeIds: [],
+    if (selected.some(recipe => recipe.ingredients.some(part => pantry.some(stock => stock.id === part.id && stock.amount > 0)))) notes.reasons.push('手持ちの食材を使う候補に優先度を付けています。');
+    if ((stapleAmount !== null && fixedStaple) || (drinkAmount !== null && fixedDrink)) notes.reasons.push('主食と飲み物は指定した量で栄養を概算しています。');
+    days.push({date, meal, targetGenre: genres[index], recipeIds: selected.map(recipe => recipe.id), quantities, omittedRecipeIds: [],
       ...notes, proposedReasons: [...notes.reasons], proposedWarnings: [...notes.warnings], nutritionBasis: evidence.basis});
   }
   return {ok: true, mode: 'calendar', settings: normalised, days, missingRoles: [], warnings,
@@ -745,7 +798,7 @@ export function replaceRecipe(plan, options = {}, data) {
   const dayIndex = options.dayIndex;
   if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex >= plan.days.length) throw new Error('差し替える日を選んでください。');
   const settings = {...normaliseSettings({...plan.settings, ...options}, data, {allowSnack: plan.mode === 'calendar'}),
-    ...(plan.mode === 'calendar' ? {stapleId: plan.settings.stapleId ?? 'auto', drinkId: plan.settings.drinkId ?? 'none'} : {})};
+    ...(plan.mode === 'calendar' ? {stapleId: plan.settings.stapleId ?? 'auto', drinkId: plan.settings.drinkId ?? 'none', stapleAmount: plan.settings.stapleAmount ?? null, drinkAmount: plan.settings.drinkAmount ?? null} : {})};
   const {recipes, invalidIds} = catalogue(data);
   const safe = recipes.filter(recipe => allowed(recipe, settings));
   const safeById = new Map(safe.map(recipe => [recipe.id, recipe]));
@@ -758,14 +811,15 @@ export function replaceRecipe(plan, options = {}, data) {
   if (!currentDay.recipeIds.includes(options.recipeId)) throw new Error('差し替える料理が見つかりません。');
   if ((currentDay.omittedRecipeIds ?? []).includes(options.recipeId)) throw new Error('今回は作らない料理は、戻してから差し替えてください。');
   const previous = safeById.get(options.recipeId);
+  if (plan.mode === 'calendar' && (previous.id === settings.stapleId || previous.id === settings.drinkId)) return {...plan, warnings: unique([...(plan.warnings ?? []), '指定した主食や飲み物を替える場合は、条件の選択を変更して献立を作り直してください。'])};
   const main = currentDay.recipeIds.map(id => safeById.get(id)).find(recipe => recipe.role === 'main');
   const otherDays = plan.days.filter((_, index) => index !== dayIndex)
     .map(day => ({date: day.date, meal: day.meal, recipeIds: activeRecipeIds(day)}));
-  const evidence = plan.mode === 'calendar' ? calendarEvidence(options.entries ?? [], currentDay.date, currentDay.meal, data) : null;
+  const evidence = plan.mode === 'calendar' ? calendarEvidence(options.entries ?? [], currentDay.date, currentDay.meal, data, checkedCompletedDays(options.completedDays)) : null;
   const history = evidence?.history ?? analyseHistory([...(options.history ?? []), ...otherDays],
     {beforeDate: currentDay.date, days: 7, beforeMeal: currentDay.meal}, data);
   const used = new Set(plan.days.flatMap(day => activeRecipeIds(day)));
-  const others = activeRecipeIds(currentDay).filter(id => id !== previous.id).map(id => safeById.get(id));
+  const others = activeRecipeIds(currentDay).filter(id => id !== previous.id).map(id => plan.mode === 'calendar' ? calendarScaled(safeById.get(id), settings, data, currentDay.quantities?.[id] ?? 1) : safeById.get(id));
   const targetGenre = currentDay.targetGenre ?? genreSchedule(settings)[dayIndex];
   let pool = safe.filter(recipe => recipe.role === previous.role && recipe.id !== previous.id);
   if (previous.role === 'main') {
@@ -779,7 +833,7 @@ export function replaceRecipe(plan, options = {}, data) {
       warnings: unique([...(plan.warnings ?? []), ...preferenceWarnings(settings, data), '除外条件に合う別の料理がないため、現在の料理を維持しました。条件外の料理には差し替えていません。'])};
   }
   const context = {used, groups: new Set(others.flatMap(recipe => recipe.groups)), lastSources: [], targetGenre,
-    ...(evidence ? {scoreRecipe: recipe => calendarNutrientScore(recipe, evidence.basis, comparisonTargets(options.targets), others, data, currentDay.meal)} : {})};
+    ...(evidence ? {scoreRecipe: recipe => calendarNutrientScore(calendarScaled(recipe, settings, data), evidence.basis, comparisonTargets(options.targets), others, data, currentDay.meal)} : {})};
   const selected = pick(pool, settings, history, context, currentDay.date, previous.role);
   let newRecipes = currentDay.recipeIds.map(id => id === previous.id ? selected : safeById.get(id));
   if (previous.role === 'main') {
@@ -796,11 +850,12 @@ export function replaceRecipe(plan, options = {}, data) {
   if (plan.mode === 'calendar' && previous.role === 'drink') settings.drinkId = selected.id;
   const recorded = analyseHistory(options.history ?? [], {beforeDate: currentDay.date, days: 7, beforeMeal: currentDay.meal}, data);
   const earlierPlans = otherDays.some(day => day.date < currentDay.date);
-  const notes = plan.mode === 'calendar' ? calendarNotes(newRecipes,
+  const quantities = Object.fromEntries(newRecipes.map(recipe => [recipe.id, plan.mode === 'calendar' ? calendarQuantity(recipe, settings, data) : 1]));
+  const notes = plan.mode === 'calendar' ? calendarNotes(newRecipes.map(recipe => calendarScaled(recipe, settings, data, quantities[recipe.id])),
     evidence, settings, comparisonTargets(options.targets), targetGenre, currentDay.meal, data) :
     dayNotes(newRecipes, history, settings, {recordedHistory: recorded.hasTaggedData, earlierPlans, targetGenre});
   const recipeIds = newRecipes.map(recipe => recipe.id);
-  const newDay = omissionNotes({...currentDay, targetGenre, recipeIds, ...(evidence ? {nutritionBasis: evidence.basis} : {}),
+  const newDay = omissionNotes({...currentDay, targetGenre, recipeIds, ...(plan.mode === 'calendar' ? {quantities} : {}), ...(evidence ? {nutritionBasis: evidence.basis} : {}),
     omittedRecipeIds: (currentDay.omittedRecipeIds ?? []).filter(id => recipeIds.includes(id)),
     ...notes, proposedReasons: [...notes.reasons], proposedWarnings: [...notes.warnings]}, data);
   const days = plan.days.map((day, index) => index === dayIndex ? newDay : {...day, recipeIds: [...day.recipeIds], omittedRecipeIds: [...(day.omittedRecipeIds ?? [])]});
@@ -813,7 +868,7 @@ export function toggleDish(plan, {dayIndex, recipeId} = {}, data) {
   if (!plan?.ok || !Array.isArray(plan.days) || !plan.settings) throw new Error('先に献立を作成してください。');
   if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex >= plan.days.length) throw new Error('変更する日を選んでください。');
   const settings = {...normaliseSettings(plan.settings, data, {allowSnack: plan.mode === 'calendar'}),
-    ...(plan.mode === 'calendar' ? {stapleId: plan.settings.stapleId ?? 'auto', drinkId: plan.settings.drinkId ?? 'none'} : {})};
+    ...(plan.mode === 'calendar' ? {stapleId: plan.settings.stapleId ?? 'auto', drinkId: plan.settings.drinkId ?? 'none', stapleAmount: plan.settings.stapleAmount ?? null, drinkAmount: plan.settings.drinkAmount ?? null} : {})};
   for (const day of plan.days) {
     activeRecipeIds(day);
     for (const id of day.recipeIds) {
@@ -843,7 +898,9 @@ export function shoppingList(plan, servings = plan?.settings?.servings ?? 2, dat
       for (const part of recipe.ingredients) {
         const key = `${part.id}:${part.unit}`;
         if (!items.has(key)) items.set(key, {id: part.id, name: part.name, unit: part.unit, amount: 0, allergens: [...part.allergens]});
-        items.get(key).amount += part.amount * servings / recipe.servings;
+        const quantity = day.quantities?.[id] ?? 1;
+        if (!finitePositive(quantity) || quantity > 1000) throw new Error('献立の量を確認してください。');
+        items.get(key).amount += part.amount * quantity * servings / recipe.servings;
       }
     }
   }

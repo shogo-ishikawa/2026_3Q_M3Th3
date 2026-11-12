@@ -6,7 +6,11 @@ export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={
   if(!dateIsValid(from)||!dateIsValid(to)||from>to)throw Error('買い物の対象期間を確認してください。');
   const selected=entries.filter(e=>e.status==='planned'&&e.date>=from&&e.date<=to),items=new Map(),missingMenus=[];
   const amount=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
-  for(const entry of selected)for(const item of entry.items){
+  for(const entry of selected){
+    if(!Array.isArray(entry.items))throw Error('予定のメニューの形式を確認してください。');
+    // メモだけの予定を「材料なし＝買い物不要」と解釈しません。
+    if(!entry.items.length){missingMenus.push({name:entry.note?.trim().slice(0,200)||'メニュー未入力の予定',entryId:entry.id});continue;}
+    for(const item of entry.items){
     if(!amount(item.quantity)||item.quantity===0)throw Error('予定の分量を確認してください。');
     if(!item.ingredientsKnown||!Array.isArray(item.ingredients)||!item.ingredients.length){missingMenus.push({name:item.name,entryId:entry.id});continue;}
     let missing=false;
@@ -20,6 +24,7 @@ export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={
       items.get(part.id).required+=part.amount*item.quantity*servings;
     }
     if(missing)missingMenus.push({name:item.name,entryId:entry.id});
+    }
   }
   const stock=new Map();
   for(const p of pantry){if(!Object.hasOwn(data.ingredients,p.id)||!amount(p.amount)||stock.has(p.id))throw Error('手持ち食材の量を確認してください。');stock.set(p.id,p.amount);}

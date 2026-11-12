@@ -147,3 +147,90 @@ test('future proposals never become consumed nutrition and pantry preferences re
   assert.equal(excluded.ok, true);
   assert.ok(!excluded.days[0].recipeIds.includes('main-stock'));
 });
+
+
+test('explicit rice grams and drink millilitres scale proposal and shopping quantities exactly once', () => {
+  const data = {...DATA, recipes: DATA.recipes.map(recipe => recipe.id === 'rice' ? {...recipe, portion: {amount: 150, unit: 'g'}} : recipe.id === 'milk-drink' ? {...recipe, portion: {amount: 100, unit: 'ml'}} : recipe)};
+  const plan = generateCalendarPlan(settings({stapleAmount: 75, drinkAmount: 250}), data, {stapleId: 'rice', drinkId: 'milk-drink'});
+  assert.equal(plan.ok, true);
+  assert.equal(plan.days[0].quantities.rice, 0.5);
+  assert.equal(plan.days[0].quantities['milk-drink'], 2.5);
+  const shopping = shoppingList(plan, 3, data);
+  assert.equal(shopping.find(part => part.id === 'rice').amount, 150);
+  assert.equal(shopping.find(part => part.id === 'milk').amount, 750);
+  const main = plan.days[0].recipeIds.find(id => describeRecipe(id, data).role === 'main');
+  const swapped = replaceRecipe(plan, {dayIndex: 0, recipeId: main}, data);
+  assert.equal(swapped.settings.stapleAmount, 75);
+  assert.equal(swapped.settings.drinkAmount, 250);
+  assert.equal(swapped.days[0].quantities.rice, 0.5);
+  assert.equal(swapped.days[0].quantities['milk-drink'], 2.5);
+  const omitted = toggleDish(plan, {dayIndex: 0, recipeId: 'milk-drink'}, data);
+  assert.equal(omitted.days[0].quantities.rice, 0.5);
+  assert.ok(!shoppingList(omitted, 3, data).some(part => part.id === 'milk'));
+});
+
+test('rice-ball count stays distinct from rice grams and a two-piece selection doubles its materials', () => {
+  const onigiri = food('rice-ball', 'staple', ['rice'], {family: 'onigiri', portion: {amount: 1, unit: '個'}});
+  const data = {...DATA, recipes: [...DATA.recipes, onigiri]};
+  const plan = generateCalendarPlan(settings(), data, {stapleId: onigiri.id, stapleAmount: 2});
+  assert.equal(plan.days[0].quantities[onigiri.id], 2);
+  assert.equal(shoppingList(plan, 1, data).find(part => part.id === 'rice').amount, 200);
+  assert.ok(plan.days[0].recipeIds.some(id => describeRecipe(id, data).role === 'main'));
+});
+
+test('a complete pasta or curry staple replaces the main rather than adding another main dish', () => {
+  for (const family of ['pasta', 'curry', 'pizza', 'fried-rice']) {
+    const base = food(`whole-${family}`, 'staple', ['flour'], {family, mealBase: true, portion: {amount: 1, unit: '皿'}});
+    const data = {...DATA, recipes: [...DATA.recipes, base]};
+    const plan = generateCalendarPlan(settings(), data, {stapleId: base.id, stapleAmount: 0.75});
+    assert.equal(plan.ok, true);
+    assert.ok(plan.days[0].recipeIds.includes(base.id));
+    assert.ok(!plan.days[0].recipeIds.some(id => describeRecipe(id, data).role === 'main'));
+    assert.ok(plan.days[0].recipeIds.some(id => describeRecipe(id, data).role === 'side'));
+    assert.equal(plan.days[0].quantities[base.id], 0.75);
+  }
+  const oldPasta = generateCalendarPlan(settings(), DATA, {stapleId: 'pasta-main'});
+  assert.equal(oldPasta.ok, true);
+  assert.deepEqual(oldPasta.days[0].recipeIds.filter(id => describeRecipe(id, DATA).role === 'main'), ['pasta-main']);
+});
+
+test('a broth noodle meal needs neither another main nor a separate soup and keeps exclusions', () => {
+  for (const family of ['udon', 'soba', 'ramen', 'somen']) {
+    const base = food(`broth-${family}`, 'staple', ['flour'], {family, portion: {amount: 1, unit: '皿'}});
+    const data = {...DATA, recipes: [...DATA.recipes, base]};
+    const plan = generateCalendarPlan(settings({excludedIngredients: ['water']}), data, {stapleId: base.id});
+    assert.equal(plan.ok, true);
+    assert.deepEqual(plan.days[0].recipeIds.sort(), [base.id, 'side'].sort());
+  }
+  const base = food('milk-udon', 'staple', ['milk'], {family: 'udon'});
+  const data = {...DATA, recipes: [...DATA.recipes, base]};
+  assert.equal(generateCalendarPlan(settings({allergens: ['milk']}), data, {stapleId: base.id}).ok, false);
+});
+
+test('nutrition means use confirmed past days only; same-day meals remain separate and missing nutrients are not zero', () => {
+  const entries = [entry('2026-11-08', 'dinner', 'eaten', snapshot({kcal: 1000, protein: 30, fiber: null})),
+    entry('2026-11-09', 'dinner', 'eaten', snapshot({kcal: 10, protein: 1, fiber: 1})),
+    entry('2026-11-10', 'breakfast', 'eaten', snapshot({kcal: 200, protein: 10, fiber: 2}))];
+  const plan = generateCalendarPlan(settings(), DATA, {entries, completedDays: ['2026-11-08']});
+  const basis = plan.days[0].nutritionBasis;
+  assert.equal(basis.dailyMeans.kcal, 1000);
+  assert.equal(basis.dailyMeans.protein, 30);
+  assert.equal(basis.dailyMeans.fiber, null);
+  assert.equal(basis.today.values.kcal, 200);
+  assert.equal(basis.completedDayCount, 1);
+  assert.equal(basis.values.kcal, 1210); // available history is retained without being called a full-day average
+  const unfinished = generateCalendarPlan(settings(), DATA, {entries, completedDays: []});
+  assert.equal(unfinished.days[0].nutritionBasis.dailyMeans.kcal, null);
+  assert.equal(unfinished.days[0].nutritionBasis.today.values.kcal, 200);
+  assert.throws(() => generateCalendarPlan(settings(), DATA, {completedDays: ['2026-02-30']}), /日付/);
+  assert.throws(() => generateCalendarPlan(settings(), DATA, {completedDays: ['2026-11-08', '2026-11-08']}), /日付/);
+});
+
+test('earlier same-day energy and salt still affect ranking when no full day has been confirmed', () => {
+  const data = {...DATA, recipes: [...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    manual('main-heavy', 'main', {kcal: 1000, salt: 4}), manual('main-light', 'main', {kcal: 100, salt: 0.1})]};
+  const plan = generateCalendarPlan(settings(), data, {stapleId: 'none', completedDays: [], targets: {kcal: 2000, salt: 6},
+    entries: [entry('2026-11-10', 'breakfast', 'eaten', snapshot({kcal: 2200, salt: 7}))]});
+  assert.ok(plan.days[0].recipeIds.includes('main-light'));
+  assert.equal(plan.days[0].nutritionBasis.dailyMeans.kcal, null);
+});

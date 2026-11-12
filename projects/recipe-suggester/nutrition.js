@@ -75,6 +75,7 @@ function validDate(date){return typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.te
 export function summariseEntries(entries,{from,to,status='eaten'}={}) {
   if(!Array.isArray(entries)||!validDate(from)||!validDate(to)||from>to||!['eaten','planned'].includes(status))throw Error('栄養を集計する期間を確認してください。');
   const selected=entries.filter(e=>e.status===status&&e.date>=from&&e.date<=to);
-  const summary=sumNutrition(selected.flatMap(e=>e.items));
+  // メモだけの食事も内容が不明な記録です。空の材料・栄養を0品として数えません。
+  const summary=sumNutrition(selected.flatMap(entry=>entry.items.length ? entry.items : [{quantity:1,nutrition:empty()}]));
   return {...summary,entryCount:selected.length,recordedDays:new Set(selected.map(e=>e.date)).size,recordedMeals:new Set(selected.map(e=>`${e.date}:${e.meal}`)).size};
 }

@@ -1,94 +1,399 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="朝食から間食までカレンダーで記録。食べた分の栄養や手持ちの食材を参考に、レシピと買い物リストまで考えられる献立ノートです。">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <title>献立ノート｜食べた記録から次の献立へ</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Meal Paletteは食事と栄養のノート。種類とメニューを選んで記録し、栄養の振り返りから献立と買い物へつなげます。">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="theme-color" content="#14242f">
+<title>Meal Palette｜食事と栄養のノート</title>
+<link rel="icon" href="app-icon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="app-icon.svg" color="#159d83">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="site-header page-width">
-    <a class="brand" href="./"><span class="brand-symbol" aria-hidden="true">◒</span><span>献立ノート<small>KONDATE NOTE</small></span></a>
-    <nav aria-label="ページ内メニュー"><a href="#calendar">カレンダー</a><a href="#nutrition">栄養の記録</a><a href="#planner">献立づくり</a><a href="#recipes">レシピ</a></nav>
-  </header>
-
-  <main class="page-width">
-    <section class="hero" aria-labelledby="hero-title">
-      <div class="hero-main"><p class="eyebrow">食べた記録から次の献立へ</p><h1 id="hero-title">ごはんのことを<br>ひとつのノートに。</h1><p class="hero-copy">朝食も、飲み物も、ちょっとした間食も。<br>毎日の食事を振り返りながら、次の献立を考えましょう。</p><div class="hero-actions"><a class="button-primary" href="#calendar">今日の食事を記録する <span aria-hidden="true">↗</span></a><a class="text-link" href="#planner">献立を提案してもらう</a></div></div>
-      <div class="hero-note"><span class="small-label">YOUR EVERYDAY FOOD NOTE</span><p><strong id="catalog-count">—</strong><span>品のメニューを収録</span></p><div class="hero-note-tags"><span>食事の記録</span><span>栄養の振り返り</span><span>献立と買い物</span></div><span class="local-note"><span class="status-dot" aria-hidden="true"></span>データはこのブラウザーに保存します</span></div>
-    </section>
-
-    <div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
-
-    <section class="calendar-section" id="calendar" aria-labelledby="calendar-title">
-      <div class="section-heading"><div><p class="eyebrow">01 / DAILY LOG</p><h2 id="calendar-title">毎日の食事</h2></div><p class="section-caption">朝・昼・夕・間食を1人分ずつ記録</p></div>
+<a class="skip-link" href="#main">本文へ移動</a><div class="app-layout">
+<aside class="app-sidebar"><a class="brand" href="./" aria-label="Meal Palette ホーム"><img src="app-icon.svg" alt="" width="48" height="48"><span>Meal<span class="brand-second">Palette<span class="brand-dot">.</span></span></span></a><p class="sidebar-caption">食事と栄養のノート</p>
+<nav class="app-tabs" role="tablist" aria-label="アプリの機能" aria-orientation="vertical"><button id="tab-record" class="app-tab" type="button" role="tab" aria-controls="panel-record" aria-selected="true" tabindex="0" data-tab="record"><svg viewbox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M7 3v4m10-4v4M3 10h18M7 14h2m4 0h2m-8 4h2"></path></svg><span>記録</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-nutrition" class="app-tab" type="button" role="tab" aria-controls="panel-nutrition" aria-selected="false" tabindex="-1" data-tab="nutrition"><svg viewbox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h17M8 16v-4m5 4V7m5 9v-6"></path></svg><span>栄養</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-planner" class="app-tab" type="button" role="tab" aria-controls="panel-planner" aria-selected="false" tabindex="-1" data-tab="planner"><svg viewbox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="12" r="7"></circle><path d="M2 3v7m3-7v7M2 7h3m-1.5 3v11M22 3v18"></path></svg><span>献立</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-kitchen" class="app-tab" type="button" role="tab" aria-controls="panel-kitchen" aria-selected="false" tabindex="-1" data-tab="kitchen"><svg viewbox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l2 14H3L5 7Z"></path><path d="M8 8V6a4 4 0 0 1 8 0v2"></path></svg><span>買い物</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-catalog" class="app-tab" type="button" role="tab" aria-controls="panel-catalog" aria-selected="false" tabindex="-1" data-tab="catalog"><svg viewbox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg><span>メニュー</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-settings" class="app-tab" type="button" role="tab" aria-controls="panel-settings" aria-selected="false" tabindex="-1" data-tab="settings"><svg viewbox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="m9 3 .5 2.2-2 .9L5.5 5 3 9l1.8 1.5v2.3L3 14l2.5 4 2-.7 2 .9L10 21h4l.5-2.8 2-.9 2 .7 2.5-4-1.8-1.2v-2.3L21 9l-2.5-4-2 1.1-2-.9L14 3H9Z"></path></svg><span>設定</span><span class="tab-arrow" aria-hidden="true">↗</span></button></nav><div class="sidebar-bottom">
+<span class="small-label">YOUR MENU LIBRARY</span><p><strong id="catalog-count">—</strong><span>品のメニュー</span></p>
+<span class="local-note"><i aria-hidden="true"></i>この端末に保存</span><a href="../../" class="gallery-back">作品ギャラリー <span aria-hidden="true">↗</span></a>
+</div></aside><div class="app-workspace">
+<header class="workspace-header"><div>
+<p class="eyebrow">MAKE ROOM FOR GOOD FOOD</p>
+<h1 id="hero-title">食事と栄養をひとつの場所に。</h1>
+</div>
+<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v3.0.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
+<section class="tab-panel" id="panel-record" role="tabpanel" aria-labelledby="tab-record" tabindex="0"><section class="calendar-section" id="calendar" aria-labelledby="calendar-title">
+      <div class="section-heading">
+<div>
+<p class="eyebrow">FOOD JOURNAL</p>
+<h2 id="calendar-title">毎日の食事</h2>
+</div>
+<p class="section-caption">食べたものも、これからの予定も</p>
+</div>
       <div class="calendar-layout">
         <div class="calendar-board panel">
-          <div class="calendar-toolbar"><h3 id="month-label">食事カレンダー</h3><div class="calendar-controls"><button id="month-prev" class="icon-button" type="button" aria-label="前の月">←</button><button id="month-today" class="button-secondary compact" type="button">今日</button><button id="month-next" class="icon-button" type="button" aria-label="次の月">→</button></div></div>
-          <div class="calendar-scroll" tabindex="0" aria-label="月間カレンダー。狭い画面では横にスクロールできます"><div class="calendar-weekdays" aria-hidden="true"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span></div><div id="calendar-grid" class="calendar-grid" aria-label="日付を選ぶ"></div></div>
-          <div class="calendar-legend"><span><i class="legend-dot eaten" aria-hidden="true"></i>食べた記録</span><span><i class="legend-dot planned" aria-hidden="true"></i>これからの予定</span></div>
+          <div class="calendar-toolbar">
+<h3 id="month-label">食事カレンダー</h3>
+<div class="calendar-controls">
+<button id="month-prev" class="icon-button" type="button" aria-label="前の月">←</button><button id="month-today" class="button-secondary compact" type="button">今日</button><button id="month-next" class="icon-button" type="button" aria-label="次の月">→</button>
+</div>
+</div>
+          <div class="calendar-scroll" tabindex="0" aria-label="月間カレンダー。狭い画面では横にスクロールできます">
+<div class="calendar-weekdays" aria-hidden="true">
+<span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span>
+</div>
+<div id="calendar-grid" class="calendar-grid" aria-label="日付を選ぶ"></div>
+</div>
+          <div class="calendar-legend">
+<span><i class="legend-dot eaten" aria-hidden="true"></i>食べた記録</span><span><i class="legend-dot planned" aria-hidden="true"></i>これからの予定</span>
+</div>
           <p class="field-note calendar-help">日付を選ぶと、その日の予定と記録を確認できます。食べたら「食べた」に切り替えてください。</p>
-        </div>
+        <label class="check-line day-complete-choice" for="day-complete"><input id="day-complete" type="checkbox"><span>この日の飲食をすべて記録した<small>最近の平均では記録がそろった日を使います。記録0件で完了にすると飲食なしとして集計します。</small></span></label>
+</div>
 
         <div class="day-editor panel" aria-labelledby="selected-date">
-          <div class="editor-heading"><div><p class="eyebrow">選んだ日の食事</p><h3 id="selected-date">今日の記録</h3></div><span class="unit-label">1人分</span></div>
-          <div class="editor-fields"><label for="calendar-date">日付<input id="calendar-date" type="date" required></label><div class="field-pair"><label for="calendar-meal">食事<select id="calendar-meal"><option value="breakfast">朝食</option><option value="lunch">昼食</option><option value="dinner" selected>夕食</option><option value="snack">間食</option></select></label><label for="calendar-status">記録の種類<select id="calendar-status"><option value="eaten">食べた</option><option value="planned">これからの予定</option></select></label></div></div>
-          <div id="calendar-entry-list" class="calendar-entry-list" aria-live="polite"></div>
-          <div class="add-food"><h4>メニューから追加</h4><label class="sr-only" for="catalog-item">追加するメニュー</label><select id="catalog-item"><option value="">メニューを選ぶ</option></select><div class="quantity-action"><label for="catalog-quantity">食べる量<span class="input-unit"><input id="catalog-quantity" type="number" min="0.1" max="100" step="0.1" value="1" required><span>人分</span></span></label><button id="add-catalog-item" class="button-primary" type="button">追加する</button></div><p class="field-note">飲み物や主食もひとつずつ追加できます。半分食べた場合は0.5人分です。</p></div>
-          <details class="manual-details"><summary><span>見つからない食事を入力</span><span class="summary-plus" aria-hidden="true">＋</span></summary><form id="manual-form" class="manual-form">
+          <div class="editor-heading">
+<div>
+<p class="eyebrow">選んだ日の食事</p>
+<h3 id="selected-date">今日の記録</h3>
+</div>
+<span class="unit-label">1人分</span>
+</div>
+          <div class="editor-fields">
+<label for="calendar-date">日付<input id="calendar-date" type="date" required></label><div class="field-pair">
+<label for="calendar-meal">食事<select id="calendar-meal"><option value="breakfast">朝食</option>
+<option value="lunch">昼食</option>
+<option value="dinner" selected>夕食</option>
+<option value="snack">間食</option></select></label><label for="calendar-status">記録の種類<select id="calendar-status"><option value="eaten">食べた</option>
+<option value="planned">これからの予定</option></select></label>
+</div>
+</div>
+          <div class="add-food">
+<h4>食事を追加する</h4>
+<div class="menu-picker">
+<label for="catalog-family">種類<select id="catalog-family"><option value="">種類を選ぶ</option></select></label><label class="catalog-item-label" for="catalog-item">メニュー<select id="catalog-item"><option value="">メニューを選ぶ</option></select></label>
+</div>
+<div class="quantity-action">
+<label for="catalog-amount">食べる量<span class="input-unit"><input id="catalog-amount" type="number" min="0.01" max="100000" step="any" value="1" required><span id="catalog-unit">人分</span></span></label><button id="add-catalog-item" class="button-primary" type="button">記録に追加</button>
+</div>
+<p id="catalog-serving-label" class="field-note">ご飯はg、おにぎりは個数で記録できます。</p>
+</div>
+          <details class="day-records" open><summary>この日の記録</summary><div id="calendar-entry-list" class="calendar-entry-list" aria-live="polite"></div>
+          </details><details class="manual-details"><summary><span>見つからない食事を入力</span><span class="summary-plus" aria-hidden="true">＋</span></summary><form id="manual-form" class="manual-form">
             <label for="manual-name">料理・飲み物の名前<input id="manual-name" type="text" maxlength="120" placeholder="例：お店の日替わりランチ" required></label>
-            <div class="field-pair"><label for="manual-role">種類<select id="manual-role"><option value="main">主菜</option><option value="side">副菜</option><option value="soup">汁物</option><option value="staple">主食</option><option value="drink">飲み物</option><option value="snack">間食</option></select></label><label for="manual-quantity">食べた量（人分）<input id="manual-quantity" type="number" min="0.1" max="100" step="0.1" value="1" required></label></div>
+            <div class="field-pair">
+<label for="manual-role">種類<select id="manual-role"><option value="main">主菜</option>
+<option value="side">副菜</option>
+<option value="soup">汁物</option>
+<option value="staple">主食</option>
+<option value="drink">飲み物</option>
+<option value="snack">間食</option></select></label><label for="manual-quantity">食べた量（基準量の何倍）<input id="manual-quantity" type="number" min="0.001" max="100" step="any" value="1" required></label>
+</div>
             <label for="manual-note">メモ <span class="optional">任意</span><input id="manual-note" type="text" maxlength="300" placeholder="例：ご飯は少なめ"></label>
-            <fieldset><legend>1人分の栄養 <span class="optional">分かる項目だけ</span></legend><p class="field-note">商品の表示などを見て入力します。空欄は「不明」として扱い、0にはしません。</p><div class="manual-nutrients"><label for="manual-kcal">エネルギー（kcal）<input id="manual-kcal" type="number" min="0" max="100000" step="0.1" placeholder="不明"></label><label for="manual-protein">たんぱく質（g）<input id="manual-protein" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-fat">脂質（g）<input id="manual-fat" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-carbs">炭水化物（g）<input id="manual-carbs" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-fiber">食物繊維（g）<input id="manual-fiber" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-salt">食塩相当量（g）<input id="manual-salt" type="number" min="0" max="10000" step="0.01" placeholder="不明"></label></div></fieldset>
+            <div class="manual-base">
+<div class="field-pair">
+<label for="manual-base-amount">基準量<input id="manual-base-amount" type="number" min="0.01" max="100000" step="any" value="1" required></label><label for="manual-base-unit">単位<select id="manual-base-unit"><option value="人分">人分</option>
+<option value="g">g</option>
+<option value="ml">ml</option>
+<option value="個">個</option>
+<option value="皿">皿</option>
+<option value="杯">杯</option>
+<option value="枚">枚</option>
+<option value="袋">袋</option></select></label>
+</div>
+<p class="field-note">以下の栄養と材料はこの基準量の分です。</p>
+</div>
+<fieldset>
+<legend>基準量の栄養 <span class="optional">分かる項目だけ</span>
+</legend>
+<p class="field-note">商品の表示などを見て入力します。空欄は「不明」として扱い、0にはしません。</p>
+<div class="manual-nutrients">
+<label for="manual-kcal">エネルギー（kcal）<input id="manual-kcal" type="number" min="0" max="100000" step="0.1" placeholder="不明"></label><label for="manual-protein">たんぱく質（g）<input id="manual-protein" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-fat">脂質（g）<input id="manual-fat" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-carbs">炭水化物（g）<input id="manual-carbs" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-fiber">食物繊維（g）<input id="manual-fiber" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-salt">食塩相当量（g）<input id="manual-salt" type="number" min="0" max="10000" step="0.01" placeholder="不明"></label>
+</div>
+</fieldset>
             <label class="check-line save-db-choice" for="manual-save-db"><input id="manual-save-db" type="checkbox"><span>このメニューを自分のデータベースにも保存する<small>次回からメニュー一覧で選べます。このブラウザーだけに保存されます。</small></span></label>
-            <details class="sub-details"><summary>材料・作り方・アレルギーも登録する</summary><div class="details-content"><p class="field-note">材料と分量は1人分で登録します。材料を登録すると買い物リストにも反映できます。</p><div id="manual-ingredients" class="manual-ingredients"></div><button id="manual-add-ingredient" class="button-secondary compact" type="button">材料を追加</button><label for="manual-steps">作り方 <span class="optional">1行に1つの手順</span><textarea id="manual-steps" rows="4" maxlength="5000" placeholder="例：野菜を食べやすい大きさに切る"></textarea></label><label class="check-line" for="manual-allergens-known"><input id="manual-allergens-known" type="checkbox"><span>アレルギー食材を確認した<small>含まれるものを下で選びます。含まれない場合も確認後にチェックしてください。</small></span></label><div id="manual-allergens" class="choice-grid"></div><p class="field-note">未確認のメニューは自動提案の対象にしません。材料が未登録の場合は、食材の除外条件を確認できません。</p></div></details>
+            <details class="sub-details"><summary>材料・作り方・アレルギーも登録する</summary><div class="details-content">
+<p class="field-note">材料と分量は基準量の分で登録します。材料を登録すると買い物リストにも反映できます。</p>
+<div id="manual-ingredients" class="manual-ingredients"></div>
+<button id="manual-add-ingredient" class="button-secondary compact" type="button">材料を追加</button><label for="manual-steps">作り方 <span class="optional">1行に1つの手順</span><textarea id="manual-steps" rows="4" maxlength="5000" placeholder="例：野菜を食べやすい大きさに切る"></textarea></label><label class="check-line" for="manual-allergens-known"><input id="manual-allergens-known" type="checkbox"><span>アレルギー食材を確認した<small>含まれるものを下で選びます。含まれない場合も確認後にチェックしてください。</small></span></label><div id="manual-allergens" class="choice-grid"></div>
+<p class="field-note">未確認のメニューは自動提案の対象にしません。材料が未登録の場合は、食材の除外条件を確認できません。</p>
+</div></details>
             <button class="button-primary" type="submit">この食事を記録する</button>
           </form></details>
         </div>
       </div>
     </section>
 
-    <section class="nutrition-section section-space" id="nutrition" aria-labelledby="nutrition-title">
-      <div class="section-heading"><div><p class="eyebrow">02 / NUTRITION</p><h2 id="nutrition-title">食べた分の栄養を振り返る</h2></div><label class="inline-date" for="nutrition-date"><span class="sr-only">栄養を確認する日</span><input id="nutrition-date" type="date"></label></div>
-      <p class="section-copy">「食べた」と記録した食事を1人分で集計します。未記録の食事や栄養が不明の項目は合計に含めず、分かっている範囲を表示します。</p>
-      <div id="nutrition-view" aria-live="polite"></div>
-      <div class="weekly-panel panel"><div class="subsection-heading"><h3>7日間の記録</h3><span class="muted">選んだ日までの推移</span></div><div id="weekly-view"></div></div>
-      <details class="targets-details"><summary>比較用の目標値を変更する</summary><p class="field-note">初期値は表示を試すための目安です。年齢や体格、活動量などから個人に必要な量を判定する機能ではありません。</p><form id="targets-form"><div class="targets-grid"><label for="target-kcal">エネルギー（kcal）<input id="target-kcal" type="number" min="1" max="20000" step="1" value="2000" required></label><label for="target-protein">たんぱく質（g）<input id="target-protein" type="number" min="0.1" max="10000" step="0.1" value="60" required></label><label for="target-fat">脂質（g）<input id="target-fat" type="number" min="0.1" max="10000" step="0.1" value="65" required></label><label for="target-carbs">炭水化物（g）<input id="target-carbs" type="number" min="0.1" max="10000" step="0.1" value="280" required></label><label for="target-fiber">食物繊維（g）<input id="target-fiber" type="number" min="0.1" max="10000" step="0.1" value="20" required></label><label for="target-salt">食塩相当量（g）<input id="target-salt" type="number" min="0" max="10000" step="0.1" value="6.5" required></label></div><button class="button-secondary" type="submit">目標値を保存する</button></form></details>
-    </section>
+    </section><section class="tab-panel" id="panel-nutrition" role="tabpanel" aria-labelledby="tab-nutrition" tabindex="0" hidden><section class="nutrition-section" id="nutrition" aria-labelledby="nutrition-title">
+      <div class="section-heading">
+<div>
+<p class="eyebrow">NUTRITION</p>
+<h2 id="nutrition-title">栄養の記録</h2>
+</div>
+<div class="nutrition-controls">
+<label class="inline-date" for="nutrition-date"><span class="sr-only">栄養を確認する日</span><input id="nutrition-date" type="date"></label><label for="nutrition-period">期間<select id="nutrition-period"><option value="1" selected>1日</option>
+<option value="7">7日間</option>
+<option value="30">30日間</option></select></label>
+</div>
+</div>
+      <p class="section-copy">食べた記録を1人分で集計します。分かっている栄養と不明な項目を分けて表示します。</p>
+      <div id="period-summary" class="period-summary"></div>
+<div id="nutrition-reference-note" class="field-note"></div>
+<div id="nutrition-view" aria-live="polite"></div>
+      <div class="weekly-panel panel">
+<div class="subsection-heading">
+<h3>7日間の記録</h3>
+<span class="muted">選んだ日までの推移</span>
+</div>
+<div id="weekly-view"></div>
+</div>
+      </section>
 
-    <section class="section-space" id="planner" aria-labelledby="planner-title">
-      <div class="section-heading"><div><p class="eyebrow">03 / MEAL PLANNING</p><h2 id="planner-title">次の献立を考える</h2></div><a class="text-link" href="#shopping">買い物リストへ <span aria-hidden="true">↓</span></a></div>
+    </section><section class="tab-panel" id="panel-planner" role="tabpanel" aria-labelledby="tab-planner" tabindex="0" hidden><section class="" id="planner" aria-labelledby="planner-title">
+      <div class="section-heading">
+<div>
+<p class="eyebrow">MEAL PLANNER</p>
+<h2 id="planner-title">次の献立を考える</h2>
+</div>
+<a class="text-link" href="#shopping">買い物リストへ <span aria-hidden="true">↓</span></a>
+</div>
       <p class="section-copy">食べた記録や手持ちの食材を参考にして提案します。アレルギーと避ける食材の条件に合う候補がなければ、条件を緩めずにお知らせします。</p>
       <div class="planner-layout">
-        <aside class="settings-panel panel" aria-labelledby="settings-title"><h3 id="settings-title">献立の条件</h3><form id="plan-form">
-          <div class="setting-section"><label for="start-date">最初の日<input id="start-date" type="date" required></label><div class="field-pair"><label for="plan-days">日数<select id="plan-days"><option value="1">1日分</option><option value="2">2日分</option><option value="3" selected>3日分</option><option value="4">4日分</option><option value="5">5日分</option><option value="6">6日分</option><option value="7">7日分</option></select></label><label for="servings">買い物の人数<select id="servings"><option value="1">1人分</option><option value="2" selected>2人分</option><option value="3">3人分</option><option value="4">4人分</option><option value="5">5人分</option><option value="6">6人分</option><option value="7">7人分</option><option value="8">8人分</option></select></label></div><label for="plan-meal">提案する食事<select id="plan-meal"><option value="breakfast">朝食</option><option value="lunch">昼食</option><option value="dinner" selected>夕食</option><option value="snack">間食</option></select></label><p class="field-note">カレンダーの栄養は1人分です。人数は買い物の必要量に使います。</p></div>
-          <div class="setting-section"><label for="staple-choice">主食<select id="staple-choice"><option value="auto">献立に合わせて選ぶ</option><option value="none">追加しない</option></select></label><label for="drink-choice">飲み物<select id="drink-choice"><option value="none">追加しない</option></select></label><p class="field-note">ご飯や麺を含む料理には主食を重ねません。飲み物も栄養と買い物の計算に含めます。</p></div>
-          <details class="settings-details"><summary>料理のジャンルと気分</summary><div class="details-content preferences-section"><label for="genre-mode">ジャンルの選び方<select id="genre-mode"><option value="any">指定しない</option><option value="single">ひとつを優先する</option><option value="ratio">割合を決める</option></select></label><label id="single-genre-field" for="single-genre" hidden>優先するジャンル<select id="single-genre"><option>和食</option><option>洋食</option><option>中華</option><option>エスニック</option><option>その他</option></select></label><div id="genre-ratio-field" hidden><div class="ratio-presets"><button id="ratio-equal" type="button">均等にする</button><button id="ratio-japanese" type="button">和食を多めに</button></div><div id="genre-ratios" class="genre-ratios"></div><p class="field-note">合計 <strong id="ratio-total">100%</strong>。ひとつを変えると残りを自動で配分します。日数が少ない場合は近い割合で提案します。</p></div><label for="meal-mood">今の気分<select id="meal-mood"><option value="all">指定しない</option><option>さっぱり</option><option>ガッツリ</option><option>時短</option><option>定番</option></select></label><p class="field-note">ジャンルと気分は優先する目安です。食材を避ける条件は常に優先します。</p></div></details>
-          <details class="settings-details"><summary>できれば使いたい食材</summary><div class="details-content"><label class="sr-only" for="preferred-search">優先したい食材を探す</label><input id="preferred-search" type="search" placeholder="例：鶏肉、じゃがいも" autocomplete="off"><p class="field-note">候補を押して選びます。必ず使う条件ではありません。</p><div id="preferred-selections" class="selected-ingredients preferred-selections"></div><div id="preferred-options" class="ingredient-options"></div></div></details>
-          <details class="settings-details allergy-settings" open><summary><span>アレルギーで避ける食材 <span id="allergen-count" class="count-label">0件</span></span></summary><fieldset class="details-content"><legend class="sr-only">アレルギーで避ける食材</legend><div id="required-allergens" class="choice-grid"></div><details class="allergen-details"><summary>ほかのアレルギー食材</summary><div id="other-allergens" class="choice-grid"></div></details></fieldset></details>
-          <details class="settings-details"><summary>追加で避ける食材</summary><div class="details-content"><label class="sr-only" for="ingredient-search">避ける食材を探す</label><input id="ingredient-search" type="search" placeholder="例：トマト、しめじ" autocomplete="off"><p class="field-note">選んだ食材と、その食材を原料とする登録済みの材料を除きます。</p><div id="ingredient-selections" class="selected-ingredients"></div><div id="ingredient-options" class="ingredient-options"></div></div></details>
-          <p class="allergy-note">加工品や調味料の原材料は商品によって異なります。商品の表示も確認してください。製造・調理中の混入は判定できません。</p><button class="button-primary generate-button" type="submit">この条件で献立を作る <span aria-hidden="true">↗</span></button>
+        <aside class="settings-panel panel" aria-labelledby="settings-title"><h3 id="settings-title">献立の条件</h3>
+<form id="plan-form">
+          <div class="setting-section">
+<label for="start-date">最初の日<input id="start-date" type="date" required></label><div class="field-pair">
+<label for="plan-days">日数<select id="plan-days"><option value="1">1日分</option>
+<option value="2">2日分</option>
+<option value="3" selected>3日分</option>
+<option value="4">4日分</option>
+<option value="5">5日分</option>
+<option value="6">6日分</option>
+<option value="7">7日分</option></select></label><label for="servings">買い物の人数<select id="servings"><option value="1">1人分</option>
+<option value="2" selected>2人分</option>
+<option value="3">3人分</option>
+<option value="4">4人分</option>
+<option value="5">5人分</option>
+<option value="6">6人分</option>
+<option value="7">7人分</option>
+<option value="8">8人分</option></select></label>
+</div>
+<label for="plan-meal">提案する食事<select id="plan-meal"><option value="breakfast">朝食</option>
+<option value="lunch">昼食</option>
+<option value="dinner" selected>夕食</option>
+<option value="snack">間食</option></select></label><p class="field-note">カレンダーの栄養は1人分です。人数は買い物の必要量に使います。</p>
+</div>
+          <div class="setting-section">
+<h4>主食と飲み物</h4>
+<div class="field-pair">
+<label for="staple-family">主食の種類<select id="staple-family"><option value="auto">献立に合わせる</option></select></label><label for="staple-choice">具体的なメニュー<select id="staple-choice"><option value="auto">献立に合わせて選ぶ</option>
+<option value="none">追加しない</option></select></label>
+</div>
+<label class="portion-setting" for="staple-amount">主食の量<span class="input-unit"><input id="staple-amount" type="number" min="0.01" max="100000" step="any" value="150"><span id="staple-unit">g</span></span></label><div class="field-pair">
+<label for="drink-family">飲み物の種類<select id="drink-family"><option value="none">追加しない</option></select></label><label for="drink-choice">具体的な飲み物<select id="drink-choice"><option value="none">追加しない</option></select></label>
+</div>
+<label class="portion-setting" for="drink-amount">飲む量<span class="input-unit"><input id="drink-amount" type="number" min="0.01" max="100000" step="any" value="200"><span id="drink-unit">ml</span></span></label><p class="field-note">量は1人分です。ご飯とおにぎりは別々に選べます。一品で食事になる麺やカレーは、主食を重ねずに組み合わせます。</p>
+</div>
+<details class="settings-details"><summary>料理のジャンルと気分</summary><div class="details-content preferences-section">
+<label for="genre-mode">ジャンルの選び方<select id="genre-mode"><option value="any">指定しない</option>
+<option value="single">ひとつを優先する</option>
+<option value="ratio">割合を決める</option></select></label><label id="single-genre-field" for="single-genre" hidden>優先するジャンル<select id="single-genre"><option>和食</option>
+<option>洋食</option>
+<option>中華</option>
+<option>エスニック</option>
+<option>その他</option></select></label><div id="genre-ratio-field" hidden>
+<div class="ratio-presets">
+<button id="ratio-equal" type="button">均等にする</button><button id="ratio-japanese" type="button">和食を多めに</button>
+</div>
+<div id="genre-ratios" class="genre-ratios"></div>
+<p class="field-note">合計 <strong id="ratio-total">100%</strong>。ひとつを変えると残りを自動で配分します。日数が少ない場合は近い割合で提案します。</p>
+</div>
+<label for="meal-mood">今の気分<select id="meal-mood"><option value="all">指定しない</option>
+<option>さっぱり</option>
+<option>ガッツリ</option>
+<option>時短</option>
+<option>定番</option></select></label><p class="field-note">ジャンルと気分は優先する目安です。食材を避ける条件は常に優先します。</p>
+</div></details>
+          <details class="settings-details"><summary>できれば使いたい食材</summary><div class="details-content">
+<label class="sr-only" for="preferred-search">優先したい食材を探す</label><input id="preferred-search" type="search" placeholder="例：鶏肉、じゃがいも" autocomplete="off"><p class="field-note">候補を押して選びます。必ず使う条件ではありません。</p>
+<div id="preferred-selections" class="selected-ingredients preferred-selections"></div>
+<div id="preferred-options" class="ingredient-options"></div>
+</div></details>
+          <details class="settings-details allergy-settings" open><summary><span>アレルギーで避ける食材 <span id="allergen-count" class="count-label">0件</span></span></summary><fieldset class="details-content">
+<legend class="sr-only">アレルギーで避ける食材</legend>
+<div id="required-allergens" class="choice-grid"></div>
+<details class="allergen-details"><summary>ほかのアレルギー食材</summary><div id="other-allergens" class="choice-grid"></div></details>
+</fieldset></details>
+          <details class="settings-details"><summary>追加で避ける食材</summary><div class="details-content">
+<label class="sr-only" for="ingredient-search">避ける食材を探す</label><input id="ingredient-search" type="search" placeholder="例：トマト、しめじ" autocomplete="off"><p class="field-note">選んだ食材と、その食材を原料とする登録済みの材料を除きます。</p>
+<div id="ingredient-selections" class="selected-ingredients"></div>
+<div id="ingredient-options" class="ingredient-options"></div>
+</div></details>
+          <p class="allergy-note">加工品や調味料の原材料は商品によって異なります。商品の表示も確認してください。製造・調理中の混入は判定できません。</p>
+<button class="button-primary generate-button" type="submit">この条件で献立を作る <span aria-hidden="true">↗</span></button>
         </form></aside>
-        <div class="plan-section"><div class="plan-heading"><div><span class="small-label">YOUR NEXT MEALS</span><h3>これからの献立</h3><p id="plan-date-label" class="date-label">条件を選んで提案を作成</p></div><button id="plan-save-calendar" class="button-secondary" type="button" disabled>予定としてカレンダーへ</button></div><div id="plan-output" aria-live="polite"><div class="empty-plan"><span class="empty-mark" aria-hidden="true">◒</span><h3>次のごはんをここから。</h3><p>条件を選んで「献立を作る」を押してください。<br>食べた記録があれば、その内容も参考にします。</p><div class="meal-parts"><span>主食</span><span>主菜・副菜</span><span>飲み物</span></div></div></div><p class="field-note">提案を保存すると「これからの予定」として登録します。実際に食べた内容に合わせて量や料理を直せます。</p></div>
+        <div class="plan-section">
+<div class="plan-heading">
+<div>
+<span class="small-label">YOUR NEXT MEALS</span><h3>これからの献立</h3>
+<p id="plan-date-label" class="date-label">条件を選んで提案を作成</p>
+</div>
+<button id="plan-save-calendar" class="button-secondary" type="button" disabled>予定としてカレンダーへ</button>
+</div>
+<div id="plan-output" aria-live="polite"><div class="empty-plan">
+<span class="empty-mark" aria-hidden="true">◒</span><h3>次のごはんをここから。</h3>
+<p>条件を選んで「献立を作る」を押してください。<br>食べた記録があれば、その内容も参考にします。</p>
+<div class="meal-parts">
+<span>主食</span><span>主菜・副菜</span><span>飲み物</span>
+</div>
+</div></div>
+<p class="field-note">提案を保存すると「これからの予定」として登録します。実際に食べた内容に合わせて量や料理を直せます。</p>
+</div>
       </div>
     </section>
 
-    <div class="kitchen-layout section-space">
-      <section class="pantry-section panel" id="pantry" aria-labelledby="pantry-title"><div class="section-heading"><div><p class="eyebrow">04 / PANTRY</p><h2 id="pantry-title">手持ちの食材と調味料</h2></div></div><p class="section-copy">家にある量を登録すると、買い物の必要量から差し引きます。献立づくりでも使える食材を優先します。</p><div class="pantry-add-form"><label for="pantry-item">食材・調味料<select id="pantry-item"><option value="">選んでください</option></select></label><div class="quantity-action"><label for="pantry-amount">手持ちの量<input id="pantry-amount" type="number" min="0" max="1000000" step="0.1" value="1"></label><button id="pantry-add" class="button-primary" type="button">登録する</button></div></div><p class="field-note">単位は選んだ食材のg・ml・個などです。使った分の在庫は自分で更新してください。</p><div id="pantry-list" class="pantry-list" aria-live="polite"></div></section>
-      <section class="shopping-section panel" id="shopping" aria-labelledby="shopping-title"><div class="section-heading"><div><p class="eyebrow">05 / SHOPPING LIST</p><h2 id="shopping-title">買うものをまとめる</h2></div></div><label for="shopping-source">リストに使う献立<select id="shopping-source"><option value="draft">いま提案されている献立</option><option value="calendar">カレンダーの予定</option></select></label><div class="field-pair"><label for="shopping-from">最初の日<input id="shopping-from" type="date"></label><label for="shopping-days">日数<select id="shopping-days"><option value="1">1日分</option><option value="2">2日分</option><option value="3" selected>3日分</option><option value="4">4日分</option><option value="5">5日分</option><option value="6">6日分</option><option value="7">7日分</option></select></label></div><p class="field-note">献立の設定人数分を合計し、手持ちの量を差し引きます。カレンダーは「これからの予定」だけが対象です。</p><p id="shopping-status" class="shopping-status" role="status"></p><div id="shopping-list" class="shopping-list" aria-live="polite"></div><div class="shopping-actions"><button id="copy-shopping" class="button-secondary" type="button">買うものをコピー</button><button id="shopping-clear-checks" class="button-text" type="button">チェックを戻す</button></div></section>
+    </section><section class="tab-panel" id="panel-kitchen" role="tabpanel" aria-labelledby="tab-kitchen" tabindex="0" hidden><div class="kitchen-layout">
+      <section class="pantry-section panel" id="pantry" aria-labelledby="pantry-title"><div class="section-heading"><div>
+<p class="eyebrow">04 / PANTRY</p>
+<h2 id="pantry-title">手持ちの食材と調味料</h2>
+</div></div>
+<p class="section-copy">家にある量を登録すると、買い物の必要量から差し引きます。献立づくりでも使える食材を優先します。</p>
+<div class="pantry-add-form">
+<label for="pantry-item">食材・調味料<select id="pantry-item"><option value="">選んでください</option></select></label><div class="quantity-action">
+<label for="pantry-amount">手持ちの量<input id="pantry-amount" type="number" min="0" max="1000000" step="0.1" value="1"></label><button id="pantry-add" class="button-primary" type="button">登録する</button>
+</div>
+</div>
+<p class="field-note">単位は選んだ食材のg・ml・個などです。使った分の在庫は自分で更新してください。</p>
+<div id="pantry-list" class="pantry-list" aria-live="polite"></div></section>
+      <section class="shopping-section panel" id="shopping" aria-labelledby="shopping-title"><div class="section-heading"><div>
+<p class="eyebrow">05 / SHOPPING LIST</p>
+<h2 id="shopping-title">買うものをまとめる</h2>
+</div></div>
+<label for="shopping-source">リストに使う献立<select id="shopping-source"><option value="draft">いま提案されている献立</option>
+<option value="calendar">カレンダーの予定</option></select></label><div class="field-pair">
+<label for="shopping-from">最初の日<input id="shopping-from" type="date"></label><label for="shopping-days">日数<select id="shopping-days"><option value="1">1日分</option>
+<option value="2">2日分</option>
+<option value="3" selected>3日分</option>
+<option value="4">4日分</option>
+<option value="5">5日分</option>
+<option value="6">6日分</option>
+<option value="7">7日分</option></select></label>
+</div>
+<p class="field-note">献立の設定人数分を合計し、手持ちの量を差し引きます。カレンダーは「これからの予定」だけが対象です。</p>
+<p id="shopping-status" class="shopping-status" role="status"></p>
+<div id="shopping-list" class="shopping-list" aria-live="polite"></div>
+<div class="shopping-actions">
+<button id="copy-shopping" class="button-secondary" type="button">買うものをコピー</button><button id="shopping-clear-checks" class="button-text" type="button">チェックを戻す</button>
+</div></section>
     </div>
 
-    <section class="recipe-section section-space" id="recipes" aria-labelledby="recipes-title"><div class="section-heading"><div><p class="eyebrow">06 / RECIPE LIBRARY</p><h2 id="recipes-title">作りたいものを探す</h2></div><p class="section-caption">材料と作り方もこの中に</p></div><div class="recipe-tools"><div id="role-filters" class="role-filters" aria-label="料理の区分"><button type="button" data-role="all" aria-pressed="true">すべて</button><button type="button" data-role="main" aria-pressed="false">主菜</button><button type="button" data-role="side" aria-pressed="false">副菜</button><button type="button" data-role="soup" aria-pressed="false">汁物</button><button type="button" data-role="staple" aria-pressed="false">主食</button><button type="button" data-role="drink" aria-pressed="false">飲み物</button><button type="button" data-role="snack" aria-pressed="false">間食</button></div><label class="search-field" for="recipe-search"><span class="sr-only">料理名や材料で検索</span><input id="recipe-search" type="search" placeholder="料理名・材料で検索"></label></div><p class="field-note">アレルギーと避ける食材の設定を反映します。カードを押すとレシピが開きます。</p><div id="recipe-grid" class="recipe-grid"></div><div class="more-recipes"><button id="more-recipes" class="button-secondary" type="button" hidden>もっと見る</button></div><details class="custom-catalog-details"><summary>自分のデータベースを管理する</summary><p class="field-note">ここでメニューを削除しても、カレンダーに記録済みの食事は残ります。</p><div id="custom-catalog-list" class="custom-catalog-list"></div></details></section>
+    </section><section class="tab-panel" id="panel-catalog" role="tabpanel" aria-labelledby="tab-catalog" tabindex="0" hidden><section class="recipe-section" id="recipes" aria-labelledby="recipes-title"><div class="section-heading">
+<div>
+<p class="eyebrow">MENU LIBRARY</p>
+<h2 id="recipes-title">メニューを探す</h2>
+</div>
+<p class="section-caption">材料と作り方もこの中に</p>
+</div>
+<div class="recipe-tools">
+<div id="role-filters" class="role-filters" aria-label="料理の区分">
+<button type="button" data-role="all" aria-pressed="true">すべて</button><button type="button" data-role="main" aria-pressed="false">主菜</button><button type="button" data-role="side" aria-pressed="false">副菜</button><button type="button" data-role="soup" aria-pressed="false">汁物</button><button type="button" data-role="staple" aria-pressed="false">主食</button><button type="button" data-role="drink" aria-pressed="false">飲み物</button><button type="button" data-role="snack" aria-pressed="false">間食</button>
+</div>
+<label class="search-field" for="recipe-search"><span class="sr-only">料理名や材料で検索</span><input id="recipe-search" type="search" placeholder="料理名・材料で検索"></label>
+</div>
+<div class="library-family">
+<label for="recipe-family">種類で絞る<select id="recipe-family"><option value="all">すべての種類</option></select></label><p class="field-note">種類を選ぶと、ご飯の炊き方や麺の味などをまとめて探せます。</p>
+</div>
+<p class="field-note">アレルギーと避ける食材の設定を反映します。カードを押すとレシピが開きます。</p>
+<div id="recipe-grid" class="recipe-grid"></div>
+<div class="more-recipes"><button id="more-recipes" class="button-secondary" type="button" hidden>もっと見る</button></div>
+<details class="custom-catalog-details"><summary>自分のデータベースを管理する</summary><p class="field-note">ここでメニューを削除しても、カレンダーに記録済みの食事は残ります。</p>
+<div id="custom-catalog-list" class="custom-catalog-list"></div></details></section>
 
-    <section class="data-section section-space" aria-labelledby="data-title"><div class="data-actions"><div><p class="eyebrow">KEEP YOUR NOTE</p><h2 id="data-title">記録を手元に残す</h2><p>食事の記録や自分のメニュー、設定をJSONファイルで保存できます。端末を変えるときにも使えます。アレルギーの設定なども含まれるため、共有先にはご注意ください。</p></div><div class="data-buttons"><button id="export-records" class="button-secondary" type="button">データを書き出す</button><button id="import-records" class="button-secondary" type="button">データを読み込む</button><input id="import-file" type="file" accept=".json,application/json" hidden><button id="clear-history" class="button-text danger" type="button">食事の記録をすべて削除</button></div></div></section>
+    </section><section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden><div class="section-heading">
+<div>
+<p class="eyebrow">PREFERENCES</p>
+<h2>自分に合わせて使う</h2>
+</div>
+<p class="section-caption">プロフィールとデータの管理</p>
+</div>
+<div class="settings-grid">
+<section class="profile-section panel" aria-labelledby="profile-title"><div class="panel-heading">
+<span class="section-index">01</span><h3 id="profile-title">栄養の目安</h3>
+</div>
+<p class="section-copy">年代・性別・活動量から一般的な参考値を選べます。自分で決めた数値で比較することもできます。</p>
+<form id="profile-form">
+<label for="profile-mode">目安の選び方<select id="profile-mode"><option value="manual" selected>自分で数値を設定する</option>
+<option value="reference">プロフィールから参考値を選ぶ</option></select></label><div class="field-pair">
+<label for="profile-age">年代<select id="profile-age"><option value="unset">選択しない</option>
+<option value="18-29">18〜29歳</option>
+<option value="30-49">30〜49歳</option>
+<option value="50-64">50〜64歳</option>
+<option value="65-74">65〜74歳</option>
+<option value="75-plus">75歳以上</option></select></label><label for="profile-sex">参照する性別区分<select id="profile-sex"><option value="unset">選択しない</option>
+<option value="male">男性</option>
+<option value="female">女性</option></select></label>
+</div>
+<label for="profile-activity">普段の活動量<select id="profile-activity"><option value="unset">選択しない</option>
+<option value="low">低い</option>
+<option value="moderate">ふつう</option>
+<option value="high">高い</option></select></label><div class="activity-guide">
+<p><strong>低い</strong> 座って過ごすことが多い</p>
+<p><strong>ふつう</strong> 通勤・通学や家事で日常的に動く</p>
+<p><strong>高い</strong> 活発な仕事や運動の習慣がある</p>
+</div>
+<button id="profile-apply" class="button-primary" type="submit">プロフィールと目安を保存</button>
+</form>
+<p id="profile-summary" class="profile-summary" aria-live="polite">プロフィールは未設定です。</p>
+<p class="field-note">成人向けの一般的な参考値です。体格や体調による個人差があります。妊娠・授乳中や治療のための食事には対応していません。<a href="https://www.mhlw.go.jp/stf/newpage_44138.html" target="_blank" rel="noopener noreferrer">食事摂取基準（2025年版）</a></p></section><section class="manual-targets panel" aria-labelledby="manual-targets-title"><div class="panel-heading">
+<span class="section-index">02</span><h3 id="manual-targets-title">自分で設定する比較値</h3>
+</div>
+<div class="targets-details">
+<p class="field-note">1日の比較値を自由に設定できます。初期値は表示を試すための目安で、個人に必要な量を判定したものではありません。</p>
+<form id="targets-form">
+<div class="targets-grid">
+<label for="target-kcal">エネルギー（kcal）<input id="target-kcal" type="number" min="1" max="20000" step="1" value="2000" required></label><label for="target-protein">たんぱく質（g）<input id="target-protein" type="number" min="0.1" max="10000" step="0.1" value="60" required></label><label for="target-fat">脂質（g）<input id="target-fat" type="number" min="0.1" max="10000" step="0.1" value="65" required></label><label for="target-carbs">炭水化物（g）<input id="target-carbs" type="number" min="0.1" max="10000" step="0.1" value="280" required></label><label for="target-fiber">食物繊維（g）<input id="target-fiber" type="number" min="0.1" max="10000" step="0.1" value="20" required></label><label for="target-salt">食塩相当量（g）<input id="target-salt" type="number" min="0" max="10000" step="0.1" value="6.5" required></label>
+</div>
+<button class="button-secondary" type="submit">目標値を保存する</button>
+</form>
+</div>
+    </section>
+</div>
+<section class="data-section" aria-labelledby="data-title"><div class="data-actions">
+<div>
+<p class="eyebrow">KEEP YOUR NOTE</p>
+<h2 id="data-title">記録を手元に残す</h2>
+<p>食事の記録や自分のメニュー、設定をJSONファイルで保存できます。端末を変えるときにも使えます。アレルギーの設定なども含まれるため、共有先にはご注意ください。</p>
+</div>
+<div class="data-buttons">
+<button id="export-records" class="button-secondary" type="button">データを書き出す</button><button id="import-records" class="button-secondary" type="button">データを読み込む</button><input id="import-file" type="file" accept=".json,application/json" hidden><button id="clear-history" class="button-text danger" type="button">食事の記録をすべて削除</button>
+</div>
+</div></section>
 
-    <details class="about-section section-space"><summary>献立の選び方とこの教材について</summary><div class="about-copy"><h3>記録を参考にする仕組み</h3><p>はじめにアレルギーと避ける食材の条件を確認します。そのうえで、直近の食べた記録から料理や主な食材の重複を減らし、分かっている栄養や手持ちの食材も参考にして候補を選びます。未来の予定を「食べた量」として数えることはありません。</p><h3>栄養の数字について</h3><p>収録レシピの栄養は食材の分量から求めた概算です。商品や調理方法によって変わります。栄養が不明な食事は0として扱わず、分かる範囲と区別して表示します。記録だけで1日の食事全体や健康状態を判断するものではありません。</p><h3>学生のアイデアから広がる教材</h3><p>学生作品<a href="https://cish25155-prog.github.io/SmartChef/">「AI献立スマートシェフ」</a>のアイデアをもとに、公開教材として機能を追加しました。カレンダーや栄養の集計、手持ち食材の数量管理はブラウザー版の拡張機能です。</p><p><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/meal_planner.ipynb">Pythonで献立の選び方を学ぶColab教材</a>では、条件の確認やレシピの組み合わせを試せます。ブラウザー版の全機能を移植したものではありません。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/recipe_suggester.ipynb">初期のColab教材</a>も残しています。</p><p class="about-links"><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/manual.md">使い方</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/sources.md">データと出典</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/recipe-suggester">コードを見る</a></p></div></details>
-  </main>
-
-  <footer class="site-footer page-width"><div><a class="footer-brand" href="./">献立ノート</a><span>学生の自由な発想を形にする</span></div><div class="footer-links"><a href="https://cish25155-prog.github.io/SmartChef/">学生のオリジナル版「スマートシェフ」↗</a><a href="dist/meal-planner_v2.0.0.zip" download>ブラウザー版をダウンロード</a><a href="../../">作品ギャラリーへ</a></div><small>v2.0.0 · Stored on your device</small></footer>
-  <dialog id="recipe-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><div><p id="dialog-meta" class="eyebrow"></p><h2 id="dialog-title"></h2></div><button id="close-dialog" class="close-dialog" type="button" aria-label="レシピを閉じる">×</button></div><div id="dialog-content"></div></dialog>
-  <script type="module" src="app.js"></script>
+    <details class="about-section"><summary>献立の選び方とこの教材について</summary><div class="about-copy">
+<h3>記録を参考にする仕組み</h3>
+<p>はじめにアレルギーと避ける食材の条件を確認します。そのうえで、直近の食べた記録から料理や主な食材の重複を減らし、分かっている栄養や手持ちの食材も参考にして候補を選びます。未来の予定を「食べた量」として数えることはありません。</p>
+<h3>栄養の数字について</h3>
+<p>収録レシピの栄養は食材の分量から求めた概算です。商品や調理方法によって変わります。栄養が不明な食事は0として扱わず、分かる範囲と区別して表示します。記録だけで1日の食事全体や健康状態を判断するものではありません。</p>
+<h3>学生のアイデアから広がる教材</h3>
+<p>学生作品<a href="https://cish25155-prog.github.io/SmartChef/">「AI献立スマートシェフ」</a>のアイデアをもとに、公開教材として機能を追加しました。カレンダーや栄養の集計、手持ち食材の数量管理はブラウザー版の拡張機能です。</p>
+<p><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/meal_planner.ipynb">Pythonで献立の選び方を学ぶColab教材</a>では、条件の確認やレシピの組み合わせを試せます。ブラウザー版の全機能を移植したものではありません。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/recipe_suggester.ipynb">初期のColab教材</a>も残しています。</p>
+<p class="about-links"><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/manual.md">使い方</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/sources.md">データと出典</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/recipe-suggester">コードを見る</a></p>
+</div></details>
+  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v3.0.0</small></span><div class="footer-links">
+<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v3.0.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
+</div></footer>
+</div>
+</div>
+<dialog id="recipe-dialog" aria-labelledby="dialog-title"><div class="dialog-header">
+<div>
+<p id="dialog-meta" class="eyebrow"></p>
+<h2 id="dialog-title"></h2>
+</div>
+<button id="close-dialog" class="close-dialog" type="button" aria-label="レシピを閉じる">×</button>
+</div>
+<div id="dialog-content"></div></dialog>
+  <noscript>このアプリにはJavaScriptが必要です。ブラウザーでJavaScriptを有効にしてください。</noscript>
+<script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 {
-  "name": "kondate-note",
-  "version": "2.0.0",
+  "name": "meal-palette",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
