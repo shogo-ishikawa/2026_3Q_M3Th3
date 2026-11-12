@@ -92,11 +92,13 @@
         "demo.js",
         "io.js",
         "plan-tools.js",
+        "absence.js",
+        "absence-ui.js",
         "vendor",
         "README.md",
         "THIRD_PARTY_NOTICES.md",
         "docs",
-        "dist/shift-planner_v1.1.0.zip"
+        "dist/shift-planner_v1.2.0.zip"
       ]
     }
   ]

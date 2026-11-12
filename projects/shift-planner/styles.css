@@ -2888,3 +2888,242 @@ h2 {
 .person-filter p { flex-basis:100%; margin:0; color:var(--muted); font-size:11px; line-height:1.8; font-weight:400; }
 .lock-status { flex-basis:100%; margin:0; padding-top:10px; border-top:1px solid var(--line); color:#526792; font-size:12px; line-height:1.8; }
 @media(max-width:660px) { .learning-lead { font-size:12px; } .learning-results { padding:19px; } .result-key p { font-size:12px; } .lock-status { font-size:11px; } }
+
+/* Review absence replacements before adopting a new plan. */
+.absence-panel {
+  min-width:0;
+  margin:0 0 20px;
+  padding:22px;
+  border:1px solid #d9e1f5;
+  border-radius:14px;
+  background:linear-gradient(115deg,#fafbff,#f2f5fd);
+  color:var(--ink);
+  font-size:13px;
+  box-shadow:0 4px 18px #17264704;
+}
+.absence-panel h3 {
+  margin:0 0 8px;
+  font-size:17px;
+  letter-spacing:-.2px;
+}
+.absence-panel>p {
+  margin:0 0 16px;
+  color:var(--muted);
+  line-height:1.9;
+}
+.absence-form {
+  display:flex;
+  align-items:flex-end;
+  flex-wrap:wrap;
+  gap:12px;
+  min-width:0;
+  margin:15px 0 12px;
+}
+.absence-form label {
+  display:flex;
+  flex:1 1 190px;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+  font-weight:600;
+}
+.absence-form select,.absence-form input:not([type=checkbox]) {
+  width:100%;
+  min-width:0;
+  min-height:40px;
+  border:1px solid #d3dcee;
+  border-radius:8px;
+  background:#fff;
+  color:var(--ink);
+  padding:8px 10px;
+  font-size:14px;
+}
+.absence-form .button {
+  flex:0 0 auto;
+  min-height:40px;
+}
+.absence-list {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:0;
+  margin:12px 0 15px;
+  list-style:none;
+}
+.absence-list:empty {
+  display:none;
+}
+.absence-entry {
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+  max-width:100%;
+  padding:7px 9px 7px 12px;
+  border:1px solid #d5ddf4;
+  border-radius:8px;
+  background:#fff;
+  font-size:13px;
+  line-height:1.7;
+  overflow-wrap:anywhere;
+}
+.absence-entry>span {
+  min-width:0;
+}
+.absence-entry button {
+  flex-shrink:0;
+  border:0;
+  border-radius:5px;
+  background:#edf0fb;
+  color:#435477;
+  min-width:28px;
+  min-height:28px;
+  padding:3px 7px;
+  font-size:13px;
+}
+.absence-entry button:hover {
+  background:#dfe5f8;
+  color:var(--ink);
+}
+.absence-option {
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  margin:12px 0;
+  font-size:13px;
+  line-height:1.85;
+  cursor:pointer;
+}
+.absence-option input {
+  margin:4px 0 0;
+}
+.absence-actions {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:15px;
+}
+.absence-actions .button {
+  max-width:100%;
+  white-space:normal;
+  font-size:13px;
+}
+.absence-status {
+  margin:13px 0 0;
+  color:#4b5f88;
+  font-size:13px;
+  line-height:1.85;
+  overflow-wrap:anywhere;
+}
+.absence-status.error,.absence-status.warn {
+  color:#963e32;
+}
+.absence-preview {
+  min-width:0;
+  margin-top:20px;
+  padding-top:18px;
+  border-top:1px solid #d8e0f2;
+}
+.absence-preview h4 {
+  margin:0 0 8px;
+  font-size:15px;
+}
+.absence-preview p {
+  font-size:13px;
+  line-height:1.9;
+}
+.absence-table-scroll {
+  max-width:100%;
+  overflow-x:auto;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#fff;
+  scrollbar-width:thin;
+}
+.absence-diff {
+  width:100%;
+  min-width:540px;
+  border-collapse:collapse;
+  font-size:13px;
+}
+.absence-diff th,.absence-diff td {
+  padding:11px 13px;
+  border-bottom:1px solid var(--line);
+  text-align:left;
+  vertical-align:top;
+  overflow-wrap:anywhere;
+}
+.absence-diff th {
+  background:#f2f5fc;
+  color:#3c4e70;
+  font-weight:700;
+}
+.absence-diff tr:last-child td {
+  border-bottom:0;
+}
+.replacement-added,.replacement-removed {
+  display:inline-block;
+  margin:2px 3px 2px 0;
+  padding:3px 7px;
+  border:1px solid transparent;
+  border-radius:5px;
+  font-weight:600;
+  line-height:1.7;
+}
+.replacement-added {
+  color:#215e47;
+  background:#eaf6ef;
+  border-color:#cce6d7;
+}
+.replacement-removed {
+  color:#963e32;
+  background:#fff0ed;
+  border-color:#f0d4ce;
+}
+.repair-banner {
+  margin:0 0 18px;
+  padding:14px 17px;
+  border:1px solid #d8e0f5;
+  border-left:3px solid var(--blue);
+  border-radius:8px;
+  background:var(--blue-soft);
+  color:#364b79;
+  font-size:13px;
+  line-height:1.85;
+  overflow-wrap:anywhere;
+}
+@media(max-width:660px) {
+  .absence-panel {
+    padding:17px;
+  }
+  .absence-form {
+    gap:10px;
+  }
+  .absence-form label {
+    flex-basis:100%;
+  }
+  .absence-form>.button {
+    width:100%;
+  }
+  .absence-entry {
+    align-items:flex-start;
+  }
+  .absence-diff th,.absence-diff td {
+    padding:9px 10px;
+  }
+  .absence-actions>.button {
+    flex:1 1 170px;
+  }
+}
+@media print {
+  .absence-panel {
+    display:none!important;
+  }
+  .repair-banner {
+    background:#fff;
+    border-color:#888;
+    color:#172033;
+    break-inside:avoid;
+  }
+}

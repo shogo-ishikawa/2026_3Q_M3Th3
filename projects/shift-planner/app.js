@@ -2,6 +2,7 @@ import {createDemo} from './demo.js';
 import {validateInput, validateSchedule} from './solver.js';
 import {readFile, readPastSchedule, workbookBlob, csvBlob} from './io.js';
 import {applyPlanLocks, clearPlanLocks, filterSchedule} from './plan-tools.js';
+import {createAbsenceUI} from './absence-ui.js';
 
 const $ = id => document.getElementById(id);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,18 +13,20 @@ const fields = {
   history: [['staffId','スタッフID','staff'],['date','勤務日','date'],['start','開始','time'],['end','終了','time']],
 };
 const hints = {
-  staff:'比率は 1＝標準、2＝多め、0.5＝少なめ。時間の上下限と週の上限日数は必ず守る条件です。比率は時間配分の目安です。IDは自動で付きます。名前は自由に変更できます。',
-  slots:'1行が1つの勤務枠です。終了には24:00も使えます。日をまたぐ勤務は「22:00–24:00」と翌日の「00:00–02:00」のように分けます。固定する人は P1,P2 のようにIDで指定します。',
+  staff:'比率は 1＝標準 / 2＝多め / 0.5＝少なめ。時間の上下限と週の上限日数は必ず守る条件です。比率は時間配分の目安です。IDは自動で付きます。名前は自由に変更できます。',
+  slots:'1行に1つの勤務枠を入力します。終了には24:00も使えます。日をまたぐ勤務は「22:00–24:00」と翌日の「00:00–02:00」のように分けます。固定する人は P1,P2 のようにIDで指定します。',
   availability:'出勤できる枠を選びます。未設定は「不可」です。「希望」は条件を満たしたうえで、勤務時間の偏りが同じ案の優先順位に使います。',
   history:'確定した過去の勤務を1勤務1行で入力します。「以前の完成シフトを履歴に追加」から、このアプリで出力したCSV・Excelも使えます。今回の最初の勤務枠より前の実績を入力してください。',
 };
 let data = createDemo(), active = 'staff', result = null, worker = null, ticker = null, revision = 0, availabilityPage = 0;
 let pendingLocks = new Map(), staffFilter = '';
+let absenceUI = null;
 
 function status(message, type = '') { $('status').className = `status ${type}`; $('status').textContent = message; }
 function diagnostics(messages = [], type = '') { $('diagnostics').className=`diagnostics ${type}`; $('diagnostics').innerHTML = messages.length ? `<ul class="diagnostic-list">${messages.map(x=>`<li>${escape(x)}</li>`).join('')}</ul>` : ''; }
 function stopWorker() { if (worker) worker.terminate(); worker = null; clearInterval(ticker); $('cancel-search').hidden = true; $('generate').disabled = false; $('search-progress').textContent = ''; }
 function invalidate(message) {
+  absenceUI?.invalidate();
   revision++; stopWorker(); result = null;
   pendingLocks.clear(); staffFilter='';
   $('result-empty').hidden = false; $('result-content').hidden = true;
@@ -38,7 +41,7 @@ function summary() {
 function inputHTML(kind, row, index, [key,label,type]) {
   const attrs = `data-kind="${kind}" data-row="${index}" data-key="${key}" aria-label="${index+1}行目 ${label}"`;
   if (type === 'staff') return `<select ${attrs}><option value="">選択</option>${data.staff.map(p=>`<option value="${escape(p.id)}" ${p.id===row[key]?'selected':''}>${escape(p.name)} (${escape(p.id)})</option>`).join('')}</select>`;
-  return `<input ${attrs} type="${key==='end'?'text':type}" value="${escape(row[key])}" ${key==='end'?'placeholder="例 17:00 / 24:00" pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"':''} ${type==='number'?'step="any" min="0"':''} ${key==='id'?'class="id-input" readonly title="勤務可能設定や実績をつなぐ固定IDです。表示名は自由に変更できます。"':''}>`;
+  return `<input ${attrs} type="${key==='end'?'text':type}" value="${escape(row[key])}" ${key==='end'?'placeholder="例 17:00 / 24:00" pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"':''} ${type==='number'?'step="any" min="0"':''} ${key==='id'?'class="id-input" readonly title="勤務可能設定や実績をつなぐIDです。表示名は自由に変更できます。"':''}>`;
 }
 function renderEditor(kind) {
   const host = $(`editor-${kind}`);
@@ -78,6 +81,7 @@ function addRow() {
 }
 function download(blob, name) { const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000); }
 function safeResult() {
+  if (absenceUI?.isPending()) throw Error('欠勤の代替案を採用するか元のシフトに戻ってください。');
   if (!result) throw Error('条件を満たすシフトを先に作成してください。');
   const errors=validateSchedule(data,result.schedule);if(errors.length){invalidate();throw Error(errors.join(' / '));}return result;
 }
@@ -112,10 +116,14 @@ function renderResult(r) {
   renderSchedule(r);renderPlanTools();
   const max=Math.max(1,...r.stats.map(s=>s.totalHours),...r.stats.map(s=>s.targetHours));
   $('workload-view').innerHTML=r.stats.map(s=>`<div class="workload-row"><div class="workload-name">${escape(people.get(s.staffId)?.name||s.staffId)}<small>比率 ${escape(people.get(s.staffId)?.weight)}</small></div><div class="bar-track" role="img" aria-label="今回${s.hours}時間、過去${s.historyHours}時間、合計${s.totalHours}時間"><span class="bar-fill history" style="width:${s.historyHours/max*100}%"></span><span class="bar-fill" style="width:${s.hours/max*100}%"></span></div><div class="workload-value"><strong>${format(s.hours)}h</strong><small>過去 ${format(s.historyHours)}h / 合計 ${format(s.totalHours)}h<br>配分目安 ${format(s.targetHours)}h · 今回${s.days}日</small></div></div>`).join('');
-  $('result-meta').textContent=`${r.status==='optimal'?'最も偏りが小さい案（探索完了）':'条件を満たす案（時間内で最良のもの）'} · 配分目安は${data.settings.includeHistory?'過去＋今回':'今回のみ'} · ${format(r.elapsedMs/1000)}秒 · ${r.nodes.toLocaleString()}候補を探索`;
+  const resultLabel=r.repair?(r.status==='optimal'?'変更が最も少ない代替案':'条件を満たす代替案（変更最小は未確認）'):(r.status==='optimal'?'最も偏りが小さい案（探索完了）':'条件を満たす案（時間内で最良のもの）');
+  $('result-meta').textContent=`${resultLabel} · 配分目安は${data.settings.includeHistory?'過去＋今回':'今回のみ'} · ${format(r.elapsedMs/1000)}秒 · ${r.nodes.toLocaleString()}候補を探索`;
   $('result-empty').hidden=true;$('result-content').hidden=false;
   for(const id of ['export-csv','export-excel','print-result'])$(id).disabled=false;
-  diagnostics(r.diagnostics,'ok');status(r.status==='optimal'?'すべての必須条件を満たすシフトができました。':'すべての必須条件を満たしています。公平さをさらに改善できる可能性があります。','ok');
+  diagnostics(r.diagnostics,'ok');status(r.repair?'代替案を採用しました。欠勤時間の勤務可能設定も更新しました。':r.status==='optimal'?'すべての必須条件を満たすシフトができました。':'すべての必須条件を満たしています。公平さをさらに改善できる可能性があります。','ok');
+  let repairBanner=$('adopted-repair');if(repairBanner)repairBanner.remove();
+  if(r.repair){repairBanner=document.createElement('p');repairBanner.id='adopted-repair';repairBanner.className='repair-banner';repairBanner.textContent=`採用した代替案: ${r.repair.changedSlots}枠を変更 / 交代${r.repair.replacements}人分`;document.querySelector('.result-toolbar').before(repairBanner);}
+  absenceUI?.mount();
 }
 function format(n) {return Number(n).toLocaleString('ja-JP',{maximumFractionDigits:2});}
 function generate() {
@@ -147,7 +155,7 @@ document.addEventListener('input',event=>{
     invalidate('条件を変更しました。再作成すると新しい条件が反映されます。');summary();return;
   }
   if(el.dataset.staff){data.availability=data.availability.filter(a=>a.staffId!==el.dataset.staff||a.slotId!==el.dataset.slot);if(Number(el.value))data.availability.push({staffId:el.dataset.staff,slotId:el.dataset.slot,preference:Number(el.value)});el.className=`availability-select state-${el.value}`;invalidate('勤務可能な枠を変更しました。');return;}
-  if(['includeHistory','minRestHours','maxConsecutiveDays','maxDailyHours','timeLimitMs'].includes(el.id)){data.settings[el.id]=el.type==='checkbox'?el.checked:(el.value===''?NaN:Number(el.value));invalidate('作成条件を変更しました。');}
+  if(['includeHistory','minRestHours','maxConsecutiveDays','maxDailyHours','timeLimitMs'].includes(el.id)){data.settings[el.id]=el.type==='checkbox'?el.checked:(el.value===''?NaN:Number(el.value));if(el.id==='timeLimitMs'&&absenceUI?.isPending()){revision++;absenceUI.timeChanged();return;}invalidate('作成条件を変更しました。');}
 });
 document.addEventListener('click',event=>{
   const page=event.target.closest('[data-av-page]');if(page){availabilityPage=Number(page.dataset.avPage);renderEditor('availability');return;}
@@ -196,4 +204,5 @@ $('export-excel').addEventListener('click',()=>{try{download(workbookBlob(data,s
 $('export-csv').addEventListener('click',()=>{try{const r=safeResult();const slots=new Map(data.slots.map(s=>[s.id,s]));const people=new Map(data.staff.map(p=>[p.id,p]));const rows=r.schedule.flatMap(s=>s.staffIds.map(id=>({slotId:s.slotId,date:slots.get(s.slotId).date,start:slots.get(s.slotId).start,end:slots.get(s.slotId).end,staffId:id,name:people.get(id).name})));download(csvBlob('schedule',rows),'shift-studio-schedule.csv');}catch(e){status(e.message,'error');}});
 $('print-result').addEventListener('click',()=>{try{safeResult();window.print();}catch(e){status(e.message,'error');}});
 $('clear-data').addEventListener('click',()=>{invalidate();data={staff:[],slots:[],availability:[],history:[],settings:createDemo().settings};active='staff';renderAll();status('入力を空にしました。スタッフとシフト枠を追加してください。');});
+absenceUI=createAbsenceUI({getData:()=>data,getResult:()=>result,hasPendingLocks:()=>pendingLocks.size>0,onScenarioChange:()=>{revision++;},setStatus:status,onAdopt:(next,candidate)=>{revision++;data=next;result=candidate;pendingLocks.clear();staffFilter='';renderAll();renderResult(candidate);},onRestore:()=>renderResult(result)});
 renderAll();status('まずはデモで試せます。入力やファイルの内容はサーバーへ送信されません。');
