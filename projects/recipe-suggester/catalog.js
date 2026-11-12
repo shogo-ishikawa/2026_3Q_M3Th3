@@ -5,10 +5,17 @@ export const CATALOG_CATEGORIES = Object.freeze([
   ['soba', 'そば', 'staple'], ['yakisoba', '焼きそば', 'staple'],
   ['pasta', 'パスタ', 'staple'], ['curry', 'カレーライス', 'staple'],
   ['pizza', 'ピザ', 'staple'], ['fried-rice', 'チャーハン・炒めご飯', 'staple'],
+  ['sushi', 'お寿司', 'staple'], ['omelette-rice', 'オムライス', 'staple'],
+  ['burger', 'ハンバーガー', 'staple'],
   ['donburi', '丼', 'staple'], ['ramen', 'ラーメン', 'staple'],
   ['somen', 'そうめん', 'staple'], ['oatmeal', 'オートミール', 'staple'],
   ['other-staple', 'その他の主食', 'staple'],
-  ['main', '主菜', 'main'], ['side', '副菜', 'side'],
+  ['karaage', '唐揚げ', 'main'], ['grilled-fish', '焼き魚', 'main'],
+  ['sashimi', 'お刺身', 'main'], ['egg-main', '卵料理', 'main'],
+  ['meat-main', '肉料理', 'main'], ['fish-main', '魚介料理', 'main'],
+  ['bean-main', '豆腐・豆の主菜', 'main'], ['cutlet', 'カツ・コロッケ', 'main'],
+  ['main', 'その他の主菜', 'main'], ['small-dish', '小鉢・おつまみ', 'side'],
+  ['side', 'その他の副菜', 'side'],
   ['miso-soup', 'みそ汁', 'soup'], ['soup', 'スープ・汁物', 'soup'],
   ['water', '水・炭酸水', 'drink'], ['tea', 'お茶・紅茶', 'drink'],
   ['coffee', 'コーヒー', 'drink'], ['milk', '牛乳・豆乳', 'drink'],
@@ -19,15 +26,24 @@ export const CATALOG_CATEGORIES = Object.freeze([
   ['nuts', 'ナッツ', 'snack'], ['yoghurt', 'ヨーグルト', 'snack'],
 ].map(([id, label, role]) => Object.freeze({id, label, role})));
 
+/** 料理の種類とは別に扱う調理・提供形態。栄養の良し悪しを表しません。 */
+export const FOOD_NATURES = Object.freeze([
+  ['unspecified', '分類未設定'], ['home-cooked', '手作り'],
+  ['instant', '即席'], ['retort', 'レトルト'],
+  ['fast-food', 'ファストフード'], ['ready-to-eat', 'そのまま'],
+].map(([id, label]) => Object.freeze({id, label})));
+
 const categories = new Map(CATALOG_CATEGORIES.map(category => [category.id, category]));
-const portionUnits = new Set(['g', 'ml', '個', '皿', '杯', '枚', '袋', '人分']);
-const completeFamilies = new Set(['pasta', 'curry', 'fried-rice', 'udon', 'soba', 'yakisoba', 'donburi', 'ramen', 'pizza', 'somen']);
+const natures = new Set(FOOD_NATURES.map(nature => nature.id));
+const portionUnits = new Set(['g', 'ml', '個', '皿', '杯', '枚', '袋', '貫', '食', '人分']);
+const completeFamilies = new Set(['pasta', 'curry', 'fried-rice', 'udon', 'soba', 'yakisoba', 'donburi', 'ramen', 'pizza', 'somen', 'sushi', 'omelette-rice', 'burger']);
 const riceIngredients = new Set(['rice', 'brown_rice', 'cooked_barley']);
 const drinkFlavourings = new Set(['sugar', 'salt', 'ginger', 'lemon_slice']);
 const fruitIds = new Set(['snack-apple', 'snack-orange', 'snack-kiwi', 'snack-banana', 'snack-peach', 'snack-grape', 'snack-strawberry', 'snack-blueberry', 'snack-fruit-plate']);
 const legacyFamily = new Map([
   ['plain-rice', 'rice'], ['salmon-fried-rice', 'rice'],
-  ['rice-egg-omelette', 'fried-rice'], ['chicken-pilaf', 'fried-rice'],
+  ['rice-egg-omelette', 'omelette-rice'], ['chicken-pilaf', 'fried-rice'],
+  ['rice-flour-chijimi', 'other-staple'], ['breakfast-banana-pancake', 'other-staple'],
   ['soy-milk-risotto', 'rice'], ['egg-tofu-porridge', 'rice'],
 ]);
 const normalise = text => String(text ?? '').normalize('NFKC').toLocaleLowerCase('ja-JP').trim();
@@ -35,6 +51,13 @@ const validAmount = value => typeof value === 'number' && Number.isFinite(value)
 
 function checkRecipe(recipe) {
   if (!recipe || typeof recipe !== 'object' || Array.isArray(recipe)) throw new Error('メニューの情報を確認してください。');
+}
+
+export function recipeNature(recipe) {
+  checkRecipe(recipe);
+  const nature = recipe.nature === undefined ? (recipe.custom === true ? 'unspecified' : 'home-cooked') : recipe.nature;
+  if (!natures.has(nature)) throw new Error('メニューの性質が登録されていません。');
+  return nature;
 }
 
 /** 古いIDを保ったまま、従来の主菜扱いの麺や丼も主食の一覧へまとめます。 */
@@ -73,14 +96,25 @@ export function recipeFamily(recipe) {
   if (/soba|そば|蕎麦/.test(text)) return 'soba';
   if (/somen|そうめん|素麺/.test(text)) return 'somen';
   if (/pasta|spaghetti|パスタ|スパゲティ|ペペロンチーノ|カルボナーラ|ジェノベーゼ|ボロネーゼ|アラビアータ|ペスカトーレ/.test(text)) return 'pasta';
+  if (/sushi|寿司|すし/.test(text)) return 'sushi';
+  if (/omelette-rice|オムライス/.test(text)) return 'omelette-rice';
+  if (/burger|hamburger|ハンバーガー/.test(text) && !/hamburg-steak|ハンバーグ/.test(text)) return 'burger';
   if (/pizza|ピザ/.test(text)) return 'pizza';
-  if (/fried-rice|炒飯|チャーハン|ピラフ|オムライス/.test(text)) return 'fried-rice';
+  if (/fried-rice|炒飯|チャーハン|ピラフ/.test(text)) return 'fried-rice';
   if (/rice-bowl|donburi|taco-rice|丼|タコライス/.test(text)) return 'donburi';
   if ((recipe.staple || recipe.role === 'staple') && /curry|カレー/.test(text)) return 'curry';
   if (/oatmeal|oat-|オートミール/.test(text)) return 'oatmeal';
   if (/bread|toast|sandwich|パン(?!ケーキ)|トースト|サンド/.test(text)) return 'bread';
   if ((recipe.staple || recipe.role === 'staple') && /rice|porridge|ご飯|白米|玄米|おかゆ|がゆ|雑炊|リゾット/.test(text)) return 'rice';
   if (recipe.role === 'staple' || recipe.staple) return 'other-staple';
+  if (/karaage|唐揚|から揚/.test(text)) return 'karaage';
+  if (/sashimi|刺身/.test(text)) return 'sashimi';
+  if (/grilled-fish|焼き魚|塩焼き|魚の干物/.test(text)) return 'grilled-fish';
+  if (/cutlet|croquette|コロッケ|メンチカツ|とんかつ|トンカツ|チキンカツ/.test(text)) return 'cutlet';
+  if (/omelette|scramble|卵焼き|玉子焼き|オムレツ|スクランブルエッグ/.test(text)) return 'egg-main';
+  if (/tofu|soybean|lentil|chickpea|豆腐|大豆|納豆|おから|レンズ豆|ひよこ豆/.test(text)) return 'bean-main';
+  if (/chicken|pork|beef|hamburg|鶏|豚|牛|ハンバーグ|肉団子/.test(text)) return 'meat-main';
+  if (/salmon|mackerel|cod|sardine|shrimp|squid|scallop|tuna|clam|さけ|鮭|さば|鯖|たら|鱈|いわし|まぐろ|えび|いか|ほたて|あさり/.test(text)) return 'fish-main';
   return 'main';
 }
 
@@ -146,7 +180,9 @@ export function quantityFromAmount(recipe, data, amount) {
 function matchesQuery(recipe, query, familyId = recipeFamily(recipe)) {
   if (!query) return true;
   const family = categories.get(familyId);
-  return normalise([recipe.name, recipe.variantLabel, family.label, ...(recipe.tags ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)].join(' ')).includes(query);
+  return normalise([recipe.name, recipe.variantLabel, family.label,
+    FOOD_NATURES.find(nature => nature.id === recipeNature(recipe)).label,
+    ...(recipe.tags ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)].join(' ')).includes(query);
 }
 
 function recipeList(recipes) {
@@ -155,11 +191,12 @@ function recipeList(recipes) {
   return recipes;
 }
 
-export function catalogFamilies(recipes, {role = 'all', query = ''} = {}) {
+export function catalogFamilies(recipes, {role = 'all', query = '', nature = 'all'} = {}) {
   const list = recipeList(recipes), text = normalise(query), counts = new Map();
   for (const recipe of list) {
     const family = recipeFamily(recipe);
-    if ((role === 'all' || categories.get(family).role === role) && matchesQuery(recipe, text, family)) counts.set(family, (counts.get(family) ?? 0) + 1);
+    if ((role === 'all' || categories.get(family).role === role) &&
+      (nature === 'all' || recipeNature(recipe) === nature) && matchesQuery(recipe, text, family)) counts.set(family, (counts.get(family) ?? 0) + 1);
   }
   return CATALOG_CATEGORIES.filter(category => counts.has(category.id)).map(category => ({id: category.id, label: category.label, count: counts.get(category.id)}));
 }
@@ -170,6 +207,10 @@ const variantOrder = {
   udon: ['かけ', 'きつね', 'たぬき', 'わかめ', '肉', '天ぷら', 'カレー'],
   soba: ['かけ', 'きつね', 'たぬき', 'わかめ', '肉', '天ぷら', 'カレー'],
   pasta: ['ペペロンチーノ', 'カルボナーラ', 'ジェノベーゼ', 'ボロネーゼ', 'アラビアータ', 'ペスカトーレ', 'ナポリタン', 'ミートソース', '和風', 'クリーム', 'トマト'],
+  'small-dish': ['枝豆', '冷奴', '冷ややっこ', '納豆', 'ゆで卵', 'ひじき', 'おから', 'ポテトサラダ', '卵サラダ', '春雨', 'きんぴら', '煮物'],
+  karaage: ['定番', 'しょうゆ', '塩', 'オーブン'],
+  'grilled-fish': ['さけ', '鮭', 'さば', '鯖', 'あじ', 'ほっけ', 'さんま'],
+  sashimi: ['まぐろ', 'サーモン', 'たい', 'はまち', 'かつお', 'あじ', 'いか', 'たこ', 'ほたて', '盛り合わせ'],
   water: ['水', 'レモン水', '炭酸水'],
 };
 
@@ -182,9 +223,10 @@ function variantRank(recipe, family) {
   return partial >= 0 ? partial * 10 + 1 : 1000;
 }
 
-export function catalogVariants(recipes, family, {query = ''} = {}) {
+export function catalogVariants(recipes, family, {query = '', nature = 'all'} = {}) {
   if (!categories.has(family)) return [];
   const text = normalise(query);
-  return recipeList(recipes).map((recipe, index) => ({recipe, index})).filter(({recipe}) => recipeFamily(recipe) === family && matchesQuery(recipe, text))
+  return recipeList(recipes).map((recipe, index) => ({recipe, index})).filter(({recipe}) => recipeFamily(recipe) === family &&
+    (nature === 'all' || recipeNature(recipe) === nature) && matchesQuery(recipe, text))
     .sort((a, b) => variantRank(a.recipe, family) - variantRank(b.recipe, family) || a.index - b.index).map(({recipe}) => recipe);
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CATALOG_CATEGORIES, recipeFamily, recipePortion, quantityFromAmount, catalogFamilies, catalogVariants, isCompleteMeal} from '../catalog.js';
+import {CATALOG_CATEGORIES, FOOD_NATURES, recipeFamily, recipeNature, recipePortion, quantityFromAmount, catalogFamilies, catalogVariants, isCompleteMeal} from '../catalog.js';
 import {RECIPES, INGREDIENTS} from '../data.js';
 const data = {ingredients: INGREDIENTS, recipes: RECIPES};
 const byId = id => RECIPES.find(recipe => recipe.id === id);
@@ -119,11 +119,53 @@ test('water used to boil noodles is not treated as an edible completed weight', 
 });
 
 test('complete meals skip extra main dishes and explicit mealBase wins', () => {
-  for(const family of ['pasta','curry','udon','soba','yakisoba','ramen','somen','pizza','fried-rice','donburi']) assert.equal(isCompleteMeal(meal(family,family,'staple',{family})),true);
+  for(const family of ['pasta','curry','udon','soba','yakisoba','ramen','somen','pizza','fried-rice','donburi','sushi','omelette-rice','burger']) assert.equal(isCompleteMeal(meal(family,family,'staple',{family})),true);
   for(const family of ['rice','onigiri','bread']) assert.equal(isCompleteMeal(meal(family,family,'staple',{family})),false);
   assert.equal(isCompleteMeal(byId('chicken-sandwich')),true);
   assert.equal(isCompleteMeal(meal('explicit','明示','staple',{family:'rice',mealBase:true})),true);
   assert.equal(isCompleteMeal(meal('explicit','明示','staple',{family:'pasta',mealBase:false})),false);
+});
+
+test('ordinary main dishes and complete staples have their own discoverable families', () => {
+  const expected = [
+    ['鶏の唐揚げ','karaage'], ['さばの塩焼き','grilled-fish'], ['まぐろのお刺身','sashimi'],
+    ['プレーンオムレツ','egg-main'], ['ハンバーグ','meat-main'], ['麻婆豆腐','bean-main'],
+    ['えびのチリソース','fish-main'], ['メンチカツ','cutlet'],
+    ['にぎり寿司','sushi'], ['オムライス','omelette-rice'], ['ハンバーガー','burger'],
+  ];
+  for (const [name,family] of expected) {
+    const role = ['sushi','omelette-rice','burger'].includes(family) ? 'staple' : 'main';
+    assert.equal(recipeFamily(meal('custom-'+name,name,role)),family,name);
+  }
+  // 米粉という材料名や rice という旧IDを、炊いたご飯と取り違えません。
+  assert.equal(recipeFamily(byId('rice-flour-chijimi')),'other-staple');
+  assert.equal(recipePortion(byId('rice-flour-chijimi'),data).unit,'皿');
+});
+
+test('sushi piece counts and packaged meal counts scale the original serving', () => {
+  const sushi = meal('sushi','にぎり寿司','staple',{family:'sushi',portion:{amount:8,unit:'貫'}});
+  assert.equal(quantityFromAmount(sushi,data,4),0.5);
+  const instant = meal('cup','カップ麺','staple',{family:'ramen',portion:{amount:1,unit:'食'}});
+  assert.equal(quantityFromAmount(instant,data,2),2);
+});
+
+test('cooking form filters refine dish families without replacing them', () => {
+  const recipes = [
+    meal('home','手作りチキンカレー','staple',{family:'curry',nature:'home-cooked'}),
+    meal('pack','レトルトビーフカレー','staple',{family:'curry',nature:'retort'}),
+    meal('cup','カップうどん','staple',{family:'udon',nature:'instant'}),
+    meal('own','自分の料理','main',{family:'main',custom:true}),
+  ];
+  assert.deepEqual(catalogFamilies(recipes,{nature:'retort'}),[{id:'curry',label:'カレーライス',count:1}]);
+  assert.deepEqual(catalogVariants(recipes,'curry',{nature:'retort'}).map(r=>r.id),['pack']);
+  assert.deepEqual(catalogVariants(recipes,'curry',{nature:'instant'}),[]);
+  assert.equal(catalogFamilies(recipes,{role:'staple',nature:'home-cooked',query:'カレー'})[0].count,1);
+  assert.equal(catalogFamilies(recipes,{nature:'unspecified'})[0].id,'main');
+  assert.equal(catalogFamilies(recipes,{query:'即席'})[0].id,'udon');
+  assert.equal(recipeNature(recipes[3]),'unspecified');
+  assert.equal(recipeNature(meal('default','家庭の料理','main')),'home-cooked');
+  assert.equal(new Set(FOOD_NATURES.map(n=>n.id)).size,FOOD_NATURES.length);
+  for (const nature of ['unknown',null,42]) assert.throws(()=>recipeNature({nature}));
 });
 
 test('invalid portions and nonpositive amounts are rejected', () => {

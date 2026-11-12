@@ -12,8 +12,10 @@ export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={
     if(!entry.items.length){missingMenus.push({name:entry.note?.trim().slice(0,200)||'メニュー未入力の予定',entryId:entry.id});continue;}
     for(const item of entry.items){
     if(!amount(item.quantity)||item.quantity===0)throw Error('予定の分量を確認してください。');
-    if(!item.ingredientsKnown||!Array.isArray(item.ingredients)||!item.ingredients.length){missingMenus.push({name:item.name,entryId:entry.id});continue;}
-    let missing=false;
+    if(!Array.isArray(item.ingredients)||!item.ingredients.length||(!item.ingredientsKnown&&item.shoppingKnown!==true)){missingMenus.push({name:item.name,entryId:entry.id});continue;}
+    // 原材料は商品表示を要確認でも、買う商品と量が分かる場合は合算できます。
+    // その場合も注意から消さず、原材料まで確定したと誤解させません。
+    let missing=!item.ingredientsKnown;
     for(const part of item.ingredients){
       if(!amount(part.amount)||part.amount===0)throw Error('買い物に集計できない材料があります。');
       // 過去のスナップショットはDBから削除された材料も保持します。

@@ -1,4 +1,4 @@
-import {recipeNutrition} from './nutrition.js';
+import {recipeNutrition, recipeConfirmation} from './nutrition.js';
 import {quantityFromAmount, isCompleteMeal, recipeFamily} from './catalog.js';
 
 // 材料の確認 → 食べられる候補 → 履歴との比較、の順に処理します。
@@ -102,20 +102,19 @@ function ingredientAncestors(id, data, knownAllergens, trail = []) {
 
 function describeRawRecipe(recipe, data, knownAllergens) {
   const custom = recipe?.custom === true;
+  const confirmed = recipeConfirmation(recipe);
   if (!recipe || typeof recipe.id !== 'string' || !recipe.id || typeof recipe.name !== 'string' || !recipe.name.trim() ||
       !ROLES.includes(recipe.role) || !finitePositive(recipe.servings) || !finitePositive(recipe.minutes) ||
       !Array.isArray(recipe.steps) || (!custom && !recipe.steps.length) || recipe.steps.some(step => typeof step !== 'string' || !step.trim()) ||
       !Array.isArray(recipe.ingredients) || (!custom && !recipe.ingredients.length) || typeof recipe.staple !== 'boolean') {
     throw new Error('料理の基本情報が不足しています。');
   }
-  if (custom && ((recipe.allergensKnown !== undefined && typeof recipe.allergensKnown !== 'boolean') ||
-      (recipe.ingredientsKnown !== undefined && typeof recipe.ingredientsKnown !== 'boolean') ||
-      !Array.isArray(recipe.allergens ?? []) || (recipe.allergens ?? []).some(id => !knownAllergens.has(id)) ||
+  if (custom && (!Array.isArray(recipe.allergens ?? []) || (recipe.allergens ?? []).some(id => !knownAllergens.has(id)) ||
       !Array.isArray(recipe.groups ?? []) || (recipe.groups ?? []).some(group => !FOOD_GROUPS.includes(group)) ||
       !Array.isArray(recipe.proteinSources ?? []) || (recipe.proteinSources ?? []).some(source => !PROTEIN_SOURCES.includes(source)))) {
     throw new Error('手入力した料理の確認情報を確認してください。');
   }
-  if (custom && recipe.manualNutrition !== undefined &&
+  if (recipe.manualNutrition !== undefined &&
       (!recipe.manualNutrition || typeof recipe.manualNutrition !== 'object' || Array.isArray(recipe.manualNutrition) ||
        NUTRIENTS.some(key => recipe.manualNutrition[key] != null &&
          (typeof recipe.manualNutrition[key] !== 'number' || !Number.isFinite(recipe.manualNutrition[key]) || recipe.manualNutrition[key] < 0)))) {
@@ -133,8 +132,8 @@ function describeRawRecipe(recipe, data, knownAllergens) {
   });
   return {...recipe, ingredients,
     steps: recipe.steps.length ? [...recipe.steps] : ['調理方法は未登録です。'],
-    allergensKnown: custom ? recipe.allergensKnown === true : true,
-    ingredientsKnown: custom ? recipe.ingredientsKnown === true && ingredients.length > 0 : true,
+    allergensKnown: confirmed.allergensKnown,
+    ingredientsKnown: confirmed.ingredientsKnown,
     allergens: unique([...ingredients.flatMap(item => item.allergens), ...(custom ? recipe.allergens ?? [] : [])]),
     groups: unique([...ingredients.flatMap(item => item.groups), ...(custom ? recipe.groups ?? [] : [])]),
     proteinSources: unique([...ingredients.flatMap(item => item.proteinSources), ...(custom ? recipe.proteinSources ?? [] : [])]),
