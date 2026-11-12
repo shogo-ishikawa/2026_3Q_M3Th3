@@ -226,6 +226,13 @@ const FOOD_PROFILES = Object.freeze({
   '11129': [366.0, 14.4, 35.4, 0.1, 0.0, 0.1], // ＜畜肉類＞ ぶた ［大型種肉］ ばら 脂身つき 生
   '13038': [445.0, 44.0, 30.8, 1.9, 0.0, 3.8], // ＜牛乳及び乳製品＞ （チーズ類） ナチュラルチーズ パルメザン
   water: [0, 0, 0, 0, 0, 0], // 無糖・無塩の水という定義値
+  "01179": [288.0, 8.3, 1.6, 62.2, 4.5, 1.1], // こむぎ ［その他］ 春巻きの皮 生
+  "06171": [72.0, 3.9, 3.4, 16.3, 10.3, 0.0], // とうがらし 果実 生
+  "17107": [47.0, 9.1, 0.1, 2.7, 0.0, 22.9], // ＜調味料類＞ （調味ソース類） 魚醤油 ナンプラー
+  "10069": [300.0, 20.7, 25.8, 0.1, 0.0, 0.3], // ＜魚類＞ うなぎ 白焼き
+  "11074": [338.0, 14.4, 32.9, 0.2, 0.0, 0.1], // ＜畜肉類＞ うし ［輸入牛肉］ ばら 脂身つき 生
+  "11090": [318.0, 13.3, 31.8, 0.2, 0.0, 0.2], // ＜畜肉類＞ うし ［副生物］ 舌 生
+  "11235": [474.0, 6.6, 51.6, 0.0, 0.0, 0.1], // ＜鳥肉類＞ にわとり ［副品目］ 皮 もも 生
   unknown: [null, null, null, null, null, null],
 
   "16006": [39, 0.3, 0.0, 3.1, 0.0, 0.0], // ビール（淡色・一般例）
@@ -511,6 +518,41 @@ const INGREDIENT_PROFILES = Object.freeze({
   perf_calorie_block_choco: ["unknown", 1, "カロリーメイト ブロック チョコレート味（4本80g）の購入品。製品レシピの栄養は公式表示の1箱を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.otsuka.co.jp/nutraceutical/products/caloriemate/"],
   perf_calorie_block_cheese: ["unknown", 1, "カロリーメイト ブロック チーズ味（4本80g）の購入品。製品レシピの栄養は公式表示の1箱を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.otsuka.co.jp/nutraceutical/products/caloriemate/"],
   perf_calorie_jelly_apple: ["unknown", 1, "カロリーメイト ゼリー アップル味（215g）の購入品。製品レシピの栄養は公式表示の1袋を基準に設定し、この材料の成分値とは区別します。確認日2026-11-13。https://www.otsuka.co.jp/nutraceutical/products/caloriemate/"],
+  spring_roll_wrappers: ["01179", 1, "春巻きの皮・生の製品重量。揚げた皮の成分値ではなく、揚げ油は別材料として計上します。原材料・アレルゲンは製品表示を確認します。"],
+  green_chilli: ["06171", 1, "生のとうがらし（辛味種）のへたを除いた可食重量を青唐辛子の代表値に使用。青い品種専用の分析値ではなく、乾燥唐辛子や甘味種のししとうとは区別します。"],
+  fish_sauce: ["17107", 1.221, "ナンプラーの液量。原表の備考100ml＝122.1gに従い1ml＝1.221gへ換算。いしる・しょっつるとは成分が異なります。銘柄の原材料と塩分は商品表示を確認します。"],
+  eel_shirayaki: ["10069", 1, "無調味のうなぎ白焼きの調理済み可食重量。生のうなぎやたれ付きかば焼きの重量ではなく、加えるたれ・調味料は別材料で計上します。"],
+  beef_short_rib: ["11074", 1, "輸入牛ばら（カルビ）脂身つき・生の可食重量。和牛や交雑牛のばら肉とは区別します。調理後の水分・脂質の流出は補正していません。"],
+  beef_tongue: ["11090", 1, "牛舌・生の可食重量。調味済みのタン塩製品や調理後の焼いた舌の重量ではありません。加える調味料は別に計上します。"],
+  chicken_skin: ["11235", 1, "鶏もも皮・生（皮下脂肪を含む）の可食重量。むね皮や肉を含むもも肉とは別の値です。焼いて流れ出た脂の量は補正していません。"],
+  takeaway_harusame_wonton: ["unknown", 1, "エースコック スープはるさめ ワンタン（即席）の購入品。栄養はメニューに公式の1杯＝乾燥製品22gと湯220mlの全量を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.acecook.co.jp/products/001931/"],
+  takeaway_harusame_egg: ["unknown", 1, "エースコック スープはるさめ かきたま（即席）の購入品。栄養はメニューに公式の1杯＝乾燥製品20gと湯220mlの全量を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.acecook.co.jp/products/001932/"],
+  takeaway_harusame_tantan: ["unknown", 1, "エースコック スープはるさめ 担担味（即席）の購入品。栄養はメニューに公式の1杯＝乾燥製品31gと湯220mlの全量を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.acecook.co.jp/products/001933/"],
+  takeaway_harusame_wakame_vegetable: ["unknown", 1, "エースコック スープはるさめ わかめと野菜（即席）の購入品。栄養はメニューに公式の1杯＝乾燥製品21gと湯220mlの全量を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.acecook.co.jp/products/002854/"],
+  takeaway_harusame_wakame_gomtang: ["unknown", 1, "エースコック スープはるさめ すごい！どっさりわかめ（即席）の購入品。栄養はメニューに公式の1杯＝乾燥製品23gと湯220mlの全量を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.acecook.co.jp/products/001889/"],
+  takeaway_knorr_corn: ["unknown", 1, "クノール カップスープ コーンクリーム（即席）の購入品。栄養はメニューに公式の1杯＝粉末18.6gの小袋1袋を表示どおり調製を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.ajinomoto.co.jp/products/detail/?ProductName=knorr_cup_1"],
+  takeaway_knorr_potage: ["unknown", 1, "クノール カップスープ ポタージュ（即席）の購入品。栄養はメニューに公式の1杯＝粉末16.5gの小袋1袋を表示どおり調製を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.ajinomoto.co.jp/products/detail/?ProductName=knorr_cup_2"],
+  takeaway_knorr_mushroom: ["unknown", 1, "クノール カップスープ ミルク仕立てのきのこのポタージュ（即席）の購入品。栄養はメニューに公式の1杯＝粉末14.2gの小袋1袋を表示どおり調製を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.ajinomoto.co.jp/products/detail/?ProductName=knorr_cup_4"],
+  takeaway_knorr_spinach: ["unknown", 1, "クノール カップスープ チーズ仕立てのほうれん草のポタージュ（即席）の購入品。栄養はメニューに公式の1杯＝粉末13.4gの小袋1袋を表示どおり調製を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.ajinomoto.co.jp/products/detail/?ProductName=knorr_cup_5"],
+  takeaway_knorr_pumpkin: ["unknown", 1, "クノール カップスープ 栗かぼちゃのポタージュ（即席）の購入品。栄養はメニューに公式の1杯＝粉末18.8gの小袋1袋を表示どおり調製を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.ajinomoto.co.jp/products/detail/?ProductName=knorr_cup_6"],
+  takeaway_knorr_tomato: ["unknown", 1, "クノール カップスープ 完熟トマトまるごと1個分使ったポタージュ（即席）の購入品。栄養はメニューに公式の1杯＝粉末17gの小袋1袋を表示どおり調製を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.ajinomoto.co.jp/products/detail/?ProductName=knorr_cup_7"],
+  takeaway_tomato_unsalted: ["unknown", 1, "カゴメトマトジュース 食塩無添加の購入品。栄養はメニューに公式の表示200ml当たりを基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.kagome.co.jp/products/drink/A2404/"],
+  takeaway_tomato_low_salt: ["unknown", 1, "カゴメトマトジュース 低塩の購入品。栄養はメニューに公式の表示200ml当たりを基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.kagome.co.jp/products/drink/A2402/"],
+  takeaway_yakitori_momo_tare: ["unknown", 1, "焼鳥日本一 もも串（たれ）の購入品。栄養はメニューに公式の1本を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_yakitori_momo_salt: ["unknown", 1, "焼鳥日本一 塩もも串の購入品。栄養はメニューに公式の1本を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_yakitori_negima_tare: ["unknown", 1, "焼鳥日本一 ももねぎ串（たれ）の購入品。栄養はメニューに公式の1本を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_yakitori_tsukune_tare: ["unknown", 1, "焼鳥日本一 つくね串（たれ）の購入品。栄養はメニューに公式の1本を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_yakitori_kawa_tare: ["unknown", 1, "焼鳥日本一 かわ串（たれ）の購入品。栄養はメニューに公式の1本を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_yakitori_sunagimo_salt: ["unknown", 1, "焼鳥日本一 塩砂肝串の購入品。栄養はメニューに公式の1本を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_eel_kabayaki: ["unknown", 1, "うなぎ日本一 うなぎ蒲焼（中串）の購入品。栄養はメニューに公式の中串1串を1本として記録を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_unaju: ["unknown", 1, "うなぎ日本一 うな重（中）の購入品。栄養はメニューに公式のうなぎ日本一の中サイズ1折（ご飯込み）を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.nihonichi.jp/products/component"],
+  takeaway_shumai: ["unknown", 1, "崎陽軒 おいしさ長もち 昔ながらのシウマイの購入品。栄養はメニューに公式の1個を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://kiyoken.com/products/shiumai/nagamukashi.html"],
+  takeaway_frozen_suigyoza: ["unknown", 1, "セブンプレミアム 水餃子（冷凍・12個入）の購入品。公式ページに栄養表示が掲載されていないため、メニューでも全成分を不明として保持します。1個は12個入り1袋の12分の1で、購入量と栄養の確認状況を区別します。確認日2026-11-13。https://7premium.jp/index.php/product/search/detail?id=12370"],
+  takeaway_spring_roll: ["unknown", 1, "セブン‐イレブン 五目春巻の購入品。栄養はメニューに公式の1個を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.sej.co.jp/products/a/item/150631"],
+  takeaway_tempura_shrimp: ["unknown", 1, "てんや 海老の天ぷら（単品）の購入品。栄養はメニューに公式の店内の単品1個（天つゆを除く）を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.tenya.co.jp/pdf/allergen-shop.pdf"],
+  takeaway_tempura_squid: ["unknown", 1, "てんや いかの天ぷら（単品）の購入品。栄養はメニューに公式の店内の単品1個（天つゆを除く）を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.tenya.co.jp/pdf/allergen-shop.pdf"],
+  takeaway_tempura_maitake: ["unknown", 1, "てんや まいたけの天ぷら（単品）の購入品。栄養はメニューに公式の店内の単品1個（天つゆを除く）を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.tenya.co.jp/pdf/allergen-shop.pdf"],
+  takeaway_beef_karubi: ["unknown", 1, "セブンプレミアム 牛カルビ焼きの購入品。栄養はメニューに公式の1袋を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.sej.co.jp/products/a/item/101220"],
 });
 
 export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(

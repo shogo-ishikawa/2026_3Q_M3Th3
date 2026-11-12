@@ -1,3 +1,4 @@
+import {matchesJapaneseQuery,japaneseQueryRank} from './japanese-search.js';
 /** メニューの大分類と1人分の表示量。記録する栄養はquantity倍率で扱います。 */
 export const CATALOG_CATEGORIES = Object.freeze([
   ['rice', 'ご飯', 'staple'], ['onigiri', 'おにぎり', 'staple'],
@@ -188,9 +189,9 @@ export function quantityFromAmount(recipe, data, amount) {
 function matchesQuery(recipe, query, familyId = recipeFamily(recipe)) {
   if (!query) return true;
   const family = categories.get(familyId);
-  return normalise([recipe.name, recipe.variantLabel, family.label,
+  return matchesJapaneseQuery([recipe.name, recipe.variantLabel, family.label,
     FOOD_NATURES.find(nature => nature.id === recipeNature(recipe)).label,
-    ...(recipe.tags ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)].join(' ')).includes(query);
+    ...(recipe.tags ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)], query);
 }
 
 function recipeList(recipes) {
@@ -236,5 +237,6 @@ export function catalogVariants(recipes, family, {query = '', nature = 'all'} = 
   const text = normalise(query);
   return recipeList(recipes).map((recipe, index) => ({recipe, index})).filter(({recipe}) => recipeFamily(recipe) === family &&
     (nature === 'all' || recipeNature(recipe) === nature) && matchesQuery(recipe, text))
-    .sort((a, b) => variantRank(a.recipe, family) - variantRank(b.recipe, family) || a.index - b.index).map(({recipe}) => recipe);
+    .map(item => ({...item, queryRank:text ? japaneseQueryRank([item.recipe.name,item.recipe.variantLabel],text) : 0}))
+    .sort((a, b) => a.queryRank - b.queryRank || variantRank(a.recipe, family) - variantRank(b.recipe, family) || a.index - b.index).map(({recipe}) => recipe);
 }
