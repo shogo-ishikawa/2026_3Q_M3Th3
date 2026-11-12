@@ -42,3 +42,9 @@ export function clipProgress(now, startedAt, rate, duration, loop) {
   return loop ? progress - Math.floor(progress) : Math.min(1, Math.max(0, progress));
 }
 
+// 中央では両パートを原音量、両端では片方だけ残すDJのパートミックス。
+export function partGains(balance) {
+  const value = finiteRange(balance, 0, 1, 'パートミックス');
+  return [Math.min(1, 2 * (1 - value)), Math.min(1, 2 * value)];
+}
+

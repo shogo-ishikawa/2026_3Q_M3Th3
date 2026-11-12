@@ -1,4 +1,4 @@
-import { KEYS, QUANTISE, finiteRange, groupOf, clipRate, beatAt, nextBoundary, clipProgress } from './core.js';
+import { KEYS, QUANTISE, finiteRange, groupOf, clipRate, beatAt, nextBoundary, clipProgress, partGains } from './core.js?v=1.1.0';
 
 const FADE = 0.008;
 const slotState = index => ({
@@ -18,7 +18,11 @@ export class DJEngine {
     this.exclusive = true;
     this.origin = 0;
     this.voices = new Set();
-    this.master = { volume: 0.75, filter: 1, echo: 0, low: 0, high: 0 };
+    this.sampleVoices = new Map();
+    this.sampleSources = new Set();
+    this.sampleVolume = 0.7;
+    this.performance = { filter: false, echo: false, bass: false };
+    this.master = { volume: 0.75, filter: 1, echo: 0, low: 0, high: 0, balance: 0.5 };
     this.analyser = null;
     this.recordDestination = null;
   }
@@ -50,6 +54,9 @@ export class DJEngine {
   _buildGraph() {
     const c = this.context;
     this.mix = c.createGain();
+    this.rhythmBus = c.createGain(); this.melodyBus = c.createGain();
+    this.rhythmBus.connect(this.mix); this.melodyBus.connect(this.mix);
+    this.sampleBus = c.createGain(); this.sampleBus.gain.value = this.sampleVolume; this.sampleBus.connect(this.mix);
     this.low = c.createBiquadFilter(); this.low.type = 'lowshelf'; this.low.frequency.value = 220;
     this.high = c.createBiquadFilter(); this.high.type = 'highshelf'; this.high.frequency.value = 4500;
     this.filter = c.createBiquadFilter(); this.filter.type = 'allpass'; this.filter.Q.value = 0.7;
@@ -76,7 +83,7 @@ export class DJEngine {
     this.analyser.connect(c.destination); this.analyser.connect(this.recordDestination);
     for (const slot of this.slots) {
       slot.gain = c.createGain(); slot.panner = c.createStereoPanner();
-      slot.gain.connect(slot.panner); slot.panner.connect(this.mix);
+      slot.gain.connect(slot.panner); slot.panner.connect(groupOf(slot.index) < 2 ? this.rhythmBus : this.melodyBus);
       this._applySlot(slot);
     }
     this._resetEcho(); this.setMaster(this.master);
@@ -90,7 +97,7 @@ export class DJEngine {
     const c = this.context;
     this.delay = c.createDelay(2); this.delay.delayTime.value = 60 / this.bpm * 0.75;
     this.echoFeedback = c.createGain(); this.echoFeedback.gain.value = 0.28;
-    this.echoReturn = c.createGain(); this.echoReturn.gain.value = this.master.echo;
+    this.echoReturn = c.createGain(); this.echoReturn.gain.value = this.performance.echo ? 0.4 : this.master.echo;
     this.filter.connect(this.delay); this.delay.connect(this.echoFeedback); this.echoFeedback.connect(this.delay);
     this.delay.connect(this.echoReturn); this.echoReturn.connect(this.returnBus);
   }
@@ -140,6 +147,72 @@ export class DJEngine {
   _release(voice) {
     if (voice.released) return;
     voice.released = true; voice.source.disconnect(); voice.gain.disconnect(); this.voices.delete(voice);
+  }
+
+  _releaseSample(voice) {
+    if (voice.released) return;
+    voice.released = true;
+    voice.source.disconnect(); voice.gain.disconnect();
+    this.sampleSources.delete(voice);
+    if (this.sampleVoices.get(voice.index) === voice) this.sampleVoices.delete(voice.index);
+  }
+
+  _stopSample(voice) {
+    if (voice.released) return;
+    const now = this.context.currentTime;
+    if (this.sampleVoices.get(voice.index) === voice) this.sampleVoices.delete(voice.index);
+    if (voice.startedAt > now) {
+      voice.source.stop(now); this._releaseSample(voice);
+      return;
+    }
+    const gain = voice.gain.gain;
+    if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(now);
+    else { const value = gain.value; gain.cancelScheduledValues(now); gain.setValueAtTime(value, now); }
+    gain.linearRampToValueAtTime(0, now + FADE);
+    voice.source.stop(now + FADE);
+  }
+
+  // サンプラーはクロックの停止中も鳴らせる。発音はマスターFX・録音と同じ経路。
+  triggerSample(index, buffer, { volume = 0.7, quantise = 0, at = null, tag = null } = {}) {
+    this._requireContext(); groupOf(index);
+    if (!buffer || !Number.isFinite(buffer.duration) || buffer.duration <= 0) throw new Error('有効なサンプル音を読み込んでください。');
+    const level = finiteRange(volume, 0, 1.5, 'サンプル音量');
+    if (tag !== null && typeof tag !== 'string') throw new TypeError('サンプルの識別タグは文字列で指定してください。');
+    const grid = Number(quantise);
+    if (!QUANTISE.includes(grid)) throw new RangeError('量子化は0、1、4、8拍で指定してください。');
+    const now = this.context.currentTime;
+    let when;
+    if (at !== null) {
+      if (typeof at !== 'number' || !Number.isFinite(at) || at < now) throw new RangeError('サンプルの予約時刻には現在以降の音声時刻を指定してください。');
+      when = at;
+    } else when = this.running ? nextBoundary(now, this.origin, this.bpm, grid) : now + FADE;
+    // 入力確認がすべて終わってから以前の発音を置換する。
+    const old = this.sampleVoices.get(index);
+    if (old) this._stopSample(old);
+    while (this.sampleVoices.size >= 8) this._stopSample(this.sampleVoices.values().next().value);
+    const source = this.context.createBufferSource(), gain = this.context.createGain();
+    source.buffer = buffer; source.loop = false;
+    source.connect(gain); gain.connect(this.sampleBus);
+    gain.gain.setValueAtTime(0, when); gain.gain.linearRampToValueAtTime(level, when + FADE);
+    const voice = { index, source, gain, tag, startedAt: when, endsAt: when + buffer.duration, released: false };
+    source.onended = () => this._releaseSample(voice);
+    this.sampleVoices.set(index, voice); this.sampleSources.add(voice);
+    // 音切れを避ける8msの旧音フェードも、最大8音分だけに制限する。
+    while (this.sampleSources.size > 16) {
+      const retired = [...this.sampleSources].find(item => this.sampleVoices.get(item.index) !== item);
+      if (!retired) break;
+      retired.source.stop(now); this._releaseSample(retired);
+    }
+    try { source.start(when, 0); }
+    catch (error) { this._releaseSample(voice); throw error; }
+    if (!this.running) this._smooth(this.output.gain, 1);
+    return when;
+  }
+
+  setSampleVolume(value) {
+    const volume = finiteRange(value, 0, 1, 'サンプラー音量');
+    this.sampleVolume = volume;
+    if (this.context) this._smooth(this.sampleBus.gain, volume);
   }
 
   _stopVoice(slot, when = this.context?.currentTime ?? 0, scheduledFade = false) {
@@ -233,9 +306,12 @@ export class DJEngine {
     this._resetEcho();
     this.origin = this.context.currentTime + 0.04;
     this.running = true;
-    this.output.gain.cancelScheduledValues(this.context.currentTime);
-    this.output.gain.setValueAtTime(0, this.context.currentTime);
-    this.output.gain.linearRampToValueAtTime(1, this.origin + FADE);
+    if (this.sampleVoices.size) this._smooth(this.output.gain, 1);
+    else {
+      this.output.gain.cancelScheduledValues(this.context.currentTime);
+      this.output.gain.setValueAtTime(0, this.context.currentTime);
+      this.output.gain.linearRampToValueAtTime(1, this.origin + FADE);
+    }
     for (const slot of this.slots) if (slot.pending?.type === 'start') {
       slot.pending.at = this.origin; this._newVoice(slot, this.origin);
     }
@@ -254,6 +330,11 @@ export class DJEngine {
       if (this.exclusive && groups.has(group)) throw new Error('同じパートでは1つの音源を選んでください。');
       wanted.add(index); groups.add(group);
     }
+    // DROPに付随する未発音の効果音だけを取消。手打ちサンプルと発音済みの余韻は残す。
+    const now = this.context?.currentTime ?? 0;
+    for (const voice of [...this.sampleVoices.values()]) {
+      if (voice.tag === 'scene' && voice.startedAt > now) this._stopSample(voice);
+    }
     this._flush();
     // startの取消しは、そのstartに連動した他音源のstopも取り消す。
     for (const slot of this.slots) if (slot.pending?.type === 'start') this._cancelPending(slot);
@@ -266,16 +347,20 @@ export class DJEngine {
       const slot = this.slots[index];
       if (!slot.playing) this._queueStart(slot, at);
     }
+    return at;
   }
 
   stop() {
     this.running = false;
     for (const slot of this.slots) { slot.pending = null; this._stopVoice(slot); }
+    for (const voice of [...this.sampleSources]) this._stopSample(voice);
+    for (const key of Object.keys(this.performance)) this.performance[key] = false;
     if (this.context) {
       const now = this.context.currentTime;
       this.output.gain.cancelScheduledValues(now);
       this.output.gain.setValueAtTime(0, now);
       this._resetEcho();
+      this._applyMaster();
     }
   }
 
@@ -321,27 +406,48 @@ export class DJEngine {
   }
 
   setMaster(values) {
-    const bounds = { volume: [0, 1.5], filter: [0, 1], echo: [0, 0.4], low: [-12, 12], high: [-12, 12] };
+    const bounds = { volume: [0, 1.5], filter: [0, 1], echo: [0, 0.4], low: [-12, 12], high: [-12, 12], balance: [0, 1] };
     const next = {};
     for (const [key, range] of Object.entries(bounds)) if (key in values) next[key] = finiteRange(values[key], ...range, key);
     Object.assign(this.master, next);
+    this._applyMaster();
+  }
+
+  setPerformance(effect, held) {
+    if (!Object.hasOwn(this.performance, effect)) throw new RangeError('不明なパフォーマンス効果です。');
+    this.performance[effect] = Boolean(held);
+    this._applyMaster();
+  }
+
+  _applyMaster() {
     if (!this.context) return;
+    const [rhythm, melody] = partGains(this.master.balance);
+    this._smooth(this.rhythmBus.gain, rhythm); this._smooth(this.melodyBus.gain, melody);
     this._smooth(this.masterVolume.gain, this.master.volume);
-    this._smooth(this.low.gain, this.master.low); this._smooth(this.high.gain, this.master.high);
-    this.filter.type = this.master.filter >= 0.999 ? 'allpass' : 'lowpass';
-    this._smooth(this.filter.frequency, Math.min(this.context.sampleRate * 0.45, 20 * Math.pow(1000, this.master.filter)));
-    this._smooth(this.echoReturn.gain, this.master.echo);
+    this._smooth(this.low.gain, this.performance.bass ? -24 : this.master.low); this._smooth(this.high.gain, this.master.high);
+    this.filter.type = !this.performance.filter && this.master.filter >= 0.999 ? 'allpass' : 'lowpass';
+    const frequency = this.performance.filter ? 400 : 20 * Math.pow(1000, this.master.filter);
+    this._smooth(this.filter.frequency, Math.min(this.context.sampleRate * 0.45, frequency));
+    this._smooth(this.echoReturn.gain, this.performance.echo ? 0.4 : this.master.echo);
   }
 
   getSnapshot() {
     this._flush();
     const now = this.context?.currentTime ?? 0;
     const beat = this.running ? beatAt(now, this.origin, this.bpm) : 0;
+    const samples = KEYS.map((_, index) => {
+      const voice = this.sampleVoices.get(index);
+      return { index, playing: Boolean(voice && voice.startedAt <= now && now < voice.endsAt), pending: Boolean(voice && voice.startedAt > now) };
+    });
     return {
       running: this.running, bpm: this.bpm, beat: Math.floor(beat) % 8 + 1,
       phase: beat % 1, elapsed: this.running ? Math.max(0, now - this.origin) : 0,
       playingCount: this.slots.filter(slot => slot.playing).length,
       queuedCount: this.slots.filter(slot => slot.pending).length,
+      samples, sampleCount: samples.filter(sample => sample.playing).length,
+      sampleQueuedCount: samples.filter(sample => sample.pending).length,
+      sampleVolume: this.sampleVolume,
+      performance: { ...this.performance },
       slots: this.slots.map(slot => ({
         index: slot.index, name: slot.name, loaded: Boolean(slot.buffer), playing: slot.playing,
         pending: slot.pending?.type ?? null,

@@ -25,3 +25,14 @@ test('generated demos restore by stable identity without storing music files',()
  const data=session();data.slots[0]={...clip(),kind:'demo',demoId:'neon-four',raw:null};
  const clean=validateSession(data);assert.equal(clean.slots[0].demoId,'neon-four');assert.equal(clean.slots[0].raw,null);
 });
+test('v1.0 snapshots receive neutral performance defaults without losing clips',()=>{
+ const data=session();data.slots[0]={...clip(),kind:'demo',demoId:'neon-four',raw:null};
+ const clean=validateSession(data);
+ assert.equal(clean.demoPack,'house');assert.equal(clean.master.balance,0.5);
+ assert.deepEqual(clean.sampler,{volume:0.7,quantise:0});assert.equal(clean.slots[0].demoId,'neon-four');
+});
+test('v1.1 pack, part fader and sampler settings survive reload validation',()=>{
+ const data=session();data.demoPack='lofi';data.master.balance=0.23;data.sampler={volume:0.4,quantise:1};
+ const clean=validateSession(data);assert.equal(clean.demoPack,'lofi');assert.equal(clean.master.balance,0.23);assert.deepEqual(clean.sampler,data.sampler);
+ for(const invalid of [{demoPack:'unknown'},{sampler:{volume:2,quantise:0}},{sampler:{volume:0.7,quantise:8}}])assert.throws(()=>validateSession({...data,...invalid}));
+});
