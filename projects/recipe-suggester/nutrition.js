@@ -49,10 +49,13 @@ export function itemFromRecipe(recipe,data,quantity=1) {
   if(!validAmount(quantity)||quantity===0)throw Error('食べる量は0より大きい数値で入力してください。');
   const ingredients=Array.isArray(recipe.ingredients)?recipe.ingredients:[];
   const metas=ingredientMetadata(ingredients,data);
+  // 原料の参照はアレルゲン確認に使います。しょうゆの原料が大豆でも、
+  // しょうゆだけを「大豆のたんぱく源を食べた1食」とは数えません。
+  const directMetas=ingredients.map(part=>data.ingredients[part.id]);
   const unique=values=>[...new Set(values)];
   return {id:globalThis.crypto?.randomUUID?.()??`item-${Date.now()}-${Math.random().toString(36).slice(2)}`,recipeId:recipe.id??null,name:recipe.name,quantity,
     nutrition:recipeNutrition(recipe,data),ingredients:ingredients.map(p=>({id:p.id,amount:p.amount/recipe.servings})),
-    groups:unique([...(recipe.groups??[]),...metas.flatMap(p=>p?.groups??[])]),proteinSources:unique([...(recipe.proteinSources??[]),...metas.flatMap(p=>p?.proteinSources??[])]),
+    groups:unique([...(recipe.groups??[]),...directMetas.flatMap(p=>p?.groups??[])]),proteinSources:unique([...(recipe.proteinSources??[]),...directMetas.flatMap(p=>p?.proteinSources??[])]),
     allergens:unique([...(recipe.allergens??[]),...metas.flatMap(p=>p?.allergens??[])]),allergensKnown:recipe.custom?recipe.allergensKnown===true:true,
     ingredientsKnown:recipe.custom?recipe.ingredientsKnown===true:ingredients.length>0,steps:[...(recipe.steps??[])],role:recipe.role};
 }

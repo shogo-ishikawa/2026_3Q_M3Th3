@@ -154,10 +154,12 @@ function ingredientMetadata(parts, data) {
   const visit = (id, trail = []) => {
     if (!Object.hasOwn(data.ingredients, id) || trail.includes(id)) throw new Error('材料の参照を確認してください。');
     const ingredient = data.ingredients[id];
-    for (const key of Object.keys(result)) result[key].push(...(ingredient[key] ?? []));
+    result.allergens.push(...(ingredient.allergens ?? []));
     for (const parent of ingredient.derivedFrom ?? []) visit(parent, [...trail, id]);
   };
   for (const part of parts) visit(part.id);
+  // 食品群と主なたんぱく源は、調味料の原料までさかのぼって数えません。
+  for (const part of parts) for (const key of ['groups', 'proteinSources']) result[key].push(...(data.ingredients[part.id][key] ?? []));
   return Object.fromEntries(Object.entries(result).map(([key, values]) => [key, unique(values)]));
 }
 
