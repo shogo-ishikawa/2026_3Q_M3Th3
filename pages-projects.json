@@ -41,7 +41,12 @@
         "storage.js",
         "planner.js",
         "data.js",
-        "dist"
+        "dist",
+        "journal.js",
+        "nutrition.js",
+        "shopping.js",
+        "ingredient-nutrients.js",
+        "expanded-foods.js"
       ]
     },
     {

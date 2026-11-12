@@ -36,7 +36,7 @@ AIにコード作成を手伝ってもらう際も、自分たちが変更した
 
 | プロジェクト | 概要 | 状態 |
 | --- | --- | --- |
-| [献立ノート](projects/recipe-suggester/) | アレルゲンと食材を除外し、食事の記録から料理の重複や偏りを減らす献立提案。材料・作り方・買い物リストも表示 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/) ／ [使い方](projects/recipe-suggester/docs/manual.md) |
+| [献立ノート](projects/recipe-suggester/) | 食事カレンダーと栄養の集計を使う献立提案。主食・飲み物・手入力・手持ちの食材と買い物リストに対応 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/) ／ [使い方](projects/recipe-suggester/docs/manual.md) |
 | [pip0](projects/pip0/) | ダウンロードの自動仕分け・改名、作業に合わせたファイル候補、思い出し検索、長く使わないファイルの退避、機密ファイルのドラッグ警告を行う、Windows 11 用のファイル整理アシスタント | 初期コード作成（Linux 上の試験とダミーデータのデモで確認。Windows 11 実機での確認は未実施） |
 
 ## ファイルを追加する際のお願い

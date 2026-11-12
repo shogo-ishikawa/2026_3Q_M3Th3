@@ -1,709 +1,250 @@
 import {ALLERGENS, INGREDIENTS, RECIPES} from './data.js';
-import {generatePlan, replaceRecipe, toggleDish, describeRecipe, eligibleRecipes, shoppingList, analyseHistory} from './planner.js';
-import {GROUP_IDS, GENRES, STORAGE_KEY, localDate, rebalanceGenreRatios, validateState, parseState, readState, writeState} from './storage.js';
+import {generateCalendarPlan, replaceRecipe, toggleDish, activeRecipeIds, describeRecipe, eligibleRecipes} from './planner.js';
+import {GENRES, rebalanceGenreRatios} from './storage.js';
+import {readJournal, writeJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
+import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS, recipeNutrition, itemFromRecipe, itemNutrition, sumNutrition, summariseEntries} from './nutrition.js';
+import {shoppingForEntries} from './shopping.js';
 
-const data = {recipes: RECIPES, ingredients: INGREDIENTS, allergens: ALLERGENS};
-const GROUP_NAMES = {staple: '主食', vegetable: '野菜などの副菜', protein: '肉・魚・卵・大豆', dairy: '牛乳・乳製品', fruit: '果物'};
-const SHORT_GROUP_NAMES = {staple: '主食', vegetable: '副菜', protein: '主菜', dairy: '乳製品', fruit: '果物'};
-const PROTEIN_NAMES = {meat: '肉', fish: '魚介', egg: '卵', soy: '大豆製品'};
-const ROLE_NAMES = {main: '主菜', side: '副菜', soup: '汁物', staple: '主食'};
-const MEAL_NAMES = {breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食'};
-const allergenNames = new Map(ALLERGENS.map(item => [item.id, item.label]));
-const recipesById = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
+const builtin = {recipes: RECIPES, ingredients: INGREDIENTS, allergens: ALLERGENS};
+const MEALS = {breakfast:'朝食', lunch:'昼食', dinner:'夕食', snack:'間食'};
+const ROLES = {main:'主菜',side:'副菜',soup:'汁物',staple:'主食',drink:'飲み物',snack:'間食'};
 const $ = id => document.getElementById(id);
-
+const uid = () => crypto.randomUUID();
+const node = (tag, className='', text) => { const e=document.createElement(tag); if(className)e.className=className; if(text!==undefined)e.textContent=text; return e; };
+const button = (text, action, className='button-text') => { const e=node('button',className,text); e.type='button'; e.addEventListener('click',guard(action)); return e; };
+const fmt = (value, digits=1) => Number(value).toLocaleString('ja-JP',{maximumFractionDigits:digits});
+const amount = (n,unit='') => `${fmt(n,2)}${unit ? ` ${unit}`:''}`;
+const dateLabel = date => new Intl.DateTimeFormat('ja-JP',{month:'long',day:'numeric',weekday:'short'}).format(new Date(`${date}T12:00:00`));
 let storage;
-try { storage = window.localStorage; }
-catch { storage = {getItem() { throw new Error('unavailable'); }, setItem() { throw new Error('unavailable'); }}; }
-const loaded = readState(storage, data);
-let state = loaded.state;
-let plan = null;
-let roleFilter = 'all';
-let recipeLimit = 12;
-let historyLimit = 8;
-let currentDialogId = null;
-let shoppingText = '';
-let toastTimer;
-let storageWarning = '';
-let previousHistoryRecipeName = '';
-let pantryIds = new Set();
-let showPantry = false;
-const toast = document.createElement('div');
-toast.className = 'toast';
-toast.hidden = true;
-toast.setAttribute('aria-hidden', 'true');
-document.body.append(toast);
+try {storage=window.localStorage;} catch {storage={getItem(){throw Error();},setItem(){throw Error();}};}
+const loaded=readJournal(storage,builtin);
+let state=loaded.state, selectedDate=dateKey(), month=selectedDate.slice(0,7), plan=null;
+let roleFilter='all',recipeLimit=12,shoppingText='',storageWarning='',editing=null,toastTimer;
+const data=()=>({...builtin,recipes:[...RECIPES,...state.customRecipes]});
+const recipeById=id=>data().recipes.find(r=>r.id===id);
+const toast=node('div','toast'); toast.hidden=true; toast.setAttribute('aria-hidden','true'); document.body.append(toast);
 
-function node(tag, className, text) {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (text !== undefined) element.textContent = text;
-  return element;
+function tell(message,error=false){
+  const text=[message,storageWarning].filter(Boolean).join(' ');
+  $('app-message').textContent=text; $('app-message').hidden=!text; $('app-message').className=`notice${error||storageWarning?' error':''}`;
+  if(!text)return; toast.textContent=text; toast.hidden=false; toast.classList.toggle('error',error||!!storageWarning);
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.hidden=true,6500);
 }
-
-function tell(message, error = false) {
-  const complete = [...new Set([message, storageWarning].filter(Boolean))].join(' ');
-  $('app-message').textContent = complete;
-  $('app-message').className = `notice${error || storageWarning ? ' error' : ''}`;
-  $('app-message').hidden = !complete;
-  if (!complete) return;
-  toast.textContent = complete;
-  toast.classList.toggle('error', Boolean(error || storageWarning));
-  toast.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.hidden = true; }, 6500);
+function guard(fn){return (...args)=>{try{const result=fn(...args); if(result?.catch)result.catch(e=>tell(e.message,true));}catch(e){tell(e.message,true);}};}
+function persist(){storageWarning=writeJournal(storage,state,builtin)?'':'このブラウザーに保存できません。画面を閉じる前にデータを書き出してください。';}
+function commit(change,{invalidate=true,message=''}={}){
+  const next=structuredClone(state); change(next); const clean=validateJournal(next,builtin);
+  state=clean; if(invalidate)plan=null; persist(); renderAll(); if(message||storageWarning)tell(message);
 }
-
-function persist() {
-  try {
-    storageWarning = writeState(storage, state, data) ? '' : 'このブラウザーでは保存できません。この画面内では使えますが、再読み込み後に変更が残らない場合があります。「記録を保存する」で手元に残してください。';
-    if (storageWarning) tell('', true);
-  } catch (error) { tell(error.message, true); }
+function bind(id,event,fn){$(id).addEventListener(event,guard(fn));}
+function selectOptions(element,options,value){
+  element.replaceChildren(...options.map(([id,label])=>{const option=node('option','',label); option.value=id; return option;}));
+  if(options.some(([id])=>id===value))element.value=value;
 }
+function check(id,label,checked,fn){const e=node('label','choice-label'),input=node('input');input.type='checkbox';input.value=id;input.checked=checked;if(fn)input.addEventListener('change',guard(()=>fn(input.checked)));e.append(input,node('span','',label));return e;}
+function safeShift(date,n){try{return shiftDate(date,n);}catch{return n<0?'2000-01-01':'2100-12-31';}}
+function setDate(date){if(!dateIsValid(date))throw Error('日付は2000年から2100年までで指定してください。');selectedDate=date;month=date.slice(0,7);$('nutrition-date').value=date;renderCalendar();renderNutrition();}
+function selectedEntry(items,note=''){return {id:uid(),date:selectedDate,meal:$('calendar-meal').value,status:$('calendar-status').value,note,items};}
+function snapshot(id,quantity=1){const recipe=describeRecipe(id,data());if(!recipe)throw Error('このメニューは見つかりませんでした。');return itemFromRecipe(recipe,data(),quantity);}
 
-function closeRecipe() {
-  if ($('recipe-dialog').open) $('recipe-dialog').close();
-  currentDialogId = null;
+function renderSettings(){
+  const s=state.settings,p=s.preferences;
+  for(const [id,value]of Object.entries({'start-date':s.startDate,'plan-days':s.days,servings:s.servings,'plan-meal':s.meal,'genre-mode':p.genreMode,'single-genre':p.genre==='all'?'和食':p.genre,'meal-mood':p.mood}))$(id).value=value;
+  selectOptions($('staple-choice'),[['auto','献立に合わせて選ぶ'],['none','追加しない'],...data().recipes.filter(r=>r.role==='staple').map(r=>[r.id,r.name])],s.stapleId);
+  selectOptions($('drink-choice'),[['none','追加しない'],...data().recipes.filter(r=>r.role==='drink').map(r=>[r.id,r.name])],s.drinkId);
+  $('required-allergens').replaceChildren();$('other-allergens').replaceChildren();
+  for(const a of ALLERGENS)(a.category==='required'?$('required-allergens'):$('other-allergens')).append(check(a.id,a.label,s.allergens.includes(a.id),yes=>commit(next=>{next.settings.allergens=yes?[...next.settings.allergens,a.id]:next.settings.allergens.filter(id=>id!==a.id);},{message:'避ける食材を更新しました。'})));
+  $('allergen-count').textContent=`${s.allergens.length}件`;
+  $('single-genre-field').hidden=p.genreMode!=='single';$('genre-ratio-field').hidden=p.genreMode!=='ratio';
+  $('genre-ratios').replaceChildren();
+  for(const genre of GENRES){const label=node('label','ratio-input-label',genre),input=node('input');input.type='number';input.min=0;input.max=100;input.step=1;input.value=p.genreRatios[genre];input.setAttribute('aria-label',`${genre}の割合`);input.addEventListener('change',guard(()=>commit(next=>{next.settings.preferences.genreRatios=rebalanceGenreRatios(next.settings.preferences.genreRatios,genre,Number(input.value));})));label.append(input,node('span','','%'));$('genre-ratios').append(label);}
+  $('ratio-total').textContent=`${Object.values(p.genreRatios).reduce((a,b)=>a+b,0)}%`;
+  renderIngredientSearch(false);renderIngredientSearch(true);
 }
-
-function invalidatePlan() {
-  plan = null;
-  pantryIds = new Set();
-  showPantry = false;
-  $('show-pantry').checked = false;
-  closeRecipe();
-  $('shopping-section').hidden = true;
-  $('plan-date-label').textContent = '夕食の提案';
-  renderEmptyPlan();
+function renderIngredientSearch(preferred){
+  const prefix=preferred?'preferred':'ingredient',values=preferred?state.settings.preferences.preferredIngredients:state.settings.excludedIngredients;
+  $(prefix+'-selections').replaceChildren(...values.map(id=>button(`${INGREDIENTS[id].name} ×`,()=>commit(next=>{if(preferred)next.settings.preferences.preferredIngredients=next.settings.preferences.preferredIngredients.filter(x=>x!==id);else next.settings.excludedIngredients=next.settings.excludedIngredients.filter(x=>x!==id);}))));
+  const query=$(prefix+'-search').value.trim(),box=$(prefix+'-options');box.replaceChildren();if(!query)return;
+  const matches=Object.entries(INGREDIENTS).filter(([id,i])=>i.name.includes(query)&&!values.includes(id)).slice(0,20);
+  for(const [id,i]of matches)box.append(button(`＋ ${i.name}`,()=>{
+    if(preferred&&state.settings.excludedIngredients.includes(id))throw Error('この食材は除外中です。先に除外を取り消してください。');
+    commit(next=>{if(preferred)next.settings.preferences.preferredIngredients.push(id);else{next.settings.excludedIngredients.push(id);next.settings.preferences.preferredIngredients=next.settings.preferences.preferredIngredients.filter(x=>x!==id);}});
+    $(prefix+'-search').value='';renderIngredientSearch(preferred);
+  }));
+  if(!matches.length)box.append(node('p','field-note','一致する食材がありません。別の名前で探してください。'));
 }
-
-function engineSettings() {
-  return {...state.settings, meal: 'dinner', history: state.history, seed: Math.floor(Math.random() * 2147483647)};
-}
-
-function formatDate(value, includeYear = false) {
-  const date = new Date(`${value}T12:00:00`);
-  return new Intl.DateTimeFormat('ja-JP', {year: includeYear ? 'numeric' : undefined, month: 'long', day: 'numeric', weekday: 'short'}).format(date);
-}
-
-function amountText(value, unit) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '分量を確認';
-  const rounded = Math.round(value * 10) / 10;
-  return `${rounded}${unit ? ` ${unit}` : ''}`;
-}
-
-function checkLabel(id, label, selected, change) {
-  const wrapper = node('label', 'choice-label');
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.value = id;
-  input.checked = selected;
-  input.addEventListener('change', () => change(input.checked));
-  wrapper.append(input, node('span', '', label));
-  return wrapper;
-}
-
-function renderSettings() {
-  $('start-date').value = state.settings.startDate;
-  $('plan-days').value = state.settings.days;
-  $('servings').value = state.settings.servings;
-  $('genre-mode').value = state.settings.preferences.genreMode;
-  $('single-genre').value = state.settings.preferences.genre === 'all' ? '和食' : state.settings.preferences.genre;
-  $('meal-mood').value = state.settings.preferences.mood;
-  renderGenrePreferences();
-  $('required-allergens').replaceChildren();
-  $('other-allergens').replaceChildren();
-  for (const allergen of ALLERGENS) {
-    const selected = state.settings.allergens.includes(allergen.id);
-    const label = checkLabel(allergen.id, allergen.label, selected, checked => {
-      state.settings.allergens = checked ? [...new Set([...state.settings.allergens, allergen.id])] : state.settings.allergens.filter(id => id !== allergen.id);
-      settingsChanged();
-    });
-    (allergen.category === 'required' ? $('required-allergens') : $('other-allergens')).append(label);
+function renderCalendar(){
+  $('month-label').textContent=`${Number(month.slice(0,4))}年${Number(month.slice(5))}月`;
+  $('calendar-date').value=selectedDate;$('selected-date').textContent=dateLabel(selectedDate);
+  $('calendar-grid').replaceChildren();
+  for(const cell of monthCells(month)){
+    const records=entriesForDay(state.entries,cell.date),e=button('',()=>setDate(cell.date),`calendar-day${cell.inMonth?'':' outside'}${cell.date===selectedDate?' selected':''}${cell.date===dateKey()?' today':''}`);
+    e.disabled=!dateIsValid(cell.date);e.setAttribute('aria-pressed',String(cell.date===selectedDate));
+    e.setAttribute('aria-label',`${cell.date} ${records.length?records.map(r=>`${MEALS[r.meal]} ${r.status==='eaten'?'食べた':'予定'}`).join('、'):'記録なし'}`);
+    e.append(node('span','day-number',String(Number(cell.date.slice(8)))));
+    const badges=node('span','day-meals');
+    for(const [meal,label]of Object.entries(MEALS)){
+      const meals=records.filter(r=>r.meal===meal);if(!meals.length)continue;
+      const b=node('span',`meal-count ${meals.some(r=>r.status==='eaten')?'eaten':'planned'}`,`${label.slice(0,1)}${meals.some(r=>r.status==='planned')?' ◇':''}`);badges.append(b);
+    }e.append(badges);$('calendar-grid').append(e);
   }
-  $('allergen-count').textContent = `${state.settings.allergens.length}件`;
-  renderIngredientChoices();
-  renderPreferredChoices();
-}
-
-function renderGenrePreferences() {
-  const preferences = state.settings.preferences;
-  $('single-genre-field').hidden = preferences.genreMode !== 'single';
-  $('genre-ratio-field').hidden = preferences.genreMode !== 'ratio';
-  const box = $('genre-ratios');
-  box.replaceChildren();
-  for (const genre of GENRES) {
-    const label = node('label', 'ratio-input-label', genre);
-    const input = document.createElement('input');
-    input.type = 'number'; input.min = '0'; input.max = '100'; input.step = '1';
-    input.value = preferences.genreRatios[genre];
-    input.setAttribute('aria-label', `${genre}の割合`);
-    input.addEventListener('change', () => {
-      try {
-        state.settings.preferences.genreRatios = rebalanceGenreRatios(state.settings.preferences.genreRatios, genre, Number(input.value));
-        renderGenrePreferences(); settingsChanged();
-      } catch (error) { input.value = state.settings.preferences.genreRatios[genre]; tell(error.message, true); }
-    });
-    label.append(input, node('span', '', '%'));
-    box.append(label);
+  $('calendar-entry-list').replaceChildren();
+  for(const [meal,label]of Object.entries(MEALS)){
+    const section=node('section','meal-entry-group');section.append(node('h4','',label));
+    const entries=entriesForDay(state.entries,selectedDate).filter(e=>e.meal===meal);
+    if(!entries.length)section.append(node('p','field-note','まだ記録がありません。'));
+    for(const entry of entries){
+      const card=node('div','entry-card'),heading=node('div','entry-heading');
+      heading.append(node('span',`status-badge ${entry.status}`,entry.status==='eaten'?'食べた':'これからの予定'),button(entry.status==='eaten'?'予定に戻す':'食べたにする',()=>commit(next=>{next.entries.find(e=>e.id===entry.id).status=entry.status==='eaten'?'planned':'eaten';},{message:'記録の種類を更新しました。'})));
+      card.append(heading);const items=node('div','entry-items');
+      for(const item of entry.items){const row=node('div','entry-item'),name=button(item.name,()=>openSnapshot(item),'recipe-name');
+        const qty=node('input');qty.type='number';qty.min='0.1';qty.max='100';qty.step='0.1';qty.value=item.quantity;qty.setAttribute('aria-label',`${item.name}の量（人分）`);
+        qty.addEventListener('change',guard(()=>commit(next=>{next.entries.find(e=>e.id===entry.id).items.find(i=>i.id===item.id).quantity=Number(qty.value);})));
+        row.append(name,qty,node('span','unit-label','人分'),button('編集',()=>editItem(entry,item)),button('削除',()=>commit(next=>{const e=next.entries.find(e=>e.id===entry.id);e.items=e.items.filter(i=>i.id!==item.id);if(!e.items.length&&!e.note)next.entries=next.entries.filter(x=>x.id!==entry.id);})));items.append(row);
+      }card.append(items);if(entry.note)card.append(node('p','entry-note',entry.note));
+      const actions=node('div','entry-actions');actions.append(button('この記録を削除',()=>{if(confirm('この食事の記録を削除しますか？'))commit(next=>{next.entries=next.entries.filter(e=>e.id!==entry.id);});}));card.append(actions);section.append(card);
+    }$('calendar-entry-list').append(section);
   }
-  $('ratio-total').textContent = `${Math.round(Object.values(preferences.genreRatios).reduce((sum, value) => sum + value, 0) * 100) / 100}%`;
+  const previous=$('catalog-item').value,search=$('catalog-search')?.value.trim()??'';
+  selectOptions($('catalog-item'),[['','メニューを選ぶ'],...Object.keys(ROLES).flatMap(role=>data().recipes.filter(r=>r.role===role&&(!search||r.name.includes(search)||r.ingredients.some(p=>INGREDIENTS[p.id]?.name.includes(search)))).map(r=>[r.id,`${ROLES[role]} · ${r.name}${r.custom?'（自分のメニュー）':''}`]))],previous);
 }
-
-function changePreferences() {
-  const mode = $('genre-mode').value;
-  state.settings.preferences.genreMode = mode;
-  state.settings.preferences.genre = mode === 'single' ? $('single-genre').value : 'all';
-  state.settings.preferences.mood = $('meal-mood').value;
-  renderGenrePreferences();
-  settingsChanged();
+function renderNutrition(){
+  const date=$('nutrition-date').value||selectedDate,actual=summariseEntries(state.entries,{from:date,to:date}),planned=summariseEntries(state.entries,{from:date,to:date,status:'planned'});
+  const box=$('nutrition-view');box.replaceChildren();
+  box.append(node('p','nutrition-caption',`${dateLabel(date)} · 食べた記録 ${actual.entryCount}件 / ${actual.recordedMeals}食分${planned.entryCount?` · 予定 ${planned.entryCount}件（集計外）`:''}`));
+  if(!actual.entryCount)box.append(node('p','empty-note','食べた記録がまだありません。未記録の食事は食べていないものとは判断しません。'));
+  const grid=node('div','nutrition-grid');
+  for(const key of NUTRIENT_KEYS){const card=node('div','nutrition-metric');card.append(node('span','',NUTRIENT_LABELS[key]));
+    card.append(node('strong','',actual.entryCount?`${fmt(actual.values[key],key==='kcal'?0:1)} ${NUTRIENT_UNITS[key]}`:'—'));
+    if(actual.entryCount&&!actual.complete[key])card.append(node('small','partial-note','＋不明分'));
+    const track=node('div','nutrient-track'),fill=node('span','nutrient-fill');fill.style.width=`${Math.min(100,actual.values[key]/(state.targets[key]||1)*100)}%`;track.append(fill);card.append(track,node('small','',`比較値 ${amount(state.targets[key],NUTRIENT_UNITS[key])}${key==='salt'?'（上限の参考）':''}`));grid.append(card);
+  }box.append(grid);if(actual.unknownItems)box.append(node('p','field-note',`${actual.unknownItems}品に未入力の栄養があります。表示は分かっている量の合計です。`));
+  const from=safeShift(date,-6),week=summariseEntries(state.entries,{from,to:date});$('weekly-view').replaceChildren();
+  const chart=node('div','week-chart');
+  for(let i=0;i<7;i++){const d=safeShift(from,i);if(d>date)break;const daily=summariseEntries(state.entries,{from:d,to:d});const col=node('div','week-day'),bar=node('div','week-bar');bar.style.height=`${Math.max(2,Math.min(140,daily.values.kcal/(state.targets.kcal||1)*110))}px`;bar.setAttribute('aria-hidden','true');
+    col.append(node('span','',daily.entryCount?`${fmt(daily.values.kcal,0)}${daily.complete.kcal?'':'＋?'}`:'—'),bar,node('span','',d.slice(5).replace('-','/')),node('small','',`${daily.recordedMeals}食`));chart.append(col);
+  }$('weekly-view').append(chart,node('p','field-note',`エネルギー（kcal）の推移。${week.recordedDays}日・${week.recordedMeals}食分の記録があります。未入力がある日は「＋?」を付けています。`));
+  const totals=node('p','field-note',`7日間の分かる分の合計：${NUTRIENT_KEYS.map(key=>`${NUTRIENT_LABELS[key]} ${amount(week.values[key],NUTRIENT_UNITS[key])}${week.complete[key]?'':'＋不明分'}`).join(' / ')}`);$('weekly-view').append(totals);
+  for(const key of NUTRIENT_KEYS)$('target-'+key).value=state.targets[key];
 }
-
-function renderPreferredChoices() {
-  const values = state.settings.preferences.preferredIngredients;
-  const selected = $('preferred-selections');
-  selected.replaceChildren();
-  for (const id of values) {
-    const button = node('button', '', `${INGREDIENTS[id].name} ×`);
-    button.type = 'button';
-    button.setAttribute('aria-label', `${INGREDIENTS[id].name}の優先を取り消す`);
-    button.addEventListener('click', () => {
-      state.settings.preferences.preferredIngredients = state.settings.preferences.preferredIngredients.filter(value => value !== id);
-      settingsChanged();
-    });
-    selected.append(button);
-  }
-  const query = $('preferred-search').value.trim();
-  const options = $('preferred-options');
-  options.replaceChildren();
-  if (!query) return;
-  const matches = Object.entries(INGREDIENTS).filter(([id, ingredient]) => ingredient.name.includes(query) && !values.includes(id)).slice(0, 20);
-  for (const [id, ingredient] of matches) {
-    const button = node('button', '', `＋ ${ingredient.name}`);
-    button.type = 'button';
-    button.addEventListener('click', () => {
-      if (state.settings.excludedIngredients.includes(id)) {
-        tell(`${ingredient.name}は除外中です。優先したい場合は、先に追加の除外食材から外してください。`, true);
-        return;
-      }
-      state.settings.preferences.preferredIngredients.push(id);
-      $('preferred-search').value = '';
-      settingsChanged();
-    });
-    options.append(button);
-  }
-  if (!matches.length) options.append(node('p', 'field-note', '一致する登録食材がありません。別の名前で検索してください。'));
-}
-
-function renderIngredientChoices() {
-  const selected = $('ingredient-selections');
-  selected.replaceChildren();
-  for (const id of state.settings.excludedIngredients) {
-    const button = node('button', '', `${INGREDIENTS[id].name} ×`);
-    button.type = 'button';
-    button.setAttribute('aria-label', `${INGREDIENTS[id].name}の除外を取り消す`);
-    button.addEventListener('click', () => {
-      state.settings.excludedIngredients = state.settings.excludedIngredients.filter(value => value !== id);
-      settingsChanged();
-    });
-    selected.append(button);
-  }
-  const query = $('ingredient-search').value.trim();
-  const options = $('ingredient-options');
-  options.replaceChildren();
-  if (!query) return;
-  const matches = Object.entries(INGREDIENTS).filter(([id, ingredient]) => ingredient.name.includes(query) && !state.settings.excludedIngredients.includes(id)).slice(0, 20);
-  for (const [id, ingredient] of matches) {
-    const button = node('button', '', `＋ ${ingredient.name}`);
-    button.type = 'button';
-    button.addEventListener('click', () => {
-      state.settings.excludedIngredients.push(id);
-      const wasPreferred = state.settings.preferences.preferredIngredients.includes(id);
-      state.settings.preferences.preferredIngredients = state.settings.preferences.preferredIngredients.filter(value => value !== id);
-      $('ingredient-search').value = '';
-      settingsChanged();
-      if (wasPreferred) tell(`${ingredient.name}を除外し、優先する食材から外しました。`);
-    });
-    options.append(button);
-  }
-  if (!matches.length) options.append(node('p', 'field-note', '一致する登録食材がありません。別の名前で検索してください。'));
-}
-
-function settingsChanged() {
-  invalidatePlan();
-  $('allergen-count').textContent = `${state.settings.allergens.length}件`;
-  renderIngredientChoices();
-  renderPreferredChoices();
-  renderRecipeCatalog();
-  renderHistorySummary();
-  persist();
-  tell('条件を更新しました。更新した条件で献立を作成できます。');
-}
-
-function renderEmptyPlan() {
-  const box = node('div', 'empty-plan');
-  box.append(node('span', 'empty-mark', '◒'), node('h3', '', '次のごはんを、ここから。'), node('p', '', '条件を確認して「献立を作る」を押してください。食事の記録があれば、主な食材や料理の重複も考慮します。'));
-  const parts = node('div', 'meal-parts');
-  for (const label of ['主菜', '副菜', '汁物', '必要に応じて主食']) parts.append(node('span', '', label));
-  box.append(parts);
-  $('plan-output').replaceChildren(box);
-}
-
-function renderHistorySummary() {
-  let summary;
-  try { summary = analyseHistory(state.history, {beforeDate: state.settings.startDate, days: 7, beforeMeal: 'dinner'}, data); }
-  catch (error) { $('history-summary-text').textContent = error.message; return; }
-  if (!summary.hasHistory) $('history-summary-text').textContent = '対象期間に食事の記録がありません。記録なしでも献立を作れます。';
-  else if (!summary.hasTaggedData) $('history-summary-text').textContent = `${summary.mealCount}食の記録があります。内容の分類がないため、食品群の偏りは判断せず、料理の重複だけを参考にします。`;
-  else $('history-summary-text').textContent = `${summary.mealCount}食の記録を参考にします。献立の最初の日より前の7日間と、当日の夕食前の記録が対象です。`;
-  const groupBox = $('group-summary');
-  groupBox.replaceChildren();
-  if (summary.hasTaggedData) {
-    for (const id of GROUP_IDS) {
-      const item = node('span', '', SHORT_GROUP_NAMES[id]);
-      item.append(node('strong', '', `${summary.groups[id] || 0}回`));
-      groupBox.append(item);
+function draftEntries(){return plan?.ok?plan.days.map(day=>({id:`draft-${day.date}`,date:day.date,meal:day.meal,status:'planned',note:'',items:activeRecipeIds(day).map(id=>snapshot(id))})):[];}
+function renderPlan(){
+  $('plan-save-calendar').disabled=!plan?.ok;$('plan-output').replaceChildren();
+  if(!plan){$('plan-date-label').textContent='条件を選んで提案を作成';const e=node('div','empty-plan');e.append(node('span','empty-mark','◒'),node('h3','','次のごはんをここから。'),node('p','','条件を選んで「献立を作る」を押してください。食べた記録があれば、その内容も参考にします。'));$('plan-output').append(e);return;}
+  if(!plan.ok){$('plan-output').append(node('p','notice error',`条件に合う献立を作れませんでした。${(plan.missingRoles??[]).map(r=>ROLES[r]??r).join('・')}の候補を確認してください。`));for(const w of plan.warnings??[])$('plan-output').append(node('p','field-note',w));return;}
+  $('plan-date-label').textContent=`${dateLabel(plan.days[0].date)}から${plan.days.length}日分の${MEALS[state.settings.meal]}`;
+  for(const [index,day]of plan.days.entries()){
+    const card=node('article','day-card'),head=node('div','day-card-heading');head.append(node('h3','',`${dateLabel(day.date)}の${MEALS[day.meal]}`),button('料理を替える',()=>{const id=activeRecipeIds(day).find(id=>['main','snack'].includes(recipeById(id).role));if(!id)throw Error('替える料理を献立に戻してください。');plan=replaceRecipe(plan,{dayIndex:index,recipeId:id,entries:state.entries,targets:state.targets},data());renderPlan();renderShopping();}));card.append(head);
+    for(const id of day.recipeIds){const r=recipeById(id),row=node('div','dish-row'),included=!day.omittedRecipeIds?.includes(id);row.classList.toggle('omitted',!included);
+      row.append(check(id,ROLES[r.role],included,yes=>{plan=toggleDish(plan,{dayIndex:index,recipeId:id,included:yes},data());renderPlan();renderShopping();}),button(r.name,()=>openRecipe(id),'recipe-name'));card.append(row);
     }
+    const total=sumNutrition(activeRecipeIds(day).map(id=>snapshot(id)));
+    card.append(node('p','field-note',`1人分の目安：${NUTRIENT_KEYS.map(k=>`${NUTRIENT_LABELS[k]} ${fmt(total.values[k],k==='kcal'?0:1)} ${NUTRIENT_UNITS[k]}${total.complete[k]?'':'＋不明分'}`).join(' / ')}`));
+    const details=node('details','plan-reasons');details.append(node('summary','','この献立を選んだ理由'));for(const message of [...(day.reasons??[]),...(day.warnings??[])])details.append(node('p','field-note',message));card.append(details);$('plan-output').append(card);
   }
+  for(const warning of plan.warnings??[])$('plan-output').append(node('p','field-note',warning));
 }
-
-function renderPlan() {
-  const output = $('plan-output');
-  output.replaceChildren();
-  if (!plan || !plan.ok) {
-    const warnings = plan?.warnings || [];
-    const missing = plan?.missingRoles || [];
-    const title = 'この条件では献立をそろえられませんでした。';
-    const box = node('div', 'plan-warning');
-    box.append(node('strong', '', title));
-    box.append(node('p', '', 'アレルギー食材の除外条件は維持しています。追加の除外食材を見直すか、条件に合うレシピを追加してください。'));
-    for (const warning of warnings) box.append(node('p', '', String(warning)));
-    if (!warnings.length && missing.length) box.append(node('p', '', `候補が足りない区分：${missing.map(role => ROLE_NAMES[role] || role).join('、')}`));
-    output.append(box);
-    $('shopping-section').hidden = true;
-    return;
+function renderPantry(){
+  const id=$('pantry-item').value;selectOptions($('pantry-item'),[['','選んでください'],...Object.entries(INGREDIENTS).map(([key,i])=>[key,`${i.name}（${i.unit}）`])],id);
+  $('pantry-list').replaceChildren();if(!state.pantry.length)$('pantry-list').append(node('p','field-note','食材と調味料を選んで手持ちの量を登録できます。'));
+  for(const part of state.pantry){const i=INGREDIENTS[part.id],row=node('div','pantry-row'),input=node('input');input.type='number';input.min=0;input.max=1000000;input.step='0.1';input.value=part.amount;input.setAttribute('aria-label',`${i.name}の手持ち量`);input.addEventListener('change',guard(()=>commit(next=>{next.pantry.find(p=>p.id===part.id).amount=Number(input.value);},{invalidate:false})));row.append(node('span','',i.name),input,node('span','',i.unit),button('削除',()=>commit(next=>{next.pantry=next.pantry.filter(p=>p.id!==part.id);},{invalidate:false})));$('pantry-list').append(row);}
+}
+function renderShopping(){
+  const list=$('shopping-list');list.replaceChildren();shoppingText='';
+  const source=$('shopping-source').value,entries=source==='draft'?draftEntries():state.entries;
+  const from=$('shopping-from').value||state.settings.startDate,to=safeShift(from,Number($('shopping-days').value)-1);
+  const result=shoppingForEntries(entries,data(),{from,to,servings:state.settings.servings,pantry:state.pantry});
+  $('shopping-status').textContent=result.entryCount?`${dateLabel(from)}から${Number($('shopping-days').value)}日間 · 予定${result.entryCount}件 · ${state.settings.servings}人分`:(source==='draft'?'献立を作成すると必要な材料を自動でまとめます。':'この期間には予定の献立がありません。');
+  const buying=result.items.filter(i=>i.buy>0),lines=[];
+  for(const i of result.items){const row=node('label',`shopping-item${i.buy===0?' in-stock':''}`),input=node('input');input.type='checkbox';input.checked=state.shoppingChecks.includes(i.id);input.disabled=i.buy===0;input.setAttribute('aria-label',`${i.name}を購入済みにする`);input.addEventListener('change',guard(()=>commit(next=>{next.shoppingChecks=input.checked?[...new Set([...next.shoppingChecks,i.id])]:next.shoppingChecks.filter(id=>id!==i.id);},{invalidate:false})));
+    const detail=node('span','');detail.append(node('strong','',i.name),node('small','',`必要 ${amount(i.required,i.unit)} / 手持ち ${amount(i.stock,i.unit)}`));row.append(input,detail,node('span','shopping-amount',i.buy>0?amount(i.buy,i.unit):'手持ちで足ります'));list.append(row);if(i.buy>0)lines.push(`${input.checked?'✓':'□'} ${i.name} ${amount(i.buy,i.unit)}`);
   }
-  const first = plan.days[0];
-  const last = plan.days[plan.days.length - 1];
-  $('plan-date-label').textContent = `${formatDate(first.date)}${plan.days.length > 1 ? `〜${formatDate(last.date)}` : ''} · ${state.settings.servings}人分`;
-  if (plan.warnings?.length) {
-    const note = node('div', 'plan-warning');
-    for (const text of plan.warnings) note.append(node('p', '', String(text)));
-    output.append(note);
-  }
-  const toolbar = node('div', 'plan-toolbar');
-  const shopping = node('button', 'button-secondary', '買い物リストを見る');
-  shopping.type = 'button';
-  shopping.addEventListener('click', () => {
-    $('shopping-section').open = true;
-    $('shopping-section').scrollIntoView({behavior: 'smooth', block: 'start'});
-  });
-  toolbar.append(node('p', '', '料理名からレシピを開けます。作らない料理は、今回の献立から外せます。'), shopping);
-  output.append(toolbar);
-  if (plan.genreSummary?.mode === 'ratio') {
-    const summary = node('div', 'genre-summary');
-    const actual = GENRES.filter(genre => plan.genreSummary.actual?.[genre]).map(genre => `${genre}${plan.genreSummary.actual[genre]}日`).join('・');
-    summary.append(node('p', '', `作る主菜のジャンル：${actual || '主菜をすべて除外しています'}`));
-    if (plan.genreSummary.note) summary.append(node('p', 'field-note', plan.genreSummary.note));
-    output.append(summary);
-  }
-  plan.days.forEach((day, dayIndex) => {
-    const article = node('article', 'day-card');
-    const heading = node('div', 'day-heading');
-    heading.append(node('h3', '', `${formatDate(day.date)}の夕食`));
-    const record = node('button', 'button-secondary', '食べた記録へ');
-    record.type = 'button';
-    const activeIds = day.recipeIds.filter(id => !(day.omittedRecipeIds || []).includes(id));
-    record.disabled = day.date > localDate() || !activeIds.length;
-    if (record.disabled) record.title = '食べた日になったら記録できます。';
-    if (!activeIds.length) record.title = '料理をすべて除外しているため、記録する料理がありません。';
-    record.addEventListener('click', () => addDayToHistory(day));
-    heading.append(record);
-    article.append(heading);
-    const dishes = node('div', 'day-dishes');
-    for (const id of day.recipeIds) {
-      const recipe = describeRecipe(id, data);
-      const omitted = (day.omittedRecipeIds || []).includes(id);
-      const row = node('div', `dish-row${omitted ? ' omitted' : ''}`);
-      const content = node('div');
-      content.append(node('span', 'dish-role', ROLE_NAMES[recipe.role] || recipe.role));
-      const open = node('button', 'dish-name', recipe.name);
-      open.type = 'button';
-      open.addEventListener('click', () => openRecipe(id));
-      content.append(open, node('p', 'dish-info', `${recipe.genre} · 目安${recipe.minutes}分 · 材料と作り方を見る`));
-      if (omitted) content.append(node('p', 'omitted-label', '今回は作りません（買い物リストと記録の対象外）'));
-      row.append(content);
-      const controls = node('div', 'dish-controls');
-      if (recipe.role !== 'staple') {
-        const swap = node('button', 'swap-button', '差し替え');
-        swap.type = 'button';
-        swap.setAttribute('aria-label', `${recipe.name}を差し替える`);
-        swap.disabled = omitted;
-        swap.addEventListener('click', () => swapDish(dayIndex, id));
-        controls.append(swap);
-      }
-      const omit = node('button', `omit-button${omitted ? ' restore-button' : ''}`, omitted ? '戻す' : '今回は除外');
-      omit.type = 'button';
-      omit.setAttribute('aria-label', omitted ? `${recipe.name}を献立に戻す` : `${recipe.name}を今回は除外する`);
-      omit.addEventListener('click', () => {
-        try {
-          plan = toggleDish(plan, {dayIndex, recipeId: id}, data);
-          renderPlan();
-          if (!plan.ok) { tell((plan.warnings || []).join(' ') || '献立を作り直してください。', true); return; }
-          tell(omitted ? `${recipe.name}を今回の献立に戻しました。` : `${recipe.name}を今回の献立から外しました。材料も買い物リストから除きます。`);
-        } catch (error) { tell(error.message, true); }
-      });
-      controls.append(omit);
-      row.append(controls);
-      dishes.append(row);
-    }
-    article.append(dishes);
-    if (day.reasons?.length || day.warnings?.length) {
-      const notes = node('div', 'day-notes');
-      for (const reason of [...(day.reasons || []), ...(day.warnings || [])]) notes.append(node('p', '', String(reason)));
-      article.append(notes);
-    }
-    output.append(article);
-  });
-  renderShoppingList();
+  if(result.entryCount&&!buying.length&&!result.missingMenus.length)list.prepend(node('p','field-note','登録された材料は手持ちで足ります。'));
+  if(result.missingMenus.length){list.append(node('p','notice error',`材料が未登録、またはDBにない材料があるメニュー：${[...new Set(result.missingMenus.map(m=>m.name))].join('、')}。必要なものを別途確認してください。`));lines.push('材料未確認：'+result.missingMenus.map(m=>m.name).join('、'));}
+  shoppingText=lines.length?`${from}〜${to} / ${state.settings.servings}人分\n${lines.join('\n')}`:'';$('copy-shopping').disabled=!shoppingText;
 }
-
-function swapDish(dayIndex, recipeId) {
-  try {
-    const next = replaceRecipe(plan, {dayIndex, recipeId, allergens: state.settings.allergens, excludedIngredients: state.settings.excludedIngredients, history: state.history, seed: Math.floor(Math.random() * 2147483647)}, data);
-    if (!next.ok) { tell((next.warnings || []).join(' ') || '除外条件に合う別の候補がありません。元の献立を残しました。', true); return; }
-    const before = plan.days[dayIndex].recipeIds.join('|');
-    plan = next;
-    renderPlan();
-    tell(before === plan.days[dayIndex].recipeIds.join('|') ? '除外条件に合う別の候補がないため、元の料理を残しました。' : '除外条件を確認して、料理を差し替えました。');
-  } catch (error) { tell(error.message, true); }
+function renderCatalog(){
+  $('catalog-count').textContent=String(data().recipes.length);
+  for(const b of $('role-filters').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.role===roleFilter));
+  const query=$('recipe-search').value.trim();
+  const candidates=eligibleRecipes(state.settings,data()).filter(r=>(roleFilter==='all'||r.role===roleFilter)&&(!query||r.name.includes(query)||r.ingredients.some(p=>INGREDIENTS[p.id]?.name.includes(query))));
+  const grid=$('recipe-grid');grid.replaceChildren();
+  for(const r of candidates.slice(0,recipeLimit)){const card=button('',()=>openRecipe(r.id),'recipe-card');card.append(node('span','recipe-meta',`${ROLES[r.role]} / ${r.genre}`),node('h3','',r.name),node('p','',`${r.minutes}分${r.custom?' · 自分のメニュー':''}`));const n=recipeNutrition(r,data());card.append(node('small','',n.kcal===null?'エネルギー未入力':`${amount(n.kcal,'kcal')} / 1人分`));grid.append(card);}
+  if(!candidates.length)grid.append(node('p','empty-note','条件に合うメニューがありません。検索や避ける食材の設定を確認してください。'));
+  $('more-recipes').hidden=candidates.length<=recipeLimit;
+  $('custom-catalog-list').replaceChildren();if(!state.customRecipes.length)$('custom-catalog-list').append(node('p','field-note','手入力のときに保存を選ぶと、ここにメニューが増えます。'));
+  for(const r of state.customRecipes){const row=node('div','custom-recipe-row');row.append(button(r.name,()=>openRecipe(r.id)),node('small','',r.allergensKnown?'アレルギー情報を確認済み':'アレルギー情報は未確認'),button('削除',()=>{if(!confirm(`「${r.name}」を自分のデータベースから削除しますか？記録済みの食事は残ります。`))return;commit(next=>{next.customRecipes=next.customRecipes.filter(c=>c.id!==r.id);if(next.settings.stapleId===r.id)next.settings.stapleId='auto';if(next.settings.drinkId===r.id)next.settings.drinkId='none';},{message:'メニューを削除しました。過去の記録は残しています。'});}));$('custom-catalog-list').append(row);}
 }
-
-function renderShoppingList() {
-  const ingredients = shoppingList(plan, state.settings.servings, data);
-  const grid = node('div', 'shopping-list-grid');
-  const lines = [`献立ノート · ${state.settings.servings}人分`];
-  let inPantry = 0;
-  let toBuy = 0;
-  for (const item of ingredients) {
-    const owned = pantryIds.has(item.id);
-    if (owned) inPantry++; else {
-      toBuy++;
-      lines.push(`${item.name}：${amountText(item.amount, item.unit)}`);
-    }
-    if (!owned || showPantry) {
-      const row = node('div', `shopping-item${owned ? ' in-pantry' : ''}`);
-      const label = node('label', 'pantry-choice');
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox'; checkbox.checked = owned;
-      checkbox.setAttribute('aria-label', `${item.name}は家にある`);
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) pantryIds.add(item.id); else pantryIds.delete(item.id);
-        renderShoppingList();
-      });
-      label.append(checkbox, node('span', '', '家にある'));
-      const name = node('div', 'shopping-name');
-      name.append(node('span', '', item.name), node('small', '', amountText(item.amount, item.unit)));
-      row.append(name, label);
-      grid.append(row);
-    }
-  }
-  if (!ingredients.length) grid.append(node('p', 'field-note', '今回作る料理がないため、買い物リストは空です。「戻す」で料理を戻せます。'));
-  else if (!toBuy && !showPantry) grid.append(node('p', 'field-note', '買う食材はありません。「家にある食材も表示する」でチェックを取り消せます。'));
-  $('shopping-list').replaceChildren(grid);
-  shoppingText = toBuy ? lines.join('\n') : '';
-  $('show-pantry').checked = showPantry;
-  $('pantry-status').textContent = `買う食材 ${toBuy}品 · 家にある食材 ${inPantry}品${!showPantry && inPantry ? '（非表示）' : ''}。コピーには買う食材だけを含めます。`;
-  $('reset-pantry').disabled = !pantryIds.size;
-  $('copy-shopping').disabled = !toBuy;
-  $('copy-status').textContent = '';
-  $('shopping-section').hidden = false;
+function openRecipe(id){const r=describeRecipe(id,data());if(!r)throw Error('このレシピは見つかりませんでした。');openSnapshot(itemFromRecipe(r,data()),r.minutes);}
+function openSnapshot(item,minutes){
+  $('dialog-title').textContent=item.name;$('dialog-meta').textContent=`${ROLES[item.role]} / 1人分${minutes?` / 約${minutes}分`:''}`;const box=$('dialog-content');box.replaceChildren();
+  const n=item.nutrition;box.append(node('p','field-note',NUTRIENT_KEYS.map(k=>`${NUTRIENT_LABELS[k]} ${n[k]===null?'未入力':amount(n[k],NUTRIENT_UNITS[k])}`).join(' / ')));
+  box.append(node('h3','','材料（1人分）'));const ul=node('ul','ingredient-list');for(const part of item.ingredients)ul.append(node('li','',`${INGREDIENTS[part.id]?.name??'未登録の食材'} ${amount(part.amount,INGREDIENTS[part.id]?.unit??'')}`));box.append(ul);
+  if(!item.ingredientsKnown)box.append(node('p','field-note','材料の全体は未確認です。買い物リストに不足がある可能性があります。'));
+  box.append(node('h3','','作り方'));const ol=node('ol','recipe-steps');for(const s of item.steps)ol.append(node('li','',s));box.append(ol);if(!item.steps.length)box.append(node('p','field-note','作り方は未登録です。'));
+  box.append(node('p','allergy-note',item.allergensKnown?`含まれる登録アレルゲン：${item.allergens.length?item.allergens.map(id=>ALLERGENS.find(a=>a.id===id)?.label??id).join('、'):'登録なし'}。加工品や調味料は商品表示も確認してください。`:'アレルギー情報は未確認です。自動提案の対象にはしません。'));
+  if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
-
-function visibleRecipes() {
-  const query = $('recipe-search').value.trim().toLocaleLowerCase('ja-JP');
-  return eligibleRecipes(engineSettings(), data, {role: roleFilter === 'all' ? null : roleFilter}).filter(recipe => {
-    if (!query) return true;
-    return [recipe.name, recipe.genre, ...recipe.ingredients.map(ingredient => INGREDIENTS[ingredient.id]?.name || '')].join(' ').toLocaleLowerCase('ja-JP').includes(query);
-  });
+function ingredientRow(part){
+  const row=node('div','pantry-row'),select=node('select');select.setAttribute('aria-label','手入力メニューの材料');selectOptions(select,[['','材料を選ぶ'],...Object.entries(INGREDIENTS).map(([id,i])=>[id,`${i.name}（${i.unit}）`])],part?.id??'');
+  const qty=node('input');qty.type='number';qty.min='0.001';qty.max=1000000;qty.step='any';qty.value=part?.amount??'';qty.placeholder='1人分の量';qty.setAttribute('aria-label','材料の分量');row.append(select,qty,button('削除',()=>row.remove()));$('manual-ingredients').append(row);
 }
-
-function renderRecipeCatalog() {
-  const grid = $('recipe-grid');
-  grid.replaceChildren();
-  let list;
-  try { list = visibleRecipes(); }
-  catch (error) { grid.append(node('p', 'field-note', error.message)); return; }
-  const totalEligible = eligibleRecipes(engineSettings(), data).length;
-  $('eligible-count').textContent = `除外条件に合う ${totalEligible}品 / 全${RECIPES.length}品`;
-  if (!list.length) grid.append(node('p', 'section-copy', 'この条件に合うレシピがありません。検索語や追加の除外食材を確認してください。アレルギー食材の条件は自動で外しません。'));
-  for (const recipe of list.slice(0, recipeLimit)) {
-    const button = node('button', 'recipe-card');
-    button.type = 'button';
-    button.append(node('span', 'dish-role', ROLE_NAMES[recipe.role] || recipe.role), node('strong', '', recipe.name), node('span', 'recipe-meta', `${recipe.genre} · 目安${recipe.minutes}分`), node('span', 'recipe-arrow', '↗'));
-    button.addEventListener('click', () => openRecipe(recipe.id));
-    grid.append(button);
-  }
-  $('more-recipes').hidden = list.length <= recipeLimit;
+function readManual(){
+  const ingredients=[...$('manual-ingredients').children].map(row=>({id:row.querySelector('select').value,amount:Number(row.querySelector('input').value)}));
+  if(ingredients.some(i=>!i.id||!Number.isFinite(i.amount)||i.amount<=0))throw Error('材料を選んで1人分の分量を入力してください。不要な行は削除できます。');
+  const manualNutrition=Object.fromEntries(NUTRIENT_KEYS.map(k=>[k,$('manual-'+k).value.trim()===''?null:Number($('manual-'+k).value)]));
+  return {id:`custom-${uid()}`,name:$('manual-name').value.trim(),role:$('manual-role').value,genre:'その他',minutes:1,servings:1,staple:$('manual-role').value==='staple',ingredients,
+    steps:$('manual-steps').value.split('\n').map(s=>s.trim()).filter(Boolean),manualNutrition,
+    allergens:[...$('manual-allergens').querySelectorAll('input:checked')].map(i=>i.value),allergensKnown:$('manual-allergens-known').checked,ingredientsKnown:$('manual-ingredients-known').checked,
+    groups:[],proteinSources:[],custom:true};
 }
-
-function openRecipe(id) {
-  try {
-    if (!eligibleRecipes(engineSettings(), data).some(recipe => recipe.id === id)) { tell('現在の除外条件に合わないため、この料理を提案できません。', true); return; }
-    const recipe = describeRecipe(id, data);
-    currentDialogId = id;
-    $('dialog-title').textContent = recipe.name;
-    $('dialog-meta').textContent = `${ROLE_NAMES[recipe.role]} · ${recipe.genre} · 目安${recipe.minutes}分`;
-    const content = $('dialog-content');
-    content.replaceChildren();
-    content.append(node('p', 'dialog-allergens', recipe.allergens.length ? `登録材料に含むアレルギー食材：${recipe.allergens.map(value => allergenNames.get(value) || value).join('、')}` : '登録材料では、一覧のアレルギー食材を含みません。商品ごとの原材料表示も確認してください。'));
-    content.append(node('h3', 'dialog-subheading', `材料（${state.settings.servings}人分）`));
-    const table = node('table', 'ingredient-table');
-    const body = node('tbody');
-    const notes = new Set();
-    for (const ingredient of recipe.ingredients) {
-      const row = node('tr');
-      const name = node('td', '', ingredient.name);
-      if (ingredient.allergens.length) name.append(node('small', '', ingredient.allergens.map(value => allergenNames.get(value) || value).join('・')));
-      row.append(name, node('td', '', amountText(ingredient.amount * state.settings.servings / recipe.servings, ingredient.unit)));
-      body.append(row);
-      if (INGREDIENTS[ingredient.id].note) notes.add(INGREDIENTS[ingredient.id].note);
-    }
-    table.append(body);
-    content.append(table);
-    for (const note of notes) content.append(node('p', 'dialog-notes', note));
-    content.append(node('h3', 'dialog-subheading', '作り方'));
-    const steps = node('ol', 'recipe-steps');
-    for (const step of recipe.steps) steps.append(node('li', '', step));
-    content.append(steps);
-    content.append(node('p', 'dialog-notes', '調理時間は目安です。人数や食材の状態によって変わります。肉・魚・卵などは十分に加熱し、加工品や調味料の原材料表示と、調理器具への混入にも気を付けてください。'));
-    const actions = node('div', 'dialog-actions');
-    actions.append(node('p', '', '食べた料理は記録して、次の献立の参考に。'));
-    const record = node('button', 'button-secondary', 'この料理を記録欄へ');
-    record.type = 'button';
-    record.addEventListener('click', () => {
-      selectHistoryRecipe(id);
-      closeRecipe();
-      $('history').scrollIntoView({behavior: 'smooth', block: 'start'});
-      $('history-note').focus({preventScroll: true});
-    });
-    actions.append(record);
-    content.append(actions);
-    $('recipe-dialog').showModal();
-  } catch (error) { tell(error.message, true); }
+function resetManual(){editing=null;$('manual-form').reset();$('manual-ingredients').replaceChildren();$('manual-edit-note').hidden=true;}
+function editItem(entry,item){
+  resetManual();editing={entryId:entry.id,itemId:item.id};setDate(entry.date);$('calendar-meal').value=entry.meal;$('calendar-status').value=entry.status;
+  $('manual-name').value=item.name;$('manual-role').value=item.role;$('manual-quantity').value=item.quantity;$('manual-note').value=entry.note;
+  for(const key of NUTRIENT_KEYS)$('manual-'+key).value=item.nutrition[key]??'';
+  $('manual-allergens-known').checked=item.allergensKnown;$('manual-ingredients-known').checked=item.ingredientsKnown&&!item.ingredients.some(p=>!INGREDIENTS[p.id]);if(item.ingredients.some(p=>!INGREDIENTS[p.id]))tell('現在のDBにない材料があります。編集する場合は材料を確認して登録し直してください。',true);
+  for(const input of $('manual-allergens').querySelectorAll('input'))input.checked=item.allergens.includes(input.value);
+  for(const p of item.ingredients)if(INGREDIENTS[p.id])ingredientRow(p);
+  $('manual-steps').value=item.steps.join('\n');$('manual-edit-note').hidden=false;$('manual-form').closest('details').open=true;$('manual-name').focus();
 }
+function renderAll(){renderSettings();renderCalendar();renderNutrition();renderPlan();renderPantry();renderShopping();renderCatalog();}
 
-function fillHistoryChoices() {
-  for (const [id, label] of Object.entries(GROUP_NAMES)) $('history-groups').append(checkLabel(id, label, false, () => {}));
-  for (const [id, label] of Object.entries(PROTEIN_NAMES)) $('history-proteins').append(checkLabel(id, label, false, () => {}));
-  for (const recipe of [...RECIPES].sort((a, b) => a.name.localeCompare(b.name, 'ja'))) {
-    const option = document.createElement('option');
-    option.value = recipe.id;
-    option.textContent = `${recipe.name}（${ROLE_NAMES[recipe.role]}）`;
-    $('history-recipe').append(option);
-  }
-  $('history-date').value = localDate();
-  $('history-date').max = localDate();
-}
-
-function selectedHistoryValues(container) {
-  return [...$(container).querySelectorAll('input:checked')].map(input => input.value);
-}
-
-function selectHistoryRecipe(id) {
-  $('history-recipe').value = id;
-  const recipe = id ? describeRecipe(id, data) : null;
-  if (!$('history-note').value || $('history-note').value === previousHistoryRecipeName) $('history-note').value = recipe?.name || '';
-  previousHistoryRecipeName = recipe?.name || '';
-  for (const checkbox of $('history-groups').querySelectorAll('input')) checkbox.checked = Boolean(recipe?.groups.includes(checkbox.value));
-  for (const checkbox of $('history-proteins').querySelectorAll('input')) checkbox.checked = Boolean(recipe?.proteinSources.includes(checkbox.value));
-}
-
-function newRecordId() {
-  return window.crypto?.randomUUID?.() || `entry-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function addHistory(entry) {
-  const candidate = validateState({...state, history: [...state.history, entry]}, data);
-  state = candidate;
-  invalidatePlan();
-  renderHistory();
-  renderHistorySummary();
-  persist();
-}
-
-function addDayToHistory(day) {
-  if (day.date > localDate()) { tell('未来の食事はまだ記録できません。食べた日に追加してください。', true); return; }
-  const activeIds = day.recipeIds.filter(id => !(day.omittedRecipeIds || []).includes(id));
-  if (!activeIds.length) { tell('料理をすべて除外しているため、記録する料理がありません。', true); return; }
-  const identical = state.history.some(entry => entry.date === day.date && entry.meal === day.meal && [...entry.recipeIds].sort().join('|') === [...activeIds].sort().join('|'));
-  if (identical) { tell('この献立は食事の記録に追加済みです。'); return; }
-  try {
-    addHistory({id: newRecordId(), date: day.date, meal: day.meal || 'dinner', recipeIds: [...activeIds], groups: [], proteinSources: [], note: ''});
-    tell('食事の記録に追加しました。次の献立は、更新した記録をもとに作成できます。');
-  } catch (error) { tell(error.message, true); }
-}
-
-function renderHistory() {
-  $('history-count').textContent = `${state.history.length}件の記録`;
-  $('history-list').replaceChildren();
-  const sorted = [...state.history].sort((a, b) => b.date.localeCompare(a.date) || MEALS_SORT.indexOf(b.meal) - MEALS_SORT.indexOf(a.meal));
-  if (!sorted.length) $('history-list').append(node('p', 'history-empty', 'まだ記録がありません。\n覚えている食事から、気軽に残してみましょう。'));
-  for (const entry of sorted.slice(0, historyLimit)) {
-    const article = node('article', 'history-record');
-    const content = node('div');
-    content.append(node('p', '', `${formatDate(entry.date, true)} · ${MEAL_NAMES[entry.meal]}`));
-    const recipeNames = entry.recipeIds.map(id => recipesById.get(id)?.name || 'レシピ');
-    const title = entry.note || recipeNames.join('、');
-    content.append(node('h3', '', title));
-    if (entry.note && recipeNames.length && title !== recipeNames.join('、')) content.append(node('p', '', recipeNames.join('、')));
-    const groups = new Set(entry.groups);
-    const proteins = new Set(entry.proteinSources);
-    for (const id of entry.recipeIds) {
-      const recipe = describeRecipe(id, data);
-      recipe.groups.forEach(group => groups.add(group));
-      recipe.proteinSources.forEach(protein => proteins.add(protein));
-    }
-    const details = [...groups].map(id => SHORT_GROUP_NAMES[id]).concat([...proteins].map(id => PROTEIN_NAMES[id]));
-    content.append(node('p', '', details.length ? details.join('・') : '内容の分類なし（料理名のみの記録）'));
-    const remove = node('button', 'delete-record', '削除');
-    remove.type = 'button';
-    remove.setAttribute('aria-label', `${formatDate(entry.date)}の${MEAL_NAMES[entry.meal]}の記録を削除`);
-    remove.addEventListener('click', () => {
-      state.history = state.history.filter(item => item.id !== entry.id);
-      invalidatePlan(); renderHistory(); renderHistorySummary(); persist();
-      tell('この食事の記録を削除しました。');
-    });
-    article.append(content, remove);
-    $('history-list').append(article);
-  }
-  $('more-history').hidden = sorted.length <= historyLimit;
-}
-const MEALS_SORT = ['breakfast', 'lunch', 'dinner', 'snack'];
-
-$('planner-form').addEventListener('submit', event => {
-  event.preventDefault();
-  try {
-    if ($('ingredient-search').value.trim()) throw new Error('追加で避ける食材は、検索結果の候補を押して選択してください。入力しただけでは除外条件に入りません。');
-    if ($('preferred-search').value.trim()) throw new Error('できれば使いたい食材は、検索結果の候補を押して選択してください。入力しただけでは優先する食材に入りません。');
-    state.settings.startDate = $('start-date').value;
-    state.settings.days = Number($('plan-days').value);
-    state.settings.servings = Number($('servings').value);
-    state = validateState(state, data);
-    plan = generatePlan(engineSettings(), data);
-    pantryIds = new Set(); showPantry = false;
-    renderPlan(); renderHistorySummary(); persist();
-    tell(plan.ok ? `${plan.days.length}日分の献立を作成しました。料理名から材料と作り方を開けます。` : '除外条件を維持したままでは、必要な料理の候補が足りません。', !plan.ok);
-  } catch (error) { invalidatePlan(); tell(error.message, true); }
+// 材料を並べただけでは全材料が分かるとは限らないため、確認欄を別に設けます。
+const catalogSearchLabel=node('label','','メニューを探す'),catalogSearch=node('input');catalogSearch.id='catalog-search';catalogSearch.type='search';catalogSearch.placeholder='料理名や材料で絞り込み';catalogSearch.autocomplete='off';catalogSearchLabel.htmlFor='catalog-search';catalogSearchLabel.append(catalogSearch);$('catalog-item').before(catalogSearchLabel);catalogSearch.addEventListener('input',renderCalendar);
+const completeLabel=check('manual-ingredients-known','すべての材料と分量を登録した',false);completeLabel.querySelector('input').id='manual-ingredients-known';$('manual-ingredients').after(completeLabel);
+const estimate=button('材料から栄養の概算を入力する',()=>{if(!$('manual-ingredients-known').checked)throw Error('すべての材料と分量を登録したら確認欄にチェックしてください。');const r=readManual();if(!r.ingredients.length)throw Error('材料を登録してください。');const values=recipeNutrition({servings:1,ingredients:r.ingredients},builtin);for(const key of NUTRIENT_KEYS)$('manual-'+key).value=values[key]===null?'':Math.round(values[key]*100)/100;tell('材料から栄養を概算しました。商品表示が分かる場合は修正してください。');},'button-secondary');estimate.id='manual-estimate-nutrition';$('manual-ingredients').after(estimate);
+const editNote=node('div','notice','食事の記録を編集中です。保存すると選んだ日付・食事・種類に更新します。');editNote.id='manual-edit-note';editNote.hidden=true;editNote.append(button('編集をやめる',resetManual));$('manual-form').prepend(editNote);
+for(const key of NUTRIENT_KEYS)$('manual-'+key).step='any';
+for(const a of ALLERGENS)$('manual-allergens').append(check(a.id,a.label,false));
+$('calendar-date').value=selectedDate;$('nutrition-date').value=selectedDate;if(state.entries.some(e=>e.status==='planned'))$('shopping-source').value='calendar';$('shopping-from').value=state.settings.startDate;$('shopping-days').value=state.settings.days;
+for(const id of ['calendar-date','nutrition-date','start-date','shopping-from']){$(id).min='2000-01-01';$(id).max='2100-12-31';}
+bind('month-prev','click',()=>{const date=new Date(`${month}-15T12:00:00`);date.setMonth(date.getMonth()-1);if(!dateIsValid(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-01`))return;month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;renderCalendar();});
+bind('month-next','click',()=>{const date=new Date(`${month}-15T12:00:00`);date.setMonth(date.getMonth()+1);if(!dateIsValid(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-01`))return;month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;renderCalendar();});
+bind('month-today','click',()=>setDate(dateKey()));bind('calendar-date','change',()=>setDate($('calendar-date').value));bind('nutrition-date','change',()=>{if(!dateIsValid($('nutrition-date').value))throw Error('集計する日付を確認してください。');renderNutrition();});
+bind('add-catalog-item','click',()=>{const id=$('catalog-item').value;if(!id)throw Error('記録するメニューを選んでください。');const item=snapshot(id,Number($('catalog-quantity').value));commit(next=>next.entries.push(selectedEntry([item])),{message:'食事をカレンダーに追加しました。'});});
+bind('manual-add-ingredient','click',()=>ingredientRow());
+bind('manual-form','submit',event=>{event.preventDefault();const r=readManual(),save=$('manual-save-db').checked,quantity=Number($('manual-quantity').value),note=$('manual-note').value.trim();
+  commit(next=>{if(save)next.customRecipes.push(r);const clean=validateJournal(next,builtin),full=save?clean.customRecipes.find(c=>c.id===r.id):validateJournal({...next,customRecipes:[...next.customRecipes,r]},builtin).customRecipes.at(-1);
+    const item=itemFromRecipe(full,{...builtin,recipes:[...RECIPES,...clean.customRecipes]},quantity);if(!save)item.recipeId=null;
+    if(editing){const old=next.entries.find(e=>e.id===editing.entryId);if(!old)throw Error('編集する記録が見つかりません。');const at=old.items.findIndex(i=>i.id===editing.itemId);if(at<0)throw Error('編集する料理が見つかりません。');old.items.splice(at,1);if(old.items.length&&note===old.note)old.note='';if(!old.items.length)next.entries=next.entries.filter(e=>e.id!==old.id);next.entries.push(selectedEntry([item],note));}else next.entries.push(selectedEntry([item],note));
+  },{message:save?'食事を記録し、自分のデータベースにも保存しました。':'食事をカレンダーに記録しました。'});resetManual();
 });
-
-for (const [element, setting] of [['start-date', 'startDate'], ['plan-days', 'days'], ['servings', 'servings']]) {
-  $(element).addEventListener('change', () => {
-    const value = setting === 'startDate' ? $(element).value : Number($(element).value);
-    try { state = validateState({...state, settings: {...state.settings, [setting]: value}}, data); settingsChanged(); }
-    catch (error) { invalidatePlan(); tell(error.message, true); }
-  });
-}
-$('ingredient-search').addEventListener('input', renderIngredientChoices);
-$('preferred-search').addEventListener('input', renderPreferredChoices);
-for (const id of ['genre-mode', 'single-genre', 'meal-mood']) $(id).addEventListener('change', changePreferences);
-$('ratio-equal').addEventListener('click', () => {
-  state.settings.preferences.genreRatios = Object.fromEntries(GENRES.map(genre => [genre, 20]));
-  renderGenrePreferences(); settingsChanged();
-});
-$('ratio-japanese').addEventListener('click', () => {
-  state.settings.preferences.genreRatios = {'和食': 60, '洋食': 20, '中華': 10, 'エスニック': 10, 'その他': 0};
-  renderGenrePreferences(); settingsChanged();
-});
-$('preferred-search').addEventListener('keydown', event => {
-  if (event.key === 'Enter') { event.preventDefault(); tell('検索結果の候補を押して、優先したい食材を選択してください。'); }
-});
-$('ingredient-search').addEventListener('keydown', event => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    tell('検索結果の候補を押して、避ける食材を選択してください。');
-  }
-});
-$('recipe-search').addEventListener('input', () => { recipeLimit = 12; renderRecipeCatalog(); });
-$('more-recipes').addEventListener('click', () => { recipeLimit += 12; renderRecipeCatalog(); });
-for (const button of $('role-filters').querySelectorAll('button')) button.addEventListener('click', () => {
-  roleFilter = button.dataset.role;
-  for (const filter of $('role-filters').querySelectorAll('button')) filter.setAttribute('aria-pressed', String(filter === button));
-  recipeLimit = 12; renderRecipeCatalog();
-});
-$('close-dialog').addEventListener('click', closeRecipe);
-$('recipe-dialog').addEventListener('click', event => { if (event.target === $('recipe-dialog')) closeRecipe(); });
-$('recipe-dialog').addEventListener('close', () => { currentDialogId = null; });
-$('history-recipe').addEventListener('change', () => selectHistoryRecipe($('history-recipe').value));
-$('history-form').addEventListener('submit', event => {
-  event.preventDefault();
-  const date = $('history-date').value;
-  if (date > localDate()) { tell('食べた日には今日以前の日付を指定してください。', true); return; }
-  try {
-    const recipeId = $('history-recipe').value;
-    addHistory({id: newRecordId(), date, meal: $('history-meal').value, recipeIds: recipeId ? [recipeId] : [], groups: selectedHistoryValues('history-groups'), proteinSources: selectedHistoryValues('history-proteins'), note: $('history-note').value.trim()});
-    $('history-note').value = ''; selectHistoryRecipe('');
-    tell('食事の記録を追加しました。次の献立づくりで参考にします。');
-  } catch (error) { tell(error.message, true); }
-});
-$('more-history').addEventListener('click', () => { historyLimit += 8; renderHistory(); });
-$('copy-shopping').addEventListener('click', async () => {
-  if (!shoppingText) { $('copy-status').textContent = 'コピーする買い物リストがありません。'; return; }
-  try {
-    await navigator.clipboard.writeText(shoppingText);
-    $('copy-status').textContent = '買い物リストをコピーしました。';
-  } catch {
-    $('copy-status').textContent = '自動コピーを利用できません。表示されているリストを選択してコピーしてください。';
-  }
-});
-$('show-pantry').addEventListener('change', () => { showPantry = $('show-pantry').checked; if (plan?.ok) renderShoppingList(); });
-$('reset-pantry').addEventListener('click', () => {
-  pantryIds = new Set();
-  if (plan?.ok) renderShoppingList();
-  $('copy-status').textContent = '家にある食材のチェックをすべて取り消しました。';
-});
-$('export-records').addEventListener('click', () => {
-  try {
-    const clean = validateState(state, data);
-    const blob = new Blob([JSON.stringify(clean, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url; link.download = `kondate-note_${localDate()}.json`;
-    document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    tell('設定と食事の記録を保存しました。アレルギーの設定も含まれます。');
-  } catch (error) { tell(error.message, true); }
-});
-$('import-records').addEventListener('click', () => $('import-file').click());
-$('import-file').addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (!file) return;
-  try {
-    if (file.size > 2 * 1024 * 1024) throw new Error('2 MB以下のJSONファイルを選んでください。');
-    const next = parseState(await file.text(), data);
-    if (state.history.length && !window.confirm('現在の設定と食事の記録を、ファイルの内容で置き換えます。読み込みますか？')) return;
-    state = next; invalidatePlan(); renderSettings(); renderRecipeCatalog(); renderHistory(); renderHistorySummary(); persist();
-    tell(`${state.history.length}件の記録と設定を読み込みました。アレルギー食材の設定も確認してください。`);
-  } catch (error) { tell(`${error.message} 現在の記録は変更していません。`, true); }
-  finally { event.target.value = ''; }
-});
-$('clear-history').addEventListener('click', () => {
-  if (!state.history.length) { tell('削除する食事の記録はありません。'); return; }
-  if (!window.confirm('このブラウザーの食事の記録をすべて削除します。必要な場合は先に「記録を保存する」で残してください。削除しますか？')) return;
-  state.history = []; invalidatePlan(); renderHistory(); renderHistorySummary(); persist();
-  tell('食事の記録をすべて削除しました。アレルギーなどの設定は残しています。');
-});
-window.addEventListener('storage', event => {
-  if (event.key !== STORAGE_KEY) return;
-  const refreshed = readState(storage, data);
-  state = refreshed.state; invalidatePlan(); renderSettings(); renderRecipeCatalog(); renderHistory(); renderHistorySummary();
-  tell(refreshed.message || '別のタブで更新された設定と記録を反映しました。');
-});
-
-$('recipe-total').textContent = RECIPES.length;
-fillHistoryChoices();
-renderSettings();
-renderHistory();
-renderHistorySummary();
-renderRecipeCatalog();
-if (loaded.message) tell(loaded.message, true);
+for(const [id,key]of [['start-date','startDate'],['plan-days','days'],['servings','servings'],['plan-meal','meal'],['staple-choice','stapleId'],['drink-choice','drinkId']])bind(id,'change',()=>commit(next=>{next.settings[key]=['days','servings'].includes(key)?Number($(id).value):$(id).value;}));
+for(const id of ['genre-mode','single-genre','meal-mood'])bind(id,'change',()=>commit(next=>{next.settings.preferences.genreMode=$('genre-mode').value;next.settings.preferences.genre=$('genre-mode').value==='single'?$('single-genre').value:'all';next.settings.preferences.mood=$('meal-mood').value;}));
+bind('ratio-equal','click',()=>commit(next=>next.settings.preferences.genreRatios=Object.fromEntries(GENRES.map(g=>[g,20]))));bind('ratio-japanese','click',()=>commit(next=>next.settings.preferences.genreRatios={和食:50,洋食:20,中華:20,エスニック:10,その他:0}));
+bind('ingredient-search','input',()=>renderIngredientSearch(false));bind('preferred-search','input',()=>renderIngredientSearch(true));
+bind('plan-form','submit',event=>{event.preventDefault();if(shiftDate(state.settings.startDate,state.settings.days-1)>'2100-12-31')throw Error('献立の期間は2100年内で指定してください。');plan=generateCalendarPlan({...state.settings,seed:Math.floor(Math.random()*2147483647)},data(),{entries:state.entries,targets:state.targets,meal:state.settings.meal,stapleId:state.settings.stapleId,drinkId:state.settings.drinkId,pantry:state.pantry});state.shoppingChecks=[];persist();$('shopping-from').value=state.settings.startDate;$('shopping-days').value=state.settings.days;$('shopping-source').value='draft';renderPlan();renderShopping();tell(plan.ok?'献立を作成しました。内容を確認して予定に登録できます。':'条件に合う候補を確認してください。',!plan.ok);});
+bind('plan-save-calendar','click',()=>{const entries=draftEntries().filter(e=>e.items.length).map(e=>({...e,id:uid()}));if(!entries.length)throw Error('料理を1品以上含む献立を作成してください。');commit(next=>next.entries.push(...entries),{message:'献立を予定としてカレンダーに登録しました。食べたら記録を切り替えてください。'});$('shopping-source').value='calendar';setDate(entries[0].date);renderShopping();});
+bind('targets-form','submit',event=>{event.preventDefault();commit(next=>{next.targets=Object.fromEntries(NUTRIENT_KEYS.map(k=>[k,Number($('target-'+k).value)]));},{message:'比較用の目標値を保存しました。'});});
+bind('pantry-item','change',()=>{const i=INGREDIENTS[$('pantry-item').value];$('pantry-amount').setAttribute('aria-label',`手持ちの量${i?`（${i.unit}）`:''}`);});
+bind('pantry-add','click',()=>{const id=$('pantry-item').value,quantity=Number($('pantry-amount').value);if(!id)throw Error('手持ちの食材を選んでください。');commit(next=>{const old=next.pantry.find(i=>i.id===id);if(old)old.amount=quantity;else next.pantry.push({id,amount:quantity});},{invalidate:false,message:'手持ちの量を登録しました。'});});
+for(const id of ['shopping-from','shopping-days','shopping-source'])bind(id,'change',renderShopping);
+bind('shopping-clear-checks','click',()=>commit(next=>{next.shoppingChecks=[];},{invalidate:false}));
+bind('copy-shopping','click',async()=>{if(!shoppingText)return;try{await navigator.clipboard.writeText(shoppingText);tell('買い物リストをコピーしました。');}catch{const textarea=node('textarea');textarea.value=shoppingText;textarea.readOnly=true;$('shopping-list').prepend(textarea);textarea.select();tell('コピーできない場合は、表示されたテキストを選んでコピーしてください。');}});
+bind('role-filters','click',event=>{const b=event.target.closest('button[data-role]');if(!b)return;roleFilter=b.dataset.role;recipeLimit=12;renderCatalog();});bind('recipe-search','input',()=>{recipeLimit=12;renderCatalog();});bind('more-recipes','click',()=>{recipeLimit+=24;renderCatalog();});
+bind('close-dialog','click',()=>$('recipe-dialog').close());bind('recipe-dialog','click',event=>{if(event.target===$('recipe-dialog')){const r=$('recipe-dialog').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('recipe-dialog').close();}});
+bind('export-records','click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(validateJournal(state,builtin),null,2)],{type:'application/json'})),a=node('a');a.href=url;a.download=`kondate-note_${dateKey()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell('食事の記録と設定を書き出しました。');});
+bind('import-records','click',()=>$('import-file').click());bind('import-file','change',async()=>{const file=$('import-file').files[0];$('import-file').value='';if(!file)return;if(file.size>2*1024*1024)throw Error('2 MB以下のJSONファイルを選んでください。');const imported=parseJournal(await file.text(),builtin);if(!confirm('現在の記録と設定を読み込んだデータに置き換えますか？必要なら先に書き出してください。'))return;state=imported;plan=null;resetManual();persist();$('shopping-from').value=state.settings.startDate;renderAll();tell('データを読み込みました。');});
+bind('clear-history','click',()=>{if(!confirm('食事の記録をすべて削除しますか？自分のメニューや設定は残ります。'))return;commit(next=>{next.entries=[];},{message:'食事の記録を削除しました。'});resetManual();});
+renderAll();if(loaded.message)tell(loaded.message,true);
