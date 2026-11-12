@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111214">
+  <meta name="description" content="16個のパッドで音を重ねる、ブラウザのDJループスタジオ。デモ音源からすぐに始めて、テンポや音色を変え、演奏を録音できます。">
+  <title>LOOP ROOM — DJループスタジオ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#studio">スタジオへ移動</a>
+  <div class="app-shell">
+    <header class="site-header">
+      <a class="back-link" href="../../"><span aria-hidden="true">↖</span> 作品ギャラリー</a>
+      <a class="brand" href="#" aria-label="LOOP ROOM ホーム"><span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>LOOP ROOM<span class="brand-sub">16-PAD MIX STUDIO</span></span></a>
+      <span class="edition-label">学生のアイデアから生まれた<br>教員による公開用アップデート版</span>
+    </header>
+
+    <section class="welcome" aria-labelledby="welcome-title">
+      <div class="welcome-copy">
+        <p class="eyebrow"><span></span> PLAY WITH SOUND.</p>
+        <h1 id="welcome-title">重ねるだけで、<br class="mobile-break">音が動きだす。</h1>
+        <p class="welcome-description">ドラム、ベース、コード、メロディ。<br>16個のパッドから音を選んで、あなただけのミックスを。</p>
+      </div>
+      <div class="welcome-start">
+        <button id="demo-start" class="button button-lime"><span class="play-icon" aria-hidden="true">▶</span> デモでミックスを始める <span aria-hidden="true">↗</span></button>
+        <p class="start-note">音源の準備は不要。ボタンを押すと音が鳴ります。</p>
+        <details id="open-help" class="quick-help">
+          <summary>はじめての方へ <span aria-hidden="true">＋</span></summary>
+          <div class="quick-help-content">
+            <ol><li>デモを始めると、4つのパートが鳴ります。</li><li>別のパッドを押すと、拍の区切りで音が切り替わります。</li><li>右の音源設定やエフェクトで変化をつけ、気に入ったら録音してみましょう。</li></ol>
+            <p>「全停止」でいつでも止められます。パッドの「設定」から自分の音源も読み込めます。</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <main id="studio" tabindex="-1">
+      <section class="transport-panel" aria-label="再生とテンポ">
+        <div class="transport-buttons">
+          <button id="transport" class="button button-lime transport-button" aria-pressed="false"><span aria-hidden="true">▶</span> 再生</button>
+          <button id="stop-all" class="button button-dark"><span class="stop-icon" aria-hidden="true">■</span> 全停止</button>
+        </div>
+        <label class="bpm-control" for="bpm"><span class="control-caption">TEMPO <span class="caption-ja">テンポ</span></span><span class="bpm-field"><input aria-describedby="bpm-hint" id="bpm" type="number" min="40" max="200" step="1" value="120" inputmode="decimal"><span>BPM</span></span></label>
+        <div class="beat-monitor"><span class="control-caption">BEAT <output id="beat-label">1 / 8</output></span><div id="beat-dots" class="beat-dots" aria-label="8拍のカウント"></div></div>
+        <label class="quantise-control" for="quantise"><span class="control-caption">切り替えるタイミング</span><select id="quantise"><option value="0">すぐに</option><option value="1">1拍ごと</option><option value="4">4拍ごと</option><option value="8" selected>8拍ごと</option></select></label>
+        <div class="engine-readout"><span class="status-dot" aria-hidden="true"></span><output id="engine-status">STANDBY</output><span class="readout-hint">P：再生 / 停止　0：全停止</span></div>
+      </section>
+
+      <p id="bpm-hint" class="transport-note">テンポは停止中に変更できます。</p>
+      <div id="status" class="status-message" role="status" aria-live="polite">まずはデモを始めるか、パッドの設定から音源を読み込んでください。</div>
+
+      <div class="workspace">
+        <div class="performance-area">
+          <section class="pad-stage" aria-labelledby="pad-title">
+            <div class="section-heading"><div><p class="eyebrow small">THE PLAYGROUND</p><h2 id="pad-title">音を選んで、重ねる。</h2></div><div class="pad-heading-actions"><label class="check-label exclusive-label"><input id="exclusive" type="checkbox" checked><span>同じパートは1音源</span></label><button id="performance-mode" class="performance-mode-button" type="button" aria-pressed="false">演奏モード</button></div></div>
+            <div class="part-legend" aria-label="パートの色"><span class="part-drums"><i></i>DRUMS</span><span class="part-bass"><i></i>BASS</span><span class="part-chords"><i></i>CHORDS</span><span class="part-lead"><i></i>LEAD</span></div>
+            <div id="pads" class="pads-grid" aria-label="16個の音源パッド"></div>
+            <div class="pad-stage-footer"><p><span class="queued-key" aria-hidden="true"></span> 予約 → 拍の頭で再生・停止</p><p>再生中のパッドをもう一度押すと停止を予約</p></div>
+          </section>
+
+          <section class="master-panel" aria-labelledby="master-title">
+            <div class="section-heading compact"><div><p class="eyebrow small">SHAPE YOUR MIX</p><h2 id="master-title">ミックスに変化を。</h2></div><span class="panel-tag">MASTER FX</span></div>
+            <div class="scope-row"><div class="scope-wrap"><canvas id="scope" width="800" height="90" aria-label="出力音声のリアルタイム波形とスペクトル"></canvas><span class="scope-label">WAVEFORM + SPECTRUM</span></div><div class="level-readout"><label for="peak-meter">出力レベル</label><meter id="peak-meter" min="0" max="1" low="0.02" high="0.85" optimum="0.5" value="0">0</meter><output id="peak-label">−∞ dB</output></div></div>
+            <div class="master-controls">
+              <label class="slider-control" for="master-volume"><span>マスター音量 <output id="master-volume-value">75%</output></span><input id="master-volume" type="range" min="0" max="1" step="0.01" value="0.75"><small>全体の大きさ</small></label>
+              <label class="slider-control" for="filter"><span>フィルター <output id="filter-value">OPEN</output></span><input id="filter" type="range" min="0" max="1" step="0.01" value="1"><small>高い音を削って、こもった音に</small></label>
+              <label class="slider-control" for="echo"><span>エコー <output id="echo-value">0%</output></span><input id="echo" type="range" min="0" max="0.4" step="0.01" value="0"><small>音を繰り返して、余韻をつける</small></label>
+              <label class="slider-control" for="low-eq"><span>低音 <output id="low-eq-value">0 dB</output></span><input id="low-eq" type="range" min="-12" max="12" step="1" value="0"><small>ベースの厚み</small></label>
+              <label class="slider-control" for="high-eq"><span>高音 <output id="high-eq-value">0 dB</output></span><input id="high-eq" type="range" min="-12" max="12" step="1" value="0"><small>ハイハットの明るさ</small></label>
+            </div>
+          </section>
+
+          <section class="session-panel" aria-labelledby="session-title">
+            <div class="session-intro"><p class="eyebrow small">KEEP THE MOMENT</p><h2 id="session-title">演奏を残す。</h2><p>完成したミックスを録音。続きは配置を保存して。</p></div>
+            <div class="session-actions"><div class="record-row"><button id="record" class="button button-record"><span aria-hidden="true">●</span> 録音を始める</button><output id="record-time" class="record-time">00:00</output><span class="field-note">1回10分まで</span><a id="record-download" class="download-link" hidden download>録音をダウンロード ↗</a></div><div class="save-row"><button id="save-session" class="text-button">配置を保存</button><button id="restore-session" class="text-button">保存した配置を復元</button><button id="clear-session" class="text-button subtle">保存データを消去</button></div></div>
+          </section>
+        </div>
+
+        <aside class="inspector" aria-labelledby="inspector-title">
+          <div class="inspector-header"><span class="eyebrow small" id="inspector-title">SOUND SETTINGS</span><span class="inspector-index">SELECT A PAD</span></div>
+          <h2 id="selected-title">音源の設定</h2><p id="selected-description" class="selected-description">パッドの「設定」を押して、音源を選びます。</p>
+          <div class="selected-wave-wrap"><canvas id="selected-wave" width="600" height="90" aria-label="選択した音源の波形"></canvas></div>
+          <div class="file-load"><label class="control-caption" for="slot-file">自分の音源に差し替える</label><input id="slot-file" type="file" accept="audio/*"><p id="slot-file-name" class="file-name">音源はまだ読み込まれていません</p><small>音声はこのブラウザ内で処理されます。</small></div>
+          <div class="inspector-sliders"><label class="slider-control" for="slot-volume"><span>この音源の音量 <output id="slot-volume-value">75%</output></span><input id="slot-volume" type="range" min="0" max="1" step="0.01" value="0.75"></label><label class="slider-control" for="slot-pan"><span>左右の位置 <output id="slot-pan-value">中央</output></span><input id="slot-pan" type="range" min="-1" max="1" step="0.01" value="0"><span class="pan-labels" aria-hidden="true"><small>LEFT</small><small>RIGHT</small></span></label></div>
+          <p class="field-note slot-edit-note">音源の差し替え・拍数・繰り返し設定は、演奏を停止してから変更できます。</p>
+          <div class="slot-options"><label class="check-label"><input id="slot-loop" type="checkbox" checked><span>繰り返して再生する</span></label><label class="check-label"><input id="slot-sync" type="checkbox" checked><span>テンポに合わせる</span></label><label class="beats-control" for="slot-beats"><span>音源に含まれる拍数</span><select id="slot-beats"><option value="1">1拍</option><option value="2">2拍</option><option value="4">4拍（1小節）</option><option value="8" selected>8拍（2小節）</option><option value="16">16拍（4小節）</option><option value="32">32拍（8小節）</option></select></label><p class="field-note">テンポ同期では速さと音の高さが一緒に変わります。自分の音源は、拍数が分かるときに設定してください。</p><label class="check-label mute-label"><input id="slot-mute" type="checkbox"><span>この音源をミュート</span></label></div>
+          <button id="derive-bpm" class="text-button derive-button">指定した拍数からBPMを算出</button><p class="field-note derive-note">音源の長さと、上で指定した拍数から計算します。曲から自動で拍を検出する機能ではありません。</p><button id="clear-slot" class="text-button clear-slot">このパッドの音源を外す</button>
+          <div class="scenes"><p class="control-caption">デモの組み合わせ</p><button type="button" data-scene="minimal">MINIMAL <span>ドラムとベース</span></button><button type="button" data-scene="full">FULL MIX <span>4パートを重ねる</span></button><button type="button" data-scene="break">BREAK <span>メロディを聴かせる</span></button></div>
+        </aside>
+      </div>
+
+      <section class="guide-panel" aria-labelledby="guide-title"><div><p class="eyebrow small">A LITTLE GUIDANCE</p><h2 id="guide-title">キーでも、指先でも。</h2><p>パッドを押すと発音を予約。同じパッドをもう一度押すと、予約を取り消せます。<br>「同じパートは1音源」を外すと、同じパートの音も重ねられます。</p></div><div class="keyboard-guide" aria-label="パッドのショートカット"><div><kbd>1</kbd><kbd>3</kbd><kbd>5</kbd><kbd>7</kbd></div><div><kbd>Q</kbd><kbd>E</kbd><kbd>T</kbd><kbd>U</kbd></div><div><kbd>A</kbd><kbd>D</kbd><kbd>G</kbd><kbd>J</kbd></div><div><kbd>Z</kbd><kbd>C</kbd><kbd>B</kbd><kbd>M</kbd></div></div><div class="guide-links"><p><kbd>P</kbd> 再生・停止<br><kbd>0</kbd> すべての音と予約を停止</p><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/dj-lab/docs/manual.md" target="_blank" rel="noopener noreferrer">使い方と仕組み <span aria-hidden="true">↗</span></a></div></section>
+    </main>
+    <footer class="site-footer"><p>LOOP ROOM <span>音を重ねる、小さな実験室。</span></p><p>デモ音源はこのアプリのために合成したオリジナルです。<br>音源をサーバーへアップロードする機能はありません。</p><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/dj-lab" target="_blank" rel="noopener noreferrer">SOURCE CODE ↗</a><a href="dist/dj-lab_v1.0.0.zip" download>アプリ一式 ZIP ↓</a></footer>
+  </div>
+  <noscript><p class="noscript">このアプリを動かすにはJavaScriptを有効にしてください。</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -15,6 +15,7 @@
 | `projects/sound-analysis-lab/` | 音と波・スペクトルのWeb入門と、音源分離・比較分析のColab教材 |
 | `projects/lottery-lab/` | くじ引きの1000回チャレンジと、全設定の繰り返し比較を楽しむブラウザ教材 |
 | `projects/face-recognition-lab/` | カメラ・画像で本人照合と表情分類を試すFACEGATE。ブラウザ版・Python版・Colab分析教材 |
+| `projects/dj-lab/` | 16音源パッドを拍に合わせて重ねるDJループスタジオ「LOOP ROOM」。合成デモ・エフェクト・録音・ブラウザ内保存 |
 | `projects/pip0/` | デバイス内のファイル整理アシスタント「pip0」（グループの作品の初期コード） |
 | `CLAUDE.md` | Claude Codeなどで開発する際の共通方針 |
 
@@ -53,6 +54,7 @@ AIにコード作成を手伝ってもらう際も、自分たちが変更した
 | [くじびきラボ](projects/lottery-lab/) | 1回・まとめ引き、当選コレクション、設定ごとの平均とばらつきを比べる確率実験 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/lottery-lab/) ／ [操作マニュアル](projects/lottery-lab/docs/manual.md) |
 | [パスワード実験室](projects/password-lab/) | 辞書・規則・総当たりの短時間の実測と推定、保存方式と計算装置の比較 | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/password-lab/) ／ [操作マニュアル](projects/password-lab/docs/manual.md) |
 | [音の実験室](projects/sound-analysis-lab/) | 波形・スペクトル・スペクトログラムを学ぶWeb入門と、日本語グラフで音源を比較するColab教材 | [Webで学ぶ](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/sound-analysis-lab/) ／ [Colabで分析](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-analysis-lab/sound_analysis_lab.ipynb) |
+| [LOOP ROOM](projects/dj-lab/) | 学生のDJアプリをもとにした公開用発展版。16音源を拍に合わせて重ね、デモ演奏・ミックス・録音を試すブラウザアプリ | [ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/dj-lab/) ／ [操作マニュアル](projects/dj-lab/docs/manual.md) |
 
 | [FACEGATE](projects/face-recognition-lab/) | 学生の元提出ZIPを未改変で配布。ブラウザ発展版では高速照合・複数人処理を追加 | [学生の元提出版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/face-recognition-lab/original/facegate-submitted.zip) ／ [ブラウザ発展版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/face-recognition-lab/) |
 

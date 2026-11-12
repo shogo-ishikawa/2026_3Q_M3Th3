@@ -69,6 +69,10 @@ jobs:
         run: python -m unittest discover -s projects/face-recognition-lab/tests -p 'test_*.py' -v
       - name: Package FaceGate application
         run: python projects/face-recognition-lab/tools/build_release.py
+      - name: Check LOOP ROOM browser logic
+        run: npm test --prefix projects/dj-lab
+      - name: Package LOOP ROOM
+        run: python projects/dj-lab/tools/build_release.py
       - name: Check shared publishing
         run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Check password JavaScript

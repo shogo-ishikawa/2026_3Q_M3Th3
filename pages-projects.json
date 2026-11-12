@@ -64,6 +64,20 @@
         "inference-worker.js",
         "original"
       ]
+    },
+    {
+      "source": "projects/dj-lab",
+      "destination": "projects/dj-lab",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "core.js",
+        "engine.js",
+        "demo.js",
+        "storage.js",
+        "dist/dj-lab_v1.0.0.zip"
+      ]
     }
   ]
 }
