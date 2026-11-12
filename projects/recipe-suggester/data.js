@@ -1,5 +1,8 @@
 /** 献立候補の教材用データ。材料・分量・手順は本教材用に記述しています。 */
-export const DATA_VERSION = '1.1.0';
+import { EXTRA_INGREDIENTS, EXPANDED_RECIPES } from './expanded-foods.js';
+import { INGREDIENT_NUTRITION } from './ingredient-nutrients.js';
+
+export const DATA_VERSION = '2.0.0';
 
 // 2026年の消費者庁の表示対象。特定原材料9品目と推奨20品目。
 export const ALLERGENS = [
@@ -266,6 +269,15 @@ const DERIVED_FROM = {
   ]
 };
 for (const [id, parents] of Object.entries(DERIVED_FROM)) INGREDIENTS[id].derivedFrom = parents;
+
+Object.assign(INGREDIENTS, EXTRA_INGREDIENTS);
+for (const [id, item] of Object.entries(INGREDIENTS)) {
+  // 材料の宣言単位あたりの参考値。未登録成分はゼロにせず不明のまま扱います。
+  Object.assign(item, INGREDIENT_NUTRITION[id] ?? {
+    nutritionPerUnit: {kcal:null,protein:null,fat:null,carbs:null,fiber:null,salt:null},
+    nutritionSource:'栄養値は未登録です。',
+  });
+}
 
 const recipe = (id, name, genre, minutes, items, steps, staple = false, tags = []) => ({
   id, name, role: 'main', genre, minutes, servings: 2,
@@ -5554,4 +5566,5 @@ const applyPreferences = item => ({
 export const RECIPES = [...MAIN_RECIPES, ...EXTRA_MAIN_SIDE_RECIPES, ...SIDE_SOUP_RECIPES, ...EXTRA_SIDE_SOUP_RECIPES,
   {id:'plain-rice',name:'ご飯',role:'staple',genre:'和食',minutes:5,servings:2,
    ingredients:[{id:'rice',amount:300}],steps:['炊飯済みのご飯を十分温め、人数分に分けて盛る。'],tags:[],staple:true},
+  ...EXPANDED_RECIPES,
 ].map(applyPreferences);

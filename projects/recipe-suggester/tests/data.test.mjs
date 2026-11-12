@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ALLERGENS, INGREDIENTS, RECIPES } from '../data.js';
+import { ALLERGENS, DATA_VERSION, INGREDIENTS, RECIPES } from '../data.js';
+import { EXTRA_INGREDIENTS, EXPANDED_RECIPES } from '../expanded-foods.js';
 
 const allowedGroups = new Set(['staple','vegetable','protein','dairy','fruit']);
 const allowedProteins = new Set(['meat','fish','egg','soy']);
@@ -39,7 +40,7 @@ test('the expanded collection consists of distinct complete dishes', () => {
   assert.ok(RECIPES.filter(item => item.role === 'side').length >= 60);
   assert.ok(RECIPES.filter(item => item.role === 'soup').length >= 40);
   for (const recipe of RECIPES) {
-    assert.ok(['main','side','soup','staple'].includes(recipe.role),recipe.id);
+    assert.ok(['main','side','soup','staple','drink','snack'].includes(recipe.role),recipe.id);
     assert.equal(recipe.servings,2,recipe.id);
     assert.ok(Number.isFinite(recipe.minutes) && recipe.minutes > 0,recipe.id);
     assert.ok(Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0,recipe.id);
@@ -52,6 +53,58 @@ test('the expanded collection consists of distinct complete dishes', () => {
     assert.ok(recipe.steps.every(step => typeof step === 'string' && step.length >= 10),recipe.id);
     assert.equal(typeof recipe.staple,'boolean',recipe.id);
   }
+});
+
+test('the calendar catalogue adds meaningful staples, drinks and snacks', () => {
+  assert.equal(DATA_VERSION,'2.0.0');
+  assert.ok(EXPANDED_RECIPES.length >= 100);
+  assert.ok(RECIPES.length >= 305);
+  assert.ok(EXPANDED_RECIPES.filter(item => item.role === 'staple').length >= 20);
+  assert.ok(EXPANDED_RECIPES.filter(item => item.role === 'drink').length >= 15);
+  assert.ok(EXPANDED_RECIPES.filter(item => item.role === 'snack').length >= 20);
+  const stapleIngredients = new Set(EXPANDED_RECIPES.filter(item => item.role === 'staple')
+    .flatMap(item => item.ingredients.map(ingredient => ingredient.id)));
+  for (const id of ['rice','bread','udon','pasta','soba','oatmeal','brown_rice','somen']) {
+    assert.ok(stapleIngredients.has(id),id);
+  }
+  for (const item of EXPANDED_RECIPES.filter(item => item.role === 'staple')) assert.equal(item.staple,true,item.id);
+  for (const item of EXPANDED_RECIPES.filter(item => ['drink','snack'].includes(item.role))) assert.equal(item.staple,false,item.id);
+});
+
+test('new food and beverage portions carry explicit allergen and ingredient information', () => {
+  assert.ok(recipeAllergens(byId.get('drink-milk')).has('milk'));
+  assert.ok(recipeAllergens(byId.get('drink-soy-milk')).has('soy'));
+  assert.ok(recipeAllergens(byId.get('drink-orange-juice')).has('orange'));
+  assert.ok(recipeAllergens(byId.get('drink-apple-juice')).has('apple'));
+  assert.ok(recipeAllergens(byId.get('snack-almond')).has('almond'));
+  assert.ok(recipeAllergens(byId.get('snack-cashew')).has('cashew'));
+  assert.ok(recipeAllergens(byId.get('staple-wholegrain-bread')).has('wheat'));
+  assert.ok(recipeAllergens(byId.get('staple-sesame-soba')).has('buckwheat'));
+  assert.deepEqual([...recipeAllergens(byId.get('drink-water'))],[]);
+  for (const item of RECIPES.filter(item => item.role === 'drink' && /無糖|砂糖無添加/.test(item.name))) {
+    assert.ok(!item.ingredients.some(ingredient => ingredient.id === 'sugar'),item.id);
+  }
+  assert.deepEqual(byId.get('drink-milk').ingredients,[{id:'milk',amount:400}]);
+  assert.deepEqual(byId.get('snack-almond').ingredients,[{id:'almond',amount:30}]);
+  assert.deepEqual(EXTRA_INGREDIENTS.orange_juice.derivedFrom,['orange']);
+  assert.deepEqual(EXTRA_INGREDIENTS.apple_juice.derivedFrom,['apple']);
+  assert.deepEqual(EXTRA_INGREDIENTS.wholegrain_bread.derivedFrom,['bread']);
+});
+
+test('every ingredient provides nullable per-unit nutrition with source attribution', () => {
+  const keys = ['kcal','protein','fat','carbs','fiber','salt'];
+  for (const [id,item] of Object.entries(INGREDIENTS)) {
+    assert.ok(typeof item.nutritionSource === 'string' && item.nutritionSource.length > 5,id);
+    assert.deepEqual(Object.keys(item.nutritionPerUnit),keys,id);
+    for (const key of keys) {
+      const value = item.nutritionPerUnit[key];
+      assert.ok(value === null || (Number.isFinite(value) && value >= 0),`${id}:${key}`);
+    }
+  }
+  // 分量g/mlをそのまま掛け算できる値です。100gあたりの値を再び掛けないようにします。
+  assert.ok(INGREDIENTS.rice.nutritionPerUnit.kcal > 1 && INGREDIENTS.rice.nutritionPerUnit.kcal < 2);
+  assert.ok(INGREDIENTS.milk.nutritionPerUnit.kcal > 0.5 && INGREDIENTS.milk.nutritionPerUnit.kcal < 1);
+  assert.equal(INGREDIENTS.water.nutritionPerUnit.kcal,0);
 });
 
 test('compound ingredients conservatively preserve their stated allergen ingredients', () => {
