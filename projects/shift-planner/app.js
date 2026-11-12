@@ -11,7 +11,7 @@ const fields = {
   history: [['staffId','スタッフID','staff'],['date','勤務日','date'],['start','開始','time'],['end','終了','time']],
 };
 const hints = {
-  staff:'比率は 1＝標準、2＝多め、0.5＝少なめ。時間の上下限と週の上限日数は必ず守る条件です。比率は時間配分の目安で、厳密な同数を保証する条件ではありません。',
+  staff:'比率は 1＝標準、2＝多め、0.5＝少なめ。時間の上下限と週の上限日数は必ず守る条件です。比率は時間配分の目安です。IDは自動で付きます。名前は自由に変更できます。',
   slots:'1行が1つの勤務枠です。終了には24:00も使えます。日をまたぐ勤務は「22:00–24:00」と翌日の「00:00–02:00」のように分けます。固定する人は P1,P2 のようにIDで指定します。',
   availability:'出勤できる枠を選びます。未設定は「不可」です。「希望」は条件を満たしたうえで、勤務時間の偏りが同じ案の優先順位に使います。',
   history:'確定した過去の勤務を1勤務1行で入力します。「以前の完成シフトを履歴に追加」から、このアプリで出力したCSV・Excelも使えます。今回の最初の勤務枠より前の実績を入力してください。',
@@ -34,7 +34,7 @@ function summary() {
 function inputHTML(kind, row, index, [key,label,type]) {
   const attrs = `data-kind="${kind}" data-row="${index}" data-key="${key}" aria-label="${index+1}行目 ${label}"`;
   if (type === 'staff') return `<select ${attrs}><option value="">選択</option>${data.staff.map(p=>`<option value="${escape(p.id)}" ${p.id===row[key]?'selected':''}>${escape(p.name)} (${escape(p.id)})</option>`).join('')}</select>`;
-  return `<input ${attrs} type="${key==='end'?'text':type}" value="${escape(row[key])}" ${key==='end'?'placeholder="例 17:00 / 24:00" pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"':''} ${type==='number'?'step="any" min="0"':''} ${key==='id'?'class="id-input"':''}>`;
+  return `<input ${attrs} type="${key==='end'?'text':type}" value="${escape(row[key])}" ${key==='end'?'placeholder="例 17:00 / 24:00" pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"':''} ${type==='number'?'step="any" min="0"':''} ${key==='id'?'class="id-input" readonly title="勤務可能設定や実績をつなぐ固定IDです。表示名は自由に変更できます。"':''}>`;
 }
 function renderEditor(kind) {
   const host = $(`editor-${kind}`);
@@ -112,8 +112,7 @@ function generate() {
 
 document.addEventListener('input',event=>{
   const el=event.target;
-  if(el.dataset.kind){const oldID=data[el.dataset.kind][el.dataset.row].id;data[el.dataset.kind][el.dataset.row][el.dataset.key]=el.type==='number'?(el.value===''?NaN:Number(el.value)):el.value;
-    if(el.dataset.key==='id'&&oldID&&oldID!==el.value){for(const a of data.availability){if(el.dataset.kind==='staff'&&a.staffId===oldID)a.staffId=el.value;if(el.dataset.kind==='slots'&&a.slotId===oldID)a.slotId=el.value;}if(el.dataset.kind==='staff'){for(const h of data.history)if(h.staffId===oldID)h.staffId=el.value;for(const s of data.slots)s.fixed=s.fixed.split(',').map(id=>id.trim()===oldID?el.value:id.trim()).filter(Boolean).join(',');}}
+  if(el.dataset.kind){if(el.dataset.key==='id')return;data[el.dataset.kind][el.dataset.row][el.dataset.key]=el.type==='number'?(el.value===''?NaN:Number(el.value)):el.value;
     invalidate('条件を変更しました。再作成すると新しい条件が反映されます。');summary();return;
   }
   if(el.dataset.staff){data.availability=data.availability.filter(a=>a.staffId!==el.dataset.staff||a.slotId!==el.dataset.slot);if(Number(el.value))data.availability.push({staffId:el.dataset.staff,slotId:el.dataset.slot,preference:Number(el.value)});el.className=`availability-select state-${el.value}`;invalidate('勤務可能な枠を変更しました。');return;}
