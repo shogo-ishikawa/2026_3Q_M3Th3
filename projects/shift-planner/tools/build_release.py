@@ -8,7 +8,7 @@ import zipfile
 
 PROJECT = Path(__file__).resolve().parents[1]
 RUNTIME = (
-    "index.html", "styles.css", "app.js", "solver.js", "worker.js", "demo.js", "io.js", "plan-tools.js",
+    "index.html", "styles.css", "app.js", "solver.js", "worker.js", "demo.js", "io.js", "plan-tools.js", "absence.js", "absence-ui.js",
     "vendor/xlsx.mjs", "vendor/LICENSE-SheetJS.txt", "THIRD_PARTY_NOTICES.md",
     "README.md", "VERSION", "docs/manual.md", "docs/source-review.md",
 )

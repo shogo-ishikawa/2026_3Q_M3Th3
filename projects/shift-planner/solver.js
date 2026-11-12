@@ -219,6 +219,32 @@ export function solve(data, options = {}) {
   const finish = () => { result.elapsedMs = Math.round((performance.now() - started) * 10) / 10; return result; };
   const m = makeModel(data);
   if (m.errors.length) { result.diagnostics = m.errors; return finish(); }
+  if (!options || typeof options !== 'object' || Array.isArray(options)) {
+    result.diagnostics = ['探索の設定が正しくありません。']; return finish();
+  }
+  // A reference is the previously confirmed plan. It must describe every slot
+  // and known staff ID, but may no longer satisfy the changed availability.
+  let reference = null;
+  if (options.referenceSchedule !== undefined) {
+    const rows = options.referenceSchedule, seen = new Set();
+    const errors = [];
+    reference = m.slots.map(() => new Set());
+    if (!Array.isArray(rows)) errors.push('元の勤務表はリストで指定してください。');
+    else for (const row of rows) {
+      if (!row || !m.slotIds.has(row.slotId)) { errors.push('元の勤務表に未登録の枠があります。'); continue; }
+      if (seen.has(row.slotId)) { errors.push(`元の勤務表で枠「${row.slotId}」が重複しています。`); continue; }
+      seen.add(row.slotId);
+      const slot = m.slots[m.slotIds.get(row.slotId)];
+      if (!Array.isArray(row.staffIds) || row.staffIds.length !== slot.required
+          || new Set(row.staffIds).size !== row.staffIds.length
+          || row.staffIds.some(id => !m.ids.has(id))) {
+        errors.push(`元の勤務表で枠「${row.slotId}」の担当者を確認してください。`); continue;
+      }
+      reference[slot.index] = new Set(row.staffIds.map(id => m.ids.get(id)));
+    }
+    if (seen.size !== m.slots.length) errors.push('元の勤務表にはすべての枠が必要です。');
+    if (errors.length) { result.diagnostics = [...new Set(errors)]; return finish(); }
+  }
   const requestedMs = options.timeLimitMs ?? m.settings.timeLimitMs;
   const maxNodes = options.maxNodes ?? Infinity;
   if (!num(requestedMs, 0, 60000) || !(maxNodes === Infinity || integer(maxNodes, 0, Number.MAX_SAFE_INTEGER))) {
@@ -244,6 +270,7 @@ export function solve(data, options = {}) {
   });
   const assignments = m.slots.map(() => []);
   let preferred = 0, bestPreferred = -1, best = null, bestObjective = Infinity;
+  let bestChanged = Infinity, bestReplacements = Infinity;
   let stopped = false, proof = false, deadEnd = null;
   const cut = () => {
     if (result.nodes >= maxNodes || performance.now() >= deadline) { stopped = true; return true; }
@@ -282,6 +309,19 @@ export function solve(data, options = {}) {
     if (sign > 0) assignments[s.index].push(pi); else assignments[s.index].pop();
     if (s.prefs.get(pi) === 2) preferred += sign;
   }
+  // Every replacement changes that slot. Count a lower bound from staff who
+  // can still be kept. Global constraints can only increase these counts.
+  function repairBoundForSlot(s, candidates) {
+    const assigned = assignments[s.index];
+    const retained = assigned.filter(pi => reference[s.index].has(pi)).length;
+    const missing = s.required - assigned.length;
+    const availableOriginal = candidates.filter(pi => reference[s.index].has(pi)).length;
+    const replacements = s.required - retained - Math.min(missing, availableOriginal);
+    return { changedSlots: replacements > 0 ? 1 : 0, replacements };
+  }
+  function repairCostWorse(changedSlots, replacements) {
+    return changedSlots > bestChanged || (changedSlots === bestChanged && replacements > bestReplacements);
+  }
   const issues = [];
   for (const s of m.slots) {
     if (s.candidates.length < s.required) issues.push(`${slotLabel(s)}は必要${s.required}人に対し、勤務可能かつ必要スキルを持つ人が${s.candidates.length}人です。`);
@@ -305,24 +345,35 @@ export function solve(data, options = {}) {
     const nonFixedPreferred = s.candidates.filter(pi => !s.fixedIndices.includes(pi) && s.prefs.get(pi) === 2).length;
     return n + fixedPreferred + Math.min(s.required - s.fixedIndices.length, nonFixedPreferred);
   }, 0);
+  const rootRepair = reference ? m.slots.reduce((cost, s) => {
+    const candidates = s.candidates.filter(pi => !assignments[s.index].includes(pi) && !reason(pi, s));
+    const bound = repairBoundForSlot(s, candidates);
+    return { changedSlots: cost.changedSlots + bound.changedSlots, replacements: cost.replacements + bound.replacements };
+  }, { changedSlots: 0, replacements: 0 }) : null;
   function search() {
     if (proof || cut()) return;
     result.nodes++;
     let chosen = null, candidates = null, smallest = Infinity, remainingMinutes = 0;
     const possibleMinutes = state.map(() => 0);
     let nodePreferredUpper = preferred;
+    let changedLower = 0, replacementsLower = 0, chosenRepairBound = null;
     for (const s of m.slots) {
       const missing = s.required - assignments[s.index].length;
-      if (!missing) continue;
+      if (!missing) {
+        if (reference) { const bound = repairBoundForSlot(s, []); changedLower += bound.changedSlots; replacementsLower += bound.replacements; }
+        continue;
+      }
       remainingMinutes += missing * s.duration;
       const cand = s.candidates.filter(pi => !assignments[s.index].includes(pi) && !reason(pi, s));
       if (cand.length < missing) { if (!deadEnd) deadEnd = s; return; }
+      const repairBound = reference ? repairBoundForSlot(s, cand) : null;
+      if (repairBound) { changedLower += repairBound.changedSlots; replacementsLower += repairBound.replacements; }
       for (const pi of cand) possibleMinutes[pi] += s.duration;
       nodePreferredUpper += Math.min(missing, cand.filter(pi => s.prefs.get(pi) === 2).length);
       // log(binomial) orders slots by the number of combinations without overflow.
       let ways = 0;
       for (let i = 1; i <= Math.min(missing, cand.length - missing); i++) ways += Math.log(cand.length - i + 1) - Math.log(i);
-      if (ways < smallest || (ways === smallest && s.duration > chosen?.duration)) { smallest = ways; chosen = s; candidates = cand; }
+      if (ways < smallest || (ways === smallest && s.duration > chosen?.duration)) { smallest = ways; chosen = s; candidates = cand; chosenRepairBound = repairBound; }
     }
     let lower = 0;
     for (const p of m.staff) {
@@ -332,13 +383,23 @@ export function solve(data, options = {}) {
       lower += ((bestMinute - targets[i]) / 60) ** 2 / p.weight;
     }
     lower = Math.max(lower, rootBound);
-    if (lower > bestObjective + EPS || (Math.abs(lower - bestObjective) <= EPS && nodePreferredUpper <= bestPreferred)) return;
+    if (reference && repairCostWorse(changedLower, replacementsLower)) return;
+    // Fairness must never discard a plan with fewer changes. It is a tie-break
+    // only after both change-count lower bounds match the best completed plan.
+    const compareFairness = !reference || (changedLower === bestChanged && replacementsLower === bestReplacements);
+    if (compareFairness && (lower > bestObjective + EPS || (Math.abs(lower - bestObjective) <= EPS && nodePreferredUpper <= bestPreferred))) return;
     if (!chosen) {
       const values = state.map((st, i) => st.minutes + fairnessHistory[i]);
       const objective = scoreOf(values, targets, m.staff.map(p => p.weight));
-      if (objective < bestObjective - EPS || (Math.abs(objective - bestObjective) <= EPS && preferred > bestPreferred)) {
+      const betterChanges = reference && (changedLower < bestChanged || (changedLower === bestChanged && replacementsLower < bestReplacements));
+      const sameChanges = !reference || (changedLower === bestChanged && replacementsLower === bestReplacements);
+      if (betterChanges || (sameChanges && (objective < bestObjective - EPS || (Math.abs(objective - bestObjective) <= EPS && preferred > bestPreferred)))) {
         bestObjective = objective; bestPreferred = preferred; best = assignments.map(a => [...a]);
-        if (objective <= rootBound + EPS && preferred === preferredUpper) proof = true;
+        if (reference) { bestChanged = changedLower; bestReplacements = replacementsLower; }
+        const provenChangeBound = !reference || (changedLower === rootRepair.changedSlots && replacementsLower === rootRepair.replacements);
+        // Zero changed sets uniquely specifies the original plan, so no other
+        // fairness or preference score can improve that first objective.
+        if ((reference && !changedLower) || (provenChangeBound && objective <= rootBound + EPS && preferred === preferredUpper)) proof = true;
       }
       return;
     }
@@ -348,11 +409,20 @@ export function solve(data, options = {}) {
         const before = state[pi].minutes + fairnessHistory[pi] - targets[pi];
         return (2 * before * duration + duration * duration) / m.staff[pi].weight;
       };
-      return delta(a) - delta(b) || chosen.prefs.get(b) - chosen.prefs.get(a) || a - b;
+      return (reference ? Number(reference[chosen.index].has(b)) - Number(reference[chosen.index].has(a)) : 0)
+        || delta(a) - delta(b) || chosen.prefs.get(b) - chosen.prefs.get(a) || a - b;
     });
     const need = chosen.required - assignments[chosen.index].length;
+    const originalTail = reference ? new Array(candidates.length + 1).fill(0) : null;
+    if (reference) for (let i = candidates.length - 1; i >= 0; i--) originalTail[i] = originalTail[i + 1] + Number(reference[chosen.index].has(candidates[i]));
     function combinations(at, left) {
       if (proof || stopped || cut()) return;
+      if (reference && best) {
+        const retained = assignments[chosen.index].filter(pi => reference[chosen.index].has(pi)).length;
+        const replacements = chosen.required - retained - Math.min(left, originalTail[at]);
+        const changed = changedLower - chosenRepairBound.changedSlots + Number(replacements > 0);
+        if (repairCostWorse(changed, replacementsLower - chosenRepairBound.replacements + replacements)) return;
+      }
       if (!left) { search(); return; }
       for (let i = at; i <= candidates.length - left; i++) {
         const pi = candidates[i];
@@ -380,13 +450,18 @@ export function solve(data, options = {}) {
   result.status = stopped && !proof ? 'feasible' : 'optimal';
   result.schedule = schedule;
   result.objective = bestObjective;
+  if (reference) result.repair = { changedSlots: bestChanged, replacements: bestReplacements, optimal: result.status === 'optimal' };
   result.stats = m.staff.map((p, pi) => {
     const assigned = m.slots.filter(s => best[s.index].includes(pi));
     const minutes = assigned.reduce((n, s) => n + s.duration, 0);
     return { staffId: p.id, hours: minutes / 60, historyHours: actualHistory[pi] / 60, totalHours: (minutes + actualHistory[pi]) / 60, days: new Set(assigned.map(s => s.day)).size, targetHours: targets[pi] / 60 };
   });
-  result.diagnostics = result.status === 'optimal'
-    ? ['すべての必須条件を満たしています。勤務時間の比率と希望枠について、探索の範囲全体で最良であることを確認しました。']
-    : ['すべての必須条件を満たす案が見つかりました。探索上限に達したため、勤務時間の均等さ・希望枠について最良であることは未確認です。'];
+  result.diagnostics = reference
+    ? result.status === 'optimal'
+      ? ['すべての必須条件を満たす代替案です。変更する枠と交代人数が最小であることを確認しました。同じ変更量の案では勤務時間の配分と希望枠を優先しています。']
+      : ['すべての必須条件を満たす代替案が見つかりました。探索時間の上限に達したため変更量が最小かどうかは未確認です。']
+    : result.status === 'optimal'
+      ? ['すべての必須条件を満たしています。勤務時間の比率と希望枠について、探索の範囲全体で最良であることを確認しました。']
+      : ['すべての必須条件を満たす案が見つかりました。探索上限に達したため、勤務時間の均等さ・希望枠について最良であることは未確認です。'];
   return finish();
 }
