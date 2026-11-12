@@ -1,0 +1,13 @@
+{
+  "name": "loop-room-dj-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A browser-based 16-pad loop performance studio for learning and play.",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

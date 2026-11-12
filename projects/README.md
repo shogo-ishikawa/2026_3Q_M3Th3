@@ -38,3 +38,5 @@
 - [音の実験室](sound-analysis-lab/)：Webで音と波・スペクトルの基礎を学び、Colabで音源分離・聴き比べ・日本語グラフによる比較分析を進める教材です。合成デモから始め、手元の音源にも応用できます。
 
 - [FACEGATE](face-recognition-lab/)：学生への配布用に[元提出ZIP](face-recognition-lab/original/facegate-submitted.zip)を未改変で保存しています。[ブラウザ発展版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/face-recognition-lab/)では高速照合・複数人処理を追加しています。
+
+- [LOOP ROOM](dj-lab/)：学生のDJアプリをもとに公開用に整理・改良したDJループスタジオです。オリジナルの合成デモで16音源の重ね合わせ、テンポ同期、音量調整、エフェクト、録音を試せます。設定はブラウザ内に保存できます。[ブラウザ版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/dj-lab/) ／ [使い方](dj-lab/docs/manual.md)。
