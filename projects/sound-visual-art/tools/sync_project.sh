@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# /Users/shogo/Dropbox/share_data/open_material/misc/apps/LUMEN/v1.0.0 など、
+# /Users/shogo/Dropbox/share_data/open_material/misc/apps/LUMEN/v1.1.0 など、
 # 今回展開したバージョン自身を同期元にします。
 PROJECT_SOURCE="$(cd "$(dirname "$0")/.." && pwd)"
 CLASS_CHECKOUT="${1:?授業リポジトリのローカルパスを指定してください。}"

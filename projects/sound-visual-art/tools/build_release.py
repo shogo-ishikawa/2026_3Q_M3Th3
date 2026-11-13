@@ -8,7 +8,7 @@ import zipfile
 
 PROJECT = Path(__file__).resolve().parents[1]
 RUNTIME = ('index.html', 'styles.css', 'app.js', 'core.js', 'audio.js', 'renderer.js',
-           'icon.svg', 'VERSION', 'package.json', 'README.md', 'lumen_lab.ipynb')
+           'looks.js', 'recorder.js', 'icon.svg', 'VERSION', 'package.json', 'README.md', 'lumen_lab.ipynb')
 FOLDERS = ('docs', 'tests', 'tools')
 
 

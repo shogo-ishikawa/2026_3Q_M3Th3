@@ -1,22 +1,34 @@
 import {clamp, computeTargets, demoSignal, SCENES} from './core.js';
 import {VisualField} from './renderer.js';
 import {AudioEngine} from './audio.js';
+import {LIGHT_LOOKS, normaliseLook, parseLookHash, createShareUrl} from './looks.js';
+import {CanvasRecorder} from './recorder.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('art-canvas');
 const field = new VisualField(canvas);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const sceneCopy = {
-  garden: ['01 / GARDEN', '光の庭', '小さな光が集い、ほどけて、花ひらく。'],
-  water: ['02 / WATER', '水の記憶', '触れた場所から、静かな波が広がる。'],
-  aurora: ['03 / AURORA', 'オーロラ', '音の気配が、光のカーテンを揺らす。'],
+  garden: ['01 / GARDEN', '光の庭', '小さな光がほどけて花ひらく。'],
+  water: ['02 / WATER', '水の記憶', '触れた場所から静かな波が広がる。'],
+  aurora: ['03 / AURORA', 'オーロラ', '音の気配が光のカーテンを揺らす。'],
 };
 const quiet = () => ({level: 0, pitchHz: null, hasPitch: false, centroidHz: 0, rms: 0, confidence: 0});
 let scene = 'garden', paused = reducedMotion.matches, time = 0, lastFrame = null;
 let raf = 0, lastAnalysis = -1, lastReadout = -1, signal = quiet();
 let disposed = false, reversed = false, sourceEpoch = 0;
+let focusMode = false;
 const pointers = new Map();
 const audio = new AudioEngine({onState: syncAudio, onError: error => tell(error.message, true)});
+const recorder = new CanvasRecorder({
+  onState: syncRecording,
+  onError: error => tell(error.message, true),
+  onReady: result => {
+    if (disposed) return;
+    downloadBlob(result.blob, `lumen-${scene}.${result.extension}`);
+    tell('光の動きを動画に保存しました。音声は含まれていません。');
+  },
+});
 
 function tell(message, error = false) {
   $('status').textContent = message;
@@ -62,6 +74,7 @@ function applyOptions() {
   field.setOptions(options);
   field.setDemo(audio.state.source === 'none' && $('auto-draw').checked);
   syncAudio(audio.state);
+  highlightLook();
   if (paused) drawStill();
 }
 
@@ -76,6 +89,7 @@ function setScene(next) {
   for (const button of document.querySelectorAll('[data-scene]')) {
     button.setAttribute('aria-pressed', String(button.dataset.scene === next));
   }
+  highlightLook();
   if (paused) drawStill();
 }
 
@@ -137,7 +151,77 @@ async function activateDemo() {
   field.setDemo(true);
   syncAudio(audio.state);
   setPaused(false, false);
-  tell('無音のデモを表示しています。音を出す設定なら、なぞると短い音が鳴ります。');
+  tell('無音のデモを表示しています。音を出す設定ではなぞると短い音が鳴ります。');
+}
+
+/** 共有するのは見た目の設定だけです。音源や声は含めません。 */
+function captureLook() {
+  return normaliseLook({scene, palette: $('palette').value,
+    intensity: Number($('intensity').value) / 100,
+    motion: Number($('motion').value) / 100,
+    trails: Number($('trails').value) / 100,
+    quality: $('quality').value, autoDraw: $('auto-draw').checked});
+}
+function highlightLook() {
+  const current = captureLook();
+  for (const button of document.querySelectorAll('[data-look]')) {
+    const look = LIGHT_LOOKS.find(item => item.id === button.dataset.look);
+    const selected = look && Object.keys(current).every(key => current[key] === look.settings[key]);
+    button.setAttribute('aria-pressed', String(!!selected));
+  }
+}
+function applyLook(settings, announce = true) {
+  const next = normaliseLook(settings);
+  for (const id of ['intensity', 'motion', 'trails']) $(id).value = Math.round(next[id] * 100);
+  $('palette').value = next.palette; $('quality').value = next.quality;
+  $('auto-draw').checked = next.autoDraw;
+  setScene(next.scene); applyOptions();
+  if (announce) tell('光の設定を変えました。音の入力と再生はそのまま続きます。');
+}
+function openSharedLook() {
+  const parsed = parseLookHash(location.hash);
+  if (!parsed) return false;
+  if (parsed.error) { tell(parsed.error, true); return false; }
+  applyLook(parsed.settings, false);
+  tell('共有された光の設定を開きました。デモや指先の動きで楽しめます。');
+  return true;
+}
+async function copyShare() {
+  const url = createShareUrl(location.href, captureLook());
+  $('share-url').value = url; $('share-result').hidden = false;
+  try {
+    if (!navigator.clipboard?.writeText) throw Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(url);
+    tell('共有リンクをコピーしました。同じ配色と動きの設定で開けます。');
+  } catch {
+    $('share-url').focus(); $('share-url').select();
+    tell('共有リンクを表示しました。リンクを選択してコピーしてください。');
+  }
+}
+function setFocusMode(enabled) {
+  focusMode = enabled;
+  $('experience').classList.toggle('is-focused', enabled);
+  document.body.classList.toggle('viewing-art', enabled);
+  $('focus-mode').setAttribute('aria-pressed', String(enabled));
+  $('exit-focus').hidden = !enabled;
+  $('experience').setAttribute('role', enabled ? 'dialog' : 'region');
+  if (enabled) $('experience').setAttribute('aria-modal', 'true');
+  else $('experience').removeAttribute('aria-modal');
+  (enabled ? $('exit-focus') : $('focus-mode')).focus();
+  resize();
+}
+function syncRecording(state) {
+  $('record-video').disabled = !!state.processing || !field.supported || !recorder.supports(canvas);
+  $('record-video').setAttribute('aria-label', state.processing ? '動画を作成中' : state.recording ? '録画を止めて保存' : '動画を保存');
+  $('record-video').textContent = state.processing ? '…' : state.recording ? '■' : '◉';
+  $('record-video').classList.toggle('is-recording', state.recording);
+  $('record-status').hidden = !state.recording && !state.processing;
+  $('record-status').textContent = state.processing ? '動画を作成中' : '録画中 · 12秒で保存';
+}
+function downloadBlob(blob, filename) {
+  const link = document.createElement('a'), url = URL.createObjectURL(blob);
+  link.href = url; link.download = filename; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 function resize() {
@@ -180,6 +264,20 @@ canvas.addEventListener('keydown', event => {
 });
 
 for (const button of document.querySelectorAll('[data-scene]')) button.addEventListener('click', () => setScene(button.dataset.scene));
+for (const button of document.querySelectorAll('[data-look]')) button.addEventListener('click', () => {
+  const look = LIGHT_LOOKS.find(item => item.id === button.dataset.look);
+  if (look) { applyLook(look.settings, false); tell(`「${look.label}」の設定を開きました。`); }
+});
+bind('share-look', 'click', copyShare);
+bind('copy-share', 'click', copyShare);
+bind('focus-mode', 'click', () => setFocusMode(!focusMode));
+bind('exit-focus', 'click', () => setFocusMode(false));
+bind('record-video', 'click', async () => {
+  if (recorder.recording) { await recorder.stop(); return; }
+  if (!field.supported || !recorder.supports(canvas)) throw Error('このブラウザでは動画を保存できません。「画像を保存」をお使いください。');
+  if (paused) setPaused(false, false);
+  if (recorder.start(canvas, {duration: 12, fps: 24})) tell('光の動きを12秒間記録します。もう一度押すと途中で保存できます。');
+});
 for (const id of ['intensity', 'motion', 'trails', 'palette', 'quality', 'auto-draw']) bind(id, 'input', applyOptions);
 bind('pause', 'click', () => setPaused(!paused));
 bind('clear', 'click', () => {
@@ -237,9 +335,7 @@ bind('save-image', 'click', () => new Promise((resolve, reject) => {
   if (!field.supported) { reject(Error('画像を保存できません。Canvas対応ブラウザでお試しください。')); return; }
   canvas.toBlob(blob => {
     if (!blob) { reject(Error('画像を作成できませんでした。')); return; }
-    const link = document.createElement('a'), url = URL.createObjectURL(blob);
-    link.href = url; link.download = `lumen-${scene}.png`; link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadBlob(blob, `lumen-${scene}.png`);
     tell('この瞬間の光をPNG画像に保存しました。'); resolve();
   }, 'image/png');
 }));
@@ -292,6 +388,12 @@ bind('play-tone', 'click', async () => {
 });
 
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && focusMode) { setFocusMode(false); return; }
+  if (event.key === 'Tab' && focusMode) {
+    event.preventDefault();
+    (document.activeElement === $('exit-focus') ? canvas : $('exit-focus')).focus();
+    return;
+  }
   if (event.altKey || event.ctrlKey || event.metaKey || /^(INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY|A)$/.test(event.target.tagName)) return;
   if (event.code === 'Space') { event.preventDefault(); setPaused(!paused); }
   if (['1', '2', '3'].includes(event.key)) setScene(SCENES[Number(event.key) - 1].id);
@@ -300,21 +402,28 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     ++sourceEpoch; setPaused(true, false);
     if (audio.state.source !== 'file') audio.stopInput();
+    recorder.stop();
     tell('ページを離れたため光と音の入力を停止しました。再開ボタンで戻れます。');
   }
 });
 window.addEventListener('pagehide', event => {
   ++sourceEpoch; cancelAnimationFrame(raf); raf = 0;
-  if (event.persisted) { setPaused(true, false); audio.stopInput(); }
-  else { disposed = true; field.dispose(); audio.dispose().catch(() => {}); }
+  if (event.persisted) { setPaused(true, false); audio.stopInput(); recorder.stop({discard: true}); }
+  else { disposed = true; recorder.dispose(); field.dispose(); audio.dispose().catch(() => {}); }
 });
 reducedMotion.addEventListener('change', event => {
   if (event.matches) { $('motion').value = 0; applyOptions(); setPaused(true); }
 });
 window.addEventListener('resize', resize);
+window.addEventListener('hashchange', openSharedLook);
 new ResizeObserver(resize).observe($('experience'));
 
 if (reducedMotion.matches) $('motion').value = 0;
 applyOptions(); renderLab(); resize(); setPaused(paused, false);
+if (!field.supported || !recorder.supports(canvas)) {
+  $('record-video').disabled = true;
+  $('record-video').title = 'このブラウザでは動画保存に対応していません。PNG画像は保存できます。';
+}
+openSharedLook();
 if (!field.supported) tell('このブラウザでは光の描画に対応していません。音と色の実験室は引き続き使えます。', true);
 else if (paused) tell('動きを抑える設定に合わせて静止表示しています。再開ボタンで光を動かせます。');

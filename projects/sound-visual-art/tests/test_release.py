@@ -34,7 +34,8 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(first, release.build().read_bytes())
         with zipfile.ZipFile(release.build()) as archive:
             names = set(archive.namelist())
-            self.assertTrue(all(name.startswith('v1.0.0/') and '..' not in Path(name).parts for name in names))
+            version = (ROOT / 'VERSION').read_text().strip()
+            self.assertTrue(all(name.startswith(f'v{version}/') and '..' not in Path(name).parts for name in names))
             self.assertFalse(any('/dist/' in name or '__pycache__' in name or '/.git/' in name for name in names))
             for name in names:
                 if name.endswith('.js'):
