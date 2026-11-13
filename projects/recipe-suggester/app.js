@@ -10,6 +10,8 @@ import {analyseIntake,compareIntake} from './intake.js';
 import {setupTabs} from './tabs.js';
 import {previewReset,resetEntriesRange,createCatalogEntry} from './record-actions.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
+import {mountSaladBuilder} from './salad-builder-ui.js';
+import {SALAD_COMPONENTS} from './salad-builder.js';
 import {FOOD_CATEGORIES,COOKING_METHODS,dishClassification,browseDishes,availableDishCategories,availableCookingMethods} from './dish-hierarchy.js';
 
 const builtin = {recipes: RECIPES, ingredients: INGREDIENTS, allergens: ALLERGENS};
@@ -205,10 +207,10 @@ function renderRecordPicker(){
   }
   const previous=$('catalog-item').value;
   selectOptions($('catalog-item'),variants.map(r=>[r.id,hierarchical?r.name:r.variantLabel??r.name]),previous);
-  const id=$('catalog-item').value,r=recipeById(id);$('add-catalog-item').disabled=!r;
+  const id=$('catalog-item').value,r=recipeById(id),composable=id==='familiar-side-raw-vegetable';$('add-catalog-item').disabled=!r;$('add-catalog-item').textContent=composable?'材料を選んで記録':'記録に追加';$('catalog-amount').disabled=composable;
   if(!r){recordSelectionId='';$('catalog-type-note').textContent='';$('catalog-unit').textContent='';$('catalog-serving-label').textContent='一致するメニューがありません。区分や絞り込みを見直してください。';return;}
-  const described=describeRecipe(r.id,data());$('catalog-type-note').textContent=[familyLabel(r),natureLabel(r),r.sourceNote,described.allergensKnown===false?'商品の原材料を確認してください。未確認のメニューは自動提案には使いません。':''].filter(Boolean).join(' / ');
-  const portion=recipePortion(r,data());$('catalog-unit').textContent=portion.unit;$('catalog-serving-label').textContent=portion.label;
+  const described=describeRecipe(r.id,data());$('catalog-type-note').textContent=[familyLabel(r),natureLabel(r),composable?'':r.sourceNote,described.allergensKnown===false?'商品の原材料を確認してください。未確認のメニューは自動提案には使いません。':''].filter(Boolean).join(' / ');
+  const portion=recipePortion(r,data());$('catalog-unit').textContent=portion.unit;$('catalog-serving-label').textContent=composable?'材料と量は次の画面で選べます。':portion.label;
   $('catalog-amount').min='0.001';$('catalog-amount').max='1000000';$('catalog-amount').step='any';
   if(recordSelectionId!==id){$('catalog-amount').value=portion.amount;recordSelectionId=id;}
 }
@@ -295,13 +297,29 @@ function renderCatalog(){
   $('catalog-safety-note').textContent=constraints?'アレルギーなどの除外条件があるため、原材料未確認の市販品は一覧に表示していません。食べたものは記録タブから登録できます。':'市販品は代表的な栄養の目安です。原材料未確認のメニューも記録できますが、自動提案の対象にはしません。商品の表示を優先してください。';
   $('recipe-results-count').textContent=`${candidates.length}品が見つかりました`;
   const grid=$('recipe-grid');grid.replaceChildren();
-  for(const r of candidates.slice(0,recipeLimit)){const card=button('',()=>openRecipe(r.id),'recipe-card');card.append(node('span','recipe-meta',`${familyLabel(r)} / ${r.genre}`),node('h3','',r.name),node('p','',`${natureLabel(r)}${r.custom?' · 自分のメニュー':recipeNature(r)==='home-cooked'?` · ${r.minutes}分`:''}`));const n=recipeNutrition(r,data());card.append(node('small','',n.kcal===null?'エネルギー未入力':`${fmt(n.kcal,0)} kcal / ${amount(recipePortion(r,data()).amount,recipePortion(r,data()).unit)}`));if(r.allergensKnown===false)card.append(node('span','food-confirmation','商品・原材料を確認'));grid.append(card);}
+  for(const r of candidates.slice(0,recipeLimit)){const card=button('',()=>openRecipe(r.id),'recipe-card');card.append(node('span','recipe-meta',`${familyLabel(r)} / ${r.genre}`),node('h3','',r.name),node('p','',`${natureLabel(r)}${r.custom?' · 自分のメニュー':recipeNature(r)==='home-cooked'?` · ${r.minutes}分`:''}`));const n=recipeNutrition(r,data());card.append(node('small','',n.kcal===null?'エネルギー未入力':`${fmt(n.kcal,0)} kcal / ${amount(recipePortion(r,data()).amount,recipePortion(r,data()).unit)}`));if(r.id==='familiar-side-raw-vegetable')card.append(node('span','food-customisation','材料とドレッシングを選べます'));if(r.allergensKnown===false)card.append(node('span','food-confirmation','商品・原材料を確認'));grid.append(card);}
   if(!candidates.length)grid.append(node('p','empty-note','条件に合うメニューがありません。検索や避ける食材の設定を確認してください。'));
   $('more-recipes').hidden=candidates.length<=recipeLimit;
   $('custom-catalog-list').replaceChildren();if(!state.customRecipes.length)$('custom-catalog-list').append(node('p','field-note','手入力のときに保存を選ぶと、ここにメニューが増えます。'));
   for(const r of state.customRecipes){const row=node('div','custom-recipe-row');row.append(button(r.name,()=>openRecipe(r.id)),node('small','',r.allergensKnown?'アレルギー情報を確認済み':'アレルギー情報は未確認'),button('削除',()=>{if(!confirm(`「${r.name}」を自分のデータベースから削除しますか？記録済みの食事は残ります。`))return;commit(next=>{next.customRecipes=next.customRecipes.filter(c=>c.id!==r.id);if(next.settings.stapleId===r.id){next.settings.stapleId='auto';next.settings.stapleMode='adaptive';next.settings.stapleAmount=null;}if(next.settings.drinkId===r.id)next.settings.drinkId='none';},{message:'メニューを削除しました。過去の記録は残しています。'});}));$('custom-catalog-list').append(row);}
 }
-function openRecipe(id){const r=describeRecipe(id,data());if(!r)throw Error('このレシピは見つかりませんでした。');openSnapshot(snapshot(id),r.custom?undefined:r.minutes,id);}
+function openRecipe(id){if(id==='familiar-side-raw-vegetable'){openSaladComposer(id);return;}const r=describeRecipe(id,data());if(!r)throw Error('このレシピは見つかりませんでした。');openSnapshot(snapshot(id),r.custom?undefined:r.minutes,id);}
+/** 生野菜サラダはその場で材料を選び、記録には確定した内容を残します。 */
+function openSaladComposer(recipeId){
+  const base=recipeById(recipeId),box=$('dialog-content');
+  $('dialog-title').textContent='野菜サラダを組み立てる';
+  $('dialog-meta').textContent='副菜 / 野菜・いも / サラダ / 1皿';
+  box.replaceChildren();
+  let currentRecipe=null;
+  const form=catalogRecordForm(recipeId,{getCustomRecipe:()=>currentRecipe});
+  const initial={components:base.ingredients.map(part=>({id:SALAD_COMPONENTS.find(component=>component.ingredientId===part.id)?.id,amount:part.amount/base.servings})).filter(part=>part.id),dressingId:'none',dressingAmount:0};
+  const builder=mountSaladBuilder({data:data(),initial,
+    onChange:recipe=>{currentRecipe=recipe;form.querySelector('button[type="submit"]').disabled=!recipe;},
+    onError:()=>{}});
+  box.append(builder,form);
+  if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
+}
+
 function openSnapshot(item,minutes,catalogId=null){
   const purchased=['instant','retort','fast-food','ready-to-eat'].includes(item.nature),custom=recipeById(item.recipeId)?.custom===true;
   $('dialog-title').textContent=item.name;$('dialog-meta').textContent=`${item.recipeId&&recipeById(item.recipeId)?familyLabel(recipeById(item.recipeId)):ROLES[item.role]} / ${item.portion?amount(item.portion.amount*item.quantity,item.portion.unit):amount(item.quantity,'人分')}${minutes&&!purchased?` / 約${minutes}分`:''}`;const box=$('dialog-content');box.replaceChildren();if(item.nature)box.append(node('p','food-nature',FOOD_NATURES.find(n=>n.id===item.nature)?.label??item.nature));if(item.sourceNote)box.append(node('p','source-note',item.sourceNote));
@@ -332,15 +350,27 @@ function appendPlanStapleControls(card,day,index){
   const apply=node('button','button-secondary compact','この食事に反映');apply.type='submit';form.append(label,amountLabel,apply);
   form.addEventListener('submit',guard(event=>{event.preventDefault();plan=updatePlanStaple(plan,{dayIndex:index,stapleId:select.value,amount:select.value==='none'?null:Number(qty.value)},data());renderPlan();renderShopping();tell('この食事の主食と量を更新しました。');}));details.append(form);card.append(details);
 }
-function catalogRecordForm(recipeId){
-  const r=recipeById(recipeId),portion=recipePortion(r,data()),form=node('form','catalog-record-form');form.id='catalog-record-form';form.append(node('h3','','カレンダーに追加'));
+function catalogRecordForm(recipeId,{getCustomRecipe=null}={}){
+  const r=recipeById(recipeId),portion=getCustomRecipe?{amount:1,unit:'皿'}:recipePortion(r,data()),form=node('form','catalog-record-form');form.id='catalog-record-form';form.append(node('h3','','カレンダーに追加'));
   const field=(title,id,type,value)=>{const label=node('label','',title),input=node('input');input.id=id;input.type=type;input.value=value;input.required=true;label.htmlFor=id;label.append(input);form.append(label);return input;};
   const date=field('記録する日付','menu-entry-date','date',selectedDate);
   const mealLabel=node('label','','食事'),meal=node('select');meal.id='menu-entry-meal';mealLabel.htmlFor=meal.id;selectOptions(meal,Object.entries(MEALS),$('calendar-meal').value);mealLabel.append(meal);form.append(mealLabel);
   const statusLabel=node('label','','記録の種類'),status=node('select');status.id='menu-entry-status';statusLabel.htmlFor=status.id;selectOptions(status,[['eaten','食べた'],['planned','これからの予定']],$('calendar-status').value);statusLabel.append(status);form.append(statusLabel);
   const qty=field(`量（${portion.unit}）`,'menu-entry-amount','number',String(portion.amount));qty.min='0.001';qty.max=100000;qty.step='any';
-  const submit=node('button','button-primary','この料理を記録に追加');submit.type='submit';form.append(submit);
-  form.addEventListener('submit',guard(event=>{event.preventDefault();const entry=createCatalogEntry({recipeId,date:date.value,meal:meal.value,status:status.value,amount:Number(qty.value),note:''},data());selectedDate=entry.date;month=entry.date.slice(0,7);commit(next=>next.entries.push(entry),{message:`${dateLabel(entry.date)}の${MEALS[entry.meal]}に追加しました。`});$('calendar-meal').value=entry.meal;$('calendar-status').value=entry.status;setDate(entry.date);$('recipe-dialog').close();activateTab('record',{focus:true});}));
+  const saveLabel=getCustomRecipe?check('salad-save-db','この組み合わせをマイメニューにも保存',false):null;
+  if(saveLabel){saveLabel.querySelector('input').id='salad-save-db';form.append(saveLabel);}
+  const submit=node('button','button-primary','この料理を記録に追加');submit.type='submit';submit.disabled=!!getCustomRecipe;form.append(submit);
+  form.addEventListener('submit',guard(event=>{
+    event.preventDefault();
+    const composed=getCustomRecipe?getCustomRecipe():null;
+    if(getCustomRecipe&&!composed)throw Error('サラダの材料と量を確認してください。');
+    const save=saveLabel?.querySelector('input')?.checked===true;
+    const catalogData=composed?{...data(),recipes:[...data().recipes,composed]}:data();
+    const entry=createCatalogEntry({recipeId:composed?.id??recipeId,date:date.value,meal:meal.value,status:status.value,amount:Number(qty.value),note:''},catalogData);
+    // マイメニューを作らない場合も、その時の材料・量・栄養を記録へ残します。
+    if(composed&&!save)entry.items[0].recipeId=null;
+    selectedDate=entry.date;month=entry.date.slice(0,7);
+    commit(next=>{if(composed&&save)next.customRecipes.push(composed);next.entries.push(entry);},{message:`${dateLabel(entry.date)}の${MEALS[entry.meal]}に追加しました。`});$('calendar-meal').value=entry.meal;$('calendar-status').value=entry.status;setDate(entry.date);$('recipe-dialog').close();activateTab('record',{focus:true});}));
   return form;
 }
 function resetFilter(from=$('reset-from').value,to=$('reset-to').value,status=$('reset-status').value){return {from,to,status,meals:Object.keys(MEALS)};}
@@ -402,7 +432,7 @@ for(const id of ['calendar-date','nutrition-date','start-date','shopping-from'])
 bind('month-prev','click',()=>{const date=new Date(`${month}-15T12:00:00`);date.setMonth(date.getMonth()-1);if(!dateIsValid(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-01`))return;month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;renderCalendar();});
 bind('month-next','click',()=>{const date=new Date(`${month}-15T12:00:00`);date.setMonth(date.getMonth()+1);if(!dateIsValid(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-01`))return;month=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;renderCalendar();});
 bind('month-today','click',()=>setDate(dateKey()));bind('calendar-date','change',()=>setDate($('calendar-date').value));bind('nutrition-date','change',()=>{if(!dateIsValid($('nutrition-date').value))throw Error('集計する日付を確認してください。');renderNutrition();});
-bind('add-catalog-item','click',()=>{const id=$('catalog-item').value;if(!id)throw Error('記録するメニューを選んでください。');const item=snapshot(id,quantityFromAmount(recipeById(id),data(),Number($('catalog-amount').value)));commit(next=>next.entries.push(selectedEntry([item])),{message:'食事をカレンダーに追加しました。'});});
+bind('add-catalog-item','click',()=>{const id=$('catalog-item').value;if(!id)throw Error('記録するメニューを選んでください。');if(id==='familiar-side-raw-vegetable'){openSaladComposer(id);return;}const item=snapshot(id,quantityFromAmount(recipeById(id),data(),Number($('catalog-amount').value)));commit(next=>next.entries.push(selectedEntry([item])),{message:'食事をカレンダーに追加しました。'});});
 bind('manual-add-ingredient','click',()=>ingredientRow());
 bind('manual-form','submit',event=>{event.preventDefault();const r=readManual(),save=$('manual-save-db').checked,quantity=Number($('manual-quantity').value),note=$('manual-note').value.trim();
   commit(next=>{if(save)next.customRecipes.push(r);const clean=validateJournal(next,builtin),full=save?clean.customRecipes.find(c=>c.id===r.id):validateJournal({...next,customRecipes:[...next.customRecipes,r]},builtin).customRecipes.at(-1);

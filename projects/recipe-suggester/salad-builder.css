@@ -1,0 +1,36 @@
+.salad-builder { margin: 0 0 22px; padding: 19px; border: 1px solid var(--line); border-radius: 7px; background: #f8fbf9; min-width: 0; }
+.salad-title { margin: 0 0 6px; font-size: 16px; }
+.salad-intro, .salad-note, .salad-allergens { color: var(--muted); font-size: 11px; line-height: 1.8; }
+.salad-intro { margin-bottom: 17px; }
+.salad-legend { margin-bottom: 9px; font-size: 12px; }
+.salad-component-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.salad-component { display: grid; grid-template-columns: minmax(0, 1fr) 87px; gap: 5px 9px; padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 5px; min-width: 0; }
+.salad-component-choice { display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; min-width: 0; }
+.salad-component-name { overflow-wrap: anywhere; }
+.salad-component-quantity, .salad-input-unit { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.salad-component-amount { width: 100%; min-height: 34px; padding: 6px; margin-top: 0; font-size: 12px; }
+.salad-unit { color: var(--muted); font-size: 11px; font-weight: 500; flex: 0 0 auto; }
+.salad-preparation { grid-column: 1 / -1; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.salad-dressing-fields { display: grid; grid-template-columns: minmax(0, 1fr) 155px; gap: 12px; margin-top: 18px; }
+.salad-dressing-label, .salad-dressing-quantity { min-width: 0; }
+.salad-input-unit { margin-top: 7px; }
+.salad-dressing-amount { margin-top: 0; }
+.salad-dressing-select { min-width: 0; }
+.salad-note { margin: 10px 0 15px; }
+.salad-error { margin: 12px 0 0; color: var(--danger); font-size: 12px; line-height: 1.8; }
+.salad-preview { margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--line); min-width: 0; }
+.salad-preview-title { color: var(--teal); font-size: 12px; font-weight: 650; overflow-wrap: anywhere; margin-bottom: 12px; }
+.salad-nutrients { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px 8px; margin: 0 0 15px; }
+.salad-nutrient { min-width: 0; }
+.salad-nutrient-label { color: var(--muted); font-size: 10px; }
+.salad-nutrient-value { margin: 3px 0 0; color: var(--ink); font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.salad-allergens { margin-bottom: 10px; }
+.salad-composition-summary { font-size: 11px; color: var(--teal); font-weight: 600; }
+.salad-material-list { margin: 8px 0 0; padding-left: 18px; font-size: 11px; line-height: 1.9; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .salad-builder { padding: 13px; }
+  .salad-component-grid { grid-template-columns: minmax(0, 1fr); }
+  .salad-dressing-fields { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .salad-dressing-quantity { max-width: 180px; }
+  .salad-nutrients { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -10,6 +10,7 @@ import {TAKEAWAY_RECIPES} from '../takeaway-foods.js';
 import {COMFORT_RECIPES} from '../comfort-foods.js';
 import {CONFECTIONERY_RECIPES} from '../confectionery-foods.js';
 import {DESSERT_RECIPES} from '../dessert-foods.js';
+import {ACCOMPANIMENT_RECIPES} from '../accompaniment-foods.js';
 import {CATALOG_CATEGORIES, FOOD_NATURES, recipePortion, quantityFromAmount} from '../catalog.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan, replaceRecipe} from '../planner.js';
 import {itemFromRecipe, itemNutrition, NUTRIENT_KEYS} from '../nutrition.js';
@@ -19,7 +20,7 @@ import {shoppingForEntries} from '../shopping.js';
 // 各追加モジュールの単体テストとは別に、公開アプリが import する完成DBを使います。
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
-const unconfirmedIds = new Set([...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES].filter(recipe => recipe.allergensKnown === false).map(recipe => recipe.id));
+const unconfirmedIds = new Set([...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES].filter(recipe => recipe.allergensKnown === false).map(recipe => recipe.id));
 const settings = {startDate: '2026-11-12', days: 7, servings: 3, meal: 'dinner', seed: 73};
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const snapshot = (id, amount) => {
@@ -40,14 +41,15 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
     assert.ok(typeof recipe.variantLabel === 'string' && recipe.variantLabel.trim(), recipe.id);
     assert.equal(typeof recipe.mealBase, 'boolean', recipe.id);
   }
-  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES]) {
+  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES]) {
     const integrated = byId.get(source.id);
     assert.ok(integrated, source.id);
     assert.deepEqual(integrated.ingredients, source.ingredients, source.id);
     if(integrated.nature==='home-cooked')assert.ok(integrated.steps.length>=3,source.id);
     else assert.deepEqual(integrated.steps,[],source.id);
     for (const key of ['family', 'nature', 'sourceNote', 'shoppingKnown', 'allergensKnown', 'ingredientsKnown']) {
-      assert.equal(integrated[key], source[key], `${source.id}/${key}`);
+      const movedSide = ['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon'].includes(source.id);
+      assert.equal(integrated[key], movedSide && key === 'family' ? 'small-dish' : source[key], `${source.id}/${key}`);
     }
   }
   assert.deepEqual(['family', 'role', 'staple', 'mealBase'].map(key => byId.get('snack-edamame')[key]), ['small-dish', 'side', false, false]);

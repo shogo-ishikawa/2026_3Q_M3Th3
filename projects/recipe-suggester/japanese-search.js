@@ -18,6 +18,15 @@ function kana(value) {
 // 先頭は検索用の共通形です。別の料理を同一にしないため、水餃子と焼き餃子は
 // 別項目にし、「水」「焼き」の違いを残します。一般の「餃子」は両方に一致します。
 const groups = [
+  // ご飯のお供は料理名・商品名で探せても、油漬けと水煮は混同しません。
+  ['つな', 'ツナ', 'シーチキン', 'sea chicken', 'seachicken'],
+  ['あぶらづけ', '油漬け', '油漬', 'オイル漬け', '油づけ'],
+  ['なまたまご', '生卵', '生玉子', '生たまご'],
+  ['おんせんたまご', '温泉卵', '温泉玉子', '温泉たまご', '温玉', '温たま', 'おんたま'],
+  ['あじつけのり', '味付けのり', '味付のり', '味付け海苔', '味付海苔'],
+  ['たらこ', '鱈子'], ['めんたいこ', '明太子'], ['からし', '辛子'],
+  ['かねつ', '加熱'],
+  ['かじょ', '花序'],
   ['しはんひん', '市販品'], ['がいしょく', '外食'],
   ['ちょこれーと', 'チョコレート', 'チョコ', 'ちょこ'],
   ['きゃんでぃー', 'キャンディー', 'キャンディ', '飴', 'あめ'],
@@ -238,19 +247,31 @@ function searchForms(value) {
   return result;
 }
 
+// 「ツナ」のかな部分一致を「こまつな」の末尾から作らないための区別です。
+// 小松菜そのものを探す読みは残し、ツナを含む料理や材料だけを根拠にします。
+function hasTunaReading(value) {
+  return normaliseJapaneseSearch(value).replaceAll('こまつな', ' ').includes('つな');
+}
+
 /** 空白で分けた語をすべて含む料理を探します。語順は問いません。 */
 export function matchesJapaneseQuery(fields, query) {
   const terms = kana(query).split(' ').filter(Boolean);
   if (!terms.length) return true;
   const values = (Array.isArray(fields) ? fields : [fields]).map(kana);
   const commonValues = values.flatMap(searchForms);
-  return terms.every(term => values.some(value => value.includes(term)) ||
-    commonValues.some(value => value.includes(normaliseJapaneseSearch(term))));
+  const tunaPresent = values.some(hasTunaReading);
+  return terms.every(term => (!hasTunaReading(term) || tunaPresent) &&
+    (values.some(value => value.includes(term)) ||
+    commonValues.some(value => value.includes(normaliseJapaneseSearch(term)))));
 }
 
 
-/** 料理名・小分類名に含まれない検索語の数。0の料理を先に表示します。 */
+/** 名前にない語の数。同数なら、単語検索では括弧前の料理名が一致する単品を先にします。 */
 export function japaneseQueryRank(primaryFields, query) {
-  return kana(query).split(' ').filter(Boolean).reduce((missing,term) =>
+  const terms = kana(query).split(' ').filter(Boolean);
+  const missing = terms.reduce((missing,term) =>
     missing + Number(!matchesJapaneseQuery(primaryFields,term)),0);
+  if (!missing && terms.length === 1 && primaryFields.some(field =>
+    normaliseJapaneseSearch(field).split('(')[0].trim() === normaliseJapaneseSearch(terms[0]))) return -0.25;
+  return missing;
 }

@@ -652,3 +652,6 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 .reset-range-form > .field-pair { margin:0; }
 #undo-reset { margin-top:14px; color:var(--teal); }
 @media(max-width:640px){.catalog-record-form { grid-template-columns:1fr; padding:14px; }.plan-staple-controls form { grid-template-columns:minmax(0,1fr) 85px; }.record-reset { padding:14px; }}
+
+.food-customisation { display:inline-block; padding:4px 7px; color:var(--teal); border:1px solid #c4dfd2; border-radius:4px; background:#edf7ef; font-size:10px; }
+.catalog-record-form > .choice-label { grid-column:1/-1; }

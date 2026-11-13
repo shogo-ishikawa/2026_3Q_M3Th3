@@ -7,6 +7,8 @@ import {TAKEAWAY_INGREDIENTS, TAKEAWAY_RECIPES} from '../takeaway-foods.js';
 import {COMFORT_INGREDIENTS, COMFORT_RECIPES} from '../comfort-foods.js';
 import {CONFECTIONERY_INGREDIENTS, CONFECTIONERY_RECIPES} from '../confectionery-foods.js';
 import {DESSERT_INGREDIENTS, DESSERT_RECIPES} from '../dessert-foods.js';
+import {ACCOMPANIMENT_INGREDIENTS, ACCOMPANIMENT_RECIPES} from '../accompaniment-foods.js';
+import {SALAD_INGREDIENTS} from '../salad-builder.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan} from '../planner.js';
 import {browseDishes, dishClassification} from '../dish-hierarchy.js';
 import {defaultJournal, parseJournal} from '../journal.js';
@@ -15,16 +17,20 @@ import {recipePortion} from '../catalog.js';
 import {shoppingForEntries} from '../shopping.js';
 
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
+const reclassifiedSides = new Set(['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon']);
+// v3.6で副菜へ移した3品だけを旧roleへ戻し、歴史的な固定ハッシュを保ちます。
+// 別の料理のrole変更や、3品の材料・量・栄養変更を許容する投影ではありません。
+const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, role: 'main'} : recipe;
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
-const additions = [...VARIED_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES];
+const additions = [...VARIED_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES];
 const addedIds = new Set(additions.map(recipe => recipe.id));
-const addedIngredients = new Set([...Object.keys(VARIED_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS)]);
+const addedIngredients = new Set([...Object.keys(VARIED_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS), ...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS)]);
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const close = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const snapshot = (id, quantity = 1) => ({...itemFromRecipe(describeRecipe(id, data), data, quantity), portion: recipePortion(byId.get(id), data)});
 const entry = (id, items, status = 'eaten') => ({id, date: '2026-11-13', meal: 'dinner', status, items, note: ''});
 
-test('旧711品・268食材は手順と表示文言・間食分類の整理以外のID・材料・分量・栄養を保持する', () => {
+test('旧711品・268食材は手順と表示文言・間食分類の整理と3品の副菜への移動以外のID・材料・分量・栄養を保持する', () => {
   const original = RECIPES.filter(recipe => !addedIds.has(recipe.id));
   const ingredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredients.has(id)));
   assert.equal(original.length, 711);
@@ -32,7 +38,7 @@ test('旧711品・268食材は手順と表示文言・間食分類の整理以�
   // v3.5の変更は表示名・説明と間食9品のfamilyです。stepsは従来どおり除外し、
   // name/variantLabel/family/sourceNote/portion.label（食材はname/note）だけを追加で除外。
   // クリーンなv3.4.0の同じ711品・268食材から計算した固定値で、量・単位・栄養は厳守します。
-  const stable = original.map(({steps,name,variantLabel,family,sourceNote,...recipe})=>({...recipe,
+  const stable = original.map(historicalRole).map(({steps,name,variantLabel,family,sourceNote,...recipe})=>({...recipe,
     ...(recipe.portion?{portion:Object.fromEntries(Object.entries(recipe.portion).filter(([key])=>key!=='label'))}:{})}));
   const stableIngredients = Object.fromEntries(Object.entries(ingredients).map(([id,{name,note,...ingredient}])=>[id,ingredient]));
   assert.equal(hash(stable), '973426e8109f970adae4389b09d12190c0f10f4f1d7a4d60b2f6a66a8ee4a298');

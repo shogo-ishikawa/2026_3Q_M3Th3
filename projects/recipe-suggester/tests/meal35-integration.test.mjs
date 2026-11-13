@@ -11,10 +11,17 @@ import {recipePortion} from '../catalog.js';
 import {CONFECTIONERY_RECIPES,CONFECTIONERY_INGREDIENTS} from '../confectionery-foods.js';
 import {DESSERT_RECIPES,DESSERT_INGREDIENTS} from '../dessert-foods.js';
 import {COMFORT_RECIPES,COMFORT_INGREDIENTS} from '../comfort-foods.js';
+import {ACCOMPANIMENT_RECIPES,ACCOMPANIMENT_INGREDIENTS} from '../accompaniment-foods.js';
+import {SALAD_INGREDIENTS} from '../salad-builder.js';
+
+const reclassifiedSides = new Set(['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon']);
+// v3.6で副菜へ移した3品だけを旧roleへ戻し、歴史的な固定ハッシュを保ちます。
+// 別の料理のrole変更や、3品の材料・量・栄養変更を許容する投影ではありません。
+const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, role: 'main'} : recipe;
 
 const data={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const newRecipePrefixes=['confectionery-','dessert-','comfort-'];
+const newRecipePrefixes=['confectionery-','dessert-','comfort-','acmp-'];
 // v3.4.0の公開DBの303食材。今回追加する素材と混ぜず、栄養や原料情報を照合します。
 const legacyIngredientIds=`
 chicken chicken_breast chicken_minced pork pork_minced beef beef_minced salmon
@@ -57,11 +64,12 @@ takeaway_unaju takeaway_shumai takeaway_frozen_suigyoza takeaway_spring_roll tak
 spring_roll_wrappers green_chilli fish_sauce eel_shirayaki beef_short_rib beef_tongue chicken_skin
 `.trim().split(/\s+/u);
 const recipeCore=recipe=>{
+  recipe=historicalRole(recipe);
   const{name,variantLabel,sourceNote,family,...rest}=recipe;
   return {...rest,...(recipe.portion?{portion:Object.fromEntries(Object.entries(recipe.portion).filter(([key])=>key!=='label'))}:{})};
 };
 
-test('旧784品は名称と間食分類の整理以外の量・材料・栄養・確認状況を保つ',()=>{
+test('旧784品は名称・間食分類と3品の副菜への移動以外の量・材料・栄養・確認状況を保つ',()=>{
   const original=RECIPES.filter(recipe=>!newRecipePrefixes.some(prefix=>recipe.id.startsWith(prefix)));
   assert.equal(original.length,784);
   assert.equal(hash(original.map(recipeCore)),'bd9bedc6bcef769141bb69ed7fece27de47f513ec9707246961019c515a060de');
@@ -116,8 +124,8 @@ test('追加63品を実際の公開DBへ統合し、未確認の購入品だけ�
   const products=[...CONFECTIONERY_RECIPES,...DESSERT_RECIPES];
   const additions=[...products,...COMFORT_RECIPES];
   assert.equal(additions.length,63);
-  assert.equal(RECIPES.length,847);
-  assert.equal(Object.keys(INGREDIENTS).length,363);
+  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length);
+  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);
   for(const recipe of additions)assert.ok(RECIPES.some(integrated=>integrated.id===recipe.id),recipe.id);

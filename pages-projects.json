@@ -69,7 +69,11 @@
         "takeaway-foods.js",
         "comfort-foods.js",
         "confectionery-foods.js",
-        "dessert-foods.js"
+        "dessert-foods.js",
+        "accompaniment-foods.js",
+        "salad-builder.js",
+        "salad-builder-ui.js",
+        "salad-builder.css"
       ]
     },
     {
