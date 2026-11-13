@@ -1,62 +1,29 @@
-/** 料理の完成写真ではなく、一覧を見分けるための分類イラストを選びます。 */
-import {recipeFamily} from './catalog.js';
-import {dishClassification} from './dish-hierarchy.js';
+/** 個別の標準レシピに対応する完成イメージだけを返します。分類画像は流用しません。 */
+import {RECIPES} from './data.js';
+import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js?v=3.16.0';
 
-const LABELS=Object.freeze({
-  rice:'ご飯・穀類のイメージ',onigiri:'おにぎりのイメージ',bread:'パンのイメージ',
-  noodles:'麺類のイメージ',curry:'カレーのイメージ',pizza:'ピザのイメージ',
-  sushi:'寿司のイメージ',burger:'ハンバーガーのイメージ',hotpot:'鍋・煮物のイメージ',
-  soup:'汁物のイメージ',sashimi:'刺身のイメージ',grill:'焼き物のイメージ',
-  skewer:'串焼きのイメージ','stir-fry':'炒め物のイメージ',fried:'揚げ物のイメージ',
-  salad:'サラダ・和え物のイメージ',egg:'卵料理のイメージ',tofu:'豆・豆腐料理のイメージ',
-  vegetables:'野菜・きのこ・海藻料理のイメージ',fruit:'果物のイメージ',
-  dessert:'お菓子・デザートのイメージ',drink:'飲み物のイメージ',
-  cheese:'チーズのイメージ',nuts:'ナッツのイメージ',plate:'食品のイメージ',
-});
-export const ILLUSTRATION_KINDS=Object.freeze(Object.keys(LABELS));
-const families=new Map([
-  ...['rice','fried-rice','donburi','omelette-rice','oatmeal'].map(id=>[id,'rice']),
-  ['onigiri','onigiri'],['bread','bread'],['naan','bread'],
-  ...['udon','soba','yakisoba','pasta','ramen','somen'].map(id=>[id,'noodles']),
-  ['curry','curry'],['pizza','pizza'],['sushi','sushi'],['burger','burger'],
-  ['karaage','fried'],['cutlet','fried'],['sashimi','sashimi'],['grilled-fish','grill'],
-  ['egg-main','egg'],['bean-main','tofu'],['fruit','fruit'],['cheese','cheese'],['nuts','nuts'],
-  ...['chocolate','candy','gummy','biscuit','donut','cake','japanese-sweet',
-    'ice-dessert','sweets','dessert','yoghurt'].map(id=>[id,'dessert']),
-]);
-// 既存の表示分類では串焼きも grill です。確認済みのレシピIDだけを区別し、
-// 「串」「焼き鳥」などの名前や単位「本」からは推測しません。
-const skewers=new Set([
-  'familiar-yakitori-negima','varied-yakitori-thigh-salt','varied-yakitori-thigh-tare',
-  'varied-yakitori-breast-salt','varied-yakitori-skin','varied-yakitori-tsukune',
-  'varied-yakitori-tsukune-cheese','varied-yakitori-ume-shiso',
-  'takeaway-yakitori-momo-tare','takeaway-yakitori-momo-salt','takeaway-yakitori-negima-tare',
-  'takeaway-yakitori-tsukune-tare','takeaway-yakitori-kawa-tare','takeaway-yakitori-sunagimo-salt',
-  'bistro-lamb-spice-skewers',
-]);
-const result=kind=>({kind,label:LABELS[kind]});
+const canonicalRecipes=new Map(RECIPES.map(recipe=>[recipe.id,recipe]));
+const own=(value,key)=>Object.hasOwn(value??{},key);
+const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+function ingredientsKey(recipe){
+  if(!Array.isArray(recipe.ingredients)||!recipe.ingredients.length)return null;
+  const parts=recipe.ingredients.map(part=>[part?.id,part?.amount]);
+  if(parts.some(([id,amount])=>typeof id!=='string'||typeof amount!=='number'||!Number.isFinite(amount)||amount<=0))return null;
+  return JSON.stringify(parts.sort((a,b)=>a[0].localeCompare(b[0])||a[1]-b[1]));
+}
+const nutrientsKey=recipe=>recipe.manualNutrition===undefined?null:record(recipe.manualNutrition)?JSON.stringify(Object.entries(recipe.manualNutrition).sort(([a],[b])=>a.localeCompare(b))):'invalid';
 
-/** 分類だけを参照し、材料・分量・栄養・保存データには触れません。 */
-export function recipeIllustration(recipe){
-  if(!recipe||typeof recipe!=='object'||Array.isArray(recipe))return result('plate');
-  // 自作の未分類料理を名前だけから特定料理のイラストへ振り分けません。
-  if(recipe.custom===true&&recipe.family===undefined){
-    return result(recipe.role==='soup'?'soup':recipe.role==='drink'?'drink':'plate');
-  }
-  try{
-    const family=recipeFamily(recipe),classification=dishClassification(recipe);
-    if(classification.section==='soup')return result('soup');
-    if(classification.section==='drink')return result('drink');
-    if(classification.section==='staple')return result(families.get(family)??'plate');
-    if(recipe.custom!==true&&skewers.has(recipe.id))return result('skewer');
-    if(['hotpot','simmer','stew'].includes(classification.method))return result('hotpot');
-    if(['fried','sashimi','stir-fry'].includes(classification.method))return result(classification.method);
-    if(['salad','dressed'].includes(classification.method))return result('salad');
-    if(families.has(family))return result(families.get(family));
-    if(classification.category==='egg')return result('egg');
-    if(classification.category==='bean')return result('tofu');
-    if(['vegetable','mushroom','seaweed'].includes(classification.category))return result('vegetables');
-    if(classification.method==='grill'||classification.method==='meuniere')return result('grill');
-    return result('plate');
-  }catch{return result('plate');}
+/**
+ * 保存済みの食事やアレンジへ、現在の標準料理の絵を後付けしません。
+ * material の表示用 name/ancestorIds は比較から除き、標準の量と人数は確認します。
+ */
+export function recipeArtwork(recipe,{artwork=RECIPE_ARTWORK}={}){
+  if(!record(recipe)||recipe.custom===true||own(recipe,'nutrition')||own(recipe,'quantity')||typeof recipe.id!=='string')return null;
+  const original=canonicalRecipes.get(recipe.id);
+  if(!original||!own(artwork,recipe.id)||recipe.name!==original.name||recipe.servings!==original.servings)return null;
+  const key=ingredientsKey(recipe);
+  if(key===null||key!==ingredientsKey(original)||nutrientsKey(recipe)!==nutrientsKey(original))return null;
+  const image=artwork[recipe.id];
+  if(!record(image)||image.name!==original.name||image.src!==`assets/recipe-art/${recipe.id}.webp`||image.largeSrc!==`assets/recipe-art/${recipe.id}-large.webp`||image.width!==640||image.height!==480)return null;
+  return {...image,recipeId:recipe.id};
 }

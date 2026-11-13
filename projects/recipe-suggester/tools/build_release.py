@@ -18,6 +18,7 @@ FILES = (
     "recipe-arrangement.js", "recipe-arrangement-ui.js", "recipe-arrangement.css",
     "quantity-input.js", "quantity-input.css",
     "recipe-illustration.js", "recipe-illustration-ui.js",
+    "recipe-artwork-manifest.js",
     "favourites.js", "favourites-ui.js", "favourites-ui.css", "meal-overlap.js",
     "nutrition-basis.js", "nutrition-basis-ui.js", "nutrition-basis-ui.css",
     "text-log.js", "text-log-ui.js", "text-log-ui.css",
@@ -25,7 +26,7 @@ FILES = (
     "catalog.js", "dietary-reference.js", "intake.js", "tabs.js", "everyday-foods.js", "app-icon.svg",
     "journal.js", "nutrition.js", "shopping.js", "ingredient-nutrients.js", "expanded-foods.js",
 )
-DIRECTORIES = ("docs", "tools", "tests")
+DIRECTORIES = ("docs", "tools", "tests", "assets")
 SKIP = {"__pycache__", ".pytest_cache", "node_modules", "dist"}
 
 
