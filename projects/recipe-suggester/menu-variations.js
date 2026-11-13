@@ -121,7 +121,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('sliced-bread', '食パン', ['staple-plain-bread','staple-wholegrain-bread'], {nature:'ready-to-eat', mealBase:false}),
   meal('oatmeal', 'オートミールがゆ', ['staple-oatmeal-water','staple-oatmeal-milk','staple-oatmeal-soy'], {mealBase:false}),
   dish('hamburg', 'ハンバーグ', [
-    'beef-hamburg','tofu-burger','classic-hamburg','familiar-hamburg-oroshi','familiar-hamburg-stew','familiar-hamburg-cheese',
+    'beef-hamburg','tofu-burger','classic-hamburg','familiar-hamburg-oroshi','familiar-hamburg-stew','familiar-hamburg-cheese','bistro-cheese-in-hamburg',
   ]),
   dish('mapo-tofu', '麻婆豆腐', ['mapo-tofu-chen-style','tofu-mapo'], {defaultRecipeId:'mapo-tofu-chen-style'}),
   dish('gyoza', '餃子', ['classic-gyoza','varied-boiled-gyoza','varied-shrimp-boiled-gyoza','varied-fried-gyoza']),
@@ -139,7 +139,13 @@ export const MENU_VARIATION_GROUPS = freeze([
   ], {nature:'ready-to-eat'}),
   dish('croquette', 'コロッケ', ['classic-croquette-potato','classic-croquette-pumpkin','classic-croquette-cream','world-crab-cream-croquette']),
   dish('stew', 'シチュー', ['familiar-beef-stew','familiar-chicken-cream-stew','familiar-pork-cream-stew']),
-  dish('nabe', '鍋料理', ['familiar-yose-nabe','familiar-kimchi-nabe','familiar-sesame-soy-nabe','familiar-chanko-nabe']),
+  dish('nabe', '鍋料理', [
+    'familiar-yose-nabe','familiar-kimchi-nabe','familiar-sesame-soy-nabe','familiar-chanko-nabe',
+    'chicken-tofu-pot','familiar-mizutaki','familiar-sukiyaki','familiar-pork-shabu','familiar-yudofu',
+    'simmered-pork-millefeuille-nabe','simmered-pork-mizore-nabe','simmered-chicken-yuzu-kosho-nabe','simmered-chicken-salt-lemon-nabe',
+    'simmered-ishikari-nabe','simmered-beef-motsu-nabe','simmered-oyster-miso-nabe','simmered-duck-negi-nabe',
+    'simmered-chicken-tomato-cheese-nabe','simmered-chicken-curry-nabe','simmered-soy-milk-tantan-nabe','simmered-pork-spinach-joya-nabe',
+  ]),
   dish('yakitori', '焼き鳥', [
     'familiar-yakitori-negima','varied-yakitori-thigh-salt','varied-yakitori-thigh-tare','varied-yakitori-breast-salt',
     'varied-yakitori-skin','varied-yakitori-tsukune','varied-yakitori-tsukune-cheese','varied-yakitori-ume-shiso',
@@ -152,8 +158,13 @@ export const MENU_VARIATION_GROUPS = freeze([
   dish('vegetable-tempura', '野菜・きのこの天ぷら', ['varied-vegetable-tempura','varied-shimeji-tempura'], {role:'side'}),
   dish('takeaway-tempura', '天ぷら（外食）', ['takeaway-tempura-shrimp','takeaway-tempura-squid'], {nature:'ready-to-eat'}),
   dish('potage', 'ポタージュ', [
-    'soup-004','soup-006','soup-008','calendar-soup-cauliflower-potato','familiar-side-corn-potage',
+    'soup-004','soup-006','soup-008','calendar-soup-cauliflower-potato','familiar-side-corn-potage','soup311-pumpkin-milk-potage',
   ], {role:'soup'}),
+  dish('clear-soup', 'お吸い物・すまし汁', ['soup-018','soup-033','soup311-osuimono-tofu-wakame','soup311-osuimono-asari'], {role:'soup'}),
+  dish('arajiru', 'あら汁', ['soup311-arajiru-salmon','soup311-arajiru-buri'], {role:'soup'}),
+  dish('clam-chowder', 'クラムチャウダー', ['familiar-side-clam-chowder','soup311-clam-chowder-tomato'], {role:'soup'}),
+  dish('consomme', 'コンソメスープ', ['soup311-consomme-plain','soup311-consomme-vegetable'], {role:'soup'}),
+  dish('wonton-soup', 'ワンタンスープ', ['soup-038','soup311-wonton-pork'], {role:'soup'}),
   dish('instant-potage', 'カップスープ', [
     'takeaway-knorr-corn','takeaway-knorr-potage','takeaway-knorr-mushroom','takeaway-knorr-spinach','takeaway-knorr-pumpkin','takeaway-knorr-tomato',
   ], {role:'soup', nature:'instant'}),

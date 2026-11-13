@@ -60,8 +60,40 @@ const oden = [
   material('ganmodoki','がんもどき（1個約30g）','palette_ganmodoki','具材','個',1,30),
   formula('mochi-pouch','餅巾着',[['aburaage',8],['dish_mochi',25]],'具材','個',1,{note:'油揚げ8gと切り餅25gを包む1個の目安です。'}),
   material('beef-tendon','牛すじ串（下ゆで済み40g）','beef_tendon_boiled','具材','本',1,40),
+  ...[
+    ['potato','じゃがいも','potato','個',70,'皮を除いた小さめ1個の調理前可食部です。'],
+    ['taro','里いも','taro','個',40,'皮を除いた1個の調理前可食部です。'],
+    ['sausage','ウインナー','palette_wiener','本',20,'1本の製品重量の目安。実物の原材料表示を確認してください。'],
+    ['shirataki','結びしらたき','shirataki','個',30,'水切りした無調味のしらたき1個の目安です。'],
+    ['kombu-knot','結び昆布','kombu','個',2,'戻す前の乾燥昆布の重さです。戻した後のg数とは異なり、結んだ昆布も食べます。'],
+    ['octopus','たこ串（ボイル）','octopus','本',30,'ゆでたマダコの可食部を串に刺した1本の目安です。'],
+    ['satsumaage','さつま揚げ','simmered_satsumaage','枚',30,'1枚の製品重量の目安。衣や吸収油を重ねて加算しません。'],
+    ['chikuwabu','ちくわぶ','simmered_chikuwabu','切れ',30,'小麦で作るちくわぶの1切れ。魚肉のちくわとは別の食材です。'],
+    ['tsumire','魚のつみれ','simmered_tsumire','個',18,'加熱済み製品1粒の目安。生の魚肉だねではありません。'],
+    ['gobomaki','ごぼう巻き','simmered_gobomaki','本',27,'ごぼう入り揚げかまぼこ1本の目安です。'],
+    ['quail-egg','うずら卵（ゆで）','simmered_quail_egg_boiled','個',9,'ゆでて殻を除いた1個の可食部です。'],
+  ].map(([id,label,ingredientId,unit,gramsPerUnit,note])=>material(id,label,ingredientId,'具材',unit,1,1,{gramsPerUnit,note:`${note} 実物に合わせて1${unit}の重さを変更できます。`})),
+  formula('cabbage-roll','ロールキャベツ',[['cabbage',30],['pork_minced',20],['onion',8],['starch',2],['salt',0.05]],'具材','個',1,
+    {note:'小さめ1個分の家庭用配合。キャベツ30g・豚ひき肉20g・玉ねぎ8g・片栗粉2g・塩0.05gで、調理前の材料合計は約60gです。'}),
   formula('broth','飲むおでんの汁',[['water',0.94],['soy_sauce',0.04],['mirin',0.02],['bonito',0.003]],'汁','ml',150,
     {food:false,maxAmount:1000,note:'実際に飲む量だけを選びます。具材に染みる汁はこの量に含める概算です。0mlなら選択を外せます。'}),
+];
+// ポトフは選んだ食材と煮汁を全量食べるモデルです。水と塩を分け、薄味にも調整できます。
+const potAuFeu = [
+  ...[['bacon','ベーコン','bacon',35],['sausage','ウインナー','palette_wiener',40],
+    ['chicken','鶏もも肉（皮付き）','chicken',100],['chicken-breast','鶏むね肉（皮なし）','chicken_breast',100],
+    ['pork','豚薄切り肉','pork',100]].map(([id,label,ingredientId,amount])=>
+      material(id,label,ingredientId,'肉・加工肉','g',amount,1,{note:'材料表の状態の可食部重量です。肉は調理前、加工肉は製品の重量で量ります。'})),
+  ...[['cabbage','キャベツ','cabbage',100],['potato','じゃがいも','potato',90],['carrot','にんじん','carrot',60],
+    ['onion','玉ねぎ','onion',60],['celery','セロリ','celery',25],['turnip','かぶ','turnip',80],
+    ['broccoli','ブロッコリー','broccoli',60],['mushroom','マッシュルーム','mushroom',40],
+    ['shimeji','しめじ','shimeji',50],['tomato','トマト','tomato',80]].map(([id,label,ingredientId,amount])=>
+      material(id,label,ingredientId,'野菜・きのこ','g',amount,1,{note:'皮や根など食べない部分を除いた、調理前の重量です。'})),
+  material('water','煮汁の水','water','煮汁・調味料','ml',350,1,
+    {food:false,note:'用意する煮汁の水。選択した煮汁も全量食べる概算で、飲用率の調整は行いません。少量で作る場合は具材が浸る小さめの鍋を使います。'}),
+  material('salt','食塩','salt','煮汁・調味料','g',0.7,1,{food:false,note:'加工肉にも塩分が含まれます。薄味にする場合は量を減らすか選択を外してください。'}),
+  material('black-pepper','黒こしょう','black_pepper','煮汁・調味料','g',0.1,1,{food:false}),
+  material('parsley','パセリ','parsley','仕上げ','g',1.5,1,{food:false}),
 ];
 // 個数は入力の便宜のための目安です。実物に合わせて1個・1枚・1杯のg数を変更できます。
 const weighedMaterial=(id,label,ingredientId,unit,gramsPerUnit,note,defaultAmount=1)=>
@@ -115,7 +147,8 @@ const sashimi = [['tuna','まぐろ赤身',15,2],['tuna-mediumfat','まぐろ中
     choice(id,label,recipeId,'刺身',unit,defaultAmount,{gramsPerUnit,note})));
 
 const COMPOSER_DESCRIPTIONS = {
-  oden:'大根・卵・練り物と、飲む汁の量を選ぶ',
+  oden:'大根・練り物・ロールキャベツなど21種と飲む汁を選ぶ',
+  'pot-au-feu':'肉・野菜・きのこと煮汁の量を自由に選ぶ',
   sushi:'握り11種・軍艦・巻き寿司を一皿に',
   sashimi:'魚介20種を切れ数・尾数で選び、重さへ換算する',
   yakitori:'部位、塩・たれ、本数を選ぶ',
@@ -131,11 +164,17 @@ const COMPOSER_DESCRIPTIONS = {
 
 export const FOOD_COMPOSERS = freeze([
   {kind:'oden',label:'おでん',recipeIds:['palette-oden'],role:'main',family:'main',genre:'和食',minutes:40,components:oden,
+    nutritionNote:'汁の栄養と買い物量は、選択した実際に飲む量だけを計上します。調理の鍋に用意する汁全量とは異なり、具に染みた汁や煮て移った成分は精密には補正しません。',
     defaults:[['daikon',1],['egg',1],['konjac',1],['chikuwa',1],['broth',150]],
-    intro:'食べる具材の個数と、実際に飲む汁の量を選びます。具材は表示した標準重量の目安です。',
+    intro:'食べる具材21種と実際に飲む汁の量を選びます。個数から重量へ換算し、新しい具材は1個の重さも変更できます。結び昆布は戻す前の乾燥重量です。汁は飲む量だけを含む概算で、買い物の汁量もこの量が基準です。鍋に用意する汁の全量とは異なります。',
     instructions:['大根は皮をむいて切り、やわらかく下ゆでする。卵は固ゆでして殻をむく。こんにゃくは下ゆでし、油揚げや厚揚げは湯通しする。',
       '選んだ具材をだし汁で静かに煮る。牛すじは下ゆで済みのものを使い、餅巾着は油揚げに表示量の餅を包む。',
       '練り物やはんぺんは煮崩れないよう後から加え、餅も中までやわらかくなるまで加熱する。食べた具材と飲んだ汁の量で記録する。']},
+  {kind:'pot-au-feu',label:'ポトフ',recipeIds:['familiar-side-pot-au-feu'],role:'soup',family:'soup',genre:'洋食',minutes:35,components:potAuFeu,
+    nutritionNote:'選択した具材・煮汁・調味料を全量食べるモデルです。栄養と買い物は用意する全量を計上し、残した煮汁の割合による補正は行いません。',
+    defaults:[['bacon',35],['cabbage',100],['potato',90],['carrot',60],['onion',60],['celery',25],['water',350],['salt',0.7],['black-pepper',0.1],['parsley',1.5]],
+    intro:'肉・野菜・きのこを好きなg数で選びます。ベーコンと野菜の初期量は元のポトフ1人分です。水・塩も調整でき、肉や野菜のうまみで煮る家庭用の配合です。選択した煮汁を全量食べる想定で栄養と買い物を計算します。コンソメや油は使わず、追加する場合は「食材を追加してアレンジ」から加えてください。',
+    instructions:['選んだ肉と野菜を材料表の量に用意し、小さめの鍋で煮る。食べる量は出来上がりの皿数で調整する。']},
   {kind:'sushi',label:'お寿司',recipeIds:[...sushi.map(part=>part.recipeId),'classic-sushi-assorted'],role:'staple',family:'sushi',genre:'和食',mealBase:true,minutes:20,components:sushi,
     defaults:[['tuna',2],['salmon',2],['shrimp',1],['egg',1]],intro:`握り・軍艦は貫数、細巻き・太巻きは切れ数で選べます。細巻きは1本6切れ、太巻きは1本8切れの目安です。${countNote}`,
     instructions:['食べる寿司の種類と数を選ぶ。魚は刺身用を使用し、えびや玉子など加熱する具は中まで火を通してから冷ます。']},
@@ -190,17 +229,55 @@ const quantityLabel = value => Number(value.toFixed(3)).toLocaleString('ja-JP');
 function selectedInstructions(definition,selected) {
   const has=id=>selected.some(part=>part.id===id);
   if(definition.kind==='oden')return [
-    ...(has('daikon')?['大根は皮をむいて表示量に切り、やわらかく下ゆでする。']:[]),
-    ...(has('egg')?['卵は固ゆでして殻をむく。']:[]),
-    ...(has('konjac')?['こんにゃくは表示量に切って下ゆでする。']:[]),
-    ...(has('atsuage')?['厚揚げは湯通しして食べやすく切る。']:[]),
-    ...(has('mochi-pouch')?['油揚げを湯通しし、切り餅を包んで餅巾着にする。']:[]),
-    ...(has('beef-tendon')?['牛すじは下ゆで済みの可食部を表示量に計る。']:[]),
-    '鍋に調理用のだし汁を適量用意し、選んだ具材を静かに煮て中まで温める。栄養には具材と、選択した飲む汁の量を計上する概算で、鍋の汁全量は加算しない。',
-    ...(has('chikuwa')||has('hanpen')||has('ganmodoki')?['選んだ練り物やがんもどきは煮崩れないよう後から加える。']:[]),
-    ...(has('mochi-pouch')?['餅の中心までやわらかくなったことを確認する。']:[]),
-    '食べた具材と実際に飲んだ汁の量に合わせて記録する。',
+    ...(has('daikon')?['大根は皮をむき、厚さ約2cmの輪切りにして面取りをする。片面に浅く十字の切り込みを入れ、竹串が通るまで別鍋で下ゆでする。']:[]),
+    ...(has('egg')?['卵は沸いた湯で10〜12分ゆでて固ゆでにし、冷水に取って殻をむく。']:[]),
+    ...(has('quail-egg')?['うずら卵はゆでて殻を除いた製品を使い、表示量を量る。']:[]),
+    ...(has('konjac')?['こんにゃくは表面を洗い、浅い切り込みを入れて切る。製品表示に従って下ゆでし、湯を切る。']:[]),
+    ...(has('shirataki')?['結びしらたきは表面を洗い、製品表示に従って下ゆでして湯を切る。']:[]),
+    ...(has('atsuage')?['厚揚げは熱湯をかけて水気を切り、食べやすく切る。']:[]),
+    ...(has('mochi-pouch')?['油揚げに熱湯をかけて水気を切る。表示量の切り餅を包み、口を閉じて餅巾着にする。']:[]),
+    ...(has('beef-tendon')?['牛すじは下ゆで済みの可食部を表示量に量り、必要なら食べやすく切る。']:[]),
+    ...(has('potato')||has('taro')?[`${has('potato')?'じゃがいも':''}${has('potato')&&has('taro')?'・':''}${has('taro')?'里いも':''}は皮をむき、煮崩れにくい大きさに切る。別鍋で竹串が通る手前まで下ゆでして湯を切る。`]:[]),
+    ...(has('kombu-knot')?['結び昆布は材料表の乾燥重量を量り、水で戻して柔らかくしてから結ぶ。戻し水は調理用のだし汁へ使える。結んだ昆布も食べる。']:[]),
+    ...(has('cabbage-roll')?['ロールキャベツ用の玉ねぎはみじん切りにし、豚ひき肉・片栗粉・塩とよく練る。キャベツの葉を柔らかくゆで、太い芯を薄くそぎ、肉だねを包んで巻き終わりを下にして置く。']:[]),
+    ...(has('chikuwabu')?['ちくわぶは表示量を食べやすく切り、熱湯で3〜5分下ゆでして湯を切る。']:[]),
+    '鍋に具材が浸る調理用のだし汁を用意する。下ごしらえした火の通りにくい具材から入れ、沸いたら弱火にしてふたを少しずらし、静かに20〜30分煮る。汁が減ったら湯を足し、強く煮立てない。',
+    ...(has('cabbage-roll')?['ロールキャベツは肉だねの中心75℃で1分以上を確認する。中心まで火が通る前に味見しない。']:[]),
+    ...(has('chikuwa')||has('ganmodoki')||has('satsumaage')||has('tsumire')||has('gobomaki')?[`${selected.filter(part=>['chikuwa','ganmodoki','satsumaage','tsumire','gobomaki'].includes(part.id)).map(part=>part.label).join('・')}は仕上げの10〜15分で加え、中まで温める。揚げ練り物を湯通しした場合も、油の流出量は栄養計算では補正しない。`]:[]),
+    ...(has('sausage')||has('octopus')?[`${has('sausage')?'ウインナー':''}${has('sausage')&&has('octopus')?'・':''}${has('octopus')?'ゆでだこ':''}は後半に加え、中まで温める。長く強く煮立てない。`]:[]),
+    ...(has('mochi-pouch')?['餅巾着は餅の中心まで柔らかくなるまで煮る。']:[]),
+    ...(has('hanpen')?['はんぺんは食べる直前に加え、汁をかけながらさっと温める。']:[]),
+    '食べた具材と実際に飲んだ汁の量に合わせて記録する。栄養と買い物の汁量は選択した飲む量が基準で、調理の鍋に張る全量ではない。具に染みた汁や加熱中の成分移動は精密には補正しない。',
   ];
+  if(definition.kind==='pot-au-feu'){
+    const rawMeat=has('chicken')||has('chicken-breast')||has('pork');
+    const selectedNames=(ids)=>selected.filter(part=>ids.includes(part.id)).map(part=>part.label).join('・');
+    const firm=selectedNames(['carrot','potato','onion','cabbage','celery']),late=selectedNames(['turnip','mushroom','shimeji','tomato']);
+    return [
+      ...(has('carrot')?['にんじんは皮など食べない部分を除き、厚さ1.5〜2cmを目安に大きさをそろえて切る。']:[]),
+      ...(has('potato')?['じゃがいもは皮をむいて3〜4cm程度に切り、さっと水にさらす。調理前の可食部を量る。']:[]),
+      ...(has('onion')?['玉ねぎは芯の硬い部分と皮を除き、形が残るくし形に切る。']:[]),
+      ...(has('cabbage')?['キャベツは硬い芯の先端を薄く切り、葉がばらばらにならないくし形にする。']:[]),
+      ...(has('celery')?['セロリは太い筋を除き、長さ3〜4cmを目安に切る。']:[]),
+      ...(has('turnip')?['かぶは皮をむいてくし形に切る。葉や茎は選択量に含めず、根の可食部を量る。']:[]),
+      ...(has('mushroom')?['マッシュルームは汚れと硬い根元を除き、半分に切る。']:[]),
+      ...(has('shimeji')?['しめじは石づきを取り、食べやすい小房に分ける。']:[]),
+      ...(has('tomato')?['トマトはへたを取り、煮崩れすぎない大きめのくし形に切る。']:[]),
+      ...(has('broccoli')?['ブロッコリーは小房に分け、茎を使う場合は硬い皮を除いて薄めに切る。']:[]),
+      ...(has('bacon')?['ベーコンは食べやすい長さに切る。脂や塩分もうまみとして煮汁へ移るため、煮汁を捨てずに使う。']:[]),
+      ...(has('chicken')||has('chicken-breast')?['選んだ鶏肉は厚さが均等な2〜3cmの一口大に切る。生肉を扱った包丁とまな板は野菜用と分けるか洗浄する。']:[]),
+      ...(has('pork')?['豚薄切り肉は食べやすい長さに切り、重なりをほぐしておく。']:[]),
+      ...(has('sausage')?['ウインナーは加熱済み製品を表示量に量り、必要なら食べやすく切る。追加の油は使わない。']:[]),
+      `材料表の水を小さめの鍋へ入れる。${has('bacon')?'ベーコンと、':''}${has('chicken')?'鶏もも肉と、':''}${firm?`選んだ${firm}を加える。`:'選んだ具材を加える準備をする。'}中火にかけ、沸いたらあくを取り、弱火にする。具材が水面から大きく出る場合は小さい鍋へ移すか、水を追加して記録量も合わせる。`,
+      ...(firm||has('chicken')||has('bacon')?['ふたを少しずらし、軽く煮立つ火加減で15〜20分煮る。選んだ硬い野菜に竹串がすっと通るまで加熱する。']:[]),
+      ...(late||has('chicken-breast')||has('pork')?[
+        `${late?`選んだ${late}と、`:''}${has('chicken-breast')?'鶏むね肉と、':''}${has('pork')?'ほぐした豚肉を、':''}鍋へ加え、弱火でさらに8〜10分を目安に煮る。生の肉を選んだ場合は重なりをほぐし、加えた具材の中心まで十分に加熱する。`]:[]),
+      ...(has('sausage')||has('broccoli')?[`${has('sausage')?'ウインナーと、':''}${has('broccoli')?'ブロッコリーを、':''}仕上げの3〜5分に加え、中まで温める。ブロッコリーを選んだ場合は茎も柔らかくする。`]:[]),
+      ...(rawMeat?['選んだ生の肉は中心75℃で1分以上の加熱を確認する。時間は肉の厚さで変わるため、火が通っていなければ追加で加熱する。']:[]),
+      ...(has('salt')||has('black-pepper')?[`火を止める前に${selectedNames(['salt','black-pepper'])}を材料表の量で加えて味を調える。加工肉の塩分も含まれるので、調味料は入力した量を超えて足さない。`]:[]),
+      `${has('parsley')?'刻んだパセリを仕上げに散らす。':''}具と煮汁を合わせて一皿に盛る。選択した煮汁を全量食べる概算で、残した割合の補正は行わない。`,
+    ];
+  }
   if(['sushi','sashimi'].includes(definition.kind))return ['選んだ種類の材料と量を用意し、以下の選んだ料理の手順で盛り付ける。'];
   if(definition.kind==='yakitori'&&selected.every(part=>part.recipeId?.startsWith('takeaway-')))return ['購入品を選んだ本数用意する。保存方法と必要な再加熱は実際の商品表示に従う。'];
   if(definition.kind==='tempura'){
@@ -305,13 +382,14 @@ export function buildFoodSelection(config,data) {
   if(!selected.some(part=>part.food!==false&&!part.base)){
     if(!definition.baseRequired)throw Error('汁やソースだけでは記録できません。食べる具材を1つ以上選んでください。');
   }
+  if(definition.kind==='pot-au-feu'&&!selected.some(part=>part.id==='water'))throw Error('ポトフの煮汁の水を選び、0より大きい量を入力してください。');
   if(definition.baseRequired&&(selected.filter(part=>part.base).length!==1||selected.find(part=>part.base)?.amount!==1))throw Error('ベースは1個分を選んでください。');
   if(definition.fillingRequired&&!selected.some(part=>!part.base&&part.section==='具材'))throw Error('サンドイッチの具材を1種類以上選んでください。');
   if(selected.reduce((sum,part)=>sum+(part.gramsPerUnit!==undefined?part.amount*part.gramsPerUnit:['g','ml'].includes(part.unit)?part.amount:0),0)>3000)throw Error('1皿の合計量を確認してください。');
   if(selected.filter(part=>!['g','ml'].includes(part.unit)).reduce((sum,part)=>sum+part.amount,0)>100)throw Error('1皿の個数は合計100以下で入力してください。');
   const labels=selected.map(part=>`${part.label} ${quantityLabel(part.amount)}${part.unit}${part.gramsPerUnit===undefined?'':`（約${quantityLabel(part.amount*part.gramsPerUnit)}g）`}`),nameLabels=labels.slice(0,5).join('・');
   const suffix=labels.length>5?`ほか${labels.length-5}種`:'';
-  const description=`${definition.label}の1皿分です。選んだ内容：${labels.join('、')}。材料と栄養は選んだ量から求めた概算です。${hasPurchased?'購入品は参照商品の表示値を使い、原材料とアレルギー情報は実物の表示を確認してください。':'材料は各食品の代表値を使います。'}記録した後は、その時点の量と栄養を保持します。`;
+  const description=`${definition.label}の1皿分です。${definition.nutritionNote??''}選んだ内容：${labels.join('、')}。材料と栄養は選んだ量から求めた概算です。${hasPurchased?'購入品は参照商品の表示値を使い、原材料とアレルギー情報は実物の表示を確認してください。':'材料は各食品の代表値を使います。'}記録した後は、その時点の量と栄養を保持します。`;
   const recipe={id,name:`${definition.label}（${nameLabels}${suffix?`・${suffix}`:''}）`.slice(0,200),role:definition.role,family:definition.family,genre:definition.genre,minutes:definition.minutes,servings:1,
     ingredients:[...parts].map(([id,amount])=>({id,amount})),steps:[...selectedInstructions(definition,selected),...steps],custom:true,
     nature:hasPurchased?'ready-to-eat':definition.nature??'home-cooked',staple:definition.role==='staple',mealBase:definition.mealBase===true,

@@ -97,7 +97,12 @@
         "noodle-composer-ui.js",
         "noodle-composer.css",
         "curry-rice.js",
-        "curry-rice-ui.js"
+        "curry-rice-ui.js",
+        "simmered-foods.js",
+        "canteen-foods.js",
+        "tavern-foods.js",
+        "bistro-foods.js",
+        "soup311-foods.js"
       ]
     },
     {

@@ -1,0 +1,169 @@
+/** 弁当店・定食店の料理から着想した家庭向けの配合。材料は2人分。 */
+const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
+const KEYS=['kcal','protein','fat','carbs','fiber','salt'];
+const gram=values=>Object.fromEntries(KEYS.map((key,index)=>[key,values[index]===null?null:values[index]/100]));
+export const CANTEEN_INGREDIENTS=freeze({
+  canteen_black_vinegar:{name:'黒酢（純玄米・無調味）',unit:'g',allergens:[],groups:[],proteinSources:[],note:'ミツカン純玄米黒酢の100g表示を代表に使用します。調味黒酢だれではありません。密度の仮定を避け、計量したgで記録します。'},
+  canteen_aonori:{name:'青のり（素干し）',unit:'g',allergens:[],groups:['vegetable'],proteinSources:[],note:'あおのり素干しの可食重量。焼き海苔や塩入りの青のり調味料とは別の成分値です。'},
+});
+const definitions={
+  canteen_black_vinegar:{values:[46,1.1,0,11.4,0,0],source:'ミツカン「純玄米黒酢」可食部100g当たりの公式表示。原材料は玄米。食物繊維0.0g・食塩相当量0.0gは表示値で、未掲載値を0としたものではありません。https://www.mizkan.co.jp/product/group/?gid=01007'},
+  canteen_aonori:{values:[249,29.4,5.2,41,35.2,8.1],source:'日本食品標準成分表（八訂）増補2023年 食品番号09002「あおのり・素干し」の可食部100g値。https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=9_09002_7'},
+};
+export const CANTEEN_NUTRITION=freeze(Object.fromEntries(Object.entries(definitions).map(([id,row])=>{
+  const raw=gram(row.values),source=`${row.source} 確認日2026-11-13。${CANTEEN_INGREDIENTS[id].note}`;
+  return[id,{gramsPerUnit:1,nutritionPerUnit:{...raw},rawNutritionPerUnit:raw,nutritionSource:source,rawNutritionSource:source,estimatedNutrients:[]}];
+})));
+const references={
+  yuzu:'https://www.sbfoods.co.jp/recipe/detail/11111.html',
+  originYuzu:'https://prtimes.jp/main/html/rd/p/000004506.000007505.html',
+  originMiso:'https://prtimes.jp/main/html/rd/p/000005817.000007505.html',
+  originKatsu:'https://prtimes.jp/main/html/rd/p/000005569.000007505.html',
+  originSalad:'https://prtimes.jp/main/html/rd/p/000001820.000007505.html',
+  hotto:'https://www.hottomotto.com/menu_list/select/13',
+  hokaben:'https://www.hokkahokka-tei.jp/news/Fkw9qZ9r',
+  yayoi:'https://www.yayoiken.com/menu_list/view/30/539',
+  ootoya:'https://www.ootoya.com/menu_list/index/27444',
+  ootoyaKurozu:'https://www.ootoya.com/menu_list/view/27374/1286',
+  ootoyaSides:'https://ootoya-web2.ootoya.com/menu/A/index.html',
+  ootoyaHokke:'https://www.ootoya.com/menu_list/view/27382/1474',
+};
+const FRY='材料表の油は衣や具に残って食べる量の仮定で、揚げ鍋へ張る全量ではありません。吸収油・流出する脂や煮汁の残量は実物と異なります。';
+const source=(concept,url,extra='')=>`${concept}を着想にした、本アプリ独自の家庭向け配合です。店の公式レシピ・商品原材料・商品栄養値の再現ではありません。ご飯や定食の付け合わせは含めず、材料ごとの代表値と使用量から概算します。参考：${url} ${extra}`;
+const make=(slug,name,role,category,method,family,minutes,items,steps,concept,url,extra={})=>{
+  const {note='',secondary=[],...rest}=extra;
+  return {id:`canteen-${slug}`,name,role,genre:'和食',nature:'home-cooked',minutes,servings:2,
+    family,variantLabel:name,staple:false,mealBase:false,portion:{amount:1,unit:'皿'},
+    ingredients:items.map(([id,amount])=>({id,amount})),steps,
+    ingredientsKnown:true,allergensKnown:true,shoppingKnown:true,
+    displayCategory:category,displayMethod:method,displaySecondaryCategories:secondary,
+    tags:['定番',...(minutes<=20?['時短']:[])],sourceNote:source(concept,url,note),...rest};
+};
+export const CANTEEN_RECIPES=freeze([
+  make('chicken-yuzu-grill','鶏もも肉の柚子胡椒焼き','main','meat','grill','meat-main',25,
+    [['chicken',360],['negi',120],['soy_sauce',10],['sake',15],['mirin',12],['simmered_yuzu_kosho',6],['oil',5]],[
+      '鶏もも肉の厚い部分を開いて厚さをそろえ、食べやすい大きさに切る。長ねぎは斜めに切り、しょうゆ・清酒・みりんを合わせておく。',
+      '柚子胡椒の半量を合わせ調味料へ溶き、鶏肉にからめて冷蔵庫で10分ほどなじませる。残りは仕上げに使うため、肉に触れない清潔な器へ分けておく。',
+      'フライパンに油を広げ、鶏肉を皮側から中火で焼く。焼き色が付いたら裏返して長ねぎを加え、下味の調味液も入れてふたをし、弱めの中火で6〜8分蒸し焼きにする。',
+      '肉の最も厚い部分の中心75℃で1分以上を確認する。ふたを取って調味液を軽く煮詰め、火を止めて残りの柚子胡椒を煮汁でのばし、肉とねぎにからめて人数分に盛る。'],
+    'エスビー食品の鶏と長ねぎに柚子胡椒を合わせる料理',references.yuzu,
+    {secondary:['vegetable'],note:'柚子胡椒は下味と仕上げに分け、塩味をしょうゆと重ねすぎない配合にしています。肉汁とたれを全量食べる概算です。'}),
+  make('chicken-mushroom-yuzu-steam','鶏むね肉ときのこのねぎ柚子胡椒蒸し','main','meat','steam','meat-main',25,
+    [['chicken_breast',320],['shimeji',160],['chinese_cabbage',200],['negi',50],['sake',20],['water',80],['simmered_yuzu_kosho',5],['lemon',10],['soy_sauce',10],['sesame_oil',6]],[
+      '鶏むね肉は繊維を断つ向きに厚さをそろえてそぎ切りにする。白菜は芯を薄く、葉はざく切りにし、しめじをほぐす。長ねぎを細かく刻む。',
+      'フライパンに白菜の芯・葉・しめじを重ね、上に鶏肉を重ならないよう広げる。清酒と材料表の水を回し入れ、ふたをして中火にかける。',
+      '蒸気が上がったら弱めの中火にし、8〜10分蒸す。途中で焦げ付きそうなら火を弱める。肉の最も厚い部分の中心75℃で1分以上を確認する。',
+      '小鍋に長ねぎ・ごま油を入れて弱火で香りを出し、しょうゆを加えてひと煮立ちさせる。火を止めて柚子胡椒とレモン汁を混ぜ、蒸した肉・野菜に蒸し汁ごとからめて盛る。'],
+    '定食店の蒸し鶏と香味ねぎだれ、柚子胡椒を使う家庭料理',references.ootoya,
+    {secondary:['vegetable','mushroom'],note:'たれと蒸し汁は全量を食べるモデルです。柚子胡椒は火を止めてから加え、香りを残します。'}),
+  make('chicken-avocado-yuzu-salad','蒸し鶏とアボカドの柚子胡椒サラダ','main','meat','salad','meat-main',25,
+    [['chicken_breast',240],['avocado',120],['cucumber',80],['lettuce',80],['wakame',2],['simmered_yuzu_kosho',4],['lemon',18],['soy_sauce',8],['olive_oil',8],['sake',15],['water',60]],[
+      '鶏むね肉の厚い部分を開き、耐熱皿に置く。清酒と材料表の水を加え、蒸気の上がった蒸し器で中心まで蒸す。肉の厚さにより時間を調整し、中心75℃で1分以上を確認する。',
+      '加熱した肉を清潔な器具で細く裂く。蒸し汁は小鍋へ移して沸かし、半量程度まで煮詰めてから肉とともに粗熱を取り、食べるまで冷蔵する。',
+      'わかめを表示に従って水で戻して水気を切る。レタスときゅうりは洗って水気を拭き、アボカドは皮と種を除いて食べやすく切る。',
+      '柚子胡椒・レモン汁・しょうゆ・オリーブ油と冷ました蒸し汁を混ぜる。鶏肉・野菜・わかめとあえ、人数分に盛ってすぐにいただく。'],
+    'オリジンの過去の蒸し鶏とアボカド・柚子胡椒の組み合わせ',references.originYuzu,
+    {secondary:['vegetable','seaweed'],note:'2024年の期間限定発表を料理の着想として参照。現在販売中とは断定しません。ゼリーにはせず家庭向けのたれに変更しています。蒸し汁とたれも計上します。'}),
+  make('chicken-vegetable-black-vinegar','鶏と野菜の黒酢あん','main','meat','stir-fry','meat-main',40,
+    [['chicken',280],['aubergine',100],['carrot',80],['onion',100],['pepper',80],['potato',150],['canteen_black_vinegar',40],['soy_sauce',20],['sugar',20],['starch',32],['water',80],['oil',32]],[
+      '鶏肉を一口大に切り、水気を拭く。片栗粉の大部分を肉にまぶし、残りをあん用の水少量で溶いておく。なす・玉ねぎ・ピーマンを乱切り、にんじんとじゃがいもは薄めの乱切りにする。',
+      'にんじんとじゃがいもを耐熱容器に入れ、材料表の水の半量を加え、ふんわりふたをして電子レンジで竹串が通るまで加熱する。加熱後の水もあんへ使うため残しておく。',
+      '別に用意した揚げ油を170℃程度に熱し、鶏肉を少量ずつ入れて色よく揚げる。肉の中心75℃で1分以上を確認して油を切る。材料表の油のうち四分の一を炒め用、残りを吸収油の概算とする。',
+      'フライパンに炒め用の油を広げ、なすと玉ねぎを焼き付ける。柔らかくなったらにんじん・じゃがいも・ピーマンを加えて炒める。',
+      '黒酢・しょうゆ・砂糖と残りの水、野菜を加熱した水を加えて煮立てる。水溶き片栗粉でとろみを付け、揚げた鶏肉を戻して手早くあんをからめ、人数分に盛る。'],
+    '大戸屋の鶏と野菜の黒酢あん、ほっかほっか亭の黒酢あん料理',references.ootoyaKurozu,
+    {secondary:['vegetable'],note:FRY}),
+  make('pork-aubergine-spicy-miso','豚肉となすの三種のジャン炒め','main','meat','stir-fry','meat-main',25,
+    [['pork',240],['aubergine',250],['pepper',80],['onion',100],['negi',40],['miso',15],['mapo_tianmianjiang',15],['mapo_doubanjiang',5],['mapo_douchi',5],['sugar',8],['sake',20],['water',40],['oil',15],['garlic',6],['ginger',6]],[
+      'なすを縦に切ってから一口大にし、玉ねぎとピーマンも食べやすく切る。豚肉は大きければ切る。長ねぎ・にんにく・しょうが・豆豉を細かく刻む。',
+      'みそ・甜麺醤・豆板醤・豆豉・砂糖・清酒・材料表の水をよく混ぜる。豆豉は粒の塩漬け発酵大豆を使い、別の豆豉醤の量に置き換えない。',
+      'フライパンに油の半量を温め、なすの切り口を下にして焼く。途中で返し、ふたをして弱めの中火で柔らかくしてから、いったん取り出す。',
+      '残りの油でにんにく・しょうが・長ねぎを炒め、豚肉を広げて中心まで加熱する。玉ねぎとピーマンを加え、肉の中心75℃で1分以上を確認する。',
+      'なすを戻して合わせ調味料を加え、中火で混ぜながら全体へからめる。煮詰めすぎて塩辛くならないところで止め、人数分に盛る。'],
+    'オリジンのなすの辛味噌炒めで使われる複数のジャン',references.originMiso,
+    {secondary:['vegetable'],note:'甜麺醤・豆板醤・豆豉の三つを使う独自配合。参照商品のジャンの割合や紹興酒漬け唐辛子は再現していません。'}),
+  make('chicken-katsu-mizore','チキンカツのみぞれ煮','main','meat','simmer','meat-main',40,
+    [['chicken_breast',320],['flour',20],['egg',1],['breadcrumbs',40],['oil',26],['daikon',260],['shimeji',100],['carrot',60],['negi',60],['soy_sauce',18],['mirin',20],['sugar',4],['water',280],['bonito',3]],[
+      '鶏むね肉は厚い部分を開いて厚さをそろえる。大根をすりおろして汁ごと取っておく。しめじをほぐし、にんじんを薄い短冊切り、長ねぎを斜め切りにする。',
+      '鶏肉に薄力粉・溶き卵・パン粉の順で衣を付ける。別に用意した揚げ油を170℃程度にし、両面を返しながら揚げる。最も厚い部分の中心75℃で1分以上を確認し、油を切って食べやすく切る。',
+      '広めの鍋に材料表の水・しょうゆ・みりん・砂糖・細かくしたかつお節を入れて煮立て、にんじん・しめじ・長ねぎを加える。ふたを少しずらして5分ほど煮る。',
+      '大根おろしを汁ごと加えて温め、切ったカツを入れて2〜3分煮る。煮汁ごと人数分に盛り、衣の食感が残るうちにいただく。'],
+    '大戸屋のチキンかあさん煮というカツを煮る料理',references.ootoya,
+    {secondary:['vegetable','mushroom'],note:`鶏むねのカツと大根おろしを中心とする独自配合です。煮汁も全量計上。${FRY}`}),
+  make('pork-katsu-toji','ロースかつの卵とじ','main','meat','simmer','cutlet',40,
+    [['pork_loin',280],['onion',160],['egg',3],['flour',20],['breadcrumbs',40],['oil',24],['soy_sauce',22],['mirin',24],['sugar',8],['water',150],['bonito',3],['scallion_garnish',4]],[
+      '豚ロースの脂と赤身の境へ切り込みを入れ、厚さを軽くならす。玉ねぎを薄切りにし、小ねぎを刻む。卵の三分の一を衣用、残りを卵とじ用に分けてそれぞれ溶く。',
+      '肉に薄力粉・衣用卵・パン粉の順で衣を付ける。別に用意した170℃程度の揚げ油で、返しながら中まで揚げる。肉の中心75℃で1分以上を確認し、油を切って食べやすく切る。',
+      '浅い鍋に材料表の水・しょうゆ・みりん・砂糖・細かくしたかつお節・玉ねぎを入れる。中火で煮立て、弱めの中火で玉ねぎが柔らかくなるまで5分ほど煮る。',
+      '切ったカツを並べ、卵とじ用の卵を回し入れる。ふたをして卵の全体が固まるまで火を通し、小ねぎを散らして煮汁ごと人数分に盛る。'],
+    'ほっともっとのロースかつとじ',references.hotto,{secondary:['vegetable','egg'],note:`ご飯のない単品のおかずです。卵は家庭用に中心まで固める手順にしています。${FRY}`}),
+  make('miso-katsu-ni','味噌かつ煮','main','meat','simmer','cutlet',40,
+    [['pork_loin',280],['egg',3],['flour',20],['breadcrumbs',40],['oil',24],['miso',30],['mapo_doubanjiang',4],['sugar',14],['mirin',20],['sake',15],['water',220],['cabbage',150],['onion',120]],[
+      '豚ロースの筋を切って厚さをならす。キャベツはざく切り、玉ねぎは薄切りにする。卵の三分の一を衣用、残りを仕上げ用に分けて溶いておく。',
+      '豚肉に薄力粉・衣用卵・パン粉を付ける。別に用意した170℃程度の揚げ油で両面を揚げ、肉の中心75℃で1分以上を確認する。油を切って食べやすく切る。',
+      '浅い鍋にみそ・豆板醤・砂糖・みりん・清酒・材料表の水を入れ、混ぜてから火にかける。キャベツと玉ねぎを加え、弱めの中火で5〜7分煮る。',
+      'カツを並べ、残りの卵を流し入れてふたをする。卵が全体に固まり野菜も柔らかくなったら、煮汁とともに人数分へ盛る。'],
+    'やよい軒の味噌かつ煮',references.yayoi,{secondary:['vegetable','egg'],note:`店の半熟卵とは異なり、この家庭用手順は卵を全体に固めます。たれは全量計上。${FRY}`}),
+  make('millefeuille-pork-katsu','薄切り豚肉のミルフィーユかつ','main','meat','cutlet','cutlet',35,
+    [['pork_loin',300],['flour',20],['egg',1],['breadcrumbs',45],['oil',26],['salt',.6],['cabbage',160],['worcestershire_sauce',20],['tomato_paste',10]],[
+      '薄切りの豚ロースを広げて塩を全体へ薄く振り、端を少しずつずらして重ねる。人数分に分け、空気を押し出して厚さが均一な小判形に整える。',
+      '表面の水気を拭き、薄力粉・溶き卵・パン粉の順に衣を付ける。重ねた肉がはがれないよう、端まで手のひらで軽く押さえる。',
+      '別に用意した揚げ油を165〜170℃程度に熱し、カツを少量ずつ入れる。片面が固まってから返し、中心75℃で1分以上を確認して網に上げる。',
+      'キャベツはせん切りにして水気を切る。ウスターソースとトマトペーストを混ぜて添え、カツを食べやすく切って人数分に盛る。'],
+    'オリジンの薄切り肉を重ねるミルフィーユとんかつ',references.originKatsu,
+    {secondary:['vegetable'],note:`2026年1月の公式発表を参照。層数や店舗の衣・ソースの配合を再現したものではありません。${FRY}`}),
+  make('chikuwa-isobe','ちくわの磯辺揚げ','side','fish','fry','small-dish',15,
+    [['palette_chikuwa',120],['flour',30],['canteen_aonori',2],['egg',.5],['water',40],['oil',14]],[
+      'ちくわを縦に開いて食べやすい長さに切り、水気を拭く。卵を溶き、材料表の分だけ取り分ける。',
+      '冷たい材料表の水に卵を混ぜ、薄力粉と青のりを加える。粉が少し残る程度で混ぜ止め、ちくわをくぐらせる。',
+      '別に用意した揚げ油を170℃程度に温め、ちくわを少量ずつ入れる。上下を返して衣がカリッとし、ちくわの中心まで十分に熱くなるまで揚げる。',
+      '網に上げて油を切り、人数分に分ける。ちくわに塩分があるため、この配合では追加の塩やたれを使わない。'],
+    'ほっかほっか亭のちくわ磯辺',references.hokaben,{note:FRY}),
+  make('sweet-spicy-sesame-karaage','甘辛ごま唐揚げ','main','meat','karaage','karaage',35,
+    [['chicken',320],['soy_sauce',18],['sake',15],['ginger',8],['garlic',4],['starch',35],['oil',26],['mirin',20],['sugar',16],['sesame',6],['chilli',.3],['water',15]],[
+      '鶏肉を厚さのそろった一口大に切る。しょうゆの半量・清酒・すりおろしたしょうがとにんにくをからめ、冷蔵庫で10分ほど置く。残りのしょうゆは清潔な別の器へ分ける。',
+      '小鍋に残りのしょうゆ・みりん・砂糖・材料表の水を入れ、混ぜながら中火で煮立てる。少しとろみが付いたら火を止め、ごまと粉とうがらしを混ぜる。',
+      '鶏肉に片栗粉をまぶし、下味の液も粉となじませてからめる。別に用意した揚げ油を170℃程度にし、少量ずつ入れて中心75℃で1分以上を確認して揚げ、油を切る。',
+      '揚げた鶏肉が温かいうちに甘辛だれを薄くからめる。衣をべたつかせないよう手早く混ぜ、残るたれも含めて人数分に盛る。'],
+    '大戸屋の甘からだれの鶏唐揚げ',references.ootoya,{note:FRY}),
+  make('hokke-tatsuta-negi','ほっけの竜田揚げ・香味ねぎだれ','main','fish','karaage','fish-main',30,
+    [['atka_mackerel_dried',240],['soy_sauce',8],['sake',15],['ginger',6],['starch',32],['oil',24],['negi',60],['vinegar',20],['sugar',8],['sesame_oil',4],['water',20]],[
+      'ほっけの開き干しから骨と食べない皮を除いた可食部を材料表の量だけ用意し、一口大に切る。しょうゆの半量・清酒・しょうがをからめ、冷蔵庫で5分ほど置く。',
+      '長ねぎをみじん切りにする。小鍋に残りのしょうゆ・米酢・砂糖・ごま油・材料表の水を入れて煮立て、長ねぎを加えてひと煮立ちさせ、火を止める。',
+      'ほっけに片栗粉をまぶし、別に用意した170℃程度の揚げ油へ少量ずつ入れる。返しながら中心まで十分に火を通し、網に上げて油を切る。',
+      '揚げたほっけを人数分に分け、香味ねぎだれを添える。塩味のある開き干しを使う家庭用配合なので、追加の塩は振らない。'],
+    '大戸屋のほっけ竜田揚げと香味ねぎだれ',references.ootoyaHokke,
+    {secondary:['vegetable'],note:`店舗のもろみ醤油ではなく、家庭のしょうゆ・酢のたれです。魚は既存のほっけ開き干しの成分値を使う別配合で、生ほっけや店舗商品と塩分が異なります。${FRY}`}),
+  make('prawn-broccoli-egg-salad','えびとブロッコリーの卵サラダ','side','fish','salad','small-dish',20,
+    [['shrimp',120],['broccoli',200],['egg',2],['mayonnaise',30],['yogurt',20],['salt',.3],['lemon',8],['black_pepper',.1]],[
+      'えびは殻と背わたを取り、材料表はむき身の量で用意する。ブロッコリーは小房に分け、茎は皮をむいて薄切りにする。',
+      '卵を固ゆでにして殻をむき、粗く刻む。別の鍋でブロッコリーを歯ごたえが残るまでゆで、ざるに広げて冷ます。',
+      'えびを沸騰した湯へ入れ、全体の色が変わるだけでなく中心まで十分に火を通す。ざるに上げ、えびと野菜の余分な水分をよく切って粗熱を取る。',
+      'マヨネーズ・ヨーグルト・塩・レモン汁・黒こしょうを混ぜ、卵・えび・ブロッコリーをあえる。食べるまで冷蔵し、人数分に分ける。'],
+    'オリジンの海老とブロッコリーのサラダ',references.originSalad,
+    {secondary:['vegetable','egg'],note:'公式の過去の販売発表で料理の組み合わせを確認。現在の商品の原材料・配合は確認していないため、卵とヨーグルトを加えた独自の家庭用サラダとして登録します。'}),
+  make('tuna-natto-okra-tororo','まぐろと納豆のねばねば小鉢','side','fish','cold','small-dish',15,
+    [['tuna_lean_sashimi',100],['natto',80],['yam',100],['okra',80],['nori',2],['soy_sauce',10],['scallion_garnish',4]],[
+      'まぐろは刺身用として販売された赤身を用意し、清潔な包丁とまな板で角切りにする。食べる直前まで冷蔵する。',
+      'オクラを洗ってがくの硬い部分を除き、熱湯でさっとゆでる。流水で冷やして水気を拭き、小口切りにする。長いもは皮をむいてすりおろす。',
+      '納豆を混ぜ、付属のたれとからしを使わずに器へ盛る。まぐろ・オクラ・とろろを組み合わせ、小ねぎとちぎった焼き海苔を散らす。',
+      '材料表のしょうゆを人数分に分けて添える。全体を混ぜながらいただき、作り置きせず冷たい状態のうちに食べる。'],
+    '大戸屋のばくだん小鉢',references.ootoyaSides,
+    {secondary:['bean','vegetable','seaweed'],note:'ご飯・生卵を含まない小鉢として構成しました。店の商品に含まれる具材やたれの配合と同じではありません。'}),
+  make('vegetable-black-vinegar','彩り野菜の黒酢あん','side','vegetable','stir-fry','small-dish',25,
+    [['carrot',100],['aubergine',120],['potato',160],['onion',120],['pepper',60],['lotus_root',100],['oil',22],['canteen_black_vinegar',30],['soy_sauce',16],['sugar',16],['starch',8],['water',80]],[
+      'にんじん・じゃがいも・れんこんを薄めの乱切りにし、なす・玉ねぎ・ピーマンを一口大に切る。片栗粉は材料表の水の少量で溶いておく。',
+      '根菜を耐熱容器へ入れ、残りの水の半量を加えてふんわりふたをする。電子レンジで、にんじんとじゃがいもに竹串が通るまで加熱する。加熱した水もあんへ使うため残す。',
+      'フライパンに油を熱し、なすと玉ねぎを焼き付ける。なすが柔らかくなったら根菜とピーマンを加えて炒め合わせる。',
+      '黒酢・しょうゆ・砂糖と残りの水、根菜を加熱した水を入れて煮立てる。水溶き片栗粉を混ぜて加え、透明感のあるとろみが付くまで煮て人数分へ盛る。'],
+    '大戸屋のミニ野菜の黒酢あん',references.ootoyaSides,
+    {note:'素揚げをそのまま再現せず、根菜の下加熱とフライパン調理で作る配合です。材料表の油とあんを全量食べる想定で計上します。'}),
+  make('hijiki-chicken-tsukune','ひじき入り鶏つくね','main','meat','grill','meat-main',35,
+    [['chicken_minced',260],['tofu',100],['hijiki',4],['onion',60],['negi',40],['ginger',8],['starch',14],['oil',8],['soy_sauce',18],['mirin',20],['sugar',6],['water',50]],[
+      'ひじきは製品の表示に従って十分に水戻しし、戻し水を捨てて流水で洗い、水気をよく切る。豆腐も清潔な紙で包んで軽く水切りする。玉ねぎ・長ねぎ・しょうがを細かく刻む。',
+      'ボウルに鶏ひき肉・豆腐・ひじき・刻み野菜・片栗粉を入れ、全体がまとまって粘りが出るまで混ぜる。手を水でぬらして小さな平たい小判形に整える。',
+      'フライパンに油を熱し、つくねを重ならないよう並べて中火で焼く。焼き色が付いたら返し、材料表の水の半量を入れてふたをし、弱めの中火で6〜8分蒸し焼きにする。',
+      '中心75℃で1分以上を確認する。しょうゆ・みりん・砂糖・残りの水を加え、ふたを取って煮詰めながら両面にたれをからめ、人数分に盛る。'],
+    '大戸屋のひじき入り鶏つくね',references.ootoyaSides,
+    {secondary:['bean','seaweed'],note:'卵は使わず、豆腐と片栗粉をつなぎにした家庭用配合です。ひじきは乾燥重量で計算します。'}),
+]);

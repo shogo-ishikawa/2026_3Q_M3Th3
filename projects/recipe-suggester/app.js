@@ -399,7 +399,7 @@ function menuCandidates(catalogData){
       allergens:r.allergens,allergensKnown:r.allergensKnown,ingredientsKnown:r.ingredientsKnown,groups:r.groups,proteinSources:r.proteinSources});
   }
   // 特定の魚や肉の名を別の具へ置き換えず、汎用の組立て入口だけを残します。
-  const anchors=new Set(['palette-oden','palette-bagel','palette-waffle','palette-muffin','palette-english-muffin','palette-sandwich','classic-sushi-assorted','classic-sashimi-assorted','familiar-tempura-assorted']);
+  const anchors=new Set(['palette-oden','familiar-side-pot-au-feu','palette-bagel','palette-waffle','palette-muffin','palette-english-muffin','palette-sandwich','classic-sushi-assorted','classic-sashimi-assorted','familiar-tempura-assorted']);
   for(const definition of FOOD_COMPOSERS){
     const choice=eligibleFoodSelection(definition.kind,state.settings,catalogData);
     for(const id of definition.recipeIds.filter(id=>anchors.has(id))){

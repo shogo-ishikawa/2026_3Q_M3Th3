@@ -1,3 +1,8 @@
+import {SIMMERED_NUTRITION} from './simmered-foods.js';
+import {CANTEEN_NUTRITION} from './canteen-foods.js';
+import {TAVERN_NUTRITION} from './tavern-foods.js';
+import {BISTRO_NUTRITION} from './bistro-foods.js';
+import {SOUP311_NUTRITION} from './soup311-foods.js';
 import {SEAFOOD_NUTRITION} from './seafood-foods.js';
 import {WORLD_NUTRITION} from './world-foods.js';
 import {NOODLE_NUTRITION} from './noodle-foods.js';
@@ -702,5 +707,5 @@ export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(
       rawNutritionSource,
       estimatedNutrients: Object.freeze(estimatedNutrients),
     })];
-  }).concat(Object.entries(PALETTE_NUTRITION),Object.entries(MEAT_CHOICE_NUTRITION),Object.entries(MAPO_NUTRITION),Object.entries(SEAFOOD_NUTRITION),Object.entries(WORLD_NUTRITION),Object.entries(NOODLE_NUTRITION)),
+  }).concat(Object.entries(PALETTE_NUTRITION),Object.entries(MEAT_CHOICE_NUTRITION),Object.entries(MAPO_NUTRITION),Object.entries(SEAFOOD_NUTRITION),Object.entries(WORLD_NUTRITION),Object.entries(NOODLE_NUTRITION),Object.entries(SIMMERED_NUTRITION),Object.entries(CANTEEN_NUTRITION),Object.entries(TAVERN_NUTRITION),Object.entries(BISTRO_NUTRITION),Object.entries(SOUP311_NUTRITION)),
 ));
