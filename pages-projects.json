@@ -77,7 +77,11 @@
         "dish-customisation.js",
         "dish-customisation-ui.js",
         "dish-customisation.css",
-        "menu-variations.js"
+        "menu-variations.js",
+        "palette-foods.js",
+        "food-composer.js",
+        "food-composer-ui.js",
+        "food-composer.css"
       ]
     },
     {
