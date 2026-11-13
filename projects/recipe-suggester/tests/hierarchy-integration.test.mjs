@@ -13,6 +13,7 @@ import {CONFECTIONERY_INGREDIENTS, CONFECTIONERY_RECIPES} from '../confectionery
 import {DESSERT_INGREDIENTS, DESSERT_RECIPES} from '../dessert-foods.js';
 import {ACCOMPANIMENT_INGREDIENTS, ACCOMPANIMENT_RECIPES} from '../accompaniment-foods.js';
 import {SALAD_INGREDIENTS} from '../salad-builder.js';
+import {DISH_CUSTOM_INGREDIENTS} from '../dish-customisation.js';
 import {CATALOG_CATEGORIES, recipePortion} from '../catalog.js';
 import {dishSection, dishClassification, browseDishes, availableDishCategories, availableCookingMethods} from '../dish-hierarchy.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan} from '../planner.js';
@@ -24,7 +25,7 @@ const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const incoming = [...FAMILIAR_MAIN_RECIPES, ...FAMILIAR_SIDE_RECIPES];
 const additions = [...incoming, ...SUSHI_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...VARIED_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES];
 const addedIds = new Set(additions.map(recipe => recipe.id));
-const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS), ...Object.keys(SUSHI_INGREDIENTS), ...Object.keys(PERFORMANCE_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(VARIED_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS), ...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS)]);
+const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS), ...Object.keys(SUSHI_INGREDIENTS), ...Object.keys(PERFORMANCE_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(VARIED_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS), ...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS)]);
 const reclassifiedSides = new Set(['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon']);
 // v3.6で副菜へ移した3品だけを旧roleへ戻し、歴史的な固定ハッシュを保ちます。
 // 別の料理のrole変更や、3品の材料・量・栄養変更を許容する投影ではありません。

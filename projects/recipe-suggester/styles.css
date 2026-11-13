@@ -371,7 +371,7 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 .dialog-header h2 { font-size: 23px; line-height: 1.5; margin: 0; }
 .dialog-header .eyebrow { font-size: 9px; }
 .close-dialog { flex: 0 0 34px; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: #f0f5f7; font-size: 23px; font-weight: 400; }
-#dialog-content > h3 { font-size: 14px; margin: 25px 0 12px; }
+#dialog-content > h3, .recipe-detail-content > h3 { font-size: 14px; margin: 25px 0 12px; }
 .ingredient-list { list-style: none; padding: 0; margin: 0; }
 .ingredient-list > li { border-bottom: 1px solid var(--line); padding: 9px 3px; font-size: 12px; line-height: 1.8; }
 .recipe-steps { padding-left: 24px; font-size: 13px; line-height: 1.9; }
@@ -655,3 +655,7 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 
 .food-customisation { display:inline-block; padding:4px 7px; color:var(--teal); border:1px solid #c4dfd2; border-radius:4px; background:#edf7ef; font-size:10px; }
 .catalog-record-form > .choice-label { grid-column:1/-1; }
+
+#catalog-variant-count { display:block; margin-top:7px; color:#9cb4bd; font-size:10px; }
+.detail-variation-label { display:block; margin:0 0 20px; padding:16px; border:1px solid var(--line); border-radius:7px; background:#f0f7f3; }
+.detail-variation-content { min-width:0; }

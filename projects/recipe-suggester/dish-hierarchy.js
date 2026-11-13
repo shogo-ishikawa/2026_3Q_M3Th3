@@ -407,7 +407,7 @@ function matchesQuery(recipe, classification, query) {
   if (!query) return true;
   const family = familyById.get(recipeFamily(recipe));
   const words = [recipe.name, recipe.variantLabel, family.label, natureById.get(recipeNature(recipe)).label,
-    ...(recipe.tags ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)];
+    ...(recipe.tags ?? []), ...(recipe.searchAliases ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)];
   if (isDish(classification.section)) words.push(categoryById.get(classification.category).label,
     methodById.get(classification.method).label,
     friedDetails.get(classification.methodDetail) ?? '',
