@@ -153,6 +153,21 @@
         "looks.js",
         "recorder.js"
       ]
+    },
+    {
+      "source": "projects/pip0/web",
+      "destination": "projects/pip0-web",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "core.js",
+        "io.js",
+        "demo.js",
+        "icon.svg",
+        "docs",
+        "dist/pip0-web_v1.0.0.zip"
+      ]
     }
   ]
 }

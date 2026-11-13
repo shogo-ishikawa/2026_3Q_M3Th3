@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#edf2f1">
+  <meta name="description" content="pip0は学生の作品から生まれたファイル整理アシスタントです。整理先と名前を確認してからコピーを書き出せます。処理はブラウザ内で完結します。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=1.0.0">
+  <title>pip0 — ファイル整理アシスタント</title>
+</head>
+<body>
+  <a class="skip" href="#main">本文へ移動</a>
+  <aside class="sidebar">
+    <a class="brand" href="../../" aria-label="作品ギャラリーへ"><img src="icon.svg" width="39" height="39" alt=""><span>pip0<span class="brand-dot">.</span><small>FILE ORGANISING ASSISTANT</small></span></a>
+    <div class="side-caption">YOUR WORKSPACE</div>
+    <nav class="tabs" aria-label="機能の切り替え" role="tablist" aria-orientation="vertical">
+      <button id="tab-organise" role="tab" aria-controls="panel-organise" aria-selected="true" data-tab="organise"><span class="nav-symbol" aria-hidden="true">▦</span>整理する<span class="nav-count" id="nav-total">0</span></button>
+      <button id="tab-search" role="tab" aria-controls="panel-search" aria-selected="false" tabindex="-1" data-tab="search"><span class="nav-symbol" aria-hidden="true">⌕</span>探す</button>
+      <button id="tab-rules" role="tab" aria-controls="panel-rules" aria-selected="false" tabindex="-1" data-tab="rules"><span class="nav-symbol" aria-hidden="true">≡</span>ルール</button>
+      <button id="tab-guide" role="tab" aria-controls="panel-guide" aria-selected="false" tabindex="-1" data-tab="guide"><span class="nav-symbol" aria-hidden="true">?</span>使い方</button>
+    </nav>
+    <section class="dropzone" id="dropzone" aria-label="ファイルをドロップして取り込む">
+      <span class="upload-symbol" aria-hidden="true">↑</span><strong>ファイルをここに</strong><p>ドロップして取り込む</p>
+      <button id="choose-files" class="side-button" type="button">ファイルを選ぶ</button>
+      <button id="choose-folder" class="text-button" type="button">フォルダーを選ぶ</button>
+      <input id="file-input" type="file" multiple hidden>
+      <input id="folder-input" type="file" multiple webkitdirectory hidden>
+    </section>
+    <label class="analysis-option"><input id="analyse-content" type="checkbox"><span>本文と画像も調べる<small>テキストの内容と画像の色を使います</small></span></label>
+    <button class="demo-button" id="load-demo" type="button"><span aria-hidden="true">↻</span> デモを読み直す</button>
+    <div class="local-note"><span class="local-dot"></span><div><strong>このブラウザの中で処理</strong><p>ファイルは外部へ送信しません</p></div></div>
+    <footer class="side-footer"><a href="../../">← 作品ギャラリー</a><span>pip0 WEB / v1.0.0</span></footer>
+  </aside>
+  <main id="main" class="workspace">
+    <header class="topbar"><p><span class="top-dot"></span> A LITTLE ORDER. A LITTLE SPACE.</p><span class="session-badge" id="session-badge">デモデータ</span></header>
+    <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+    <section id="panel-organise" class="tabpanel" role="tabpanel" aria-labelledby="tab-organise">
+      <div class="page-heading"><div><p class="eyebrow">MAKE ROOM FOR WHAT MATTERS</p><h1>ファイルに、居場所を。</h1><p class="lead">整理先と名前を見比べて、自分のペースで整えましょう。</p></div><div class="heading-mark" aria-hidden="true"><span>01</span><i></i></div></div>
+      <div class="demo-banner" id="demo-banner"><span class="banner-icon" aria-hidden="true">✧</span><p><strong>まずはデモで試してみましょう</strong><span>架空の資料と画像を使っています。書き出したファイルも実際に開けます。</span></p><button type="button" id="dismiss-banner" class="icon-button" aria-label="デモの案内を閉じる">×</button></div>
+      <div class="stats"><div><span>取り込んだファイル</span><strong id="stat-files">0<small>件</small></strong></div><div><span>書き出すファイル</span><strong id="stat-selected">0<small>件</small></strong></div><div><span>合計サイズ</span><strong id="stat-size">0 B</strong></div><div><span>同じ内容のファイル</span><strong id="stat-duplicates">—</strong></div></div>
+      <div class="plan-toolbar"><div><h2>整理のプレビュー</h2><p id="plan-summary">提案は自由に修正できます</p></div><div class="toolbar-actions"><button id="check-duplicates" type="button" class="button secondary">重複を調べる</button><button id="export-zip" type="button" class="button primary">整理済みZIPを保存 <span aria-hidden="true">↗</span></button></div></div>
+      <div class="plan-options"><label>名前の付け方<select id="rename-mode"><option value="keep">元の名前を使う</option><option value="date">更新日を先頭に付ける</option><option value="sequence">分類名と連番にする</option></select></label><label class="inline-check"><input type="checkbox" id="date-folders">分類の中で年月別に分ける</label><button id="rebuild-plan" type="button" class="text-button">提案を作り直す</button></div>
+      <div id="duplicate-notice" class="notice" hidden></div>
+      <div class="table-container"><table class="plan-table"><caption class="sr-only">ファイルごとの整理先と新しい名前</caption><thead><tr><th class="check-col"><input id="select-all" type="checkbox" aria-label="すべてのファイルを書き出し対象にする" checked></th><th>いまのファイル</th><th class="arrow-col" aria-label="整理後へ"></th><th>整理先・ファイル名</th><th>提案の理由</th></tr></thead><tbody id="plan-body"></tbody></table><div class="empty-state" id="plan-empty" hidden><strong>ファイルを取り込んでみましょう</strong><p>左側のボタンやドラッグ＆ドロップで始められます。</p></div></div>
+      <div class="under-table"><p><span aria-hidden="true">↳</span> 元のファイルはそのまま。選んだファイルのコピーを書き出します。</p><span id="duplicate-detail"></span></div>
+      <section class="output-card"><div class="output-icon" aria-hidden="true">→</div><div><h2>別のフォルダーへ直接保存</h2><p id="folder-support">対応するブラウザでは新しいフォルダーを作ってコピーします。</p></div><button id="export-folder" type="button" class="button secondary">保存先を選ぶ</button></section>
+      <div class="bottom-tools"><button id="save-plan" type="button" class="text-button">整理計画をJSONで保存</button><button id="clear-files" type="button" class="text-button muted">取り込んだ一覧を空にする</button></div>
+      <datalist id="folder-options"></datalist>
+    </section>
+    <section id="panel-search" class="tabpanel" role="tabpanel" aria-labelledby="tab-search" hidden>
+      <div class="page-heading"><div><p class="eyebrow">FIND IT YOUR WAY</p><h1>名前を忘れても。</h1><p class="lead">覚えていることから、取り込んだファイルを探せます。</p></div><div class="heading-mark" aria-hidden="true"><span>02</span><i></i></div></div>
+      <form id="search-form" class="search-form"><label class="sr-only" for="search-input">ファイルを探す</label><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="例：先週のPDF、青い画像、予算" autocomplete="off"><button type="submit" class="button primary">探す</button></form>
+      <div class="search-examples" role="group" aria-label="検索の例"><button type="button" data-query="レポート">レポート</button><button type="button" data-query="先週のPDF">先週のPDF</button><button type="button" data-query="青い画像">青い画像</button><button type="button" data-query="予算">予算</button></div>
+      <p class="search-help">時期はファイルの更新日で判断します。画像の色と本文は「本文と画像も調べる」をオンにすると使えます。入手元は自動取得しません。</p>
+      <p id="search-count" class="section-caption" role="status"></p><div id="search-results" class="search-results"></div>
+    </section>
+    <section id="panel-rules" class="tabpanel" role="tabpanel" aria-labelledby="tab-rules" hidden>
+      <div class="page-heading"><div><p class="eyebrow">YOUR RULES. YOUR SPACE.</p><h1>片づけ方は、自分で。</h1><p class="lead">キーワードと拡張子を変えると、整理先の提案も変わります。</p></div><div class="heading-mark" aria-hidden="true"><span>03</span><i></i></div></div>
+      <div id="rule-cards" class="rule-cards"></div>
+      <details class="editor-card" open><summary>ルールを編集する</summary><p>keywordsは名前と取得した本文で探す言葉です。extensionsには「.pdf」のように拡張子を指定します。folderが整理先になります。</p><label for="rules-json" class="sr-only">整理ルールのJSON</label><textarea id="rules-json" rows="19" spellcheck="false"></textarea><div id="rules-error" class="error-text" role="alert"></div><div class="editor-actions"><button id="apply-rules" type="button" class="button primary">このルールで提案する</button><button id="persist-rules" type="button" class="button secondary">ルールをブラウザに保存</button><button id="reset-rules" type="button" class="text-button">初期設定に戻す</button></div><p class="fine-print">保存するのはルールだけです。ファイル名・内容・一覧は保存しません。</p></details>
+      <div class="explanation-card"><h2>提案はどう決まる？</h2><p>キーワードが一致すると2点、拡張子が一致すると1点を加えます。2点以上になった分類のうち最も点数の高いものを提案します。同点ならルールの並び順を使います。十分な手掛かりがなければ「未分類」に残します。</p><p>この仕組みは学生版pip0の規則を基にしています。生成AIへファイルを送る処理はありません。</p></div>
+    </section>
+    <section id="panel-guide" class="tabpanel" role="tabpanel" aria-labelledby="tab-guide" hidden>
+      <div class="page-heading"><div><p class="eyebrow">A SMALL GUIDE</p><h1>整えるための、4ステップ。</h1><p class="lead">まずは少ないファイルで試してみてください。</p></div></div>
+      <div class="guide-grid"><article><span>01 / IMPORT</span><h2>取り込む</h2><p>ファイルやフォルダーを選びます。新しく取り込むと、表示中の一覧と提案は置き換わります。最大500件、1件100MiB、合計250MiBまで扱えます。</p></article><article><span>02 / REVIEW</span><h2>提案を見る</h2><p>元の名前と整理先を並べて確認します。種類だけで決めつけず、名前などの手掛かりと提案の理由を表示します。</p></article><article><span>03 / ADJUST</span><h2>自分で直す</h2><p>整理先や名前を書き換えられます。チェックを外したファイルは書き出しません。完全に同じ内容でも、自動では取り除きません。</p></article><article><span>04 / EXPORT</span><h2>コピーを書き出す</h2><p>ZIPまたは新しい保存用フォルダーにコピーします。元のファイルを移動・削除する機能はありません。対応表も一緒に保存します。</p></article></div>
+      <details class="explanation-card" open><summary>読み取れる情報について</summary><p>通常は名前・拡張子・容量・更新日を使います。「本文と画像も調べる」をオンにすると、1MiB以下のテキスト形式と対応する画像をブラウザ内で解析します。PDFやWord、Excel、PowerPointの本文は解析しません。画像の文字認識もしません。</p><p>更新日は撮影日や入手日とは異なります。入手元や以前の使用状況は分かりません。画像の色は大まかな傾向であり、写っているものの意味を認識する機能ではありません。</p></details>
+      <details class="explanation-card"><summary>学生版pip0とのつながり</summary><p>学生の設計と提出コードを基に、仕分け・改名の提案や手掛かりからの検索をWeb向けに発展させました。学生の提出版は講義サイトから学内向けに案内しています。</p><p>学生版はWindows向けの常駐アシスタントです。このWeb版は選んだファイルを扱います。他のアプリの監視や退避ストレージ、機密ファイルをドラッグしたときの警告は備えていません。</p><a href="https://sites.google.com/view/shogo-ishikawa/teaching/material/2026/nihon-u/3Q_M3Th3" target="_blank" rel="noopener noreferrer">講義の作品紹介へ ↗</a></details>
+      <div class="guide-links"><a href="dist/pip0-web_v1.0.0.zip">アプリ一式をダウンロード ↗</a><a href="docs/manual.md">詳しい使い方 ↗</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/pip0/web" target="_blank" rel="noopener noreferrer">コードを読む ↗</a></div>
+    </section>
+    <footer class="workspace-footer"><span>学生の発想から生まれた、公開用アップデート版。</span><span>LESS CLUTTER. MORE CLARITY.</span></footer>
+  </main>
+  <div id="busy-overlay" class="busy-bar" hidden><div><span class="spinner" aria-hidden="true"></span><p id="busy-label">処理しています</p></div><button id="cancel-operation" type="button">中止する</button></div>
+  <dialog id="confirm-dialog"><form method="dialog"><p class="eyebrow">PLEASE CONFIRM</p><h2 id="confirm-title">確認</h2><p id="confirm-message"></p><div class="dialog-actions"><button value="cancel" class="button secondary">キャンセル</button><button value="ok" class="button primary">続ける</button></div></form></dialog>
+  <noscript>このアプリを利用するにはJavaScriptを有効にしてください。</noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
