@@ -63,3 +63,7 @@ AIにコード作成を手伝ってもらう際も、自分たちが変更した
 | [FACEGATE](projects/face-recognition-lab/) | 学生の元提出ZIPを未改変で配布。ブラウザ発展版では高速照合・複数人処理を追加 | [学生の元提出版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/face-recognition-lab/original/facegate-submitted.zip) ／ [ブラウザ発展版](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/face-recognition-lab/) |
 
 ブラウザ版は **GitHub Actions** でまとめて公開します。リポジトリの Settings → Pages でSourceをGitHub Actionsに設定します。公開対象の追加方法は[Pagesの公開手順](docs/pages.md)を参照してください。作品ごとのURLは `/projects/作品名/` です。
+
+### pip0 Web
+
+[ファイル整理アシスタントを開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/pip0-web/)。学生版pip0を基にした公開用Web版です。説明付きの仕分け・改名提案、手掛かりからの検索、重複確認とコピーの書き出しに対応しています。[コードと使い方](projects/pip0/web/README.md)。Windows向けの元コードはそのまま残しています。

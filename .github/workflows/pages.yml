@@ -83,6 +83,12 @@ jobs:
         run: python -m unittest discover -s projects/sound-visual-art/tests -p 'test_*.py'
       - name: Package LUMEN light art
         run: python projects/sound-visual-art/tools/build_release.py
+      - name: Check pip0 Web file organiser
+        run: npm test --prefix projects/pip0/web
+      - name: Check pip0 Web release
+        run: python -m unittest discover -s projects/pip0/web/tests -p 'test_*.py'
+      - name: Package pip0 Web
+        run: python projects/pip0/web/tools/build_release.py
       - name: Check shared publishing
         run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Check password JavaScript
