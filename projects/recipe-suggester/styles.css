@@ -1110,3 +1110,9 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
   .page-width { padding:0; }
   .panel, .recipe-card, .nutrition-metric { box-shadow:none; border-color:#aaa; }
 }
+
+/* レシピのアレンジと保存 */
+.arrangement-open { margin: 1rem 0; width: fit-content; }
+.arrangement-save-area { padding: 1rem 0; border-bottom: 1px solid var(--line, #dce2d7); }
+.arrangement-save-area .field-note { margin-bottom: 0; }
+#create-original-recipe { margin: .5rem 0 1rem; }

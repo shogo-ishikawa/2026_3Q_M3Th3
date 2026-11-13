@@ -9,9 +9,9 @@ const data={ingredients:INGREDIENTS,recipes:RECIPES,allergens:ALLERGENS};
 const byId=id=>{const found=PALETTE_RECIPES.find(r=>r.id===id);assert.ok(found,id);return found;};
 const near=(actual,expected)=>assert.ok(typeof actual==='number'&&Math.abs(actual-expected)<1e-6,`${actual} != ${expected}`);
 
-test('追加28品と24食材は明示分量と出典を持ち、既存の卵・ハム・ナッツも再利用する',()=>{
-  assert.equal(PALETTE_RECIPES.length,28);
-  assert.equal(Object.keys(PALETTE_INGREDIENTS).length,24);
+test('追加29品と25食材は明示分量と出典を持ち、既存の卵・ハム・ナッツも再利用する',()=>{
+  assert.equal(PALETTE_RECIPES.length,29);
+  assert.equal(Object.keys(PALETTE_INGREDIENTS).length,25);
   assert.deepEqual(Object.keys(PALETTE_NUTRITION).sort(),Object.keys(PALETTE_INGREDIENTS).sort());
   for(const recipe of PALETTE_RECIPES){
     assert.equal(recipe.servings,2,recipe.id);
@@ -76,7 +76,7 @@ test('マフィンは焼成前生地の70g分と原材料配合が一致する',
 
 test('商品表示を未確認の一般加工品は栄養を記録できても自動献立へ混ぜない',()=>{
   const eligible=new Set(eligibleRecipes({},data).map(r=>r.id));
-  for(const id of ['palette-oden','palette-wiener','palette-chicken-nugget','palette-oyster-fry','palette-prosciutto','palette-ham','palette-bacon','palette-takuan','palette-bagel','palette-sandwich']){
+  for(const id of ['palette-oden','palette-wiener','palette-chicken-nugget','palette-oyster-fry','palette-prosciutto','palette-ham','palette-bacon','palette-takuan','palette-bagel','palette-english-muffin','palette-sandwich']){
     const recipe=byId(id);
     assert.equal(recipe.ingredientsKnown,false,id);
     assert.equal(recipe.allergensKnown,false,id);
@@ -84,7 +84,7 @@ test('商品表示を未確認の一般加工品は栄養を記録できても�
     assert.ok(!eligible.has(id),id);
     assert.ok(Object.values(recipeNutrition(recipe,data)).every(value=>Number.isFinite(value)),id);
   }
-  for(const id of ['palette_chikuwa','palette_hanpen','palette_ganmodoki','palette_wiener','palette_chicken_nugget','palette_oyster_fry','palette_prosciutto','palette_takuan','palette_bagel']){
+  for(const id of ['palette_chikuwa','palette_hanpen','palette_ganmodoki','palette_wiener','palette_chicken_nugget','palette_oyster_fry','palette_prosciutto','palette_takuan','palette_bagel','palette_english_muffin']){
     assert.equal(PALETTE_INGREDIENTS[id].ingredientsKnown,false,id);
     assert.equal(PALETTE_INGREDIENTS[id].allergensKnown,false,id);
   }

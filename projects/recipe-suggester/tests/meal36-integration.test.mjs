@@ -1,3 +1,4 @@
+import {MEAT_CHOICE_INGREDIENTS} from '../meat-choice-foods.js';
 import {PALETTE_INGREDIENTS, PALETTE_RECIPES} from '../palette-foods.js';
 import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
@@ -20,7 +21,7 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const movedIds = ['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon'];
 const newIds = new Set([...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES].map(recipe => recipe.id));
-const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS)]);
+const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS)]);
 const date = '2026-11-13';
 const recordInput = (recipeId, amount = 1, status = 'planned') => ({recipeId, date, meal: 'dinner', status, amount});
 

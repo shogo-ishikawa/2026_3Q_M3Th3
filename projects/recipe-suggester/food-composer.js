@@ -62,12 +62,18 @@ const oden = [
   formula('broth','飲むおでんの汁',[['water',0.94],['soy_sauce',0.04],['mirin',0.02],['bonito',0.003]],'汁','ml',150,
     {food:false,maxAmount:1000,note:'実際に飲む量だけを選びます。具材に染みる汁はこの量に含める概算です。0mlなら選択を外せます。'}),
 ];
+// 個数は入力の便宜のための目安です。実物に合わせて1個・1枚・1杯のg数を変更できます。
+const weighedMaterial=(id,label,ingredientId,unit,gramsPerUnit,note,defaultAmount=1)=>
+  material(id,label,ingredientId,'チーズ',unit,defaultAmount,1,{gramsPerUnit,note});
 const cheeses = [
-  material('gouda','ゴーダ系ナチュラルチーズ','cheese','チーズ','g',20),
-  material('mozzarella','モッツァレラ','mozzarella','チーズ','g',30),
-  material('parmesan','パルメザン','parmesan_cheese','チーズ','g',10),
-  ...[['camembert','カマンベール'],['cheddar','チェダー'],['cream-cheese','クリームチーズ'],['blue-cheese','ブルーチーズ'],['processed-cheese','プロセスチーズ']]
-    .map(([id,label])=>material(id,label,`palette_${id.replaceAll('-','_')}`,'チーズ','g',20)),
+  weighedMaterial('gouda','ゴーダ系ナチュラルチーズ','cheese','個',20,'ひと口の切り分け1個を約20gとする目安です。'),
+  weighedMaterial('mozzarella','モッツァレラ','mozzarella','個',15,'切り分け1個を約15gとする目安です。丸ごとの塊1個の重量ではありません。',2),
+  weighedMaterial('parmesan','パルメザン（粉）','parmesan_cheese','杯',2,'小さじ1杯を約2gとする目安です。粉の詰め方でも変わります。',5),
+  weighedMaterial('camembert','カマンベール','palette_camembert','個',15,'90gを6等分した切り分け1個を約15gとする目安です。'),
+  weighedMaterial('cheddar','チェダー','palette_cheddar','枚',18,'スライス1枚を約18gとする目安です。厚さや商品によって異なります。'),
+  weighedMaterial('cream-cheese','クリームチーズ','palette_cream_cheese','個',16.3,'個包装1個を約16.3gとする目安です。容器入りは食べる分の重量に合わせてください。'),
+  weighedMaterial('blue-cheese','ブルーチーズ','palette_blue_cheese','個',15,'ひと口の切り分け1個を約15gとする目安です。'),
+  weighedMaterial('processed-cheese','プロセスチーズ','palette_processed_cheese','個',17,'102gを6等分した6Pタイプの1個を約17gとする目安です。'),
 ];
 const nuts = [
   ...[['almond','アーモンド','almond'],['walnut','くるみ','walnut'],['cashew','カシューナッツ','cashew'],['pine','松の実','pine_nuts'],
@@ -101,20 +107,22 @@ const savouryFillings = [
   material('mayonnaise','マヨネーズ','mayonnaise','ソース','g',5,1,{food:false}),
   material('butter','バター','butter','ソース','g',5,1,{food:false}),
 ];
-const sashimi = [['tuna','まぐろ赤身'],['tuna-mediumfat','まぐろ中トロ'],['salmon','サーモン'],['yellowtail','ぶり'],['seabream','たい'],['bonito','かつお'],['aji','あじ'],['squid','いか'],['octopus','ゆでだこ'],['scallop','ほたて']]
-  .map(([id,label])=>choice(id,label,`classic-sashimi-${id}`,'刺身','g',30));
+const sashimi = [['tuna','まぐろ赤身',15,2],['tuna-mediumfat','まぐろ中トロ',15,2],['salmon','サーモン',15,2],['yellowtail','ぶり',15,2],['seabream','たい',15,2],['bonito','かつお',15,2],['aji','あじ',10,3],['squid','いか',5,6],['octopus','ゆでだこ',5,6],['scallop','ほたて',10,3]]
+  .map(([id,label,gramsPerUnit,defaultAmount])=>choice(id,label,`classic-sashimi-${id}`,'刺身','切れ',defaultAmount,
+    {gramsPerUnit,note:`切り分けた可食部1切れを約${gramsPerUnit}gとする目安です。厚さや実物の重量に合わせて変更できます。`}));
 
 const COMPOSER_DESCRIPTIONS = {
   oden:'大根・卵・練り物と、飲む汁の量を選ぶ',
   sushi:'握り11種・軍艦・巻き寿司を一皿に',
-  sashimi:'魚介10種を好きな量で盛り合わせる',
+  sashimi:'魚介10種を切れ数で選び、重さへ換算する',
   yakitori:'部位、塩・たれ、本数を選ぶ',
   tempura:'具材の種類と個数、天つゆの量を選ぶ',
-  cheese:'8種類のチーズを好きなg数で',
+  cheese:'8種類を個数で選び、1個の重さも調整',
   nuts:'ナッツとレーズンを好きなg数で',
   bagel:'ベース1個に好みの具材とトッピング',
   waffle:'フルーツ・クリーム・シロップを選ぶ',
   muffin:'プレーン生地に混ぜ込む具材を選ぶ',
+  'english-muffin':'朝食や昼食に、具材をはさむマフィン',
   sandwich:'パン2枚に具材とソースを組み合わせる',
 };
 
@@ -129,7 +137,7 @@ export const FOOD_COMPOSERS = freeze([
     defaults:[['tuna',2],['salmon',2],['shrimp',1],['egg',1]],intro:`握り・軍艦は貫数、細巻き・太巻きは切れ数で選べます。細巻きは1本6切れ、太巻きは1本8切れの目安です。${countNote}`,
     instructions:['食べる寿司の種類と数を選ぶ。魚は刺身用を使用し、えびや玉子など加熱する具は中まで火を通してから冷ます。']},
   {kind:'sashimi',label:'刺身の盛り合わせ',recipeIds:[...sashimi.map(part=>part.recipeId),'classic-sashimi-assorted'],role:'main',family:'sashimi',nature:'ready-to-eat',genre:'和食',minutes:10,components:sashimi,
-    defaults:[['tuna',30],['salmon',30],['seabream',30]],intro:'種類ごとに食べる魚介の可食部g数を選びます。しょうゆは元の各刺身レシピに含まれる目安量を同じ割合で計算します。',
+    defaults:[['tuna',2],['salmon',2],['seabream',2]],intro:'種類ごとの切れ数を選ぶと、可食部のg数へ換算します。1切れの重さも変更できます。しょうゆは換算した魚介の重量に応じた目安量を含みます。買い物リストはgで集計します。',
     instructions:['刺身用として販売された魚介を清潔な器具で盛り付ける。ゆでだこは加熱済みを使い、食べるまで冷蔵する。']},
   {kind:'yakitori',label:'焼き鳥',recipeIds:yakitori.map(part=>part.recipeId),role:'main',family:'meat-main',genre:'和食',minutes:25,components:yakitori,
     defaults:[['thigh-salt',1],['thigh-tare',1],['tsukune',1]],intro:`部位と塩・たれを選び、それぞれ食べる本数を指定します。手作りと購入品は別の配合・表示値で計算します。${countNote}`,
@@ -141,12 +149,17 @@ export const FOOD_COMPOSERS = freeze([
       '選んだ手作り具材の分だけ薄力粉、卵、水を混ぜて衣にする。160〜180℃を目安に少量ずつ揚げ、中まで火を通す。油3ml/個は吸収量の概算で、鍋に張る油量ではない。',
       '油を切って盛り、選んだ天つゆや大根おろしを添える。購入品は実際の商品表示と温め方に従う。']},
   {kind:'cheese',label:'チーズの盛り合わせ',recipeIds:['daily-snack-plain-cheese','daily-snack-mozzarella','palette-cheese-camembert','palette-cheese-cheddar','palette-cheese-cream','palette-cheese-blue','palette-cheese-processed','palette-cheese-parmesan'],
-    role:'snack',family:'cheese',nature:'ready-to-eat',genre:'その他',minutes:5,components:cheeses,defaults:[['gouda',20]],intro:'種類ごとに食べるg数を選びます。包材や外皮など食べない部分を除いた重さです。',instructions:['選んだチーズを表示量に切り分けて盛る。保存方法と期限は商品表示に従う。']},
+    role:'snack',family:'cheese',nature:'ready-to-eat',genre:'その他',minutes:5,components:cheeses,defaults:[['gouda',1]],intro:'個数や枚数で選び、g数へ換算します。チーズは大きさが異なるため、1個・1枚の重さを商品表示や実測値に合わせて変更してください。粉チーズは小さじの杯数です。包材など食べない部分は含めません。',instructions:['選んだチーズを表示量に切り分けて盛る。保存方法と期限は商品表示に従う。']},
   {kind:'nuts',label:'ナッツのミックス',recipeIds:['snack-almond','snack-walnut','snack-cashew','snack-peanut','snack-nuts-raisin','palette-nuts-pistachio','palette-nuts-macadamia','palette-nuts-pine'],
     role:'snack',family:'nuts',nature:'ready-to-eat',genre:'その他',minutes:5,components:nuts,defaults:[['almond',10],['walnut',10]],intro:'殻を除いたナッツをg数で選びます。アーモンド・くるみ・カシューナッツは無塩、ピスタチオ・マカダミアは成分表の味付け品が基準です。実際の塩分は商品表示を優先してください。レーズンも追加できます。',instructions:['殻を除いた食べる部分だけを計量し、選んだ種類を混ぜる。']},
   {kind:'bagel',label:'ベーグル',recipeIds:['palette-bagel'],role:'staple',family:'bread',genre:'その他',minutes:10,unit:'個',baseRequired:true,
     components:[material('base','プレーンベーグル（約100g）','palette_bagel','ベース','個',1,100,{base:true,maxAmount:1}),...savouryFillings,...sweetToppings.filter(part=>!savouryFillings.some(other=>other.id===part.id))],
     defaults:[['base',1]],intro:'ベーグル1個に加える具材とトッピングを選びます。各g数はこの1個に使う量です。',instructions:['ベーグルを横半分に切り、好みで軽くトーストする。ゆで卵を選んだ場合は固ゆでして殻を除く。', '選んだ具材とトッピングを表示量に用意し、はさむか添える。']},
+  {kind:'english-muffin',label:'イングリッシュマフィン',recipeIds:['palette-english-muffin'],role:'staple',family:'bread',mealBase:true,genre:'洋食',minutes:10,unit:'個',baseRequired:true,
+    components:[material('base','プレーンイングリッシュマフィン（約60g）','palette_english_muffin','ベース','個',1,60,{base:true,maxAmount:1}),
+      ...savouryFillings,...sweetToppings.filter(part=>!savouryFillings.some(other=>other.id===part.id))],
+    defaults:[['base',1],['ham',20],['cheese',20]],intro:'朝食や昼食に食べるパンタイプのマフィン1個に、はさむ具材とトッピングを選びます。焼き菓子のマフィンとは別メニューです。各g数はこの1個分です。',
+    instructions:['イングリッシュマフィンを横半分に割り、切り口を軽くトーストする。','選んだ具材とソースを用意してはさむ。ゆで卵は固ゆでして殻を除き、野菜は洗って水気を切る。食べるまで冷蔵する。']},
   {kind:'waffle',label:'ワッフル',recipeIds:['palette-waffle'],role:'snack',family:'cake',genre:'その他',minutes:10,unit:'個',baseRequired:true,
     components:[material('base','プレーンワッフル（約70g）','palette_waffle','ベース','個',1,70,{base:true,maxAmount:1}),...sweetToppings],defaults:[['base',1]],
     intro:'焼き上がったワッフル1個に、食べるトッピングだけを加えます。各g数は1個分です。',instructions:['焼き上がったプレーンワッフルを用意し、必要なら商品の方法で温める。', '選んだ果物やトッピングを表示量に用意してのせる。シロップやクリームも食べる量だけを加える。']},
@@ -202,8 +215,8 @@ function selectedInstructions(definition,selected) {
     '選んだ具材を生地に混ぜて型に入れ、180℃に予熱したオーブンで約20〜25分焼く。竹串に生の生地が付かず中心まで火が通ったことを確認する。',
   ];
   if(definition.kind==='waffle'&&selected.length===1)return [definition.instructions[0]];
-  if(['bagel','sandwich'].includes(definition.kind))return [
-    definition.kind==='bagel'?'ベーグルを横半分に切り、好みで軽くトーストする。':'食パン2枚と選んだ具材を用意する。野菜は洗って水気を切る。',
+  if(['bagel','sandwich','english-muffin'].includes(definition.kind))return [
+    definition.kind==='bagel'?'ベーグルを横半分に切り、好みで軽くトーストする。':definition.kind==='english-muffin'?'イングリッシュマフィンを横半分に割り、切り口を軽くトーストする。':'食パン2枚と選んだ具材を用意する。野菜は洗って水気を切る。',
     ...(has('boiled-egg')?['卵は固ゆでして殻を除き、食べやすく切る。']:[]),
     ...(selected.length>1?['選んだ具材とソースを表示量に用意し、はさむか添える。食べるまで冷蔵する。']:[]),
   ];
@@ -221,9 +234,9 @@ export function defaultFoodSelection(kind,{recipeId}={}) {
   const mapping={
     'varied-shrimp-tempura':[['shrimp',4]],'varied-squid-tempura':[['squid',4]],'varied-whitefish-tempura':[['whitefish',4]],
     'varied-shimeji-tempura':[['shimeji',4]],'varied-vegetable-tempura':[['aubergine',2],['pumpkin',2],['lotus-root',2]],
-    'daily-snack-plain-cheese':[['gouda',20]],'daily-snack-mozzarella':[['mozzarella',30]],
-    'palette-cheese-camembert':[['camembert',20]],'palette-cheese-cheddar':[['cheddar',20]],'palette-cheese-cream':[['cream-cheese',20]],
-    'palette-cheese-blue':[['blue-cheese',20]],'palette-cheese-processed':[['processed-cheese',20]],'palette-cheese-parmesan':[['parmesan',10]],
+    'daily-snack-plain-cheese':[['gouda',1]],'daily-snack-mozzarella':[['mozzarella',2]],
+    'palette-cheese-camembert':[['camembert',1]],'palette-cheese-cheddar':[['cheddar',1]],'palette-cheese-cream':[['cream-cheese',1]],
+    'palette-cheese-blue':[['blue-cheese',1]],'palette-cheese-processed':[['processed-cheese',1]],'palette-cheese-parmesan':[['parmesan',5]],
     'snack-almond':[['almond',15]],'snack-walnut':[['walnut',15]],'snack-cashew':[['cashew',15]],'snack-peanut':[['peanut',15]],
     'snack-nuts-raisin':[['almond',7.5],['walnut',7.5],['raisin',10]],
     'palette-nuts-pistachio':[['pistachio',15]],'palette-nuts-macadamia':[['macadamia',15]],'palette-nuts-pine':[['pine',15]],
@@ -242,20 +255,23 @@ export function buildFoodSelection(config,data) {
   const selected=[],seen=new Set(),parts=new Map(),totals=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,0])),allergens=[],groups=[],proteins=[],steps=[];
   let allergensKnown=true,ingredientsKnown=true,shoppingKnown=true,hasPurchased=false;
   for(const part of config.components){
-    if(!isRecord(part)||Object.keys(part).some(key=>!['id','amount'].includes(key)))throw Error('種類と量を確認してください。');
+    if(!isRecord(part)||Object.keys(part).some(key=>!['id','amount','gramsPerUnit'].includes(key)))throw Error('種類と量を確認してください。');
     const component=definition.components.find(option=>option.id===part.id);
     if(!component||seen.has(part.id))throw Error('選んだ種類が不明か、重複しています。');
     seen.add(part.id);
     if(part.amount===0&&component.food===false)continue;
     const maximum=component.maxAmount??(['g','ml'].includes(component.unit)?1000:50);
     if(!valid(part.amount,maximum))throw Error(`${component.label}の量は0より大きく${maximum}${component.unit}以下で入力してください。`);
+    if(own(part,'gramsPerUnit')&&component.gramsPerUnit===undefined)throw Error('この種類は1個の重さを変更できません。');
+    const gramsPerUnit=component.gramsPerUnit===undefined?null:(own(part,'gramsPerUnit')?part.gramsPerUnit:component.gramsPerUnit);
+    if(gramsPerUnit!==null&&!valid(gramsPerUnit,500))throw Error(`${component.label}の1${component.unit}の重さは0より大きく500g以下で入力してください。`);
     let nutrition,ingredients,metadata;
     if(component.recipeId){
       const source=data.recipes.find(recipe=>recipe.id===component.recipeId);
       if(!source||!valid(source.servings,1000)||!Array.isArray(source.ingredients)||!source.ingredients.length)throw Error(`${component.label}の基準レシピが見つかりません。`);
       const portion=recipePortion(source,data),denominator=component.recipeAmount??portion.amount;
-      if(component.recipeAmount===undefined&&portion.unit!==component.unit)throw Error(`${component.label}の分量単位を確認してください。`);
-      const multiplier=part.amount/denominator;
+      if(component.recipeAmount===undefined&&portion.unit!==(gramsPerUnit===null?component.unit:'g'))throw Error(`${component.label}の分量単位を確認してください。`);
+      const multiplier=part.amount*(gramsPerUnit??1)/denominator;
       nutrition=recipeNutrition(source,data);
       nutrition=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,nutrition[key]===null?null:nutrition[key]*multiplier]));
       ingredients=source.ingredients.map(item=>({id:item.id,amount:item.amount/source.servings*multiplier}));
@@ -266,7 +282,7 @@ export function buildFoodSelection(config,data) {
       hasPurchased||=['instant','retort','fast-food','ready-to-eat'].includes(source.nature)&&!confirmed.ingredientsKnown;
       if(source.steps?.length)steps.push(`${component.label}：${source.steps.join(' ')}`);
     }else{
-      ingredients=component.ingredients.map(item=>({id:item.id,amount:item.amount*part.amount}));
+      ingredients=component.ingredients.map(item=>({id:item.id,amount:item.amount*part.amount*(gramsPerUnit??1)}));
       const source={servings:1,ingredients,role:definition.role,name:component.label,steps:[]};
       nutrition=recipeNutrition(source,data);metadata=itemFromRecipe(source,data);
       for(const item of ingredients){
@@ -281,16 +297,16 @@ export function buildFoodSelection(config,data) {
     }
     for(const key of NUTRIENT_KEYS)totals[key]=totals[key]===null||nutrition[key]===null?null:totals[key]+nutrition[key];
     allergens.push(...metadata.allergens);groups.push(...metadata.groups);proteins.push(...metadata.proteinSources);
-    selected.push({...component,amount:part.amount});
+    selected.push({...component,amount:part.amount,...(gramsPerUnit===null?{}:{gramsPerUnit})});
   }
   if(!selected.some(part=>part.food!==false&&!part.base)){
     if(!definition.baseRequired)throw Error('汁やソースだけでは記録できません。食べる具材を1つ以上選んでください。');
   }
   if(definition.baseRequired&&(selected.filter(part=>part.base).length!==1||selected.find(part=>part.base)?.amount!==1))throw Error('ベースは1個分を選んでください。');
   if(definition.fillingRequired&&!selected.some(part=>!part.base&&part.section==='具材'))throw Error('サンドイッチの具材を1種類以上選んでください。');
-  if(selected.filter(part=>['g','ml'].includes(part.unit)).reduce((sum,part)=>sum+part.amount,0)>3000)throw Error('1皿の合計量を確認してください。');
+  if(selected.reduce((sum,part)=>sum+(part.gramsPerUnit!==undefined?part.amount*part.gramsPerUnit:['g','ml'].includes(part.unit)?part.amount:0),0)>3000)throw Error('1皿の合計量を確認してください。');
   if(selected.filter(part=>!['g','ml'].includes(part.unit)).reduce((sum,part)=>sum+part.amount,0)>100)throw Error('1皿の個数は合計100以下で入力してください。');
-  const labels=selected.map(part=>`${part.label} ${quantityLabel(part.amount)}${part.unit}`),nameLabels=labels.slice(0,5).join('・');
+  const labels=selected.map(part=>`${part.label} ${quantityLabel(part.amount)}${part.unit}${part.gramsPerUnit===undefined?'':`（約${quantityLabel(part.amount*part.gramsPerUnit)}g）`}`),nameLabels=labels.slice(0,5).join('・');
   const suffix=labels.length>5?`ほか${labels.length-5}種`:'';
   const description=`${definition.label}の1皿分です。選んだ内容：${labels.join('、')}。材料と栄養は選んだ量から求めた概算です。${hasPurchased?'購入品は参照商品の表示値を使い、原材料とアレルギー情報は実物の表示を確認してください。':'材料は各食品の代表値を使います。'}記録した後は、その時点の量と栄養を保持します。`;
   const recipe={id,name:`${definition.label}（${nameLabels}${suffix?`・${suffix}`:''}）`.slice(0,200),role:definition.role,family:definition.family,genre:definition.genre,minutes:definition.minutes,servings:1,

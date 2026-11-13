@@ -81,7 +81,13 @@
         "palette-foods.js",
         "food-composer.js",
         "food-composer-ui.js",
-        "food-composer.css"
+        "food-composer.css",
+        "meat-choice-foods.js",
+        "meat-choices.js",
+        "meat-choices-ui.js",
+        "recipe-arrangement.js",
+        "recipe-arrangement-ui.js",
+        "recipe-arrangement.css"
       ]
     },
     {

@@ -80,3 +80,25 @@ test('ベース1個分を固定し、トッピングだけを増減する',()=>w
   assert.equal(current.ingredients.find(part=>part.id==='palette_maple_syrup').amount,10);assert.ok(current.manualNutrition.kcal>plain);
   maple.checked=false;maple.emit('change');assert.equal(current.manualNutrition.kcal,plain);
 }));
+
+
+test('刺身は切れ数と1切れの重さを表示し、重さ変更・空欄・復帰・リセットを反映する',()=>withDocument(()=>{
+  let current;const root=mountFoodComposer({kind:'sashimi',data,onChange:recipe=>{current=recipe;}});
+  const pieces=amount(root,'まぐろ赤身','切れ'),weight=find(root,element=>element.attributes['aria-label']==='まぐろ赤身の1切れの重さ（g）');
+  assert.equal(pieces.value,'2');assert.equal(weight.value,'15');assert.equal(weight.disabled,false);
+  pieces.value='3';pieces.emit('input');assert.equal(current.ingredients.find(part=>part.id==='tuna_lean_sashimi').amount,45);
+  weight.value='20';weight.emit('input');assert.equal(current.ingredients.find(part=>part.id==='tuna_lean_sashimi').amount,60);
+  assert.match(all(root).filter(element=>element.className==='food-composer-weight-total').map(element=>element.textContent).join(' '),/60g/);
+  weight.value='';weight.emit('input');assert.equal(current,null);
+  weight.value='12';weight.emit('input');assert.equal(current.ingredients.find(part=>part.id==='tuna_lean_sashimi').amount,36);
+  const tuna=checkbox(root,'tuna');tuna.checked=false;tuna.emit('change');assert.equal(weight.disabled,true);assert.ok(!current.ingredients.some(part=>part.id==='tuna_lean_sashimi'));
+  byClass(root,'food-composer-reset').emit('click');assert.equal(weight.value,'15');assert.equal(weight.disabled,false);assert.equal(pieces.value,'2');
+}));
+
+test('チーズは初期の個数・枚数・重さと選択後のg数を扱う',()=>withDocument(()=>{
+  let current;const root=mountFoodComposer({kind:'cheese',data,initial:{kind:'cheese',components:[{id:'processed-cheese',amount:2,gramsPerUnit:10}]},onChange:recipe=>{current=recipe;}});
+  assert.equal(amount(root,'プロセスチーズ','個').value,'2');
+  const weight=find(root,element=>element.attributes['aria-label']==='プロセスチーズの1個の重さ（g）');assert.equal(weight.value,'10');
+  assert.equal(current.ingredients.find(part=>part.id==='palette_processed_cheese').amount,20);
+  assert.equal(amount(root,'チェダー','枚').disabled,true);
+}));
