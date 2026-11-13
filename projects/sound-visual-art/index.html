@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080c12">
+  <meta name="description" content="音と光のアトリエ LUMEN。なぞる動きや音に反応する光の庭、波紋、オーロラをブラウザで描けます。学生の提出作品をもとに発展させた体験型アートです。">
+  <title>LUMEN — 音と光のアトリエ</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#experience">光の空間へ</a>
+  <header class="site-header shell">
+    <a class="brand" href="./" aria-label="LUMEN ホーム"><img src="icon.svg" width="34" height="34" alt=""><span>LUMEN<span class="brand-dot">.</span></span></a>
+    <span class="header-caption">音と光のアトリエ</span>
+    <nav aria-label="ページ内の案内"><a href="#lab">音と色の実験室 <span aria-hidden="true">↗</span></a><a href="../../" class="gallery-link">作品一覧 <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <main>
+    <section class="intro shell" aria-labelledby="intro-title">
+      <div><p class="eyebrow">AN INTERACTIVE LIGHT STUDY <span>01 — 03</span></p><h1 id="intro-title">触れるたび、<br class="mobile-break">光が生まれる<span class="title-dot">。</span></h1></div>
+      <p class="intro-copy">指先の軌跡が、光の風景になる。<br>なぞる、音を重ねる、ただ眺める。<br>あなただけの一瞬を描いてみてください。</p>
+    </section>
+
+    <div class="shell experience-shell">
+      <section class="stage" id="experience" aria-label="光を描く空間">
+        <canvas id="art-canvas" tabindex="0" aria-label="光のキャンバス。ドラッグや指でなぞると光が広がります。キーボードではEnterで中央に光を描けます。">このブラウザではCanvasを表示できません。</canvas>
+        <div class="stage-top"><span class="live-chip"><i aria-hidden="true"></i><span id="source-badge">DEMO / 無音</span></span><div class="stage-tools"><button id="pause" type="button" aria-label="一時停止" title="一時停止（Space）">Ⅱ</button><button id="clear" type="button" aria-label="光をリセット" title="光をリセット">↺</button><button id="save-image" type="button" aria-label="画像を保存" title="画像を保存">↓</button><button id="fullscreen" type="button" aria-label="全画面" title="全画面">⛶</button></div></div>
+        <div class="stage-caption"><span class="scene-number" id="scene-number">01 / GARDEN</span><h2 id="scene-title">光の庭</h2><p id="scene-caption">小さな光が集い、ほどけて、花ひらく。</p></div>
+        <div class="signal-readout"><span id="pitch-label">仮想の音高</span><strong id="pitch-value">— <small>Hz</small></strong><div class="level-track" role="meter" aria-label="相対的な音の大きさ" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="level-fill"></i></div><span id="level-value">無音のデモ</span></div>
+        <p class="canvas-hint" id="canvas-hint">DRAG TO CREATE LIGHT <span>なぞって光を描く</span></p>
+      </section>
+      <p class="status" id="status" role="status" aria-live="polite">無音のデモを表示しています。キャンバスはそのままなぞれます。</p>
+      <noscript><p class="status error">この作品を動かすにはJavaScriptを有効にしてください。</p></noscript>
+
+      <section class="console" aria-label="作品の操作">
+        <div class="scene-list" role="group" aria-label="光の場面">
+          <button type="button" data-scene="garden" aria-pressed="true"><span class="scene-glyph garden-glyph" aria-hidden="true">✳</span><span><small>01 / GARDEN</small><strong>光の庭</strong></span><span class="scene-check" aria-hidden="true">●</span></button>
+          <button type="button" data-scene="water" aria-pressed="false"><span class="scene-glyph" aria-hidden="true">◎</span><span><small>02 / WATER</small><strong>水の記憶</strong></span><span class="scene-check" aria-hidden="true">●</span></button>
+          <button type="button" data-scene="aurora" aria-pressed="false"><span class="scene-glyph" aria-hidden="true">≋</span><span><small>03 / AURORA</small><strong>オーロラ</strong></span><span class="scene-check" aria-hidden="true">●</span></button>
+        </div>
+        <div class="input-panel"><div class="input-heading"><span class="eyebrow">LET SOUND IN</span><span class="local-badge">ブラウザ内で処理</span></div><div class="input-buttons" role="group" aria-label="反応させる入力"><button type="button" id="demo-input" aria-pressed="true">◉ デモ</button><button type="button" id="open-file">＋ 音源を開く</button><button type="button" id="microphone" aria-pressed="false">♩ マイク</button></div><input id="audio-file" type="file" accept="audio/*" hidden><div class="file-player" id="file-player" hidden><span id="file-name"></span><button type="button" id="file-play">音源を再生</button></div></div>
+      </section>
+      <details class="settings" id="settings"><summary><span>光と音を調整する</span><span aria-hidden="true">＋</span></summary><div class="settings-grid">
+        <label>配色<select id="palette"><option value="spectral">音の色</option><option value="lagoon">青と翡翠</option><option value="dusk">夕映え</option></select></label>
+        <label for="intensity">光の密度 <output id="intensity-value">65%</output><input id="intensity" type="range" min="10" max="100" value="65"></label>
+        <label for="motion">動き <output id="motion-value">55%</output><input id="motion" type="range" min="0" max="100" value="55"></label>
+        <label for="trails">余韻 <output id="trails-value">70%</output><input id="trails" type="range" min="0" max="100" value="70"></label>
+        <label>画質<select id="quality"><option value="auto">自動</option><option value="high">高画質</option><option value="low">軽量</option></select></label>
+        <label class="check-label"><input id="auto-draw" type="checkbox" checked>自動で描く</label>
+        <div class="sound-setting"><button id="sound-toggle" type="button" aria-pressed="false">音を出す</button><span id="sound-note">初めは音が出ません</span></div>
+        <label for="output-volume">再生音量 <output id="output-volume-value">25%</output><input id="output-volume" type="range" min="0" max="100" value="25"></label>
+      </div><p class="settings-note">上をなぞると暖色の鋭い光、下をなぞると寒色の丸い光に。速くなぞるほど光が増えます。マイクは停止すると解放され、音源や声を外部へ送ることはありません。</p></details>
+    </div>
+
+    <section class="lab-section" id="lab" aria-labelledby="lab-title"><div class="shell">
+      <div class="lab-heading"><div><p class="eyebrow">BEHIND THE LIGHT</p><h2 id="lab-title">音と色の実験室<span>。</span></h2></div><p>同じ音を、色・形・数字で見てみる。<br>学生の作品の出発点になった実験です。</p></div>
+      <div class="lab-grid"><div class="lab-controls"><label for="frequency">音の高さ <output id="frequency-value">880 Hz</output><input id="frequency" type="range" min="130" max="1000" step="1" value="880"></label><label for="volume">音の大きさ <output id="volume-value">95%</output><input id="volume" type="range" min="10" max="100" step="1" value="95"></label><div class="preset-buttons" role="group" aria-label="音の条件"><button type="button" data-tone="880,95">高い・大きい</button><button type="button" data-tone="165,95">低い・大きい</button><button type="button" data-tone="880,20">高い・小さい</button><button type="button" data-tone="165,20">低い・小さい</button></div><div class="lab-actions"><button id="play-tone" type="button" class="dark-button">▷ 音を鳴らす</button><button id="reverse" type="button" aria-pressed="false">反転する</button><button id="compare" type="button" aria-expanded="false" aria-controls="comparison">4条件を比較</button></div></div>
+      <div class="lab-result" id="lab-result"><div class="result-card"><span>01 / COLOUR</span><div id="colour-disc" class="colour-disc"></div><strong id="colour-name"></strong></div><div class="result-card"><span>02 / SHAPE</span><svg id="shape-svg" viewBox="-1 -1 2 2" role="img" aria-label="音に対応する形"><polygon id="shape-polygon" fill="#d5dbdf" stroke="#7f8d92" stroke-width=".008"/></svg><strong id="shape-name"></strong></div><div class="result-card"><span>03 / NUMBER</span><div id="number-result" class="number-result"></div><strong>音の高さと大きさの合成値</strong></div></div></div>
+      <div class="comparison" id="comparison" hidden aria-label="4条件の比較"></div>
+      <div class="explain-grid"><article><span>01</span><h3>音から色へ</h3><p>高い音を暖色、低い音を寒色へ対応させます。大きな音ほど鮮やかで明るくなります。これは作品のために選んだ対応で、人の感じ方には個人差があります。</p></article><article><span>02</span><h3>音から形へ</h3><p>音が高くなると輪郭が鋭くなり、大きくなると角や波の数が増えます。形の外側の大きさをそろえることで、輪郭の違いを比べられます。</p></article><article><span>03</span><h3>声を光へ</h3><p>声の繰り返しから音の高さを推定します。息や打楽器などは高さを決めにくいため、音の大きさや周波数の分布でも光を動かします。表示の音量は騒音計のdBではありません。</p></article></div>
+      <details class="learning"><summary>コードを変えると、光はどう変わる？</summary><p>音を0〜1の値へそろえ、色や形の式に入れるのが基本です。<code>core.js</code>では関数と条件分岐、<code>renderer.js</code>では粒子のリストと繰り返しを使っています。公開版のPython教材と見比べながら、色の範囲や角の数、光の寿命を変更できます。</p><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-visual-art/docs/provenance.md" target="_blank" rel="noopener noreferrer">学生版から引き継いだもの ↗</a></details>
+    </div></section>
+  </main>
+  <footer class="site-footer shell"><div><a class="footer-brand" href="#">LUMEN.</a><p>学生の自由な発想から生まれた、音と光の実験。<br>提出作品をもとに教員が公開用に発展させています。</p></div><div class="footer-links"><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-visual-art/docs/manual.md" target="_blank" rel="noopener noreferrer">使い方 ↗</a><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-visual-art/lumen_lab.ipynb" target="_blank" rel="noopener noreferrer">Pythonで試す ↗</a><a href="dist/lumen_v1.0.0.zip" download>コードをダウンロード ↓</a><a href="../../">作品ギャラリー ↗</a><span>v1.0.0 / BUILT WITH CURIOSITY</span></div></footer>
+</body>
+</html>

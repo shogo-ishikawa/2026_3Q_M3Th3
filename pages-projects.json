@@ -136,6 +136,21 @@
         "docs",
         "dist/shift-planner_v1.2.0.zip"
       ]
+    },
+    {
+      "source": "projects/sound-visual-art",
+      "destination": "projects/sound-visual-art",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "core.js",
+        "audio.js",
+        "renderer.js",
+        "icon.svg",
+        "docs",
+        "dist/lumen_v1.0.0.zip"
+      ]
     }
   ]
 }

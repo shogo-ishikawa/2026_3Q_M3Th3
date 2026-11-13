@@ -77,6 +77,12 @@ jobs:
         run: npm test --prefix projects/shift-planner
       - name: Package SHIFT STUDIO
         run: python projects/shift-planner/tools/build_release.py
+      - name: Check LUMEN light art
+        run: npm test --prefix projects/sound-visual-art
+      - name: Check and package LUMEN
+        run: python -m unittest discover -s projects/sound-visual-art/tests -p 'test_*.py'
+      - name: Package LUMEN light art
+        run: python projects/sound-visual-art/tools/build_release.py
       - name: Check shared publishing
         run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Check password JavaScript

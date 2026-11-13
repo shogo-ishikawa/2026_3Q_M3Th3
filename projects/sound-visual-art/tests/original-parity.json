@@ -1,0 +1,3047 @@
+{
+  "sourceNotebookSha256": "9b7b4c4bd08ca4edcc5e4905ba723fa212e841590269b8c9c2ecf7b6385648ee",
+  "sourceCellSha256": [
+    "dd9c321407a3f54f17c9780bc893943cf4642994ad5749592426412ec5ede8c5",
+    "ca5e06e9f0c661c77ba1c45153b6f945b724bab8bffc7cc4ce00932e1c25bbe3"
+  ],
+  "generator": "Submitted cell 0 compute_all_three_targets extracted with Python ast; np, colorsys and missing math supplied only to the test namespace. Original notebook unchanged.",
+  "generatedOn": "2026-11-13",
+  "cases": [
+    {
+      "name": "loud-high",
+      "input": {
+        "frequency": 880,
+        "volume": 95,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.8620689655172413,
+        "volumeNorm": 0.9444444444444444,
+        "hexColour": "#f59e09",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.96,
+        "brightness": 0.961111111111111,
+        "saturationPercent": 96,
+        "brightnessPercent": 96,
+        "shapeLabel": "トゲ星型(15角)",
+        "vertexCount": 15,
+        "numberValue": 90,
+        "shapePointCount": 30,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.06825238953741622,
+              -0.3211022468615804
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              0.3264775325484815,
+              -0.03431417138993312
+            ]
+          },
+          {
+            "index": 15,
+            "point": [
+              1.6588486738505992e-16,
+              0.3282758620689656
+            ]
+          },
+          {
+            "index": 28,
+            "point": [
+              -0.2765809172915441,
+              -0.6212109111969687
+            ]
+          },
+          {
+            "index": 29,
+            "point": [
+              -0.06825238953741605,
+              -0.3211022468615804
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "loud-high-reversed",
+      "input": {
+        "frequency": 880,
+        "volume": 95,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.13793103448275867,
+        "volumeNorm": 0.05555555555555558,
+        "hexColour": "#3a4d56",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.32000000000000006,
+        "brightness": 0.3388888888888889,
+        "saturationPercent": 32,
+        "brightnessPercent": 33,
+        "shapeLabel": "丸形(5波)",
+        "vertexCount": 5,
+        "numberValue": 11,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6793463205676591,
+              0.021456672367205012
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005159709619676197,
+              0.6536562835242241
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6293521425004133,
+              -0.009936343405857022
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6793463205676591,
+              -0.021456672367204818
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.68,
+              -1.6655196468404004e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "loud-low",
+      "input": {
+        "frequency": 165,
+        "volume": 95,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.040229885057471264,
+        "volumeNorm": 0.9444444444444444,
+        "hexColour": "#0952f5",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.96,
+        "brightness": 0.961111111111111,
+        "saturationPercent": 96,
+        "brightnessPercent": 96,
+        "shapeLabel": "丸形(15波)",
+        "vertexCount": 15,
+        "numberValue": 50,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6777886558444741,
+              0.02140747463018716
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005249017147628132,
+              0.6649701812267582
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6463553339610879,
+              -0.01020479335293683
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6777886558444741,
+              -0.021407474630186968
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.68,
+              -1.6655196468404004e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "loud-low-reversed",
+      "input": {
+        "frequency": 165,
+        "volume": 95,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.9597701149425287,
+        "volumeNorm": 0.05555555555555558,
+        "hexColour": "#56423a",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.32000000000000006,
+        "brightness": 0.3388888888888889,
+        "saturationPercent": 32,
+        "brightnessPercent": 33,
+        "shapeLabel": "トゲ星型(5角)",
+        "vertexCount": 5,
+        "numberValue": 51,
+        "shapePointCount": 10,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.16952537414393953,
+              -0.2333316600328297
+            ]
+          },
+          {
+            "index": 2,
+            "point": [
+              0.6467184310807045,
+              -0.21013155617496423
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              1.7660251427704247e-17,
+              0.28841379310344833
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              -0.6467184310807045,
+              -0.21013155617496418
+            ]
+          },
+          {
+            "index": 9,
+            "point": [
+              -0.16952537414393956,
+              -0.23333166003282968
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "quiet-high",
+      "input": {
+        "frequency": 880,
+        "volume": 20,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.8620689655172413,
+        "volumeNorm": 0.1111111111111111,
+        "hexColour": "#60533d",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.36,
+        "brightness": 0.37777777777777777,
+        "saturationPercent": 36,
+        "brightnessPercent": 37,
+        "shapeLabel": "トゲ星型(5角)",
+        "vertexCount": 5,
+        "numberValue": 49,
+        "shapePointCount": 10,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.19295571040773604,
+              -0.26558075125687935
+            ]
+          },
+          {
+            "index": 2,
+            "point": [
+              0.6467184310807045,
+              -0.21013155617496423
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              2.0101099186004835e-17,
+              0.3282758620689656
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              -0.6467184310807045,
+              -0.21013155617496418
+            ]
+          },
+          {
+            "index": 9,
+            "point": [
+              -0.1929557104077361,
+              -0.2655807512568793
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "quiet-high-reversed",
+      "input": {
+        "frequency": 880,
+        "volume": 20,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.13793103448275867,
+        "volumeNorm": 0.8888888888888888,
+        "hexColour": "#12a4eb",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.9199999999999999,
+        "brightness": 0.922222222222222,
+        "saturationPercent": 92,
+        "brightnessPercent": 92,
+        "shapeLabel": "丸形(15波)",
+        "vertexCount": 15,
+        "numberValue": 52,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6768750157485353,
+              0.021378617954870626
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005191209169252482,
+              0.657646794623958
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6299799371331424,
+              -0.009946255158972482
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6768750157485353,
+              -0.021378617954870435
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.68,
+              -1.6655196468404004e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "quiet-low",
+      "input": {
+        "frequency": 165,
+        "volume": 20,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.040229885057471264,
+        "volumeNorm": 0.1111111111111111,
+        "hexColour": "#3d4860",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.36,
+        "brightness": 0.37777777777777777,
+        "saturationPercent": 36,
+        "brightnessPercent": 37,
+        "shapeLabel": "丸形(5波)",
+        "vertexCount": 5,
+        "numberValue": 8,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6794495404875734,
+              0.021459932495266825
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005227847311454563,
+              0.6622882868071068
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6459334133398633,
+              -0.010198131981822966
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6794495404875734,
+              -0.021459932495266634
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.68,
+              -1.6655196468404004e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "quiet-low-reversed",
+      "input": {
+        "frequency": 165,
+        "volume": 20,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.9597701149425287,
+        "volumeNorm": 0.8888888888888888,
+        "hexColour": "#eb4d12",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.9199999999999999,
+        "brightness": 0.922222222222222,
+        "saturationPercent": 92,
+        "brightnessPercent": 92,
+        "shapeLabel": "トゲ星型(15角)",
+        "vertexCount": 15,
+        "numberValue": 93,
+        "shapePointCount": 30,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.059964599379301396,
+              -0.2821112597426742
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              0.28683383216759445,
+              -0.030147450578298384
+            ]
+          },
+          {
+            "index": 15,
+            "point": [
+              1.4574170491687407e-16,
+              0.28841379310344833
+            ]
+          },
+          {
+            "index": 28,
+            "point": [
+              -0.2765809172915441,
+              -0.6212109111969687
+            ]
+          },
+          {
+            "index": 29,
+            "point": [
+              -0.059964599379301244,
+              -0.2821112597426742
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "minimum",
+      "input": {
+        "frequency": 130,
+        "volume": 10,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#373a4c",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 1,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "minimum-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 10,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#ff1e00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 100,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "maximum",
+      "input": {
+        "frequency": 1000,
+        "volume": 100,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#ff1e00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 100,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "maximum-reversed",
+      "input": {
+        "frequency": 1000,
+        "volume": 100,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#373a4c",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 1,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "low-loud",
+      "input": {
+        "frequency": 130,
+        "volume": 100,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#0028ff",
+        "colourLabel": "寒色(青系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "丸形(16波)",
+        "vertexCount": 16,
+        "numberValue": 50,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6779631108201206,
+              0.021412984667029854
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005366634496022835,
+              0.6798705001393719
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6794837676012109,
+              -0.01072783200001062
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6779631108201206,
+              -0.02141298466702966
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "low-loud-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 100,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#4c3937",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "トゲ星型(4角)",
+        "vertexCount": 4,
+        "numberValue": 50,
+        "shapePointCount": 8,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.19233304448274097,
+              -0.1923330444827409
+            ]
+          },
+          {
+            "index": 2,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 4,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 6,
+            "point": [
+              -0.68,
+              8.327598234202002e-17
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              -0.192333044482741,
+              -0.1923330444827409
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "high-quiet",
+      "input": {
+        "frequency": 1000,
+        "volume": 10,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#4c3937",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "トゲ星型(4角)",
+        "vertexCount": 4,
+        "numberValue": 50,
+        "shapePointCount": 8,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.19233304448274097,
+              -0.1923330444827409
+            ]
+          },
+          {
+            "index": 2,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 4,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 6,
+            "point": [
+              -0.68,
+              8.327598234202002e-17
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              -0.192333044482741,
+              -0.1923330444827409
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "high-quiet-reversed",
+      "input": {
+        "frequency": 1000,
+        "volume": 10,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#0028ff",
+        "colourLabel": "寒色(青系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "丸形(16波)",
+        "vertexCount": 16,
+        "numberValue": 50,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6779631108201206,
+              0.021412984667029854
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005366634496022835,
+              0.6798705001393719
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6794837676012109,
+              -0.01072783200001062
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6779631108201206,
+              -0.02141298466702966
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "midpoint-number-tie-even",
+      "input": {
+        "frequency": 565,
+        "volume": 55,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.5,
+        "volumeNorm": 0.5,
+        "hexColour": "#3da53b",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "トゲ星型(10角)",
+        "vertexCount": 10,
+        "numberValue": 50,
+        "shapePointCount": 20,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.14709208932247497,
+              -0.4527029017564931
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              0.476,
+              0.0
+            ]
+          },
+          {
+            "index": 10,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 18,
+            "point": [
+              -0.3996939715588818,
+              -0.5501315561749642
+            ]
+          },
+          {
+            "index": 19,
+            "point": [
+              -0.14709208932247503,
+              -0.4527029017564931
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "midpoint-number-tie-even-reversed",
+      "input": {
+        "frequency": 565,
+        "volume": 55,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.5,
+        "volumeNorm": 0.5,
+        "hexColour": "#3da53b",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "トゲ星型(10角)",
+        "vertexCount": 10,
+        "numberValue": 50,
+        "shapePointCount": 20,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.14709208932247497,
+              -0.4527029017564931
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              0.476,
+              0.0
+            ]
+          },
+          {
+            "index": 10,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 18,
+            "point": [
+              -0.3996939715588818,
+              -0.5501315561749642
+            ]
+          },
+          {
+            "index": 19,
+            "point": [
+              -0.14709208932247503,
+              -0.4527029017564931
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "round-shape-tie-down",
+      "input": {
+        "frequency": 130,
+        "volume": 13.75,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.041666666666666664,
+        "hexColour": "#393e53",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.31000000000000005,
+        "brightness": 0.32916666666666666,
+        "saturationPercent": 31,
+        "brightnessPercent": 32,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 3,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "round-shape-tie-down-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 13.75,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 0.9583333333333334,
+        "hexColour": "#f72407",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.97,
+        "brightness": 0.9708333333333332,
+        "saturationPercent": 97,
+        "brightnessPercent": 97,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 98,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "round-shape-tie-up",
+      "input": {
+        "frequency": 130,
+        "volume": 21.25,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.125,
+        "hexColour": "#3e4462",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.37,
+        "brightness": 0.38749999999999996,
+        "saturationPercent": 37,
+        "brightnessPercent": 38,
+        "shapeLabel": "丸形(6波)",
+        "vertexCount": 6,
+        "numberValue": 7,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6794178886266112,
+              0.021458932793656738
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005152910290840813,
+              0.6527949125664386
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798543075122547,
+              -0.010733682161713541
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6794178886266112,
+              -0.021458932793656543
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "round-shape-tie-up-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 21.25,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 0.875,
+        "hexColour": "#e82e14",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.91,
+        "brightness": 0.9124999999999999,
+        "saturationPercent": 91,
+        "brightnessPercent": 91,
+        "shapeLabel": "トゲ星型(14角)",
+        "vertexCount": 14,
+        "numberValue": 94,
+        "shapePointCount": 28,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.06052569403611754,
+              -0.26518039211345606
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              0.272,
+              0.0
+            ]
+          },
+          {
+            "index": 14,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 26,
+            "point": [
+              -0.29504094259993907,
+              -0.6126588301736453
+            ]
+          },
+          {
+            "index": 27,
+            "point": [
+              -0.06052569403611757,
+              -0.26518039211345606
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "round-shape-tie-next-down",
+      "input": {
+        "frequency": 130,
+        "volume": 28.75,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.20833333333333334,
+        "hexColour": "#404871",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.43000000000000005,
+        "brightness": 0.4458333333333333,
+        "saturationPercent": 43,
+        "brightnessPercent": 44,
+        "shapeLabel": "丸形(6波)",
+        "vertexCount": 6,
+        "numberValue": 11,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6794178886266112,
+              0.021458932793656738
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005152910290840813,
+              0.6527949125664386
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798543075122547,
+              -0.010733682161713541
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6794178886266112,
+              -0.021458932793656543
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "round-shape-tie-next-down-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 28.75,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 0.7916666666666666,
+        "hexColour": "#d93620",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.85,
+        "brightness": 0.8541666666666665,
+        "saturationPercent": 85,
+        "brightnessPercent": 85,
+        "shapeLabel": "トゲ星型(14角)",
+        "vertexCount": 14,
+        "numberValue": 90,
+        "shapePointCount": 28,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.06052569403611754,
+              -0.26518039211345606
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              0.272,
+              0.0
+            ]
+          },
+          {
+            "index": 14,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 26,
+            "point": [
+              -0.29504094259993907,
+              -0.6126588301736453
+            ]
+          },
+          {
+            "index": 27,
+            "point": [
+              -0.06052569403611757,
+              -0.26518039211345606
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "below-round-shape-tie",
+      "input": {
+        "frequency": 130,
+        "volume": 13.749999,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.041666655555555564,
+        "hexColour": "#393e53",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.30999999200000006,
+        "brightness": 0.32916665888888885,
+        "saturationPercent": 30,
+        "brightnessPercent": 32,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 3,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "below-round-shape-tie-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 13.749999,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 0.9583333444444444,
+        "hexColour": "#f72407",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.970000008,
+        "brightness": 0.970833341111111,
+        "saturationPercent": 97,
+        "brightnessPercent": 97,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 98,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "above-round-shape-tie",
+      "input": {
+        "frequency": 130,
+        "volume": 13.750001,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.04166667777777777,
+        "hexColour": "#393e53",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.31000000800000005,
+        "brightness": 0.3291666744444444,
+        "saturationPercent": 31,
+        "brightnessPercent": 32,
+        "shapeLabel": "丸形(5波)",
+        "vertexCount": 5,
+        "numberValue": 3,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6794920428075383,
+              0.02146127490093934
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.0052559040080691856,
+              0.6658426411000585
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6527609954502253,
+              -0.010305927277808945
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6794920428075383,
+              -0.02146127490093915
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "above-round-shape-tie-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 13.750001,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 0.9583333222222222,
+        "hexColour": "#f72407",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.969999992,
+        "brightness": 0.9708333255555555,
+        "saturationPercent": 96,
+        "brightnessPercent": 97,
+        "shapeLabel": "トゲ星型(15角)",
+        "vertexCount": 15,
+        "numberValue": 98,
+        "shapePointCount": 30,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05655197990243058,
+              -0.26605614739959516
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              0.2705099555401704,
+              -0.028431742008801723
+            ]
+          },
+          {
+            "index": 15,
+            "point": [
+              1.3744746154762106e-16,
+              0.272
+            ]
+          },
+          {
+            "index": 28,
+            "point": [
+              -0.2765809172915441,
+              -0.6212109111969687
+            ]
+          },
+          {
+            "index": 29,
+            "point": [
+              -0.05655197990243043,
+              -0.26605614739959516
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "below-shape-branch",
+      "input": {
+        "frequency": 434.499999,
+        "volume": 55,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.3499999988505747,
+        "volumeNorm": 0.5,
+        "hexColour": "#3ba574",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "丸形(10波)",
+        "vertexCount": 10,
+        "numberValue": 43,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.677519249319916,
+              0.02139896561592445
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.004684200030284741,
+              0.5934164921614585
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6793762553842003,
+              -0.01072613457461647
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.677519249319916,
+              -0.021398965615924255
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.68,
+              -1.6655196468404004e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "below-shape-branch-reversed",
+      "input": {
+        "frequency": 434.499999,
+        "volume": 55,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.6500000011494254,
+        "volumeNorm": 0.5,
+        "hexColour": "#78a53b",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "トゲ星型(10角)",
+        "vertexCount": 10,
+        "numberValue": 58,
+        "shapePointCount": 20,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.1281802491218099,
+              -0.394498242513217
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              0.4147999995310345,
+              0.0
+            ]
+          },
+          {
+            "index": 10,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 18,
+            "point": [
+              -0.3996939715588818,
+              -0.5501315561749642
+            ]
+          },
+          {
+            "index": 19,
+            "point": [
+              -0.12818024912180995,
+              -0.394498242513217
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "at-shape-branch",
+      "input": {
+        "frequency": 434.5,
+        "volume": 55,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.35,
+        "volumeNorm": 0.5,
+        "hexColour": "#3ba574",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "トゲ星型(10角)",
+        "vertexCount": 10,
+        "numberValue": 43,
+        "shapePointCount": 20,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.16600392937822178,
+              -0.5109075605537565
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              0.5372,
+              0.0
+            ]
+          },
+          {
+            "index": 10,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 18,
+            "point": [
+              -0.3996939715588818,
+              -0.5501315561749642
+            ]
+          },
+          {
+            "index": 19,
+            "point": [
+              -0.16600392937822184,
+              -0.5109075605537565
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "at-shape-branch-reversed",
+      "input": {
+        "frequency": 434.5,
+        "volume": 55,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.65,
+        "volumeNorm": 0.5,
+        "hexColour": "#78a53b",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "トゲ星型(10角)",
+        "vertexCount": 10,
+        "numberValue": 58,
+        "shapePointCount": 20,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.1281802492667282,
+              -0.3944982429592297
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              0.4148,
+              0.0
+            ]
+          },
+          {
+            "index": 10,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 18,
+            "point": [
+              -0.3996939715588818,
+              -0.5501315561749642
+            ]
+          },
+          {
+            "index": 19,
+            "point": [
+              -0.12818024926672825,
+              -0.3944982429592297
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "above-shape-branch",
+      "input": {
+        "frequency": 434.500001,
+        "volume": 55,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.3500000011494253,
+        "volumeNorm": 0.5,
+        "hexColour": "#3ba574",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "トゲ星型(10角)",
+        "vertexCount": 10,
+        "numberValue": 43,
+        "shapePointCount": 20,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.16600392923330345,
+              -0.5109075601077437
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              0.5371999995310345,
+              0.0
+            ]
+          },
+          {
+            "index": 10,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 18,
+            "point": [
+              -0.3996939715588818,
+              -0.5501315561749642
+            ]
+          },
+          {
+            "index": 19,
+            "point": [
+              -0.1660039292333035,
+              -0.5109075601077437
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "above-shape-branch-reversed",
+      "input": {
+        "frequency": 434.500001,
+        "volume": 55,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.6499999988505747,
+        "volumeNorm": 0.5,
+        "hexColour": "#78a53b",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.64,
+        "brightness": 0.6499999999999999,
+        "saturationPercent": 64,
+        "brightnessPercent": 64,
+        "shapeLabel": "トゲ星型(10角)",
+        "vertexCount": 10,
+        "numberValue": 58,
+        "shapePointCount": 20,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.12818024941164655,
+              -0.3944982434052425
+            ]
+          },
+          {
+            "index": 5,
+            "point": [
+              0.4148000004689656,
+              0.0
+            ]
+          },
+          {
+            "index": 10,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 18,
+            "point": [
+              -0.3996939715588818,
+              -0.5501315561749642
+            ]
+          },
+          {
+            "index": 19,
+            "point": [
+              -0.12818024941164657,
+              -0.3944982434052425
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mid-pitch-min-volume",
+      "input": {
+        "frequency": 565,
+        "volume": 10,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.5,
+        "volumeNorm": 0.0,
+        "hexColour": "#374c37",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "トゲ星型(4角)",
+        "vertexCount": 4,
+        "numberValue": 26,
+        "shapePointCount": 8,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.33658282784479665,
+              -0.3365828278447966
+            ]
+          },
+          {
+            "index": 2,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 4,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 6,
+            "point": [
+              -0.68,
+              8.327598234202002e-17
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              -0.3365828278447967,
+              -0.3365828278447966
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mid-pitch-min-volume-reversed",
+      "input": {
+        "frequency": 565,
+        "volume": 10,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.5,
+        "volumeNorm": 1.0,
+        "hexColour": "#05ff00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 75,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.09286299327967708,
+              -0.4668537934719377
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.09286299327967724,
+              -0.4668537934719376
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mid-pitch-max-volume",
+      "input": {
+        "frequency": 565,
+        "volume": 100,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.5,
+        "volumeNorm": 1.0,
+        "hexColour": "#05ff00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 75,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.09286299327967708,
+              -0.4668537934719377
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.09286299327967724,
+              -0.4668537934719376
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mid-pitch-max-volume-reversed",
+      "input": {
+        "frequency": 565,
+        "volume": 100,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.5,
+        "volumeNorm": 0.0,
+        "hexColour": "#374c37",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "トゲ星型(4角)",
+        "vertexCount": 4,
+        "numberValue": 26,
+        "shapePointCount": 8,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.33658282784479665,
+              -0.3365828278447966
+            ]
+          },
+          {
+            "index": 2,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 4,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 6,
+            "point": [
+              -0.68,
+              8.327598234202002e-17
+            ]
+          },
+          {
+            "index": 7,
+            "point": [
+              -0.3365828278447967,
+              -0.3365828278447966
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "frequency-clamped-low",
+      "input": {
+        "frequency": 0,
+        "volume": 10,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#373a4c",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 1,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "frequency-clamped-low-reversed",
+      "input": {
+        "frequency": 0,
+        "volume": 10,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#ff1e00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 100,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "frequency-clamped-high",
+      "input": {
+        "frequency": 2000,
+        "volume": 100,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#ff1e00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 100,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "frequency-clamped-high-reversed",
+      "input": {
+        "frequency": 2000,
+        "volume": 100,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#373a4c",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 1,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "volume-clamped-low",
+      "input": {
+        "frequency": 130,
+        "volume": 0,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#373a4c",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 1,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "volume-clamped-low-reversed",
+      "input": {
+        "frequency": 130,
+        "volume": 0,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#ff1e00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 100,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "volume-clamped-high",
+      "input": {
+        "frequency": 1000,
+        "volume": 120,
+        "reversed": false
+      },
+      "expected": {
+        "pitchNorm": 1.0,
+        "volumeNorm": 1.0,
+        "hexColour": "#ff1e00",
+        "colourLabel": "暖色(赤系)",
+        "saturation": 1.0,
+        "brightness": 1.0,
+        "saturationPercent": 100,
+        "brightnessPercent": 100,
+        "shapeLabel": "トゲ星型(16角)",
+        "vertexCount": 16,
+        "numberValue": 100,
+        "shapePointCount": 32,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              4.163799117101001e-17,
+              -0.68
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.05306456758838691,
+              -0.26677359626967867
+            ]
+          },
+          {
+            "index": 8,
+            "point": [
+              0.68,
+              0.0
+            ]
+          },
+          {
+            "index": 16,
+            "point": [
+              4.163799117101001e-17,
+              0.68
+            ]
+          },
+          {
+            "index": 30,
+            "point": [
+              -0.26022473400826146,
+              -0.6282380821076748
+            ]
+          },
+          {
+            "index": 31,
+            "point": [
+              -0.053064567588387,
+              -0.26677359626967867
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "volume-clamped-high-reversed",
+      "input": {
+        "frequency": 1000,
+        "volume": 120,
+        "reversed": true
+      },
+      "expected": {
+        "pitchNorm": 0.0,
+        "volumeNorm": 0.0,
+        "hexColour": "#373a4c",
+        "colourLabel": "寒色(青系)",
+        "saturation": 0.28,
+        "brightness": 0.3,
+        "saturationPercent": 28,
+        "brightnessPercent": 30,
+        "shapeLabel": "丸形(4波)",
+        "vertexCount": 4,
+        "numberValue": 1,
+        "shapePointCount": 200,
+        "shapeSamples": [
+          {
+            "index": 0,
+            "point": [
+              0.6800000000000002,
+              0.0
+            ]
+          },
+          {
+            "index": 1,
+            "point": [
+              0.6795528154700955,
+              0.021463194362442102
+            ]
+          },
+          {
+            "index": 50,
+            "point": [
+              -0.005367435994302427,
+              0.6799720377113102
+            ]
+          },
+          {
+            "index": 100,
+            "point": [
+              -0.6798881614551061,
+              -0.010734216654851957
+            ]
+          },
+          {
+            "index": 198,
+            "point": [
+              0.6795528154700955,
+              -0.021463194362441908
+            ]
+          },
+          {
+            "index": 199,
+            "point": [
+              0.6800000000000002,
+              -1.6655196468404009e-16
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
