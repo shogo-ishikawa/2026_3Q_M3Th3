@@ -11,6 +11,8 @@ import {VARIED_INGREDIENTS, VARIED_RECIPES} from '../varied-recipes.js';
 import {COMFORT_INGREDIENTS, COMFORT_RECIPES} from '../comfort-foods.js';
 import {CONFECTIONERY_INGREDIENTS, CONFECTIONERY_RECIPES} from '../confectionery-foods.js';
 import {DESSERT_INGREDIENTS, DESSERT_RECIPES} from '../dessert-foods.js';
+import {ACCOMPANIMENT_INGREDIENTS, ACCOMPANIMENT_RECIPES} from '../accompaniment-foods.js';
+import {SALAD_INGREDIENTS} from '../salad-builder.js';
 import {CATALOG_CATEGORIES, recipePortion} from '../catalog.js';
 import {dishSection, dishClassification, browseDishes, availableDishCategories, availableCookingMethods} from '../dish-hierarchy.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan} from '../planner.js';
@@ -20,15 +22,19 @@ import {shoppingForEntries} from '../shopping.js';
 
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const incoming = [...FAMILIAR_MAIN_RECIPES, ...FAMILIAR_SIDE_RECIPES];
-const additions = [...incoming, ...SUSHI_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...VARIED_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES];
+const additions = [...incoming, ...SUSHI_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...VARIED_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES];
 const addedIds = new Set(additions.map(recipe => recipe.id));
-const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS), ...Object.keys(SUSHI_INGREDIENTS), ...Object.keys(PERFORMANCE_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(VARIED_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS)]);
+const addedIngredientIds = new Set([...Object.keys(FAMILIAR_MAIN_INGREDIENTS), ...Object.keys(FAMILIAR_SIDE_INGREDIENTS), ...Object.keys(SUSHI_INGREDIENTS), ...Object.keys(PERFORMANCE_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(VARIED_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS), ...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS)]);
+const reclassifiedSides = new Set(['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon']);
+// v3.6で副菜へ移した3品だけを旧roleへ戻し、歴史的な固定ハッシュを保ちます。
+// 別の料理のrole変更や、3品の材料・量・栄養変更を許容する投影ではありません。
+const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, role: 'main'} : recipe;
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const entry = (id, items, status = 'planned') => ({id, date: '2026-11-12', meal: 'dinner', status, note: '', items});
 const snapshot = (recipe, quantity = 1) => ({...itemFromRecipe(describeRecipe(recipe.id, data), data, quantity), portion: recipePortion(recipe, data)});
 const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 1e-8, `${label}: ${actual} != ${expected}`);
 
-test('既存580品は手順と表示文言・間食分類の整理以外の材料・量・栄養・一意性を保つ', () => {
+test('既存580品は手順と表示文言・間食分類の整理と3品の副菜への移動以外の材料・量・栄養・一意性を保つ', () => {
   const originalRecipes = RECIPES.filter(recipe => !addedIds.has(recipe.id));
   const originalIngredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredientIds.has(id)));
   assert.equal(originalRecipes.length, 580);
@@ -39,7 +45,7 @@ test('既存580品は手順と表示文言・間食分類の整理以外の材�
   // 固定ハッシュはクリーンなv3.4.0公開DBから独立計算済み。材料・量・単位・栄養は除外しません。
   const changedIds = new Set(['classic-sushi-tuna', 'classic-sushi-salmon', 'classic-sushi-shrimp', 'classic-sushi-squid',
     'classic-sushi-assorted', 'drink-milk-cocoa', 'drink-soy-cocoa', 'drink-yogurt']);
-  const stableRecipes = originalRecipes.filter(recipe => !changedIds.has(recipe.id)).map(({steps,name,variantLabel,family,sourceNote,...recipe})=>({...recipe,
+  const stableRecipes = originalRecipes.filter(recipe => !changedIds.has(recipe.id)).map(historicalRole).map(({steps,name,variantLabel,family,sourceNote,...recipe})=>({...recipe,
     ...(recipe.portion?{portion:Object.fromEntries(Object.entries(recipe.portion).filter(([key])=>key!=='label'))}:{})}));
   const stableIngredients = Object.fromEntries(Object.entries(originalIngredients).map(([id,{name,note,...ingredient}])=>[id,ingredient]));
   assert.equal(stableRecipes.length, 572);

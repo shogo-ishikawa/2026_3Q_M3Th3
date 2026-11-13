@@ -9,6 +9,11 @@
 const KEYS = Object.freeze(['kcal', 'protein', 'fat', 'carbs', 'fiber', 'salt']);
 const SOURCE = '日本食品標準成分表（八訂）増補2023年（2026-03-27更新）';
 const FOOD_PROFILES = Object.freeze({
+  "10263": [265, 17.7, 21.7, 0.1, 0, 0.9],
+  "09005": [303, 40, 3.5, 41.8, 25.2, 4.3],
+  "10202": [131, 24, 4.7, 0.4, 0, 4.6],
+  "10204": [121, 21, 3.3, 3, 0, 5.6],
+  "06264": [30, 3.9, 0.4, 5.2, 4.3, 0],
   "11169": [159, 14, 11.9, 0, 0, 0], // ＜畜肉類＞ ぶた ［副生物］ 小腸 ゆで
   "11101": [157, 31, 5.1, null, 0, 0.2], // ＜畜肉類＞ うし ［副生物］ 腱 ゆで
   '01004': [350.0, 13.7, 5.7, 69.1, 9.4, 0.0], // えんばく オートミール
@@ -251,6 +256,13 @@ const FOOD_PROFILES = Object.freeze({
 
 // [食品番号, 1宣言単位当たりの対応食品の可食重量g, 換算・対応上の補足]
 const INGREDIENT_PROFILES = Object.freeze({
+  acmp_tuna_oil: ["10263", 1, "油と液汁を含む製品重量。油切りした身だけの重量へ同じ値を当てません。確認日2026-11-13。出典: https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=10_10263_7"],
+  acmp_seasoned_nori: ["09005", 1, "味付けのりの製品重量。焼きのりとは別の食品番号です。確認日2026-11-13。出典: https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=9_09005_7"],
+  acmp_tarako: ["10202", 1, "塩蔵品の非加熱可食部重量。塩蔵前の生卵巣や焼きたらこではありません。確認日2026-11-13。出典: https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=10_10202_7"],
+  acmp_mentaiko: ["10204", 1, "調味済み製品の可食部重量。全原材料の確認とは区別します。確認日2026-11-13。出典: https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=10_10204_7"],
+  acmp_onsen_egg: ["unknown", 1, "完成品1個を購入する材料です。生卵や固ゆで卵の成分表を流用しません。参照商品バロー ValorSelect 温泉たまご（たれなし）の1個・可食部標準47gあたりの表示をメニューのmanualNutritionへ保存。確認日2026-11-13。https://valor.jp/product/1571/"],
+  acmp_salmon_flakes: ["unknown", 1, "完成品1gを購入する材料です。無調味の焼き鮭の成分表を流用しません。参照商品ニッスイ焼さけあらほぐし1びん45gあたりの表示をメニューのmanualNutritionへ量に応じて換算。確認日2026-11-13。https://www.nissui.co.jp/product/00046.html"],
+  salad_broccoli_boiled: ["06264", 1, "食塩を加えずにゆでた花序を湯切りした可食部重量。生の重量、茎葉、電子レンジ調理や油炒めの値ではありません。確認日2026-11-13。 https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=6_06264_7"],
   confectionery_pocky: ["unknown", 1, "ポッキー チョコレートの購入品。栄養はメニューの内袋1袋29g。箱全体は2袋入りを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.glico.com/jp/product/chocolate/pocky/47776/"],
   confectionery_pretz: ["unknown", 1, "プリッツ 旨サラダの購入品。栄養はメニューの内袋1袋32g。箱全体は64gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.glico.com/jp/product/snack_biscuit_cookie/pretz/45931/"],
   confectionery_bisco: ["unknown", 1, "ビスコ ミニパックの購入品。栄養はメニューの1パック5枚・標準21.5gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.glico.com/jp/product/snack_biscuit_cookie/bisco/47543/"],

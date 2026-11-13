@@ -36,7 +36,8 @@ const auditedFamilies = {
     calendar-side-komatsuna-walnut calendar-side-aubergine-sesame
     calendar-side-lotus-edamame calendar-side-okra-corn calendar-side-turnip-leaf
     snack-edamame snack-pumpkin snack-soybean snack-cheese-tomato
-    snack-sesame-potato breakfast-natto-okra daily-snack-bacon-cheese-roll`,
+    snack-sesame-potato breakfast-natto-okra daily-snack-bacon-cheese-roll
+    classic-boiled-egg classic-natto-plain classic-natto-grated-daikon`,
   // 元のIDと量を保ち、既存のお菓子も新しい選択肢から探せるようにする。
   'salty-snack': 'daily-snack-potato-chips',
   'rice-snack': 'daily-snack-rice-cracker',
