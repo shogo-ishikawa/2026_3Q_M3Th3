@@ -89,7 +89,15 @@
         "recipe-arrangement-ui.js",
         "recipe-arrangement.css",
         "mapo-foods.js",
-        "mapo-nutrition.js"
+        "mapo-nutrition.js",
+        "seafood-foods.js",
+        "world-foods.js",
+        "noodle-foods.js",
+        "noodle-composer.js",
+        "noodle-composer-ui.js",
+        "noodle-composer.css",
+        "curry-rice.js",
+        "curry-rice-ui.js"
       ]
     },
     {

@@ -1,3 +1,6 @@
+import {WORLD_INGREDIENTS,WORLD_RECIPES} from '../world-foods.js';
+import {SEAFOOD_INGREDIENTS,SEAFOOD_RECIPES} from '../seafood-foods.js';
+import {NOODLE_INGREDIENTS,NOODLE_RECIPES} from '../noodle-foods.js';
 import {MAPO_INGREDIENTS} from '../mapo-nutrition.js';
 import {MAPO_RECIPES} from '../mapo-foods.js';
 import {MEAT_CHOICE_INGREDIENTS} from '../meat-choice-foods.js';
@@ -25,6 +28,7 @@ const reclassifiedSides = new Set(['classic-boiled-egg', 'classic-natto-plain', 
 // 別の料理のrole変更や、3品の材料・量・栄養変更を許容する投影ではありません。
 const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, role: 'main'} : recipe;
 
+const v310RecipeIds=new Set([...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES].map(recipe=>recipe.id));
 const data={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const newRecipePrefixes=['confectionery-','dessert-','comfort-','acmp-','palette-'];
@@ -77,7 +81,7 @@ const recipeCore=recipe=>{
 };
 
 test('旧784品は名称・間食分類と3品の副菜への移動以外の量・材料・栄養・確認状況を保つ',()=>{
-  const original=RECIPES.filter(recipe=>!newRecipePrefixes.some(prefix=>recipe.id.startsWith(prefix))&&!MAPO_RECIPES.some(added=>added.id===recipe.id));
+  const original=RECIPES.filter(recipe=>!newRecipePrefixes.some(prefix=>recipe.id.startsWith(prefix))&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id));
   assert.equal(original.length,784);
   assert.equal(hash(original.map(recipeCore)),'bd9bedc6bcef769141bb69ed7fece27de47f513ec9707246961019c515a060de');
   const portions=original.map(recipe=>{const p=recipePortion(recipe,data);return{id:recipe.id,amount:p.amount,unit:p.unit};});
@@ -131,8 +135,8 @@ test('追加63品を実際の公開DBへ統合し、未確認の購入品だけ�
   const products=[...CONFECTIONERY_RECIPES,...DESSERT_RECIPES];
   const additions=[...products,...COMFORT_RECIPES];
   assert.equal(additions.length,63);
-  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length+Object.keys(MAPO_INGREDIENTS).length);
+  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length);
+  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length+Object.keys(MAPO_INGREDIENTS).length+Object.keys(WORLD_INGREDIENTS).length+Object.keys(SEAFOOD_INGREDIENTS).length+Object.keys(NOODLE_INGREDIENTS).length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);
   for(const recipe of additions)assert.ok(RECIPES.some(integrated=>integrated.id===recipe.id),recipe.id);

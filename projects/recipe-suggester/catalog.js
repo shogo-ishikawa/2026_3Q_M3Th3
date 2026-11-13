@@ -2,13 +2,13 @@ import {matchesJapaneseQuery,japaneseQueryRank} from './japanese-search.js';
 /** メニューの大分類と1人分の表示量。記録する栄養はquantity倍率で扱います。 */
 export const CATALOG_CATEGORIES = Object.freeze([
   ['rice', 'ご飯', 'staple'], ['onigiri', 'おにぎり', 'staple'],
-  ['bread', 'パン・トースト', 'staple'], ['udon', 'うどん', 'staple'],
+  ['bread', 'パン・トースト', 'staple'], ['naan', 'ナン', 'staple'], ['udon', 'うどん', 'staple'],
   ['soba', 'そば', 'staple'], ['yakisoba', '焼きそば', 'staple'],
-  ['pasta', 'パスタ', 'staple'], ['curry', 'カレーライス', 'staple'],
+  ['pasta', 'パスタ', 'staple'], ['curry', 'カレー', 'staple'],
   ['pizza', 'ピザ', 'staple'], ['fried-rice', 'チャーハン・炒めご飯', 'staple'],
   ['sushi', 'お寿司', 'staple'], ['omelette-rice', 'オムライス', 'staple'],
   ['burger', 'ハンバーガー', 'staple'],
-  ['donburi', '丼', 'staple'], ['ramen', 'ラーメン', 'staple'],
+  ['donburi', '丼', 'staple'], ['ramen', 'ラーメン・中華麺', 'staple'],
   ['somen', 'そうめん', 'staple'], ['oatmeal', 'オートミール', 'staple'],
   ['other-staple', 'その他の主食', 'staple'],
   ['karaage', '唐揚げ', 'main'], ['grilled-fish', '焼き魚', 'main'],

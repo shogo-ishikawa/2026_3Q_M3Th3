@@ -20,6 +20,11 @@ import {meatChoiceFor,defaultMeatSelection,eligibleMeatSelections} from './meat-
 import {mountMeatChoice} from './meat-choices-ui.js';
 import {mountRecipeArrangement} from './recipe-arrangement-ui.js';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
+import {NOODLE_TOPPINGS} from './noodle-foods.js';
+import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
+import {mountNoodleComposer} from './noodle-composer-ui.js';
+import {curryRiceFor,defaultCurryRiceSelection,eligibleCurryRiceSelections} from './curry-rice.js';
+import {mountCurryRice} from './curry-rice-ui.js';
 import {groupMenuRecipes,getVariationGroup,variantLabel,variationSearchAliases} from './menu-variations.js';
 import {FOOD_CATEGORIES,COOKING_METHODS,dishClassification,browseDishes,availableDishCategories,availableCookingMethods} from './dish-hierarchy.js';
 
@@ -316,10 +321,14 @@ function renderCatalog(){
   $('recipe-results-count').textContent=`${menus.length}件のメニュー / ${candidates.length}種類が見つかりました`;
   const grid=$('recipe-grid');grid.replaceChildren();
   for(const menu of menus.slice(0,recipeLimit)){
-    const r=menu.recipe,customiser=dishCustomiserFor(r.id),foodComposer=foodComposerFor(r.id),meatChoice=meatChoiceFor(r.id);
+    const r=menu.recipe,customiser=dishCustomiserFor(r.id),foodComposer=foodComposerFor(r.id),meatChoice=meatChoiceFor(r.id),noodle=noodleComposerFor(r.id),curry=curryRiceFor(r.id,data());
     const card=button('',()=>openRecipe(menu.selectedRecipeId,{variationRecipes:variationScope,query}),'recipe-card');
     card.append(node('span','recipe-meta',`${familyLabel(r)} / ${r.genre}`),node('h3','',menu.label));
-    if(foodComposer){
+    if(noodle){
+      card.append(node('p','',noodle.soup.length?'トッピングと飲んだスープの量を選べます':'麺の量とトッピングを選べます'),node('span','food-customisation',noodle.soup.length?'麺・具・スープを分けて栄養を計算':'麺・たれ・具の栄養を合計'));
+    }else if(curry){
+      card.append(node('p','','ご飯の量を0gから指定できます'),node('span','food-customisation','ルーのみ・ナンとの組み合わせにも'));
+    }else if(foodComposer){
       card.append(node('p','',foodComposer.description??'種類と量を自由に組み合わせる'),node('span','food-customisation','組み合わせる · 栄養と材料を自動計算'));
     }else if(customiser){
       card.append(node('p','',customiser.kind==='nikujaga'?'牛肉・豚肉を選べます':'種類と具材を選べます'),node('span','food-customisation','材料・栄養・作り方が切り替わります'));
@@ -345,6 +354,7 @@ function renderCatalog(){
 function menuSearchAliases(recipe,respectConditions=false){
   const aliases=[...(recipe.searchAliases??[]),...variationSearchAliases(recipe)],definition=dishCustomiserFor(recipe.id);
   if(recipe.id==='mapo-tofu-chen-style')aliases.push(...MAPO_SEARCH_ALIASES);
+  const noodle=noodleComposerFor(recipe.id);if(noodle)aliases.push(noodle.label,...NOODLE_TOPPINGS.map(topping=>topping.label));
   const composer=foodComposerFor(recipe.id);
   if(composer){aliases.push(composer.label);if(recipe.id.startsWith('palette-')&&composer.recipeIds.length===1)for(const part of composer.components)aliases.push(part.label,`${part.label}${composer.label}`,`${composer.label}${part.label}`);}
   if(meatChoiceFor(recipe.id))for(const choice of eligibleMeatSelections(recipe.id,respectConditions?state.settings:{allergens:[],excludedIngredients:[]},data()))aliases.push(choice.recipe.name);
@@ -379,6 +389,15 @@ function menuCandidates(catalogData){
     allowed.set(base.id,{...base,name:r.name,servings:r.servings,portion:r.portion,ingredients:r.ingredients,manualNutrition:r.manualNutrition,
       allergens:r.allergens,allergensKnown:r.allergensKnown,ingredientsKnown:r.ingredientsKnown,groups:r.groups,proteinSources:r.proteinSources});
   }
+  for(const base of catalogData.recipes){
+    const noodle=noodleComposerFor(base.id),curry=curryRiceFor(base.id,catalogData);
+    if(!noodle&&!curry)continue;
+    const choices=noodle?eligibleNoodleSelections(base.id,state.settings,catalogData):eligibleCurryRiceSelections(base.id,state.settings,catalogData);
+    if(!choices.length){allowed.delete(base.id);continue;}
+    const r=choices[0].recipe;
+    allowed.set(base.id,{...base,ingredients:r.ingredients,manualNutrition:r.manualNutrition,servings:r.servings,portion:r.portion,
+      allergens:r.allergens,allergensKnown:r.allergensKnown,ingredientsKnown:r.ingredientsKnown,groups:r.groups,proteinSources:r.proteinSources});
+  }
   // 特定の魚や肉の名を別の具へ置き換えず、汎用の組立て入口だけを残します。
   const anchors=new Set(['palette-oden','palette-bagel','palette-waffle','palette-muffin','palette-english-muffin','palette-sandwich','classic-sushi-assorted','classic-sashimi-assorted','familiar-tempura-assorted']);
   for(const definition of FOOD_COMPOSERS){
@@ -395,7 +414,7 @@ function menuCandidates(catalogData){
   return catalogData.recipes.flatMap(recipe=>allowed.has(recipe.id)?[allowed.get(recipe.id)]:[]);
 }
 function dishCustomiserFor(id){return DISH_CUSTOMISERS.find(definition=>definition.recipeIds.includes(id));}
-function isComposableRecipe(id){return id==='familiar-side-raw-vegetable'||!!dishCustomiserFor(id)||!!foodComposerFor(id)||!!meatChoiceFor(id);}
+function isComposableRecipe(id){return id==='familiar-side-raw-vegetable'||!!dishCustomiserFor(id)||!!foodComposerFor(id)||!!meatChoiceFor(id)||!!noodleComposerFor(id)||!!curryRiceFor(id,data());}
 function recordPickerRecipeId(){return $('catalog-variant').value||$('catalog-item').value;}
 function arrangementAction(getBase,{respectConditions=true}={}){
   return button('食材を追加してアレンジ',()=>{
@@ -426,7 +445,9 @@ function openRecipeArrangement(baseRecipe=null,{respectConditions=false}={}){
   box.append(builder,notice,saveArea,form);
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
-function openRecipe(id,{variationRecipes=null,respectConditions=true,query=''}={}){
+function openRecipe(id,{variationRecipes=null,respectConditions=true,query='',recordInitial={}}={}){
+  if(noodleComposerFor(id)){openMealComposer(id,{type:'noodle',respectConditions,recordInitial});return;}
+  if(curryRiceFor(id,data())){openMealComposer(id,{type:'curry',respectConditions,recordInitial});return;}
   if(foodComposerFor(id)){openFoodComposer(id,{respectConditions});return;}
   if(id==='familiar-side-raw-vegetable'){openSaladComposer(id);return;}
   if(dishCustomiserFor(id)){openDishComposer(id,{respectConditions,query});return;}
@@ -437,6 +458,42 @@ function openRecipe(id,{variationRecipes=null,respectConditions=true,query=''}={
   if(group&&group.recipes.length>1){openVariationRecipe(id,group,{respectConditions});return;}
   const r=describeRecipe(id,catalogData);if(!r)throw Error('このレシピは見つかりませんでした。');
   openSnapshot(snapshot(id),r.custom?undefined:r.minutes,id,{respectConditions});
+}
+/** 麺やカレーの1皿を組み立て、食べた栄養と準備する材料を記録します。 */
+function openMealComposer(recipeId,{type,respectConditions=true,recordInitial={}}={}){
+  const box=$('dialog-content');box.replaceChildren();
+  $('dialog-title').textContent=recipeById(recipeId).name;
+  $('dialog-meta').textContent=type==='curry'?'カレー1人分とご飯の量':noodleComposerFor(recipeId).soup.length?'麺・トッピング・飲んだスープ量':'麺の量とトッピング';
+  const constraints=respectConditions&&(state.settings.allergens.length||state.settings.excludedIngredients.length);
+  const settings=constraints?state.settings:{allergens:[],excludedIngredients:[]};
+  const choices=type==='curry'?eligibleCurryRiceSelections(recipeId,settings,data()):eligibleNoodleSelections(recipeId,settings,data());
+  if(!choices.length)throw Error('現在の除外条件に合う組み合わせがありません。');
+  const standard=type==='curry'?defaultCurryRiceSelection(recipeId,data()):defaultNoodleSelection(recipeId);
+  const initial=choices.find(choice=>JSON.stringify(choice.config)===JSON.stringify(standard))?.config??choices[0].config;
+  const scope=constraints?menuCandidates(data()):data().recipes,group=getVariationGroup(recipeId,scope);
+  if(group&&group.recipes.length>1){
+    const label=node('label','detail-variation-label','料理の種類'),select=node('select');select.id='meal-detail-variant';label.htmlFor=select.id;
+    selectOptions(select,group.recipes.map(r=>[r.id,variantLabel(r)]),recipeId);
+    select.addEventListener('change',guard(()=>{
+      const qty=box.querySelector('#menu-entry-amount');
+      const initial={date:box.querySelector('#menu-entry-date')?.value,meal:box.querySelector('#menu-entry-meal')?.value,status:box.querySelector('#menu-entry-status')?.value,amount:qty?.value,unit:qty?.dataset.unit,edited:qty?.dataset.edited==='true'};
+      openRecipe(select.value,{respectConditions,variationRecipes:scope,recordInitial:initial});
+    }));label.append(select);box.append(label);
+  }
+  let currentRecipe=null;
+  const form=catalogRecordForm(recipeId,{getCustomRecipe:()=>currentRecipe,initial:recordInitial});
+  const arrange=arrangementAction(()=>currentRecipe,{respectConditions});arrange.disabled=true;
+  const notice=node('p','notice error');notice.hidden=true;
+  const onChange=recipe=>{
+    const allowed=!recipe||!constraints||eligibleRecipes(state.settings,{...data(),recipes:[recipe]}).length>0;
+    currentRecipe=allowed?recipe:null;arrange.disabled=!currentRecipe;
+    notice.hidden=allowed;notice.textContent=allowed?'':'避ける食材の設定に合わない組み合わせです。種類や具材を変更してください。';
+    form.querySelector('button[type="submit"]').disabled=!currentRecipe;
+  };
+  const mount=type==='curry'?mountCurryRice:mountNoodleComposer;
+  const builder=mount({recipeId,data:data(),initial,onChange,onError:()=>{}});
+  box.append(builder,notice,arrange,form);
+  if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 /** 複数の料理・具材を選び、そのまま一皿として記録します。 */
 function openFoodComposer(recipeId,{respectConditions=true}={}){

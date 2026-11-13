@@ -1,3 +1,6 @@
+import {WORLD_INGREDIENTS,WORLD_RECIPES} from '../world-foods.js';
+import {SEAFOOD_INGREDIENTS,SEAFOOD_RECIPES} from '../seafood-foods.js';
+import {NOODLE_INGREDIENTS,NOODLE_RECIPES} from '../noodle-foods.js';
 import {MAPO_INGREDIENTS} from '../mapo-nutrition.js';
 import {MAPO_RECIPES} from '../mapo-foods.js';
 import {MEAT_CHOICE_INGREDIENTS} from '../meat-choice-foods.js';
@@ -22,8 +25,8 @@ const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const movedIds = ['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon'];
-const newIds = new Set([...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES,...MAPO_RECIPES].map(recipe => recipe.id));
-const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS),...Object.keys(MAPO_INGREDIENTS)]);
+const newIds = new Set([...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES,...MAPO_RECIPES,...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES].map(recipe => recipe.id));
+const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS),...Object.keys(MAPO_INGREDIENTS),...Object.keys(WORLD_INGREDIENTS),...Object.keys(SEAFOOD_INGREDIENTS),...Object.keys(NOODLE_INGREDIENTS)]);
 const date = '2026-11-13';
 const recordInput = (recipeId, amount = 1, status = 'planned') => ({recipeId, date, meal: 'dinner', status, amount});
 
@@ -78,7 +81,7 @@ test('以前に主菜として記録した納豆とゆで卵は、分類を更�
 
 test('ご飯のお供8品を単品の副菜として記録し、生卵と牛丼のご飯を二重計上しない', () => {
   assert.equal(ACCOMPANIMENT_RECIPES.length, 8);
-  assert.equal(RECIPES.length, 855+PALETTE_RECIPES.length+MAPO_RECIPES.length);
+  assert.equal(RECIPES.length, 855+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length);
   for (const source of ACCOMPANIMENT_RECIPES) {
     const recipe = RECIPES.find(candidate => candidate.id === source.id);
     assert.ok(recipe, source.id);
