@@ -6,6 +6,8 @@ import {validateMealSets} from './meal-sets.js';
 import {validatePurchaseSettings} from './purchase-conversion.js';
 import {validateBatches, assertBatchUsage} from './batch-cooking.js';
 import {validateRestaurantMetadata} from './restaurant-menu.js';
+import {validateFavourites} from './favourites.js';
+import {validateNutritionBasis} from './nutrition-basis.js';
 import {STORAGE_KEY as LEGACY_KEY, defaultState, validateState, GROUP_IDS, PROTEIN_IDS, GENRES} from './storage.js';
 
 export const JOURNAL_KEY = 'kondate-note-v3';
@@ -18,8 +20,8 @@ export const DEFAULT_TARGETS = Object.freeze({kcal: 2000, protein: 60, fat: 65, 
 const MAX_BYTES = 2 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode'];
-const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant'];
-const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant'];
+const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis'];
+const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant', 'nutritionBasis'];
 const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。アレルギーと除外食材を選び直してください。バックアップがあれば「記録を読み込む」から取り込めます。';
 const unknownNutrition = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
 const unique = values => [...new Set(values)];
@@ -71,7 +73,7 @@ export function entriesForDay(entries, date) {
 
 export function defaultJournal(today = dateKey()) {
   if (!dateIsValid(today)) throw new Error('日付を確認してください。');
-  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: []};
+  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: [], favourites: []};
 }
 
 // JSON以外のオブジェクト、アクセサー、危険なキーをデータとして受け付けません。
@@ -182,6 +184,7 @@ function portion(value) {
 const NATURE_IDS = new Set(FOOD_NATURES.map(nature => nature.id));
 function sourceMetadata(source) {
   const result = {};
+  if (source.nutritionBasis !== undefined) result.nutritionBasis = validateNutritionBasis(source.nutritionBasis);
   if (source.nature !== undefined) {
     if (!NATURE_IDS.has(source.nature)) throw new Error('メニューの性質を確認してください。');
     result.nature = source.nature;
@@ -281,7 +284,7 @@ function profile(value) {
 }
 
 function validateV3(value, data) {
-  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches'], '保存データ');
+  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites'], '保存データ');
   const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), recipeIds: new Set(data.recipes.map(recipe => recipe.id)), allergenIds: new Set(data.allergens.map(allergen => allergen.id)), customIds: new Set()};
   const customRecipes = list(value.customRecipes, LIMITS.customRecipes, 'マイレシピ').map(recipe => customRecipe(recipe, context));
   const recipes = [...data.recipes, ...customRecipes];
@@ -321,7 +324,8 @@ function validateV3(value, data) {
   const purchaseSettings = validatePurchaseSettings(value.purchaseSettings === undefined ? [] : value.purchaseSettings, data);
   const batches = validateBatches(value.batches === undefined ? [] : value.batches, data, {validateItem: item => validateFrozenItems([item], data)[0]});
   assertBatchUsage(batches, entries);
-  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches};
+  const favourites = validateFavourites(value.favourites === undefined ? [] : value.favourites, data);
+  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites};
 }
 
 function legacyNutrition(recipe, data) {

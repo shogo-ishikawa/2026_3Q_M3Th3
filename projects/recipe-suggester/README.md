@@ -1,8 +1,20 @@
 # Meal Palette（ミールパレット）
 
-対応版：v3.13.0 ／ 更新日：2026年11月13日
+対応版：v3.14.0 ／ 更新日：2026年11月14日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
+
+v3.14.0では、いつもの食事の登録と、記録した栄養の見方を改善しました。
+
+| 追加した機能 | できること |
+| --- | --- |
+| [単品のお気に入り・最近使った料理](docs/favourites.md) | 保存した配合と量を呼び出す。最近の料理は選択日以前の実食から最大12品を表示する |
+| [汁と具の摂取割合](docs/soup-intake-model.md) | 家庭用の汁物・鍋料理97品と選択式ポトフで、汁や具を残した割合を栄養へ反映する。買い物は用意する全量を保つ |
+| [二重計上の確認](docs/meal-overlap.md) | 同じ食事のご飯込み料理と単品ご飯、同じ料理の重複を確認する。おかわりや追加分として登録できる |
+| [栄養値の根拠の表示](docs/nutrition-basis.md) | 材料から概算・公式表示値・手入力などを短いラベルで確認する |
+| [文章からまとめて記録](docs/text-log.md) | 「ご飯150g、納豆1パック、みそ汁1杯」などから候補を作り、料理と量を全行確認して一括登録する |
+
+保存形式は引き続きversion 3です。v3.0.0〜v3.13.0の記録を受け入れ、お気に入りがない旧データは空の一覧から始めます。過去の材料・量・栄養は書き換えず、栄養の根拠の分類が未保存なら「根拠未記録」と表示します。
 
 v3.13.0では数量欄の上下ボタンを原則1刻みに統一しました。手入力の小数を保ち、選択式の具材は数量0でチェックを外します。汁物86品はみそ汁・和風の汁物・あら汁・コンソメ・野菜スープ・ポタージュ・クリーム系・中華・韓国／エスニック・その他の10分類から探せます。
 
@@ -22,7 +34,7 @@ v3.9.1までに、刺身の切れ数やチーズの個数からの重量換算�
 
 v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.13.0.zip)
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.14.0.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
@@ -31,7 +43,7 @@ v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部�
 | タブ | できること |
 | --- | --- |
 | 献立 | 朝・昼・夕をまとめて提案する。主食をおまかせ・固定・追加なしから選び、提案後も食事ごとに調整する |
-| 記録 | 食事を記録し、定番セット・過去の食事をコピーする。作り置きを完成重量と取り分け量で管理する |
+| 記録 | 食事を選ぶ・お気に入りから呼び出す・文章からまとめる。定番セットのコピーと作り置きの取り分けにも対応する |
 | 栄養 | エネルギー・たんぱく質・脂質・炭水化物・食物繊維・食塩相当量を概算し、1日・7日・30日の記録を振り返る |
 | メニュー | 料理の種類や具材を詳細で選び、材料と作り方を確認してその場で記録する |
 | 買い物 | 人数分の必要量から手持ちを引き、生米・皮付き重量や包装数へ換算する |
@@ -165,6 +177,11 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `quantity-input.js`・`quantity-input.css` | 小数の手入力と1刻みの上下操作、数量の検証 |
 | `recipe-arrangement.js`・`recipe-arrangement-ui.js` | 元材料の編集・置き換えと食材追加 |
 | `meal-sets.js`・`meal-sets-ui.js` | 定番セットと過去の食事コピー |
+| `favourites.js`・`favourites-ui.js`・`favourites-ui.css` | 単品のお気に入り、最近の実食と最後に使った量 |
+| `meal-overlap.js` | 同じ食事の料理重複と、ご飯込み料理への追加ご飯の確認 |
+| `nutrition-basis.js`・`nutrition-basis-ui.js`・`nutrition-basis-ui.css` | 栄養値の根拠の分類、保存とラベル表示 |
+| `text-log.js`・`text-log-ui.js`・`text-log-ui.css` | 文章からの料理候補と単位換算、全行確認後の一括登録 |
+| `soup-intake.js`・`soup-intake-ui.js`・`soup-intake-ui.css` | 対応する汁物・鍋と選択式ポトフの汁・具の摂取割合 |
 | `purchase-conversion.js`・`purchase-conversion-ui.js` | 購入時の状態・包装数の換算 |
 | `batch-cooking.js`・`batch-cooking-ui.js` | 完成重量による取り分けと残量 |
 | `restaurant-menu.js`・`restaurant-menu-ui.js` | 店舗・サイズごとの表示値と提供量 |
@@ -191,10 +208,10 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `app.js`・`tabs.js`・`index.html`・`styles.css` | 操作、タブの切り替え、表示 |
 | `storage.js` | 旧版のAPIと互換処理 |
 
-ZIPは`v3.13.0/`に展開します。Macでは次の場所に置けます。
+ZIPは`v3.14.0/`に展開します。Macでは次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.13.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.14.0
 ```
 
 展開したフォルダーで`python3 tools/serve.py`を実行し、表示されたURLを開きます。`npm test`で確認できます。背景は[設計と開発](docs/design.md)、実際の確認範囲は[検証記録](docs/validation.md)をご覧ください。

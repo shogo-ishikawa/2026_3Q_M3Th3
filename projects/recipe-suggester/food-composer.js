@@ -90,7 +90,7 @@ const potAuFeu = [
     ['shimeji','しめじ','shimeji',50],['tomato','トマト','tomato',80]].map(([id,label,ingredientId,amount])=>
       material(id,label,ingredientId,'野菜・きのこ','g',amount,1,{note:'皮や根など食べない部分を除いた、調理前の重量です。'})),
   material('water','煮汁の水','water','煮汁・調味料','ml',350,1,
-    {food:false,note:'用意する煮汁の水。選択した煮汁も全量食べる概算で、飲用率の調整は行いません。少量で作る場合は具材が浸る小さめの鍋を使います。'}),
+    {food:false,note:'用意する煮汁の水。買い物には全量を使い、食べた分の栄養は汁の摂取割合で調整できます。少量で作る場合は具材が浸る小さめの鍋を使います。'}),
   material('salt','食塩','salt','煮汁・調味料','g',0.7,1,{food:false,note:'加工肉にも塩分が含まれます。薄味にする場合は量を減らすか選択を外してください。'}),
   material('black-pepper','黒こしょう','black_pepper','煮汁・調味料','g',0.1,1,{food:false}),
   material('parsley','パセリ','parsley','仕上げ','g',1.5,1,{food:false}),
@@ -171,9 +171,9 @@ export const FOOD_COMPOSERS = freeze([
       '選んだ具材をだし汁で静かに煮る。牛すじは下ゆで済みのものを使い、餅巾着は油揚げに表示量の餅を包む。',
       '練り物やはんぺんは煮崩れないよう後から加え、餅も中までやわらかくなるまで加熱する。食べた具材と飲んだ汁の量で記録する。']},
   {kind:'pot-au-feu',label:'ポトフ',recipeIds:['familiar-side-pot-au-feu'],role:'soup',family:'soup',genre:'洋食',minutes:35,components:potAuFeu,
-    nutritionNote:'選択した具材・煮汁・調味料を全量食べるモデルです。栄養と買い物は用意する全量を計上し、残した煮汁の割合による補正は行いません。',
+    nutritionNote:'ここでは選択した具材・煮汁・調味料の全量を表示します。汁や具を残す場合は、記録前に摂取割合を調整できます。買い物には用意する全量を使います。',
     defaults:[['bacon',35],['cabbage',100],['potato',90],['carrot',60],['onion',60],['celery',25],['water',350],['salt',0.7],['black-pepper',0.1],['parsley',1.5]],
-    intro:'肉・野菜・きのこを好きなg数で選びます。ベーコンと野菜の初期量は元のポトフ1人分です。水・塩も調整でき、肉や野菜のうまみで煮る家庭用の配合です。選択した煮汁を全量食べる想定で栄養と買い物を計算します。コンソメや油は使わず、追加する場合は「食材を追加してアレンジ」から加えてください。',
+    intro:'肉・野菜・きのこを好きなg数で選びます。ベーコンと野菜の初期量は元のポトフ1人分です。水・塩も調整でき、肉や野菜のうまみで煮る家庭用の配合です。まず調理する全量を選び、食べた分は汁と具の摂取割合で調整します。コンソメや油は使わず、追加する場合は「食材を追加してアレンジ」から加えてください。',
     instructions:['選んだ肉と野菜を材料表の量に用意し、小さめの鍋で煮る。食べる量は出来上がりの皿数で調整する。']},
   {kind:'sushi',label:'お寿司',recipeIds:[...sushi.map(part=>part.recipeId),'classic-sushi-assorted'],role:'staple',family:'sushi',genre:'和食',mealBase:true,minutes:20,components:sushi,
     defaults:[['tuna',2],['salmon',2],['shrimp',1],['egg',1]],intro:`握り・軍艦は貫数、細巻き・太巻きは切れ数で選べます。細巻きは1本6切れ、太巻きは1本8切れの目安です。${countNote}`,
@@ -275,7 +275,7 @@ function selectedInstructions(definition,selected) {
       ...(has('sausage')||has('broccoli')?[`${has('sausage')?'ウインナーと、':''}${has('broccoli')?'ブロッコリーを、':''}仕上げの3〜5分に加え、中まで温める。ブロッコリーを選んだ場合は茎も柔らかくする。`]:[]),
       ...(rawMeat?['選んだ生の肉は中心75℃で1分以上の加熱を確認する。時間は肉の厚さで変わるため、火が通っていなければ追加で加熱する。']:[]),
       ...(has('salt')||has('black-pepper')?[`火を止める前に${selectedNames(['salt','black-pepper'])}を材料表の量で加えて味を調える。加工肉の塩分も含まれるので、調味料は入力した量を超えて足さない。`]:[]),
-      `${has('parsley')?'刻んだパセリを仕上げに散らす。':''}具と煮汁を合わせて一皿に盛る。選択した煮汁を全量食べる概算で、残した割合の補正は行わない。`,
+      `${has('parsley')?'刻んだパセリを仕上げに散らす。':''}具と煮汁を合わせて一皿に盛る。汁や具を残した場合は、食べた割合に合わせて記録する。`,
     ];
   }
   if(['sushi','sashimi'].includes(definition.kind))return ['選んだ種類の材料と量を用意し、以下の選んだ料理の手順で盛り付ける。'];
@@ -332,7 +332,7 @@ export function buildFoodSelection(config,data) {
   if(typeof id!=='string'||!/^custom-[A-Za-z0-9_-]+$/.test(id)||id.length>120)throw Error('組み合わせの識別子を確認してください。');
   if(!Array.isArray(config.components)||!config.components.length||config.components.length>definition.components.length||Object.keys(config.components).length!==config.components.length)throw Error('食べる種類を1つ以上選んでください。');
   if(!isRecord(data?.ingredients)||!Array.isArray(data?.recipes))throw Error('食材と料理のデータを確認してください。');
-  const selected=[],seen=new Set(),parts=new Map(),totals=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,0])),allergens=[],groups=[],proteins=[],steps=[];
+  const selected=[],seen=new Set(),parts=new Map(),totals=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,0])),allergens=[],groups=[],proteins=[],steps=[],basisParts=[];
   let allergensKnown=true,ingredientsKnown=true,shoppingKnown=true,hasPurchased=false;
   for(const part of config.components){
     if(!isRecord(part)||Object.keys(part).some(key=>!['id','amount','gramsPerUnit'].includes(key)))throw Error('種類と量を確認してください。');
@@ -345,7 +345,7 @@ export function buildFoodSelection(config,data) {
     if(own(part,'gramsPerUnit')&&component.gramsPerUnit===undefined)throw Error('この種類は1個の重さを変更できません。');
     const gramsPerUnit=component.gramsPerUnit===undefined?null:(own(part,'gramsPerUnit')?part.gramsPerUnit:component.gramsPerUnit);
     if(gramsPerUnit!==null&&!valid(gramsPerUnit,500))throw Error(`${component.label}の1${component.unit}の重さは0より大きく500g以下で入力してください。`);
-    let nutrition,ingredients,metadata;
+    let nutrition,ingredients,metadata,sourceNote='';
     if(component.recipeId){
       const source=data.recipes.find(recipe=>recipe.id===component.recipeId);
       if(!source||!valid(source.servings,1000)||!Array.isArray(source.ingredients)||!source.ingredients.length)throw Error(`${component.label}の基準レシピが見つかりません。`);
@@ -356,6 +356,7 @@ export function buildFoodSelection(config,data) {
       nutrition=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,nutrition[key]===null?null:nutrition[key]*multiplier]));
       ingredients=source.ingredients.map(item=>({id:item.id,amount:item.amount/source.servings*multiplier}));
       metadata=itemFromRecipe(source,data);
+      if(typeof source.sourceNote==='string')sourceNote=source.sourceNote.trim();
       const confirmed=recipeConfirmation(source);
       allergensKnown&&=confirmed.allergensKnown;ingredientsKnown&&=confirmed.ingredientsKnown;
       shoppingKnown&&=source.shoppingKnown===true||confirmed.ingredientsKnown;
@@ -377,6 +378,7 @@ export function buildFoodSelection(config,data) {
     }
     for(const key of NUTRIENT_KEYS)totals[key]=totals[key]===null||nutrition[key]===null?null:totals[key]+nutrition[key];
     allergens.push(...metadata.allergens);groups.push(...metadata.groups);proteins.push(...metadata.proteinSources);
+    basisParts.push({kind:metadata.nutritionBasis,label:component.label,sourceNote});
     selected.push({...component,amount:part.amount,...(gramsPerUnit===null?{}:{gramsPerUnit})});
   }
   if(!selected.some(part=>part.food!==false&&!part.base)){
@@ -390,12 +392,22 @@ export function buildFoodSelection(config,data) {
   const labels=selected.map(part=>`${part.label} ${quantityLabel(part.amount)}${part.unit}${part.gramsPerUnit===undefined?'':`（約${quantityLabel(part.amount*part.gramsPerUnit)}g）`}`),nameLabels=labels.slice(0,5).join('・');
   const suffix=labels.length>5?`ほか${labels.length-5}種`:'';
   const description=`${definition.label}の1皿分です。${definition.nutritionNote??''}選んだ内容：${labels.join('、')}。材料と栄養は選んだ量から求めた概算です。${hasPurchased?'購入品は参照商品の表示値を使い、原材料とアレルギー情報は実物の表示を確認してください。':'材料は各食品の代表値を使います。'}記録した後は、その時点の量と栄養を保持します。`;
+  const references=basisParts.filter(part=>part.kind!=='ingredients'&&part.sourceNote).map(part=>`参照元（${part.label}）：${part.sourceNote}`);
+  const fullSourceNote=[description,...references].join('\n');
+  // 合算前の分類を残します。不明な元データを、配合やURLの存在だけで昇格させません。
+  const kinds=new Set(basisParts.map(part=>part.kind));
+  const completeOfficialSources=basisParts.every(part=>part.kind==='official'&&part.sourceNote)&&fullSourceNote.length<=2000;
+  let nutritionBasis='ingredients';
+  if(kinds.has('unknown'))nutritionBasis='unknown';
+  else if(kinds.has('official')||kinds.has('mixed'))nutritionBasis=completeOfficialSources?'official':'mixed';
+  else if(kinds.has('estimate')||kinds.has('manual')&&kinds.size>1)nutritionBasis='estimate';
+  else if(kinds.has('manual'))nutritionBasis='manual';
   const recipe={id,name:`${definition.label}（${nameLabels}${suffix?`・${suffix}`:''}）`.slice(0,200),role:definition.role,family:definition.family,genre:definition.genre,minutes:definition.minutes,servings:1,
     ingredients:[...parts].map(([id,amount])=>({id,amount})),steps:[...selectedInstructions(definition,selected),...steps],custom:true,
     nature:hasPurchased?'ready-to-eat':definition.nature??'home-cooked',staple:definition.role==='staple',mealBase:definition.mealBase===true,
     portion:{amount:1,unit:'皿'},variantLabel:labels.slice(0,4).join('・').slice(0,200),
     allergensKnown,ingredientsKnown,shoppingKnown,allergens:unique(allergens),groups:unique(groups),proteinSources:unique(proteins),
-    manualNutrition:totals,sourceNote:description.slice(0,2000)};
+    manualNutrition:totals,nutritionBasis,sourceNote:fullSourceNote.slice(0,2000)};
   // 最後に共通の原料参照検査も通し、アレルゲン継承や循環の検査を省略しません。
   itemFromRecipe(recipe,data);
   return recipe;

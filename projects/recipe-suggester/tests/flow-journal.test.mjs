@@ -82,6 +82,7 @@ test('旧v1とv2を読み込んでも食事区分と主食設定を引き継ぎ�
   delete version2.mealSets;
   delete version2.purchaseSettings;
   delete version2.batches;
+  delete version2.favourites;
   delete version2.profile;
   delete version2.completedDays;
   delete version2.settings.stapleAmount;

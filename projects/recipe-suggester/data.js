@@ -32,7 +32,7 @@ import { TAVERN_INGREDIENTS, TAVERN_RECIPES } from './tavern-foods.js';
 import { BISTRO_INGREDIENTS, BISTRO_RECIPES } from './bistro-foods.js';
 import { SOUP311_INGREDIENTS, SOUP311_RECIPES } from './soup311-foods.js';
 
-export const DATA_VERSION = '3.13.0';
+export const DATA_VERSION = '3.14.0';
 
 // 2026年の消費者庁の表示対象。特定原材料9品目と推奨20品目。
 export const ALLERGENS = [
