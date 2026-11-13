@@ -16,11 +16,11 @@ const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const date = '2026-11-13';
 const near = (a,b) => assert.ok(Math.abs(a-b)<1e-8, `${a} != ${b}`);
 
-test('料理を変更せず65の見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
+test('料理を変更せず66の見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
   const before = JSON.stringify(RECIPES);
   const groups = groupMenuRecipes(RECIPES);
   assert.ok(groups.length < RECIPES.length - 200, '一覧を整理し、詳細で選べる種類を増やす');
-  assert.equal(groups.filter(group => group.isGroup).length, 65);
+  assert.equal(groups.filter(group => group.isGroup).length, 66);
   assert.ok(groups.filter(group => group.isGroup).reduce((sum,group) => sum+group.variantCount,0) >= 300);
   const ids = groups.flatMap(group => group.recipes.map(recipe => recipe.id));
   assert.equal(new Set(ids).size, RECIPES.length);

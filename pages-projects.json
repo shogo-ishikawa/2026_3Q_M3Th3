@@ -87,7 +87,9 @@
         "meat-choices-ui.js",
         "recipe-arrangement.js",
         "recipe-arrangement-ui.js",
-        "recipe-arrangement.css"
+        "recipe-arrangement.css",
+        "mapo-foods.js",
+        "mapo-nutrition.js"
       ]
     },
     {

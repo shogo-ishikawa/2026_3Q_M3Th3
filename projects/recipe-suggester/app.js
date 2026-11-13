@@ -19,6 +19,7 @@ import {mountDishCustomiser} from './dish-customisation-ui.js';
 import {meatChoiceFor,defaultMeatSelection,eligibleMeatSelections} from './meat-choices.js';
 import {mountMeatChoice} from './meat-choices-ui.js';
 import {mountRecipeArrangement} from './recipe-arrangement-ui.js';
+import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {groupMenuRecipes,getVariationGroup,variantLabel,variationSearchAliases} from './menu-variations.js';
 import {FOOD_CATEGORIES,COOKING_METHODS,dishClassification,browseDishes,availableDishCategories,availableCookingMethods} from './dish-hierarchy.js';
 
@@ -343,6 +344,7 @@ function renderCatalog(){
 /** 元の肉が除外されても、条件に合う別の具材があれば料理の入口を残します。 */
 function menuSearchAliases(recipe,respectConditions=false){
   const aliases=[...(recipe.searchAliases??[]),...variationSearchAliases(recipe)],definition=dishCustomiserFor(recipe.id);
+  if(recipe.id==='mapo-tofu-chen-style')aliases.push(...MAPO_SEARCH_ALIASES);
   const composer=foodComposerFor(recipe.id);
   if(composer){aliases.push(composer.label);if(recipe.id.startsWith('palette-')&&composer.recipeIds.length===1)for(const part of composer.components)aliases.push(part.label,`${part.label}${composer.label}`,`${composer.label}${part.label}`);}
   if(meatChoiceFor(recipe.id))for(const choice of eligibleMeatSelections(recipe.id,respectConditions?state.settings:{allergens:[],excludedIngredients:[]},data()))aliases.push(choice.recipe.name);
