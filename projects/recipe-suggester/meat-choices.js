@@ -36,6 +36,7 @@ export const MEAT_CHOICES = freeze([
   definition('familiar-hamburg-oroshi', 'mince', '和風おろしハンバーグ', 'mixed', '和風おろしハンバーグ'),
   definition('familiar-hamburg-stew', 'mince', '煮込みハンバーグ', 'mixed', '煮込みハンバーグ'),
   definition('familiar-hamburg-cheese', 'mince', 'チーズハンバーグ', 'mixed', 'チーズハンバーグ'),
+  definition('bistro-cheese-in-hamburg', 'mince', 'チーズインハンバーグ', 'mixed', 'チーズインハンバーグ'),
   definition('familiar-loco-moco', 'mince', 'ロコモコ', 'mixed', 'ロコモコ'),
   definition('tofu-mapo', 'mince', '麻婆豆腐', 'pork', '辛くない麻婆豆腐'),
   definition('mapo-tofu-chen-style', 'mince', '本格麻婆豆腐', 'pork', '本格麻婆豆腐・陳建一風（にんにくの芽）'),
