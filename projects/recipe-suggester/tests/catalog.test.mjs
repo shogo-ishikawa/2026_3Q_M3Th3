@@ -40,7 +40,7 @@ test('old main dishes remain discoverable under noodle, pasta, curry and rice fa
 test('miso soup fillings and water variants stay inside their broad family', () => {
   assert.equal(recipeFamily(meal('sample-miso', '豆腐とわかめのみそ汁', 'soup')), 'miso-soup');
   assert.equal(recipeFamily(meal('sample-pork', '豚汁', 'soup')), 'miso-soup');
-  assert.equal(recipeFamily(meal('sample-other', 'トマトスープ', 'soup')), 'soup');
+  assert.equal(recipeFamily(meal('sample-other', 'トマトスープ', 'soup')), 'vegetable-soup');
   for (const name of ['水', 'レモン水', '炭酸水']) assert.equal(recipeFamily(meal('custom-'+name, name, 'drink')), 'water');
   assert.equal(recipeFamily(meal('custom-cafe', 'カフェオレ', 'drink')), 'coffee');
   assert.equal(recipeFamily(meal('custom-ramen', '中華そば')), 'ramen');

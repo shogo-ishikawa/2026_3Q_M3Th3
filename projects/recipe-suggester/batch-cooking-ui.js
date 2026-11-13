@@ -1,4 +1,5 @@
 /** 作り置きは完成後に量り、1回に食べるg数で記録します。保存は呼び出し元が担当します。 */
+import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {createBatch,takeBatch,batchBalance} from './batch-cooking.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
 import {NUTRIENT_KEYS,NUTRIENT_LABELS,NUTRIENT_UNITS,itemNutrition} from './nutrition.js';
@@ -7,7 +8,7 @@ const make=(tag,className='',text='')=>{const element=document.createElement(tag
 const round=value=>Number(value.toFixed(3)).toLocaleString('ja-JP');
 const meals=[['breakfast','朝食'],['lunch','昼食'],['dinner','夕食'],['snack','間食']];
 let mountCount=0;
-function field(label,input){const wrapper=make('label','batch-field',label);wrapper.htmlFor=input.id;wrapper.append(input);return wrapper;}
+function field(label,input){const wrapper=make('label','batch-field',label);wrapper.htmlFor=input.id;wrapper.append(input);if(input.type==='number')configureQuantityInput(input);return wrapper;}
 function input(prefix,key,type,value){const node=make('input',`batch-${key}`);node.type=type;node.id=`${prefix}-${key}`;node.value=String(value);return node;}
 function action(label,className='button-primary'){const node=make('button',className,label);node.type='submit';return node;}
 
@@ -43,7 +44,7 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
   form.append(field('料理を検索',search),field('作った料理',recipe),field('作り置きの名前',name),field('何人分作ったか',quantity),field('完成重量（g・容器を除く）',grams),field('調理日',date),selectedInfo,action('作り置きに登録'));
   form.addEventListener('submit',event=>{event.preventDefault();try{
     const chosen=data.recipes.find(candidate=>candidate.id===recipe.value);if(!chosen)throw Error('作った料理を選んでください。');
-    const batch=createBatch({recipe:chosen,sourceQuantity:Number(quantity.value),totalGrams:Number(grams.value),preparedDate:date.value,name:name.value},data);
+    const batch=createBatch({recipe:chosen,sourceQuantity:readQuantityInput(quantity,{label:'作った人数分'}),totalGrams:readQuantityInput(grams,{label:'完成重量'}),preparedDate:date.value,name:name.value},data);
     onCreate(batch);problem('');
   }catch(cause){problem(cause);}});
   createDetails.append(form);root.append(createDetails,error);
@@ -67,10 +68,10 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
       const meal=make('select','batch-take-meal');meal.id=`${id}-meal`;for(const [value,label]of meals){const option=make('option','',label);option.value=value;meal.append(option);}meal.value='dinner';
       const status=make('select','batch-take-status');status.id=`${id}-status`;for(const [value,label]of [['eaten','食べた'],['planned','食べる予定']]){const option=make('option','',label);option.value=value;status.append(option);}status.value='eaten';
       const nutritionPreview=make('p','batch-portion-preview field-note');
-      function updatePreview(){try{const entry=takeBatch({batchId:batch.id,grams:Number(takeGrams.value),date:takeDate.value,meal:meal.value,status:status.value},batches,entries),nutrition=itemNutrition(entry.items[0]);nutritionPreview.textContent=`この${round(Number(takeGrams.value))}g：${nutrition.kcal===null?'エネルギー不明':`${round(nutrition.kcal)} kcal`} · たんぱく質 ${nutrition.protein===null?'不明':`${round(nutrition.protein)}g`}`;}catch{nutritionPreview.textContent='取り分ける量と日付を確認してください。';}}
+      function updatePreview(){try{const entry=takeBatch({batchId:batch.id,grams:readQuantityInput(takeGrams,{label:'取り分ける量'}),date:takeDate.value,meal:meal.value,status:status.value},batches,entries),nutrition=itemNutrition(entry.items[0]);nutritionPreview.textContent=`この${round(Number(takeGrams.value))}g：${nutrition.kcal===null?'エネルギー不明':`${round(nutrition.kcal)} kcal`} · たんぱく質 ${nutrition.protein===null?'不明':`${round(nutrition.protein)}g`}`;}catch{nutritionPreview.textContent='取り分ける量と日付を確認してください。';}}
       takeGrams.addEventListener('input',updatePreview);takeDate.addEventListener('change',updatePreview);
       takeForm.append(field('食べる量（完成重量g）',takeGrams),field('記録する日付',takeDate),field('食事区分',meal),field('状態',status),nutritionPreview,action('この量を記録'));
-      takeForm.addEventListener('submit',event=>{event.preventDefault();try{onRecord(takeBatch({batchId:batch.id,grams:Number(takeGrams.value),date:takeDate.value,meal:meal.value,status:status.value},batches,entries));problem('');}catch(cause){problem(cause);}});updatePreview();card.append(takeForm);
+      takeForm.addEventListener('submit',event=>{event.preventDefault();try{onRecord(takeBatch({batchId:batch.id,grams:readQuantityInput(takeGrams,{label:'取り分ける量'}),date:takeDate.value,meal:meal.value,status:status.value},batches,entries));problem('');}catch(cause){problem(cause);}});updatePreview();card.append(takeForm);
     }
     if(!archived){const finish=action('この作り置きを終了','button-secondary batch-archive');finish.type='button';finish.addEventListener('click',()=>{try{onArchive(batch.id);problem('');}catch(cause){problem(cause);}});card.append(finish,make('p','field-note','終了しても食事の記録と調理時のデータは残ります。'));
     }else card.append(make('p','field-note','終了済み。記録した取り分け量と栄養は保持しています。'));

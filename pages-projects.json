@@ -114,7 +114,9 @@
         "batch-cooking-ui.css",
         "restaurant-menu.js",
         "restaurant-menu-ui.js",
-        "restaurant-menu-ui.css"
+        "restaurant-menu-ui.css",
+        "quantity-input.js",
+        "quantity-input.css"
       ]
     },
     {

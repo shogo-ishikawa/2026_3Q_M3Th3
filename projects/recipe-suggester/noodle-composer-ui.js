@@ -2,11 +2,13 @@
 import {NOODLE_SOUP_INTAKES, buildNoodleSelection, defaultNoodleSelection, noodleComposerFor, noodleToppings} from './noodle-composer.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
+import {configureQuantityInput, readQuantityInput} from './quantity-input.js';
 
 let count=0;
 const rounded=value=>Number(value.toFixed(2)).toLocaleString('ja-JP');
 const make=(tag,className='',text='')=>{const element=document.createElement(tag);element.className=className;if(text)element.textContent=text;return element;};
 const labelFor=(title,input)=>{const label=make('label','noodle-field-label',title);label.htmlFor=input.id;label.append(input);return label;};
+const numericValue = input => {try {return readQuantityInput(input);} catch {return NaN;}};
 
 export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onError=()=>{},allowedToppingIds}={}){
   if(typeof onChange!=='function'||typeof onError!=='function')throw Error('麺の選択画面の表示処理を確認してください。');
@@ -21,8 +23,9 @@ export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onErr
   const root=make('div','food-composer noodle-composer');root.setAttribute('role','group');root.setAttribute('aria-label',`${model.label}の麺とトッピング`);
   root.append(make('h3','food-composer-heading',model.soup.length?'麺・トッピング・スープ量を選ぶ':'麺とトッピングを選ぶ'),
     make('p','food-composer-intro',model.soup.length?'麺と固形の具は食べた量、スープは飲んだ割合で計算します。材料と買い物は、残すスープも含めて1杯を用意する量です。':'麺・具材・たれ・油を全量食べる想定です。麺の量と追加するトッピングを選んでください。'));
-  const basics=make('div','noodle-basic-controls'),noodles=make('input','noodle-amount');noodles.type='number';noodles.id=`${prefix}-noodles`;noodles.min='0.1';noodles.max='2000';noodles.step='any';noodles.value=String(selection.noodleAmount??model.noodleAmount);
+  const basics=make('div','noodle-basic-controls'),noodles=make('input','noodle-amount');noodles.type='number';noodles.id=`${prefix}-noodles`;noodles.min='0';noodles.max='2000';noodles.step='any';noodles.value=String(selection.noodleAmount??model.noodleAmount);
   noodles.setAttribute('aria-label','麺の量（g）');basics.append(labelFor('麺の量（g）',noodles));
+  configureQuantityInput(noodles);
   basics.append(make('p','food-composer-note noodle-noodle-basis',`麺の状態：${data.ingredients[model.noodleIngredientId].name}。表示した状態で量ります。`));
   let soup=null;
   if(model.soup.length){
@@ -43,11 +46,14 @@ export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onErr
   for(const topping of toppings){
     const row=make('div','food-composer-option'),check=make('input','noodle-topping-check');check.type='checkbox';check.id=`${prefix}-${topping.id}-checked`;check.checked=selected.has(topping.id);
     const name=make('label','food-composer-choice');name.htmlFor=check.id;name.append(check,make('span','food-composer-name',topping.label));
-    const amount=make('input','food-composer-amount noodle-topping-amount');amount.id=`${prefix}-${topping.id}-amount`;amount.type='number';amount.min='.1';amount.max=String(['g','ml'].includes(topping.unit)?1000:50);amount.step='any';amount.value=String(selected.get(topping.id)??topping.defaultAmount??1);amount.disabled=!check.checked;amount.setAttribute('aria-label',`${topping.label}の量（${topping.unit}）`);
+    const amount=make('input','food-composer-amount noodle-topping-amount');amount.id=`${prefix}-${topping.id}-amount`;amount.type='number';amount.min='0';amount.max=String(['g','ml'].includes(topping.unit)?1000:50);amount.step='any';amount.value=String(selected.get(topping.id)??topping.defaultAmount??1);amount.disabled=!check.checked;amount.setAttribute('aria-label',`${topping.label}の量（${topping.unit}）`);
     const amountLabel=make('label','food-composer-amount-label');amountLabel.htmlFor=amount.id;amountLabel.append(amount,make('span','food-composer-unit',topping.unit));row.append(name,amountLabel);
+    configureQuantityInput(amount);
     if(topping.note)row.append(make('small','food-composer-note',topping.note));
-    controls.push({topping,row,check,amount});grid.append(row);
-    check.addEventListener('change',()=>{amount.disabled=!check.checked;update();});amount.addEventListener('input',update);
+    let lastPositive=Number(amount.value);
+    controls.push({topping,row,check,amount,remember:()=>{lastPositive=Number(amount.value);}});grid.append(row);
+    check.addEventListener('change',()=>{if(check.checked&&!(numericValue(amount)>0&&numericValue(amount)<=Number(amount.max)))amount.value=String(lastPositive);amount.disabled=!check.checked;update();});
+    amount.addEventListener('input',()=>{const value=numericValue(amount);if(value===0){check.checked=false;amount.disabled=true;}else if(Number.isFinite(value)&&value>0&&value<=Number(amount.max))lastPositive=value;update();});
   }
   const error=make('p','food-composer-error');error.hidden=true;error.setAttribute('role','status');error.setAttribute('aria-live','polite');
   const preview=make('div','food-composer-preview noodle-preview'),title=make('p','food-composer-preview-title'),nutrition=make('dl','food-composer-nutrients'),values=new Map();
@@ -59,16 +65,16 @@ export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onErr
   preview.append(title,nutrition,allergens,basis,materials,cooking);root.append(error,preview);
   const filter=()=>{for(const control of controls)control.row.hidden=!matchesJapaneseQuery([control.topping.label,control.topping.note??''],search.value);};
   search.addEventListener('input',filter);noodles.addEventListener('input',update);soup?.addEventListener('change',update);
-  reset.addEventListener('click',()=>{noodles.value=String(selection.noodleAmount??model.noodleAmount);if(soup)soup.value=selection.soupIntake??'full';search.value='';for(const control of controls){control.check.checked=selected.has(control.topping.id);control.amount.value=String(selected.get(control.topping.id)??control.topping.defaultAmount??1);control.amount.disabled=!control.check.checked;control.row.hidden=false;}update();});
+  reset.addEventListener('click',()=>{noodles.value=String(selection.noodleAmount??model.noodleAmount);if(soup)soup.value=selection.soupIntake??'full';search.value='';for(const control of controls){control.check.checked=selected.has(control.topping.id);control.amount.value=String(selected.get(control.topping.id)??control.topping.defaultAmount??1);control.remember();control.amount.disabled=!control.check.checked;control.row.hidden=false;}update();});
   function update(){
     for(const control of controls)control.row.className=`food-composer-option${control.check.checked?' is-selected':''}`;
     try{
       if(String(noodles.value).trim()==='')throw Error('麺の量を入力してください。');
       const toppings=controls.filter(control=>control.check.checked).map(control=>{
         if(String(control.amount.value).trim()==='')throw Error(`${control.topping.label}の量を入力してください。`);
-        return {id:control.topping.id,amount:Number(control.amount.value)};
+        return {id:control.topping.id,amount:readQuantityInput(control.amount,{label:`${control.topping.label}の量`})};
       });
-      const recipe=buildNoodleSelection({id:stableId,recipeId,noodleAmount:Number(noodles.value),soupIntake:soup?.value??'none',toppings},data);
+      const recipe=buildNoodleSelection({id:stableId,recipeId,noodleAmount:readQuantityInput(noodles,{label:'麺の量'}),soupIntake:soup?.value??'none',toppings},data);
       title.textContent=`${recipe.name} / 1杯分`;
       for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
       const names=recipe.allergens.map(id=>data.allergens?.find(item=>item.id===id)?.label??id);

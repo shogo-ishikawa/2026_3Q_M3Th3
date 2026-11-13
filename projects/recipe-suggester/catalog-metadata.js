@@ -1,4 +1,4 @@
-import {isCompleteMeal, recipeFamily, recipeNature} from './catalog.js';
+import {isCompleteMeal, recipeFamily, recipeNature, storedSoupFamily} from './catalog.js';
 
 // 旧版の ID はカレンダーや保存済み献立から参照されます。名前や材料を
 // 作り直さず、料理を確認したうえで一覧上の分類だけを整えます。
@@ -101,7 +101,7 @@ export function decorateRecipe(recipe) {
   });
   const smallDish = family === 'small-dish';
   const result = {
-    ...next, family, nature,
+    ...next, family: next.role === 'soup' ? storedSoupFamily(next) : family, nature,
     variantLabel: typeof next.variantLabel === 'string' && next.variantLabel.trim() ? next.variantLabel.trim() : next.name,
     role: smallDish ? 'side' : next.role,
     staple: smallDish ? false : next.staple,

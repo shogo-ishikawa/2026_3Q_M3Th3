@@ -8,8 +8,10 @@ class Element {
   append(...children){this.children.push(...children);}
   replaceChildren(...children){this.children=[...children];}
   setAttribute(key,value){this.attributes[key]=value;}
+  getAttribute(key){return this.attributes[key]??null;}
   addEventListener(type,listener){if(!this.listeners.has(type))this.listeners.set(type,[]);this.listeners.get(type).push(listener);}
-  emit(type){for(const listener of this.listeners.get(type)??[])listener({target:this});}
+  dispatchEvent(event){this.emit(event.type,event);return true;}
+  emit(type,event={}){for(const listener of this.listeners.get(type)??[])listener({target:this,preventDefault(){},...event,key:event.key});}
 }
 const data={ingredients:INGREDIENTS,recipes:RECIPES,allergens:ALLERGENS};
 const all=root=>[root,...root.children.flatMap(all)];
@@ -53,13 +55,50 @@ test('不正な数量は古い結果で登録できず、修正時に同じ識�
   quantity.value='-2';quantity.emit('input');assert.equal(outputs.at(-1),null);
 }));
 
-test('おでんの汁はチェックを残して0mlにもでき、初期値に戻すと汁量が復帰する',()=>withDocument(()=>{
+test('おでんの汁を0mlにすると選択を外し、初期値に戻すと汁量が復帰する',()=>withDocument(()=>{
   let current;const root=mountFoodComposer({kind:'oden',data,onChange:recipe=>{current=recipe;}});
   assert.ok(current.ingredients.some(part=>part.id==='soy_sauce'));
   const broth=amount(root,'飲むおでんの汁','ml');broth.value='0';broth.emit('input');
+  assert.equal(checkbox(root,'broth').checked,false);assert.equal(broth.disabled,true);
   assert.ok(current);assert.ok(!current.ingredients.some(part=>part.id==='soy_sauce'));assert.ok(!current.ingredients.some(part=>part.id==='water'));
   byClass(root,'food-composer-reset').emit('click');
   assert.equal(broth.value,'150');assert.equal(current.ingredients.find(part=>part.id==='soy_sauce').amount,6);
+}));
+
+test('初期設定で汁が0mlなら外して表示し、再選択時には既定の正の量を使う',()=>withDocument(()=>{
+  let current;const root=mountFoodComposer({kind:'oden',data,initial:{kind:'oden',components:[{id:'daikon',amount:1},{id:'broth',amount:0}]},onChange:recipe=>{current=recipe;}}),broth=amount(root,'飲むおでんの汁','ml'),checked=checkbox(root,'broth');
+  assert.equal(checked.checked,false);assert.equal(broth.disabled,true);assert.ok(current);
+  checked.checked=true;checked.emit('change');assert.equal(broth.value,'150');assert.equal(current.ingredients.find(part=>part.id==='soy_sauce').amount,6);
+}));
+
+test('具材の0は選択・栄養・重量欄へ反映し、選び直すと最後の正しい量へ戻る',()=>withDocument(()=>{
+  let current;const root=mountFoodComposer({kind:'sashimi',data,onChange:recipe=>{current=recipe;}});
+  const tuna=checkbox(root,'tuna'),quantity=amount(root,'まぐろ赤身','切れ'),weight=find(root,element=>element.attributes['aria-label']==='まぐろ赤身の1切れの重さ（g）');
+  quantity.value='1.5';quantity.emit('input');const before=current.manualNutrition.kcal;
+  assert.equal(current.ingredients.find(part=>part.id==='tuna_lean_sashimi').amount,22.5);
+  quantity.value='0.0';quantity.emit('input');
+  assert.equal(tuna.checked,false);assert.equal(quantity.disabled,true);assert.equal(weight.disabled,true);
+  assert.ok(!current.ingredients.some(part=>part.id==='tuna_lean_sashimi'));assert.ok(current.manualNutrition.kcal<before);
+  tuna.checked=true;tuna.emit('change');
+  assert.equal(quantity.value,'1.5');assert.equal(quantity.disabled,false);assert.equal(weight.disabled,false);assert.equal(current.manualNutrition.kcal,before);
+}));
+
+test('上下キーは貫・mlを1ずつ動かし、小数の手入力を保持する',()=>withDocument(()=>{
+  let sushi;const sushiRoot=mountFoodComposer({kind:'sushi',data,onChange:recipe=>{sushi=recipe;}}),pieces=amount(sushiRoot,'まぐろ赤身','貫');
+  pieces.value='1.25';pieces.emit('input');assert.ok(sushi);
+  pieces.emit('keydown',{key:'ArrowUp'});assert.equal(pieces.value,'2.25');assert.ok(sushi);
+  pieces.emit('keydown',{key:'ArrowDown'});assert.equal(pieces.value,'1.25');assert.ok(sushi);
+  let oden;const odenRoot=mountFoodComposer({kind:'oden',data,onChange:recipe=>{oden=recipe;}}),broth=amount(odenRoot,'飲むおでんの汁','ml');
+  broth.value='0.5';broth.emit('input');assert.ok(oden);
+  broth.emit('keydown',{key:'ArrowDown'});assert.equal(broth.value,'0');assert.equal(checkbox(odenRoot,'broth').checked,false);assert.ok(oden);
+}));
+
+test('空欄・文字・負数・指数・異常な量は0として外さず、古い結果で登録させない',()=>withDocument(()=>{
+  let current;const root=mountFoodComposer({kind:'sushi',data,onChange:recipe=>{current=recipe;}}),tuna=checkbox(root,'tuna'),quantity=amount(root,'まぐろ赤身','貫');
+  for(const value of ['', 'abc', '-1', '-0', 'Infinity', 'NaN', '1e2', '0x10', '51']){
+    quantity.value=value;quantity.emit('input');assert.equal(tuna.checked,true,value);assert.equal(quantity.disabled,false,value);assert.equal(current,null,value);
+    quantity.value='2';quantity.emit('input');assert.ok(current,value);
+  }
 }));
 
 test('検索は表示だけを絞り選択を失わず、渡された候補外の種類は表示しない',()=>withDocument(()=>{

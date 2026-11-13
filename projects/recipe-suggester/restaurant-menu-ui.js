@@ -1,4 +1,5 @@
 /** 店の表示値を入力する画面。保存・カレンダー登録は呼び出し元が行います。 */
+import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {buildRestaurantRecipe, restaurantConfigFromRecipe} from './restaurant-menu.js';
 import {NUTRIENT_KEYS,NUTRIENT_LABELS,NUTRIENT_UNITS} from './nutrition.js';
 import {recipeFamily} from './catalog.js';
@@ -29,7 +30,7 @@ export function mountRestaurantMenu({baseRecipe=null,data,initial={},recipe=null
   function input(key,label,{type='text',max=200,value=''}={}){const element=make('input',`restaurant-${key}`);element.id=`${prefix}-${key}`;element.type=type;element.value=String(value);if(type==='text'||type==='url')element.maxLength=max;fields.append(labelFor(label,element));return element;}
   const store=input('store','店舗名',{max:80,value:initial.storeName??''}),menuName=input('name','店舗での料理名',{max:120,value:initial.menuName??baseRecipe?.name.slice(0,120)??''}),size=input('size','サイズ・商品区分',{max:80,value:initial.sizeName??'普通'});
   const basis=make('select','restaurant-basis');basis.id=`${prefix}-basis`;addOptions(basis,[['portion','1食・1皿など全体の表示値'],['per100g','100g当たりの表示値']]);basis.value=initial.basis??'portion';fields.append(labelFor('栄養表示の基準',basis));
-  const portion=input('portion','登録する提供量',{type:'number',value:initial.portionAmount??1});portion.min='0.001';portion.max='100000';portion.step='any';
+  const portion=input('portion','登録する提供量',{type:'number',value:initial.portionAmount??1});portion.min='0.001';portion.max='100000';portion.step='any';configureQuantityInput(portion);
   const unit=make('select','restaurant-unit');unit.id=`${prefix}-unit`;addOptions(unit,['食','皿','杯','個','枚','袋','貫','切れ','本','人分','g'].map(value=>[value,value]));unit.value=initial.portionUnit??'食';fields.append(labelFor('提供量の単位',unit));
   const inclusion=make('textarea','restaurant-inclusion');inclusion.id=`${prefix}-inclusion`;inclusion.rows=2;inclusion.maxLength=300;inclusion.value=initial.inclusion??'';inclusion.placeholder='例：ハンバーグ、ご飯、付け合わせの野菜。みそ汁は含まない。';fields.append(labelFor('表示値に含まれる料理・付け合わせ',inclusion));
   function checkbox(className,labelText,checked){const control=make('input',className);control.type='checkbox';control.id=`${prefix}-${className}`;control.checked=checked;const label=labelFor(labelText,control);label.className='restaurant-checkbox';return {control,label};}
@@ -52,8 +53,8 @@ export function mountRestaurantMenu({baseRecipe=null,data,initial={},recipe=null
   function update(){
     try{
       if(portion.value.trim()==='')throw Error('登録する提供量を入力してください。');
-      const result=buildRestaurantRecipe({id:recipeId,genericRecipeId:genericId,storeName:store.value,menuName:menuName.value,sizeName:size.value,inclusion:inclusion.value,riceIncluded:rice.checked,sidesIncluded:sides.checked,basis:basis.value,portionAmount:Number(portion.value),portionUnit:unit.value,sourceUrl:url.value,checkedDate:checkedDate.value,
-        nutrition:Object.fromEntries([...nutritionFields].map(([key,control])=>[key,control.value.trim()===''?null:Number(control.value)])),allergensKnown:knownControl.control.checked,allergens:allergenFields.filter(field=>field.control.checked).map(field=>field.id)},data);
+      const result=buildRestaurantRecipe({id:recipeId,genericRecipeId:genericId,storeName:store.value,menuName:menuName.value,sizeName:size.value,inclusion:inclusion.value,riceIncluded:rice.checked,sidesIncluded:sides.checked,basis:basis.value,portionAmount:readQuantityInput(portion,{label:'登録する提供量'}),portionUnit:unit.value,sourceUrl:url.value,checkedDate:checkedDate.value,
+        nutrition:Object.fromEntries([...nutritionFields].map(([key,control])=>[key,readQuantityInput(control,{label:NUTRIENT_LABELS[key],allowEmpty:true})])),allergensKnown:knownControl.control.checked,allergens:allergenFields.filter(field=>field.control.checked).map(field=>field.id)},data);
       title.textContent=`${result.name} / ${result.portion.amount}${result.portion.unit}全体`;
       for(const key of NUTRIENT_KEYS)values.get(key).textContent=result.manualNutrition[key]===null?'不明':`${rounded(result.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
       note.textContent=result.sourceNote;preview.hidden=false;error.hidden=true;error.textContent='';onError('');onChange(result);

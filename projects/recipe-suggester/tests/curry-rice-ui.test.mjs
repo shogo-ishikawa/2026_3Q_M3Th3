@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {mountCurryRice} from '../curry-rice-ui.js';
+import {stepQuantityInput} from '../quantity-input.js';
 
 class Element {
   constructor(tag) {this.tagName=tag.toUpperCase(); this.children=[]; this.attributes={}; this.listeners=new Map(); this.textContent='';}
@@ -10,6 +11,7 @@ class Element {
   setAttribute(key, value) {this.attributes[key]=value;}
   addEventListener(type, callback) {this.listeners.set(type, callback);}
   emit(type) {this.listeners.get(type)?.({target:this});}
+  dispatchEvent(event) {this.emit(event.type);return true;}
 }
 const data={recipes:RECIPES, allergens:ALLERGENS, ingredients:INGREDIENTS};
 const all=node=>[node, ...node.children.flatMap(all)];
@@ -50,4 +52,19 @@ test('レトルトのアレルゲン確認状態をプレビューにも表示�
   const root=mountCurryRice({recipeId:'prepared-retort-beef-curry',data});
   assert.match(text(byClass(root,'dish-allergens')),/商品ごとのアレルギー表示/);
   assert.match(text(byClass(root,'dish-intro')),/ナン/);
+}));
+
+test('ご飯の小数入力を保ち、符号・指数・16進表現を通常の数量として受け付けない',()=>documentStub(()=>{
+  const outputs=[],root=mountCurryRice({recipeId:'daily-curry-beef',data,onChange:recipe=>outputs.push(recipe)}),input=byClass(root,'dish-rice-amount');
+  input.value='150.25';input.emit('input');assert.equal(outputs.at(-1).ingredients.find(part=>part.id==='rice').amount,150.25);
+  for(const value of ['-0','+0','0x0','0e2','1e2','Infinity']){input.value=value;input.emit('input');assert.equal(outputs.at(-1),null,value);}
+  input.value='0.5';input.emit('input');assert.equal(outputs.at(-1).ingredients.find(part=>part.id==='rice').amount,.5);
+}));
+
+
+test('ご飯の上下操作は1g刻みで、小数部分を丸めず栄養と買い物へ反映する',()=>documentStub(()=>{
+  let current;const root=mountCurryRice({recipeId:'daily-curry-beef',data,onChange:recipe=>{current=recipe;}}),input=byClass(root,'dish-rice-amount');
+  input.value='150.25';input.emit('input');const before=current.manualNutrition.kcal;
+  assert.equal(stepQuantityInput(input,1),true);assert.equal(input.value,'151.25');assert.equal(current.ingredients.find(part=>part.id==='rice').amount,151.25);assert.ok(current.manualNutrition.kcal>before);
+  assert.equal(stepQuantityInput(input,-1),true);assert.equal(input.value,'150.25');assert.equal(current.ingredients.find(part=>part.id==='rice').amount,150.25);
 }));

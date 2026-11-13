@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
 import {mountRestaurantMenu} from '../restaurant-menu-ui.js';
 class Element{
-  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';this.value='';}
+  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';this.className='';this.dataset={};this.style={};this.value='';}
   append(...children){this.children.push(...children);}replaceChildren(...children){this.children=[...children];}setAttribute(key,value){this.attributes[key]=value;}
-  addEventListener(type,listener){if(!this.listeners.has(type))this.listeners.set(type,[]);this.listeners.get(type).push(listener);}emit(type){for(const listener of this.listeners.get(type)??[])listener({target:this});}
+  addEventListener(type,listener){if(!this.listeners.has(type))this.listeners.set(type,[]);this.listeners.get(type).push(listener);}dispatchEvent(event){for(const listener of this.listeners.get(event.type)??[])listener(event);return true;}emit(type,properties={}){this.dispatchEvent({type,target:this,preventDefault(){},...properties});}
 }
 const data={ingredients:INGREDIENTS,recipes:RECIPES,allergens:ALLERGENS},base=RECIPES.find(recipe=>recipe.id==='chicken-teriyaki');
 const all=root=>[root,...root.children.flatMap(all)];const find=(root,name)=>{const value=all(root).find(node=>node.className.split(' ').includes(name));assert.ok(value,name);return value;};
@@ -33,4 +33,13 @@ test('マイデータベースから一般料理を検索・選択し、店と�
   set(root,'restaurant-generic-select',base.id,'change');assert.ok(recipe);assert.equal(recipe.restaurant.genericRecipeId,base.id);
   const selectedId=recipe.id;set(root,'restaurant-generic-search','該当しない言葉');assert.ok(picker.children.some(option=>option.value===base.id));assert.equal(picker.value,base.id);assert.equal(recipe.id,selectedId);
   const rice=find(root,'restaurant-rice');rice.checked=true;rice.emit('change');assert.equal(recipe.role,'staple');assert.equal(recipe.mealBase,true);
+}));
+
+test('提供量は1単位ずつ変わり小数を保持し、未掲載成分と不正な数値入力を区別する',()=>withDocument(()=>{
+  let recipe;const root=mountRestaurantMenu({baseRecipe:base,data,initial:{...initial,basis:'per100g',portionAmount:250.5,portionUnit:'g',nutrition:{...initial.nutrition,kcal:200}},onChange:value=>{recipe=value;}});
+  const portion=find(root,'restaurant-portion');portion.emit('keydown',{key:'ArrowUp'});assert.equal(Number(portion.value),251.5);assert.equal(recipe.manualNutrition.kcal,503);
+  set(root,'restaurant-portion','12.25');assert.equal(recipe.portion.amount,12.25);assert.equal(recipe.manualNutrition.kcal,24.5);
+  const fiber=find(root,'restaurant-nutrient-fiber');fiber.value='';fiber.validity={badInput:true};fiber.emit('input');assert.equal(recipe,null);
+  fiber.validity={badInput:false};fiber.emit('input');assert.ok(recipe);assert.equal(recipe.manualNutrition.fiber,null);
+  set(root,'restaurant-portion','0x10');assert.equal(recipe,null);
 }));

@@ -12,7 +12,8 @@ class Element {
   setAttribute(key, value) {this.attributes[key] = value;}
   getAttribute(key) {return this.attributes[key] ?? null;}
   addEventListener(type, listener) {if (!this.listeners.has(type)) this.listeners.set(type, []); this.listeners.get(type).push(listener);}
-  emit(type) {for (const listener of this.listeners.get(type) ?? []) listener({target: this});}
+  dispatchEvent(event) {this.emit(event.type, event); return true;}
+  emit(type, event = {}) {for (const listener of this.listeners.get(type) ?? []) listener({target: this, preventDefault() {}, ...event, key: event.key});}
 }
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const all = root => [root, ...root.children.flatMap(all)];
@@ -101,4 +102,23 @@ test('初期設定の未知の材料を黙って削らず拒否し、複数画�
   }
   const initial = defaultSaladSelection(); initial.components.push({id: 'unknown', amount: 10});
   assert.throws(() => mountSaladBuilder({data, initial}), /材料|野菜|選択|サラダ/);
+}));
+
+test('野菜を0gにすると外れ、再選択で最後の小数量を戻して栄養を復元する', () => withDocument(() => {
+  let current;const root=mountSaladBuilder({data,onChange:recipe=>{current=recipe;}}),lettuce=checkbox(root,'lettuce'),quantity=amount(root,'レタス');
+  quantity.value='0.25';quantity.emit('input');const kcal=current.manualNutrition.kcal;
+  assert.equal(current.ingredients.find(part=>part.id==='lettuce').amount,.25);
+  quantity.value='0';quantity.emit('input');assert.equal(lettuce.checked,false);assert.equal(quantity.disabled,true);assert.ok(!current.ingredients.some(part=>part.id==='lettuce'));
+  lettuce.checked=true;lettuce.emit('change');assert.equal(quantity.value,'0.25');assert.equal(quantity.disabled,false);assert.equal(current.manualNutrition.kcal,kcal);
+  quantity.emit('keydown',{key:'ArrowUp'});assert.equal(quantity.value,'1.25');assert.equal(current.ingredients.find(part=>part.id==='lettuce').amount,1.25);
+}));
+
+test('ドレッシング0gはなしへ切り替え、不正値は選択を保って記録を止める', () => withDocument(() => {
+  let current;const root=mountSaladBuilder({data,onChange:recipe=>{current=recipe;}}),select=byClass(root,'salad-dressing-select'),quantity=byClass(root,'salad-dressing-amount');
+  const plain=current.manualNutrition.kcal;select.value='wafu';select.emit('change');
+  for(const value of ['', '-1', '-0', 'abc', 'Infinity', '1e2', '0x10', '301']){
+    quantity.value=value;quantity.emit('input');assert.equal(select.value,'wafu',value);assert.equal(quantity.disabled,false,value);assert.equal(current,null,value);
+    quantity.value='0.5';quantity.emit('input');assert.ok(current,value);
+  }
+  quantity.emit('keydown',{key:'ArrowDown'});assert.equal(quantity.value,'0');assert.equal(select.value,'none');assert.equal(quantity.disabled,true);assert.equal(current.manualNutrition.kcal,plain);
 }));

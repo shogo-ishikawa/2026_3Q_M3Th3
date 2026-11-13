@@ -1,6 +1,7 @@
 /** サラダの選択画面。計算と入力検査は salad-builder.js にまとめています。 */
 import {SALAD_COMPONENTS, SALAD_DRESSINGS, buildSaladRecipe} from './salad-builder.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS, recipeNutrition} from './nutrition.js';
+import {configureQuantityInput, readQuantityInput} from './quantity-input.js';
 
 let builderCount = 0;
 const rounded = value => Math.round(value * 100) / 100;
@@ -58,7 +59,7 @@ export function mountSaladBuilder({data, initial, onChange = () => {}, onError =
     const quantity = make('input', 'salad-component-amount');
     quantity.type = 'number';
     quantity.id = `${prefix}-${component.id}-amount`;
-    quantity.min = '1'; quantity.max = '1000'; quantity.step = 'any';
+    quantity.min = '0'; quantity.max = '1000'; quantity.step = 'any';
     quantity.value = String(amounts.get(component.id) ?? component.defaultAmount);
     quantity.disabled = !checked.checked;
     quantity.setAttribute('aria-label', `${component.label}の量（g）`);
@@ -66,10 +67,22 @@ export function mountSaladBuilder({data, initial, onChange = () => {}, onError =
     quantityLabel.append(quantity, make('span', 'salad-unit', 'g'));
     row.append(choice, quantityLabel);
     if (component.preparation) row.append(make('small', 'salad-preparation', component.preparation));
-    controls.push({component, checked, quantity});
-    checked.addEventListener('change', () => {quantity.disabled = !checked.checked; update();});
-    quantity.addEventListener('input', update);
+    const control = {component, checked, quantity, lastPositive: quantity.value};
+    controls.push(control);
+    checked.addEventListener('change', () => {
+      if (checked.checked) {try {if (readQuantityInput(quantity) <= 0) quantity.value = control.lastPositive;} catch {quantity.value = control.lastPositive;}}
+      quantity.disabled = !checked.checked; update();
+    });
+    quantity.addEventListener('input', () => {
+      try {
+        const value = readQuantityInput(quantity, {label: `${component.label}の量`});
+        if (value === 0) {checked.checked = false; quantity.disabled = true;}
+        else control.lastPositive = quantity.value;
+      } catch {/* 空欄や不正値は選択解除せず、登録できない状態を表示します。 */}
+      update();
+    });
     grid.append(row);
+    configureQuantityInput(quantity);
   }
   vegetables.append(grid);
   root.append(vegetables);
@@ -89,7 +102,7 @@ export function mountSaladBuilder({data, initial, onChange = () => {}, onError =
   const dressingAmount = make('input', 'salad-dressing-amount');
   dressingAmount.type = 'number';
   dressingAmount.id = `${prefix}-dressing-amount`;
-  dressingAmount.min = '0.1'; dressingAmount.max = '300'; dressingAmount.step = 'any';
+  dressingAmount.min = '0'; dressingAmount.max = '300'; dressingAmount.step = 'any';
   dressingAmount.value = String(selection.dressingAmount);
   dressingAmount.disabled = dressing.value === 'none';
   dressingAmount.setAttribute('aria-label', 'ドレッシングの量（g）');
@@ -99,6 +112,7 @@ export function mountSaladBuilder({data, initial, onChange = () => {}, onError =
   dressingAmountLabel.append(dressingInputUnit);
   dressingFields.append(dressingLabel, dressingAmountLabel);
   root.append(dressingFields);
+  configureQuantityInput(dressingAmount);
   root.append(make('p', 'salad-note', 'ドレッシングは家庭用の配合です。市販品は原材料や栄養が異なるため、商品の表示に合わせて別途登録してください。'));
 
   const error = make('p', 'salad-error');
@@ -125,16 +139,19 @@ export function mountSaladBuilder({data, initial, onChange = () => {}, onError =
     dressingAmount.value = String(selected?.defaultAmount ?? 0);
     update();
   });
-  dressingAmount.addEventListener('input', update);
+  dressingAmount.addEventListener('input', () => {
+    try {if (readQuantityInput(dressingAmount, {label: 'ドレッシングの量'}) === 0) {dressing.value = 'none'; dressingAmount.disabled = true;}} catch {}
+    update();
+  });
 
   function update() {
     try {
       const config = {
         id: recipeId,
         components: controls.filter(row => row.checked.checked)
-          .map(row => ({id: row.component.id, amount: Number(row.quantity.value)})),
+          .map(row => ({id: row.component.id, amount: readQuantityInput(row.quantity, {label: `${row.component.label}の量`})})),
         dressingId: dressing.value,
-        dressingAmount: dressing.value === 'none' ? 0 : Number(dressingAmount.value),
+        dressingAmount: dressing.value === 'none' ? 0 : readQuantityInput(dressingAmount, {label: 'ドレッシングの量'}),
       };
       const recipe = buildSaladRecipe(config, data);
       const values = recipeNutrition(recipe, data);

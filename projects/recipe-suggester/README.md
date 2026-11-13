@@ -1,8 +1,10 @@
 # Meal Palette（ミールパレット）
 
-対応版：v3.12.0 ／ 更新日：2026年11月13日
+対応版：v3.13.0 ／ 更新日：2026年11月13日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
+
+v3.13.0では数量欄の上下ボタンを原則1刻みに統一しました。手入力の小数を保ち、選択式の具材は数量0でチェックを外します。汁物86品はみそ汁・和風の汁物・あら汁・コンソメ・野菜スープ・ポタージュ・クリーム系・中華・韓国／エスニック・その他の10分類から探せます。
 
 v3.12.0では材料の減量・削除・置き換え、定番セットと過去の食事のコピー、購入量と包装数への換算、作り置きの完成重量による取り分け、店舗・サイズ別の栄養表示登録を追加しました。記録・設定と一緒にJSONへ保存できます。
 
@@ -20,7 +22,7 @@ v3.9.1までに、刺身の切れ数やチーズの個数からの重量換算�
 
 v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.12.0.zip)
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.13.0.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
@@ -160,6 +162,7 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `confectionery-foods.js`・`dessert-foods.js` | 公式表示に基づく菓子・スナック・スイーツの記録例 |
 | `comfort-foods.js` | 肉豆腐やもつ煮など家庭向けの料理5品 |
 | `accompaniment-foods.js` | ツナや単品の卵、のり、魚卵、鮭フレークなどのご飯のお供 |
+| `quantity-input.js`・`quantity-input.css` | 小数の手入力と1刻みの上下操作、数量の検証 |
 | `recipe-arrangement.js`・`recipe-arrangement-ui.js` | 元材料の編集・置き換えと食材追加 |
 | `meal-sets.js`・`meal-sets-ui.js` | 定番セットと過去の食事コピー |
 | `purchase-conversion.js`・`purchase-conversion-ui.js` | 購入時の状態・包装数の換算 |
@@ -188,10 +191,10 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `app.js`・`tabs.js`・`index.html`・`styles.css` | 操作、タブの切り替え、表示 |
 | `storage.js` | 旧版のAPIと互換処理 |
 
-ZIPは`v3.12.0/`に展開します。Macでは次の場所に置けます。
+ZIPは`v3.13.0/`に展開します。Macでは次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.12.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.13.0
 ```
 
 展開したフォルダーで`python3 tools/serve.py`を実行し、表示されたURLを開きます。`npm test`で確認できます。背景は[設計と開発](docs/design.md)、実際の確認範囲は[検証記録](docs/validation.md)をご覧ください。
