@@ -174,7 +174,7 @@ $('search-input').addEventListener('input', renderSearch);
 for (const button of document.querySelectorAll('[data-query]')) button.addEventListener('click', () => { $('search-input').value = button.dataset.query; renderSearch(); });
 function renderRules() {
   $('rules-json').value = JSON.stringify(state.rules, null, 2); const cards = $('rule-cards'); cards.replaceChildren();
-  for (const rule of state.rules) { const card = el('article', 'rule-card'); card.append(el('h2', '', rule.name), el('p', 'rule-folder', `↳ ${rule.folder}`), el('p', '', `言葉：${rule.keywords.join('・') || '指定なし'}`), el('p', '', `種類：${rule.extensions.join(' / ') || '指定なし'}`)); cards.append(card); }
+  for (const rule of state.rules) { const card = el('article', 'rule-card'); card.append(el('h2', '', rule.name), el('p', 'rule-folder', `整理先：${rule.folder}`), el('p', '', `言葉：${rule.keywords.join('・') || '指定なし'}`), el('p', '', `種類：${rule.extensions.join(' / ') || '指定なし'}`)); cards.append(card); }
 }
 function readRules() { let parsed; try { parsed = JSON.parse($('rules-json').value); } catch { throw new Error('JSONの形式を確認してください。括弧やカンマ、引用符の抜けがないか見てみましょう。'); } const result = validateRules(parsed); if (!result.ok) throw new Error(result.errors.join('\n')); return result.rules; }
 $('apply-rules').addEventListener('click', async () => {
