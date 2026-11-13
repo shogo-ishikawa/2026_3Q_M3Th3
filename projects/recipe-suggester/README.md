@@ -1,8 +1,10 @@
 # Meal Palette（ミールパレット）
 
-対応版：v3.14.0 ／ 更新日：2026年11月14日
+対応版：v3.15.0 ／ 更新日：2026年11月14日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
+
+v3.15.0では「メニュー」のカードに、料理の種類を見分ける小さなイラストを加えました。イラストは種類を示す目印で、実際の盛り付け・量・材料を表すものではありません。食べる量や配合は料理詳細と数量欄で確認できます。
 
 v3.14.0では、いつもの食事の登録と、記録した栄養の見方を改善しました。
 
@@ -14,7 +16,7 @@ v3.14.0では、いつもの食事の登録と、記録した栄養の見方を�
 | [栄養値の根拠の表示](docs/nutrition-basis.md) | 材料から概算・公式表示値・手入力などを短いラベルで確認する |
 | [文章からまとめて記録](docs/text-log.md) | 「ご飯150g、納豆1パック、みそ汁1杯」などから候補を作り、料理と量を全行確認して一括登録する |
 
-保存形式は引き続きversion 3です。v3.0.0〜v3.13.0の記録を受け入れ、お気に入りがない旧データは空の一覧から始めます。過去の材料・量・栄養は書き換えず、栄養の根拠の分類が未保存なら「根拠未記録」と表示します。
+保存形式は引き続きversion 3です。v3.0.0〜v3.14.0の記録を受け入れ、お気に入りがない旧データは空の一覧から始めます。過去の材料・量・栄養は書き換えず、栄養の根拠の分類が未保存なら「根拠未記録」と表示します。
 
 v3.13.0では数量欄の上下ボタンを原則1刻みに統一しました。手入力の小数を保ち、選択式の具材は数量0でチェックを外します。汁物86品はみそ汁・和風の汁物・あら汁・コンソメ・野菜スープ・ポタージュ・クリーム系・中華・韓国／エスニック・その他の10分類から探せます。
 
@@ -34,7 +36,7 @@ v3.9.1までに、刺身の切れ数やチーズの個数からの重量換算�
 
 v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.14.0.zip)
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.15.0.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
@@ -175,6 +177,7 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `comfort-foods.js` | 肉豆腐やもつ煮など家庭向けの料理5品 |
 | `accompaniment-foods.js` | ツナや単品の卵、のり、魚卵、鮭フレークなどのご飯のお供 |
 | `quantity-input.js`・`quantity-input.css` | 小数の手入力と1刻みの上下操作、数量の検証 |
+| `recipe-illustration.js`・`recipe-illustration-ui.js` | メニューカードの料理カテゴリ別イラストと表示 |
 | `recipe-arrangement.js`・`recipe-arrangement-ui.js` | 元材料の編集・置き換えと食材追加 |
 | `meal-sets.js`・`meal-sets-ui.js` | 定番セットと過去の食事コピー |
 | `favourites.js`・`favourites-ui.js`・`favourites-ui.css` | 単品のお気に入り、最近の実食と最後に使った量 |
@@ -208,10 +211,10 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `app.js`・`tabs.js`・`index.html`・`styles.css` | 操作、タブの切り替え、表示 |
 | `storage.js` | 旧版のAPIと互換処理 |
 
-ZIPは`v3.14.0/`に展開します。Macでは次の場所に置けます。
+ZIPは`v3.15.0/`に展開します。Macでは次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.14.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.15.0
 ```
 
 展開したフォルダーで`python3 tools/serve.py`を実行し、表示されたURLを開きます。`npm test`で確認できます。背景は[設計と開発](docs/design.md)、実際の確認範囲は[検証記録](docs/validation.md)をご覧ください。

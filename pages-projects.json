@@ -129,7 +129,9 @@
         "text-log-ui.css",
         "soup-intake.js",
         "soup-intake-ui.js",
-        "soup-intake-ui.css"
+        "soup-intake-ui.css",
+        "recipe-illustration.js",
+        "recipe-illustration-ui.js"
       ]
     },
     {
