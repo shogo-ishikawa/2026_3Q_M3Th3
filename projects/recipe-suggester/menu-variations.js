@@ -118,6 +118,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   dish('hamburg', 'ハンバーグ', [
     'beef-hamburg','tofu-burger','classic-hamburg','familiar-hamburg-oroshi','familiar-hamburg-stew','familiar-hamburg-cheese',
   ]),
+  dish('mapo-tofu', '麻婆豆腐', ['mapo-tofu-chen-style','tofu-mapo'], {defaultRecipeId:'mapo-tofu-chen-style'}),
   dish('gyoza', '餃子', ['classic-gyoza','varied-boiled-gyoza','varied-shrimp-boiled-gyoza','varied-fried-gyoza']),
   dish('karaage', '鶏の唐揚げ', ['daily-snack-oven-karaage','classic-karaage-thigh','classic-karaage-breast','classic-karaage-salt']),
   dish('grilled-fish', '焼き魚', [
@@ -188,6 +189,7 @@ export function validateVariationDefinitions(definitions = MENU_VARIATION_GROUPS
       throw Error('メニューの種類の名前と識別子を確認してください。');
     }
     groups.add(group.id);
+    if(group.defaultRecipeId!==undefined&&!group.recipeIds.includes(group.defaultRecipeId))throw Error('最初に表示する料理を種類の一覧に含めてください。');
     for (const id of group.recipeIds) {
       if (typeof id !== 'string' || !id.trim() || recipes.has(id)) throw Error('同じ料理を複数の種類に登録できません。');
       recipes.add(id);
@@ -260,8 +262,9 @@ export function groupMenuRecipes(candidates, {query = ''} = {}) {
   return entries.map(entry => {
     const ranked = query.trim() ? entry.recipes.map((recipe, index) => ({recipe, index,
       rank:japaneseQueryRank([recipe.name, variantLabel(recipe)], query)}))
-      .sort((a,b) => a.rank - b.rank || a.index - b.index) : [];
-    return selection(entry.recipes, entry.definition, ranked[0]?.recipe.id ?? entry.recipes[0].id);
+      .sort((a,b) => a.rank - b.rank || Number(b.recipe.id===entry.definition?.defaultRecipeId)-Number(a.recipe.id===entry.definition?.defaultRecipeId) || a.index - b.index) : [];
+    const preferred=entry.recipes.find(recipe=>recipe.id===entry.definition?.defaultRecipeId);
+    return selection(entry.recipes, entry.definition, ranked[0]?.recipe.id ?? preferred?.id ?? entry.recipes[0].id);
   });
 }
 

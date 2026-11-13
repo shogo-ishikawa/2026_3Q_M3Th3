@@ -17,8 +17,8 @@ const parts = recipe => Object.fromEntries(recipe.ingredients.map(part => [part.
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
 const withRecipe = recipe => ({...data, recipes:[...RECIPES, recipe]});
 
-test('対象12料理の初期肉は既存の1人分の材料・栄養を保ち、元データを変更しない', () => {
-  assert.equal(MEAT_CHOICES.length, 12);
+test('対象13料理の初期肉は既存の1人分の材料・栄養を保ち、元データを変更しない', () => {
+  assert.equal(MEAT_CHOICES.length, 13);
   const before = JSON.stringify(data);
   for (const definition of MEAT_CHOICES) {
     const base = source(definition.recipeId), made = build(definition.recipeId);
@@ -75,7 +75,7 @@ test('麻婆豆腐・麻婆丼・麻婆なすのひき肉を同じ機能で選�
   }
 });
 
-test('全45配合をマイメニュー保存・記録・書き出し読込みでき、過去の配合を保持する', () => {
+test('全49配合をマイメニュー保存・記録・書き出し読込みでき、過去の配合を保持する', () => {
   let checked = 0;
   for (const definition of MEAT_CHOICES) for (const option of definition.options) {
     const recipe = build(definition.recipeId, option.id), state = defaultJournal('2026-11-13');
@@ -90,7 +90,7 @@ test('全45配合をマイメニュー保存・記録・書き出し読込みで
     assert.equal(JSON.stringify(clean.entries[0]), before);
     checked++;
   }
-  assert.equal(checked, 45);
+  assert.equal(checked, 49);
 });
 
 test('選んだ肉のg数を予定の皿数と買い物人数で一度だけ拡大する', () => {
