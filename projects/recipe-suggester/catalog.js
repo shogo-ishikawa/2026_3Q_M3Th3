@@ -17,7 +17,13 @@ export const CATALOG_CATEGORIES = Object.freeze([
   ['bean-main', '豆腐・豆の主菜', 'main'], ['cutlet', 'カツ・コロッケ', 'main'],
   ['main', 'その他の主菜', 'main'], ['small-dish', '小鉢・おつまみ', 'side'],
   ['side', 'その他の副菜', 'side'],
-  ['miso-soup', 'みそ汁', 'soup'], ['soup', 'スープ・汁物', 'soup'],
+  ['miso-soup', 'みそ汁・豚汁', 'soup'],
+  ['clear-soup', 'お吸い物・和風の汁物', 'soup'], ['arajiru', 'あら汁', 'soup'],
+  ['consomme-soup', 'コンソメ・オニオンスープ', 'soup'],
+  ['vegetable-soup', '野菜スープ・ポトフ', 'soup'], ['potage', 'ポタージュ', 'soup'],
+  ['creamy-soup', 'クリーム・チャウダー', 'soup'],
+  ['chinese-soup', '中華スープ', 'soup'], ['ethnic-soup', '韓国・エスニックスープ', 'soup'],
+  ['soup', 'その他の汁物', 'soup'],
   ['water', '水・炭酸水', 'drink'], ['tea', 'お茶・紅茶', 'drink'],
   ['coffee', 'コーヒー', 'drink'], ['milk', '牛乳・豆乳', 'drink'],
   ['juice', 'ジュース', 'drink'], ['soft-drink', '清涼飲料水', 'drink'],
@@ -62,6 +68,31 @@ function checkRecipe(recipe) {
   if (!recipe || typeof recipe !== 'object' || Array.isArray(recipe)) throw new Error('メニューの情報を確認してください。');
 }
 
+/** 汁物の表示上の小分類。保存済みの旧familyや材料・栄養は書き換えません。 */
+export function soupFamily(recipe) {
+  checkRecipe(recipe);
+  const text = normalise(`${recipe.id ?? ''} ${recipe.name ?? ''}`);
+  if (/みそ汁|味噌汁|豚汁|miso[-_]soup/.test(text)) return 'miso-soup';
+  if (/あら汁|arajiru/.test(text)) return 'arajiru';
+  if (/お吸い物|吸い物|すまし汁|澄まし汁|osuimono/.test(text)) return 'clear-soup';
+  // 同じ市販カップスープの味は、原料名に引かれて別の棚へ分散させません。
+  if (/takeaway-knorr-|ポタージュ|potage/.test(text)) return 'potage';
+  if (/コンソメ|consomme|オニオン(?:グラタン)?スープ|onion[-_]gratin|あめ色スープ/.test(text)) return 'consomme-soup';
+  if (recipe.genre === '中華' || /中華|酸辣湯|サンラータン|ワンタン|春雨|担々|担担|chinese|wonton/.test(text)) return 'chinese-soup';
+  if (recipe.genre === 'エスニック' || /トムヤム|ユッケジャン|コムタン|サムゲタン|キムチ|韓国|tomyum|yukgaejang|gomtang/.test(text)) return 'ethnic-soup';
+  if (/チャウダー|クリーム|ミルク|豆乳|chowder|cream|milk/.test(text)) return 'creamy-soup';
+  if (recipe.genre === '和食' || /けんちん|かきたま汁|すり流し|すいとん/.test(text)) return 'clear-soup';
+  if (/トマト|ミネストローネ|ポトフ|野菜|キャベツ|レタス|白いんげん|tomato|pot-au-feu|minestrone/.test(text)) return 'vegetable-soup';
+  return 'soup';
+}
+
+/** 旧保存形式・固定レシピのfamilyを保つため、表示分類と分けて使います。 */
+export function storedSoupFamily(recipe) {
+  checkRecipe(recipe);
+  if (recipe.family !== undefined) return recipe.family;
+  return /みそ汁|味噌汁|豚汁|miso-soup/.test(normalise(`${recipe.id ?? ''} ${recipe.name ?? ''}`)) ? 'miso-soup' : 'soup';
+}
+
 export function recipeNature(recipe) {
   checkRecipe(recipe);
   const nature = recipe.nature === undefined ? (recipe.custom === true ? 'unspecified' : 'home-cooked') : recipe.nature;
@@ -74,10 +105,10 @@ export function recipeFamily(recipe) {
   checkRecipe(recipe);
   if (recipe.family !== undefined) {
     if (!categories.has(recipe.family)) throw new Error('メニューの大分類が登録されていません。');
-    return recipe.family;
+    return recipe.family === 'soup' ? soupFamily(recipe) : recipe.family;
   }
   const id = String(recipe.id ?? ''), name = String(recipe.name ?? ''), text = normalise(`${id} ${name}`);
-  if (recipe.role === 'soup') return /みそ汁|味噌汁|豚汁|miso-soup/.test(text) ? 'miso-soup' : 'soup';
+  if (recipe.role === 'soup') return soupFamily(recipe);
   if (recipe.role === 'drink') {
     const alcoholFree = /ノンアル|non[- ]?alcohol|alcohol[- ]?free/.test(text);
     if (!alcoholFree && /alcohol|beer|wine|shochu|whisk(?:y|ey)|chuhai|highball|ビール|ワイン|日本酒|焼酎|ウイスキー|ウォッカ|ラム酒|カクテル|リキュール|チューハイ|酎ハイ|ハイボール/.test(text)) return 'alcohol';
@@ -190,7 +221,7 @@ export function recipePortion(recipe, data) {
     return ml > 0 && !unknownVolume ? portion(ml, 'ml') : portion(1, '杯');
   }
 
-  if (['miso-soup', 'soup'].includes(family)) return portion(1, '杯');
+  if (categories.get(family).role === 'soup') return portion(1, '杯');
   if (['fruit', 'nuts', 'yoghurt', 'cheese'].includes(family) && parts.length && parts.every(part => data?.ingredients?.[part.id]?.unit === 'g' && validAmount(part.amount))) {
     return portion(parts.reduce((sum, part) => sum + part.amount / servings, 0), 'g');
   }

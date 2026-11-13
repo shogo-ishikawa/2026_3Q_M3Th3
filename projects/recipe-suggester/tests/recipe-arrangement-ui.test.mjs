@@ -4,12 +4,13 @@ import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
 import {mountRecipeArrangement} from '../recipe-arrangement-ui.js';
 
 class Element {
-  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';}
+  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';this.className='';this.dataset={};this.style={};}
   append(...children){this.children.push(...children);}
   replaceChildren(...children){this.children=[...children];}
   setAttribute(key,value){this.attributes[key]=value;}
   addEventListener(type,listener){if(!this.listeners.has(type))this.listeners.set(type,[]);this.listeners.get(type).push(listener);}
-  emit(type){for(const listener of this.listeners.get(type)??[])listener({target:this});}
+  dispatchEvent(event){for(const listener of this.listeners.get(event.type)??[])listener(event);return true;}
+  emit(type,properties={}){this.dispatchEvent({type,target:this,preventDefault(){},...properties});}
 }
 const data={ingredients:INGREDIENTS,recipes:RECIPES,allergens:ALLERGENS},baseRecipe=RECIPES.find(recipe=>recipe.id==='chicken-teriyaki');
 const all=root=>[root,...root.children.flatMap(all)];
@@ -76,4 +77,15 @@ test('集計された商品表示の材料編集は無効にして理由を表�
   let recipe;const root=mountRecipeArrangement({baseRecipe:{...baseRecipe,manualNutrition:{kcal:500,protein:25,fat:20,carbs:30,fiber:1,salt:2}},data,onChange:value=>{recipe=value;}});
   assert.equal(find(root,'arrangement-original-amount').disabled,true);assert.match(find(root,'arrangement-edit-note').textContent,/材料との対応が確定できない/);
   add(root,'shimeji',20);assert.ok(recipe);assert.ok(recipe.manualNutrition.kcal>500);
+}));
+
+test('元材料と追加材料の上下操作は1g刻みで、小数の手入力を保持する',()=>withDocument(()=>{
+  let recipe;const root=mountRecipeArrangement({baseRecipe,data,onChange:value=>{recipe=value;}});
+  const oil=all(root).find(element=>element.id?.endsWith('-original-oil'));assert.ok(oil);oil.value='0.5';oil.emit('input');assert.ok(recipe);
+  const before=recipe.manualNutrition.kcal;oil.emit('keydown',{key:'ArrowUp'});assert.equal(Number(oil.value),1.5);assert.ok(recipe.manualNutrition.kcal>before);
+  oil.emit('keydown',{key:'ArrowDown'});assert.equal(Number(oil.value),.5);assert.ok(Math.abs(recipe.manualNutrition.kcal-before)<1e-9);
+  add(root,'shimeji',.25);const added=find(root,'arrangement-added-amount');assert.equal(recipe.ingredients.find(part=>part.id==='shimeji').amount,.25);
+  added.emit('keydown',{key:'ArrowUp'});assert.equal(Number(added.value),1.25);assert.equal(recipe.ingredients.find(part=>part.id==='shimeji').amount,1.25);
+  added.value='0x10';added.emit('input');assert.equal(recipe,null);
+  oil.value='-1';oil.emit('input');assert.equal(recipe,null);
 }));

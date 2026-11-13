@@ -1,6 +1,7 @@
 /** カレーのご飯量と、選んだ1人分の栄養・材料を表示します。 */
 import {curryRiceFor, defaultCurryRiceSelection, buildCurryRiceSelection} from './curry-rice.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
+import {configureQuantityInput, readQuantityInput} from './quantity-input.js';
 
 let count = 0;
 const rounded = value => Math.round(value * 100) / 100;
@@ -25,6 +26,7 @@ export function mountCurryRice({recipeId, data, initial, onChange = () => {}, on
   input.type = 'number'; input.min = String(definition.minRiceGrams); input.max = String(definition.maxRiceGrams); input.step = 'any'; input.inputMode = 'decimal'; input.required = true; input.value = String(selection.riceGrams);
   input.setAttribute('aria-describedby', `${input.id}-note`);
   inputLine.append(input, make('span', 'dish-unit', 'g')); label.append(inputLine); root.append(label);
+  configureQuantityInput(input);
   const note = make('p', 'dish-note', `入力範囲：0〜${definition.maxRiceGrams}g。炊く前のお米の重さとは異なります。買い物リストにも選んだ炊飯済みのg数を反映します。`); note.id = `${input.id}-note`; root.append(note);
   const error = make('p', 'dish-error'); error.hidden = true; error.setAttribute('role', 'status'); error.setAttribute('aria-live', 'polite');
   const preview = make('div', 'dish-preview'), title = make('p', 'dish-preview-title'), nutrients = make('dl', 'dish-nutrients'), values = new Map();
@@ -39,7 +41,7 @@ export function mountCurryRice({recipeId, data, initial, onChange = () => {}, on
   function update() {
     try {
       if (typeof input.value !== 'string' || !input.value.trim()) throw Error('ご飯のg数を入力してください。ルーのみの場合は0を入力します。');
-      const recipe = buildCurryRiceSelection({id:stableId, recipeId, riceGrams:Number(input.value)}, data);
+      const recipe = buildCurryRiceSelection({id:stableId, recipeId, riceGrams:readQuantityInput(input,{label:'ご飯のg数'})}, data);
       title.textContent = `${recipe.name} / 1人分`;
       for (const key of NUTRIENT_KEYS) values.get(key).textContent = recipe.manualNutrition[key] === null ? '未入力' : `${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
       const labels = recipe.allergens.map(id => data.allergens?.find(allergen => allergen.id === id)?.label ?? id);

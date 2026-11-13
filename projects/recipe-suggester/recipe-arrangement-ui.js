@@ -1,4 +1,5 @@
 /** 元の材料の減量・削除・置き換えと食材追加の画面。 */
+import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {ARRANGEMENT_CATEGORIES, arrangementIngredientOptions, buildRecipeArrangement, ingredientAmountFromInput, arrangementBaseIngredients, arrangementEditAvailability} from './recipe-arrangement.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
@@ -6,7 +7,7 @@ import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
 let arrangementCount=0;
 const rounded=value=>Number(value.toFixed(3)).toLocaleString('ja-JP');
 const make=(tag,className='',text='')=>{const element=document.createElement(tag);element.className=className;if(text)element.textContent=text;return element;};
-const labelFor=(text,input)=>{const label=make('label','arrangement-label',text);label.htmlFor=input.id;label.append(input);return label;};
+const labelFor=(text,input)=>{const label=make('label','arrangement-label',text);label.htmlFor=input.id;label.append(input);if(input.type==='number')configureQuantityInput(input);return label;};
 const roles=[['staple','主食'],['main','主菜'],['side','副菜'],['soup','汁物'],['drink','飲み物'],['snack','間食']];
 
 export function mountRecipeArrangement({baseRecipe=null,data,initial={},onChange=()=>{},onError=()=>{}}={}){
@@ -16,6 +17,7 @@ export function mountRecipeArrangement({baseRecipe=null,data,initial={},onChange
   const selections=(initial.additions??[]).map(part=>({...part,amount:String(part.amount)}));
   const baseParts=arrangementBaseIngredients(baseRecipe,data),baseEdits=new Map((initial.ingredientEdits??[]).map(part=>[part.id,{...part,amount:String(part.amount)}])),availability=arrangementEditAvailability(baseRecipe,data);
   let replacing=null;
+  const originalInputs=new Map(),additionInputs=[];
   const root=make('div','food-composer recipe-arrangement');root.setAttribute('role','group');root.setAttribute('aria-label',baseRecipe?'レシピの材料を編集・追加する':'オリジナルレシピを作る');
   root.append(make('h3','food-composer-heading',baseRecipe?'材料を編集・追加してアレンジ':'食材からオリジナルレシピを作る'),
     make('p','food-composer-intro',baseRecipe?'元の材料を減らす・削除する・別の食材へ替えることができます。入力はすべて1人分です。元のレシピと過去の記録を保ち、別の料理として記録・保存します。':'1皿（1人分）に使う食材と量を選びます。登録済みの栄養データから合計を計算します。'));
@@ -68,7 +70,7 @@ export function mountRecipeArrangement({baseRecipe=null,data,initial={},onChange
   function renderOriginals(){
     originalList.replaceChildren(...baseParts.map(part=>{
       const edit=baseEdits.get(part.id),target=edit?.replacementId??part.id,option=options.find(value=>value.id===target),quantity=edit?.amount??String(part.amount),currentUnit=edit?.unit??option.unit;
-      const row=make('div','arrangement-selected-row arrangement-original-row'),input=make('input','arrangement-original-amount');input.type='number';input.min='0';input.max='10000';input.step='any';input.value=quantity;input.id=`${prefix}-original-${part.id}`;input.disabled=!availability.editable;
+      const row=make('div','arrangement-selected-row arrangement-original-row'),input=make('input','arrangement-original-amount');input.type='number';input.min='0';input.max='10000';input.step='any';input.value=quantity;input.id=`${prefix}-original-${part.id}`;input.disabled=!availability.editable;originalInputs.set(part.id,input);
       input.setAttribute('aria-label',`${option.name}の使用量（${currentUnit}、1人分）`);
       const label=labelFor(option.name,input);label.append(make('span','arrangement-row-unit',currentUnit));
       const actions=make('div','arrangement-original-actions'),remove=make('button','button-secondary arrangement-original-remove','削除'),replace=make('button','button-secondary arrangement-original-replace','食材を替える'),restore=make('button','button-secondary arrangement-original-restore','元に戻す');
@@ -86,20 +88,20 @@ export function mountRecipeArrangement({baseRecipe=null,data,initial={},onChange
   function renderSelections(){
     if(!selections.length){selected.replaceChildren(make('p','arrangement-empty','食材を選び、量を入力して「この食材を追加」を押してください。'));return;}
     selected.replaceChildren(...selections.map((part,index)=>{
-      const option=options.find(option=>option.id===part.id),row=make('div','arrangement-selected-row'),input=make('input','arrangement-added-amount');input.type='number';input.id=`${prefix}-selected-${index}`;input.min='0.001';input.max='10000';input.step='any';input.value=part.amount;
+      const option=options.find(option=>option.id===part.id),row=make('div','arrangement-selected-row'),input=make('input','arrangement-added-amount');input.type='number';input.id=`${prefix}-selected-${index}`;input.min='0.001';input.max='10000';input.step='any';input.value=part.amount;additionInputs[index]=input;
       const rowUnit=part.unit??option?.unit??'g';input.setAttribute('aria-label',`${option?.name??part.id}の追加量（${rowUnit}）`);
       const amountLabel=labelFor(`${option?.name??part.id}`,input);amountLabel.append(make('span','arrangement-row-unit',rowUnit));
       const remove=make('button','button-secondary arrangement-remove','削除');remove.type='button';remove.setAttribute('aria-label',`追加した${option?.name??part.id}を削除`);
       const equivalent=make('small','arrangement-equivalent');
-      function showEquivalent(){try{const value=ingredientAmountFromInput({id:part.id,amount:Number(part.amount),unit:rowUnit},data);equivalent.textContent=rowUnit!==value.nativeUnit?`材料・買い物への換算：約${rounded(value.amount)} ${value.nativeUnit}`:'';}catch{equivalent.textContent='';}}
+      function showEquivalent(){try{const value=ingredientAmountFromInput({id:part.id,amount:readQuantityInput(input,{label:'追加する食材の量'}),unit:rowUnit},data);equivalent.textContent=rowUnit!==value.nativeUnit?`材料・買い物への換算：約${rounded(value.amount)} ${value.nativeUnit}`:'';}catch{equivalent.textContent='';}}
       input.addEventListener('input',()=>{part.amount=input.value;showEquivalent();update();});
       remove.addEventListener('click',()=>{selections.splice(index,1);renderSelections();update();});row.append(amountLabel,remove,equivalent);showEquivalent();return row;
     }));
   }
   function update(){
     try{
-      const additions=selections.map(part=>{if(String(part.amount).trim()==='')throw Error('追加する食材の量を入力してください。');return {id:part.id,amount:Number(part.amount),...(part.unit?{unit:part.unit}:{})};});
-      const ingredientEdits=[...baseEdits.values()].map(part=>{if(String(part.amount).trim()==='')throw Error('元の材料の量を入力してください。');return {...part,amount:Number(part.amount)};});
+      const additions=selections.map((part,index)=>({id:part.id,amount:readQuantityInput(additionInputs[index],{label:'追加する食材の量'}),...(part.unit?{unit:part.unit}:{})}));
+      const ingredientEdits=[...baseEdits.values()].map(part=>({...part,amount:readQuantityInput(originalInputs.get(part.id),{label:'元の材料の量'})}));
       const recipe=buildRecipeArrangement({id:recipeId,baseRecipe,additions,ingredientEdits,name:name.value,...(!baseRecipe?{role:role.value,steps:steps.value.split('\n')}:{})},data);
       title.textContent=`${recipe.name} / 1皿（1人分）の合計`;
       for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'不明':`${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
@@ -113,10 +115,10 @@ export function mountRecipeArrangement({baseRecipe=null,data,initial={},onChange
     try{
       const option=selectedOption();if(!option)throw Error('追加する食材を選んでください。');
       if(String(amount.value).trim()==='')throw Error('追加する食材の量を入力してください。');
-      ingredientAmountFromInput({id:option.id,amount:Number(amount.value),unit:option.unit},data);
+      ingredientAmountFromInput({id:option.id,amount:readQuantityInput(amount,{label:'追加・置き換え量'}),unit:option.unit},data);
       if(replacing){baseEdits.set(replacing,{id:replacing,replacementId:option.id,amount:amount.value,unit:option.unit});replacing=null;describeReplacement();renderOriginals();update();return;}
       const existing=selections.find(part=>part.id===option.id&&(part.unit??option.unit)===option.unit);
-      if(existing){if(!String(existing.amount).trim()||!Number.isFinite(Number(existing.amount)))throw Error('追加済みの食材の量を確認してください。');existing.amount=String(Number(existing.amount)+Number(amount.value));}
+      if(existing){if(!String(existing.amount).trim()||!Number.isFinite(Number(existing.amount)))throw Error('追加済みの食材の量を確認してください。');existing.amount=String(readQuantityInput(additionInputs[selections.indexOf(existing)],{label:'追加済みの食材の量'})+readQuantityInput(amount,{label:'追加する食材の量'}));}
       else selections.push({id:option.id,amount:amount.value,unit:option.unit});
       renderSelections();update();
     }catch(cause){problem(cause.message);preview.hidden=true;onChange(null);}

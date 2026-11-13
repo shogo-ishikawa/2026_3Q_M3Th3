@@ -138,3 +138,26 @@ test('不正な初期設定と種類を拒否し、複数画面のlabelを一意
     for (const label of all(root).filter(element => element.tagName === 'LABEL')) assert.ok(localIds.has(label.htmlFor));
   }
 }));
+
+test('具材0gで選択を外し、再選択では直前の正の小数量を復元する',()=>withDocument(()=>{
+  let current;const root=mountDishCustomiser({kind:'okonomiyaki',data,onChange:recipe=>{current=recipe;}}),definition=DISH_CUSTOMISERS.find(item=>item.kind==='okonomiyaki');
+  const pork=definition.components.find(item=>item.id==='pork-belly'),squid=definition.components.find(item=>item.id==='squid');
+  const porkCheck=checkbox(root,pork.id),squidCheck=checkbox(root,squid.id),input=amount(root,pork.label);
+  squidCheck.checked=true;squidCheck.emit('change');porkCheck.checked=true;porkCheck.emit('change');input.value='50.25';input.emit('input');
+  assert.equal(current.ingredients.find(part=>part.id===pork.ingredientId).amount,50.25);
+  input.value='0';input.emit('input');assert.equal(porkCheck.checked,false);assert.equal(input.disabled,true);assert.ok(!current.ingredients.some(part=>part.id===pork.ingredientId));
+  porkCheck.checked=true;porkCheck.emit('change');assert.equal(input.value,'50.25');assert.equal(input.disabled,false);assert.equal(current.ingredients.find(part=>part.id===pork.ingredientId).amount,50.25);
+  const preset=byClass(root,'dish-preset-select');preset.value='pork';preset.emit('change');const presetAmount=input.value;input.value='0';input.emit('input');porkCheck.checked=true;porkCheck.emit('change');assert.equal(input.value,presetAmount,'プリセット適用後はその量を復元する');
+}));
+
+test('空欄や異常値を選択解除に変換せず、ソースとマヨネーズの空欄も不正にする',()=>withDocument(()=>{
+  const outputs=[],root=mountDishCustomiser({kind:'okonomiyaki',data,onChange:recipe=>outputs.push(recipe)}),definition=DISH_CUSTOMISERS.find(item=>item.kind==='okonomiyaki'),pork=definition.components.find(item=>item.id==='pork-belly');
+  const choice=checkbox(root,pork.id),input=amount(root,pork.label);choice.checked=true;choice.emit('change');
+  for(const value of ['', ' ', 'abc', 'NaN', 'Infinity', '-1', '-0', '+0', '0x0', '0e2', '1e2', '301']){
+    input.value=value;input.emit('input');assert.equal(choice.checked,true,value);assert.equal(input.disabled,false,value);assert.equal(outputs.at(-1),null,value);
+  }
+  input.value='25.5';input.emit('input');assert.ok(outputs.at(-1));
+  const sauce=byClass(root,'dish-sauce-amount'),mayo=byClass(root,'dish-mayonnaise-amount');
+  sauce.value='';sauce.emit('input');assert.equal(outputs.at(-1),null);sauce.value='10.25';sauce.emit('input');assert.ok(outputs.at(-1));
+  mayo.value='';mayo.emit('input');assert.equal(outputs.at(-1),null);mayo.value='0.25';mayo.emit('input');assert.ok(outputs.at(-1));
+}));

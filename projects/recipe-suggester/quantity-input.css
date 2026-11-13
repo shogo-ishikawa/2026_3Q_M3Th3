@@ -1,0 +1,12 @@
+.quantity-stepper{display:inline-flex;align-items:stretch;position:relative;min-width:0;width:100%;vertical-align:middle}
+.quantity-stepper>input.quantity-stepper-input{width:100%;max-width:100%;min-width:0;margin:0;padding-right:2.25rem;appearance:textfield;-moz-appearance:textfield}
+.quantity-stepper-labelled{margin-top:6px}
+.quantity-stepper>input::-webkit-inner-spin-button,.quantity-stepper>input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.quantity-stepper-controls{position:absolute;inset:4px 4px 4px auto;width:1.65rem;display:grid;grid-template-rows:1fr 1fr;gap:1px}
+.quantity-stepper .quantity-stepper-button{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:3px;background:#edf1e8;color:#4b6547;font:700 13px/1 sans-serif;cursor:pointer;touch-action:manipulation}
+.quantity-stepper .quantity-stepper-button:hover{background:#dce6d2}
+.quantity-stepper .quantity-stepper-button:focus-visible{outline:2px solid #42664e;outline-offset:1px;z-index:1}
+.quantity-stepper .quantity-stepper-button:disabled{opacity:.35;cursor:default}
+.input-unit>.quantity-stepper{flex:1;width:auto}
+.entry-item>.quantity-stepper,.pantry-row>.quantity-stepper{width:6.2rem;flex:0 0 6.2rem}
+.recipe-arrangement .arrangement-original-row .quantity-stepper{max-width:160px}

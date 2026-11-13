@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import {INGREDIENTS} from '../data.js';
 import {mountPurchaseEditor} from '../purchase-conversion-ui.js';
 class Element{
-  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';}
+  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';this.className='';this.dataset={};this.style={};}
   append(...children){this.children.push(...children);}
   setAttribute(key,value){this.attributes[key]=value;}
   addEventListener(type,fn){this.listeners.set(type,[...(this.listeners.get(type)??[]),fn]);}
-  emit(type){for(const fn of this.listeners.get(type)??[])fn({target:this});}
+  dispatchEvent(event){for(const fn of this.listeners.get(event.type)??[])fn(event);return true;}
+  emit(type,properties={}){this.dispatchEvent({type,target:this,preventDefault(){},...properties});}
 }
 const all=root=>[root,...root.children.flatMap(all)],find=(root,name)=>{const value=all(root).find(element=>element.className.split(' ').includes(name));assert.ok(value,name);return value;};
 const data={ingredients:INGREDIENTS},item={id:'rice',unit:'g',required:460,stock:230,buy:230};
@@ -29,4 +30,11 @@ test('ゆでうどんの参考設定は明示的に選び、乾重量と生麺�
   const root=mountPurchaseEditor({item:{id:'udon',unit:'g',buy:300},data});assert.match(find(root,'purchase-preview').textContent,/300g/);
   const preset=find(root,'purchase-preset'),choice=preset.children.find(option=>option.textContent.includes('ゆで上がり3倍'));assert.ok(choice);preset.value=choice.value;preset.emit('change');
   assert.match(find(root,'purchase-preview').textContent,/干しうどん（乾） 約100g/);assert.match(find(root,'purchase-basis').textContent,/生麺・冷凍麺・乾麺/);
+}));
+
+test('1包装の量は1刻みで小数入力を保ち、不正入力を空欄扱いで保存しない',()=>doc(()=>{
+  const saved=[],root=mountPurchaseEditor({item,data,onSave:value=>saved.push(value)}),pack=find(root,'purchase-pack-size');
+  pack.value='80.5';pack.emit('keydown',{key:'ArrowUp'});assert.equal(Number(pack.value),81.5);find(root,'purchase-save').emit('click');assert.equal(saved[0][0].packSize,81.5);
+  pack.value='';pack.validity={badInput:true};pack.emit('input');assert.equal(find(root,'purchase-save').disabled,true);find(root,'purchase-save').emit('click');assert.equal(saved.length,1);
+  pack.validity={badInput:false};pack.emit('input');assert.equal(find(root,'purchase-save').disabled,false);find(root,'purchase-save').emit('click');assert.equal(saved[1][0].packSize,null);
 }));

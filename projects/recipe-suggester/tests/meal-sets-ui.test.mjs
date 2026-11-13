@@ -6,12 +6,13 @@ import {createCatalogEntry} from '../record-actions.js';
 import {createMealSet} from '../meal-sets.js';
 import {mountMealSets} from '../meal-sets-ui.js';
 class Element{
-  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';}
+  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';this.className='';this.dataset={};this.style={};}
   append(...children){this.children.push(...children);}
   replaceChildren(...children){this.children=[...children];}
   setAttribute(key,value){this.attributes[key]=value;}
   addEventListener(type,listener){if(!this.listeners.has(type))this.listeners.set(type,[]);this.listeners.get(type).push(listener);}
-  emit(type){for(const listener of this.listeners.get(type)??[])listener({target:this});}
+  dispatchEvent(event){for(const listener of this.listeners.get(event.type)??[])listener(event);return true;}
+  emit(type,properties={}){this.dispatchEvent({type,target:this,preventDefault(){},...properties});}
 }
 const all=root=>[root,...root.children.flatMap(all)];
 const byClass=(root,value)=>{const result=all(root).find(node=>node.className.split(' ').includes(value));assert.ok(result,value);return result;};
@@ -47,4 +48,11 @@ test('記録のない日と作り置きはコピー・セット保存を無効�
   assert.ok(all(root).some(node=>node.textContent.includes('作り置きは残量画面')));assert.ok(all(root).some(node=>node.textContent.includes('避けるアレルゲン')));
   field(root,'source-date').value='2026-11-09';field(root,'source-date').emit('change');assert.equal(byClass(root,'meal-sets-copy').disabled,true);assert.ok(all(root).some(node=>node.textContent.includes('この条件の食事はありません')));
   const empty=mountMealSets({state:defaultJournal('2026-11-13'),data,date:'2026-11-13'});assert.equal(byClass(empty,'meal-sets-use').disabled,true);assert.equal(byClass(empty,'meal-sets-delete').disabled,true);
+}));
+
+test('セット倍率は小数を保って微調整でき、数字以外の表現で登録しない',()=>withDocument(()=>{
+  const added=[],source=state(),root=mountMealSets({state:source,data,date:'2026-11-13',onAdd:value=>added.push(value)}),scale=field(root,'scale');
+  scale.value='0.25';scale.emit('keydown',{key:'ArrowUp'});assert.equal(Number(scale.value),.35);byClass(root,'meal-sets-copy').emit('click');assert.equal(added.length,1);
+  assert.ok(Math.abs(added[0].items[0].quantity-source.entries[0].items[0].quantity*.35)<1e-10);
+  scale.value='0x10';byClass(root,'meal-sets-copy').emit('click');assert.equal(added.length,1);
 }));

@@ -1,4 +1,5 @@
 /** 定番セットと過去の食事のコピー。保存とカレンダー更新は呼出元が担当します。 */
+import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {createMealSet, createRepeatedMeal, mealSetWarnings, MAX_MEAL_SETS} from './meal-sets.js';
 import {dateIsValid} from './journal.js';
 import {sumNutrition} from './nutrition.js';
@@ -9,7 +10,7 @@ const STATUSES=[['eaten','食べた'],['planned','これからの予定']];
 const make=(tag,className='',text='')=>{const element=document.createElement(tag);element.className=className;if(text)element.textContent=text;return element;};
 const rounded=value=>Number(value.toFixed(3)).toLocaleString('ja-JP');
 const button=(label,fn,className='button-secondary')=>{const element=make('button',className,label);element.type='button';element.addEventListener('click',fn);return element;};
-const field=(label,input)=>{const element=make('label','meal-sets-field',label);element.htmlFor=input.id;element.append(input);return element;};
+const field=(label,input)=>{const element=make('label','meal-sets-field',label);element.htmlFor=input.id;element.append(input);if(input.type==='number')configureQuantityInput(input,{step:.1});return element;};
 const select=(id,items,value)=>{const element=make('select');element.id=id;for(const [id,label]of items){const option=make('option','',label);option.value=id;element.append(option);}element.value=value;return element;};
 
 /**
@@ -30,7 +31,7 @@ export function mountMealSets({state,data,date,meal='dinner',status='eaten',onSa
   root.append(destination,make('p','field-note','同じ日・食事に記録がある場合は追加します。今ある記録は残ります。'));
   function addItems(items,note=''){
     if(String(scale.value).trim()==='')throw Error('量の倍率を入力してください。');
-    const entry=createRepeatedMeal({items,date:targetDate.value,meal:targetMeal.value,status:targetStatus.value,note,scale:Number(scale.value)},data);
+    const entry=createRepeatedMeal({items,date:targetDate.value,meal:targetMeal.value,status:targetStatus.value,note,scale:readQuantityInput(scale,{label:'量の倍率'})},data);
     onAdd(entry);
   }
   function showSummary(container,items,settings=state.settings){

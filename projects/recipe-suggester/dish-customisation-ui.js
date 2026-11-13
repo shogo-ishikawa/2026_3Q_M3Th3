@@ -1,9 +1,11 @@
 /** 肉じゃがとお好み焼きの選択画面。配合・栄養・工程は純粋関数で作ります。 */
 import {DISH_CUSTOMISERS, defaultDishSelection, buildCustomDish} from './dish-customisation.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS, recipeNutrition} from './nutrition.js';
+import {configureQuantityInput, readQuantityInput} from './quantity-input.js';
 
 let customiserCount = 0;
 const rounded = value => Math.round(value * 100) / 100;
+const numericValue = input => {try {return readQuantityInput(input);} catch {return NaN;}};
 const make = (tag, className = '', text = '') => {
   const element = document.createElement(tag);
   element.className = className;
@@ -72,17 +74,19 @@ export function mountDishCustomiser({kind, data, initial, onChange = () => {}, o
       const quantityLabel = make('label', 'dish-component-quantity');
       const quantity = make('input', 'dish-component-amount');
       quantity.type = 'number'; quantity.id = `${prefix}-${component.id}-amount`;
-      quantity.min = '0.1'; quantity.max = '300'; quantity.step = 'any';
+      quantity.min = '0'; quantity.max = '300'; quantity.step = 'any';
       quantity.value = String(amounts.get(component.id) ?? component.defaultAmount);
       quantity.disabled = !checked.checked;
       quantity.setAttribute('aria-label', `${component.label}の量（g）`);
       quantityLabel.htmlFor = quantity.id;
       quantityLabel.append(quantity, make('span', 'dish-unit', 'g'));
+      configureQuantityInput(quantity);
       row.append(label, quantityLabel);
       if (component.preparation) row.append(make('small', 'dish-preparation', component.preparation));
-      const control = {component, checked, quantity}; components.push(control);
-      checked.addEventListener('change', () => {quantity.disabled = !checked.checked; markCustom(); update();});
-      quantity.addEventListener('input', () => {markCustom(); update();});
+      let lastPositive = Number(quantity.value);
+      const control = {component, checked, quantity, remember: () => {lastPositive = Number(quantity.value);}}; components.push(control);
+      checked.addEventListener('change', () => {if (checked.checked && !(numericValue(quantity) > 0 && numericValue(quantity) <= 300)) quantity.value = String(lastPositive); quantity.disabled = !checked.checked; markCustom(); update();});
+      quantity.addEventListener('input', () => {const value = numericValue(quantity); if (value === 0) {checked.checked = false; quantity.disabled = true;} else if (Number.isFinite(value) && value > 0 && value <= 300) lastPositive = value; markCustom(); update();});
       grid.append(row);
     }
     fieldset.append(grid); root.append(fieldset);
@@ -97,6 +101,7 @@ export function mountDishCustomiser({kind, data, initial, onChange = () => {}, o
       input.min = min; input.max = '100'; input.step = 'any'; input.value = String(value);
       input.setAttribute('aria-label', `${labelText}（g）`); label.htmlFor = input.id;
       const wrap = make('span', 'dish-input-unit'); wrap.append(input, make('span', 'dish-unit', 'g')); label.append(wrap);
+      configureQuantityInput(input);
       return {label, input};
     };
     const sauceField = quantityField('ソース・たれの量', 'sauce-amount', 'sauce-amount', selection.sauceAmount, '0.1');
@@ -142,6 +147,7 @@ export function mountDishCustomiser({kind, data, initial, onChange = () => {}, o
     for (const row of components) {
       row.checked.checked = amounts.has(row.component.id);
       row.quantity.value = String(amounts.get(row.component.id) ?? row.component.defaultAmount);
+      row.remember();
       row.quantity.disabled = !row.checked.checked;
     }
     sauce.value = config.sauceId; sauceAmount.value = String(config.sauceAmount); sauceAmount.disabled = sauce.value === 'none';
@@ -151,8 +157,8 @@ export function mountDishCustomiser({kind, data, initial, onChange = () => {}, o
     try {
       const config = kind === 'nikujaga' ? {id: recipeId, kind, meat: meat.value} : {
         id: recipeId, kind, presetId: preset.value,
-        components: components.filter(row => row.checked.checked).map(row => ({id: row.component.id, amount: Number(row.quantity.value)})),
-        sauceId: sauce.value, sauceAmount: sauce.value === 'none' ? 0 : Number(sauceAmount.value), mayonnaiseAmount: Number(mayonnaiseAmount.value),
+        components: components.filter(row => row.checked.checked).map(row => ({id: row.component.id, amount: readQuantityInput(row.quantity,{label:`${row.component.label}の量`})})),
+        sauceId: sauce.value, sauceAmount: sauce.value === 'none' ? 0 : readQuantityInput(sauceAmount,{label:'ソースの量'}), mayonnaiseAmount: readQuantityInput(mayonnaiseAmount,{label:'マヨネーズの量'}),
       };
       const recipe = buildCustomDish(config, data), nutrition = recipeNutrition(recipe, data);
       error.hidden = true; error.textContent = ''; preview.hidden = false;

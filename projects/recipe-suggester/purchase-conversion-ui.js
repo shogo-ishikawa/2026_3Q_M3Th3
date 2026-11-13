@@ -1,4 +1,5 @@
 /** 買い物リストの1食材に添える購入状態・包装の編集画面。 */
+import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {PURCHASE_PACK_UNITS,PURCHASE_SOURCES,purchaseBasisNote,purchaseGramsPerUnit,purchasePresets,purchaseSettingFor,validatePurchaseSettings,derivePurchase} from './purchase-conversion.js';
 let count=0;
 const make=(tag,className='',text='')=>{const element=document.createElement(tag);element.className=className;if(text)element.textContent=text;return element;};
@@ -20,7 +21,7 @@ export function mountPurchaseEditor({item,settings=[],data,onSave=()=>{},onError
   const factor=make('input','purchase-factor');factor.id=`${prefix}-factor`;factor.type='number';factor.min='.001';factor.max='1000';factor.step='any';
   const factorField=field('購入する1gから用意できる材料の量（g）',factor);
   const pack=make('input','purchase-pack-size');pack.id=`${prefix}-pack`;pack.type='number';pack.min='.000001';pack.max='10000000';pack.step='any';pack.placeholder='包装でまとめない場合は空欄';
-  const packField=field('1包装の量',pack),packUnit=make('select','purchase-pack-unit');packUnit.id=`${prefix}-pack-unit`;
+  const packField=field('1包装の量',pack);configureQuantityInput(pack);const packUnit=make('select','purchase-pack-unit');packUnit.id=`${prefix}-pack-unit`;
   for(const value of PURCHASE_PACK_UNITS){const option=make('option','',value);option.value=value;packUnit.append(option);}
   grid.append(field('購入する食材名',name),field('購入量の表示',mode),factorField,packField,field('包装の単位',packUnit));panel.append(grid);
   const explanation=make('p','purchase-explanation'),preview=make('p','purchase-preview'),error=make('p','purchase-error');error.setAttribute('role','status');error.setAttribute('aria-live','polite');error.hidden=true;
@@ -31,8 +32,8 @@ export function mountPurchaseEditor({item,settings=[],data,onSave=()=>{},onError
   function apply(setting){name.value=setting.purchaseName;mode.value=setting.mode;factor.value=String(setting.yieldFactor);pack.value=setting.packSize===null?'':String(setting.packSize);packUnit.value=setting.packUnit;update();}
   function read(){
     if(String(factor.value).trim()==='')throw Error('換算係数を入力してください。');
-    const setting={id:item.id,mode:mode.value,yieldFactor:mode.value==='same'?1:Number(factor.value),purchaseName:name.value,
-      packSize:pack.value.trim()===''?null:Number(pack.value),packUnit:packUnit.value};
+    const setting={id:item.id,mode:mode.value,yieldFactor:mode.value==='same'?1:readQuantityInput(factor,{label:'換算係数'}),purchaseName:name.value,
+      packSize:readQuantityInput(pack,{label:'1包装の量',allowEmpty:true}),packUnit:packUnit.value};
     return validatePurchaseSettings([...cleanSettings.filter(value=>value.id!==item.id),setting],data);
   }
   function update(){
@@ -43,7 +44,7 @@ export function mountPurchaseEditor({item,settings=[],data,onSave=()=>{},onError
   }
   const displayUnit=value=>value==='weight'?'g':food.unit;
   let previousUnit=displayUnit(initial.mode);
-  preset.addEventListener('change',()=>{if(preset.value!==''){const choice=presets[Number(preset.value)];if(choice){const sameUnit=previousUnit===displayUnit(choice.setting.mode);apply({...choice.setting,packSize:!sameUnit||pack.value.trim()===''?null:Number(pack.value),packUnit:packUnit.value});previousUnit=displayUnit(choice.setting.mode);}}});
+  preset.addEventListener('change',()=>{try{if(preset.value!==''){const choice=presets[Number(preset.value)];if(choice){const sameUnit=previousUnit===displayUnit(choice.setting.mode);apply({...choice.setting,packSize:sameUnit?readQuantityInput(pack,{label:'1包装の量',allowEmpty:true}):null,packUnit:packUnit.value});previousUnit=displayUnit(choice.setting.mode);}}}catch(cause){preview.textContent='';error.textContent=cause.message;error.hidden=false;save.disabled=true;onError(cause.message);}});
   for(const control of [name,factor,pack])control.addEventListener('input',update);
   mode.addEventListener('change',()=>{if(mode.value==='same'){factor.value='1';name.value=food.name;}if(previousUnit!==displayUnit(mode.value))pack.value='';previousUnit=displayUnit(mode.value);update();});packUnit.addEventListener('change',update);
   save.addEventListener('click',()=>{try{const next=read();onSave(next);error.hidden=true;onError('');}catch(cause){error.textContent=cause.message;error.hidden=false;onError(cause.message);}});

@@ -1,6 +1,7 @@
 /** 種類・具材と量を選ぶ共通画面。配合・検証はfood-composer.jsが担当します。 */
 import {availableFoodComponents, buildFoodSelection, defaultFoodSelection, foodComposerDefinition} from './food-composer.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
+import {configureQuantityInput, readQuantityInput} from './quantity-input.js';
 
 let composerCount=0;
 const rounded=value=>Number(value.toFixed(2)).toLocaleString('ja-JP');
@@ -35,10 +36,10 @@ export function mountFoodComposer({kind,data,initial,onChange=()=>{},onError=()=
       fieldset.append(make('legend','food-composer-legend',component.section),grid);root.append(fieldset);sections.set(component.section,{fieldset,grid});
     }
     const row=make('div','food-composer-option'),label=make('label','food-composer-choice'),checked=make('input','food-composer-check');
-    checked.type='checkbox';checked.id=`${prefix}-${component.id}-checked`;checked.checked=amounts.has(component.id);checked.disabled=component.base===true;
+    checked.type='checkbox';checked.id=`${prefix}-${component.id}-checked`;checked.checked=(amounts.get(component.id)??0)>0;checked.disabled=component.base===true;
     label.htmlFor=checked.id;label.append(checked,make('span','food-composer-name',component.label));
     const amountLabel=make('label','food-composer-amount-label'),amount=make('input','food-composer-amount');
-    amount.type='number';amount.id=`${prefix}-${component.id}-amount`;amount.min=component.food===false?'0':'0.1';amount.max=String(component.maxAmount??(['g','ml'].includes(component.unit)?1000:50));amount.step=['g','ml'].includes(component.unit)?'any':'0.5';
+    amount.type='number';amount.id=`${prefix}-${component.id}-amount`;amount.min='0';amount.max=String(component.maxAmount??(['g','ml'].includes(component.unit)?1000:50));amount.step='any';
     amount.value=String(amounts.get(component.id)??component.defaultAmount);amount.disabled=!checked.checked||component.base===true;
     amount.setAttribute('aria-label',`${component.label}の量（${component.unit}）`);amountLabel.htmlFor=amount.id;amountLabel.append(amount,make('span','food-composer-unit',component.unit));
     row.append(label,amountLabel);
@@ -46,14 +47,26 @@ export function mountFoodComposer({kind,data,initial,onChange=()=>{},onError=()=
     if(component.gramsPerUnit!==undefined){
       const weightRow=make('div','food-composer-note food-composer-weight'),weightLabel=make('label','food-composer-weight-label',`1${component.unit}の重さ`);
       weight=make('input','food-composer-amount food-composer-weight-input');weight.type='number';weight.id=`${prefix}-${component.id}-weight`;
-      weight.min='0.1';weight.max='500';weight.step='any';weight.value=String(weights.get(component.id)??component.gramsPerUnit);weight.disabled=!checked.checked;
+      weight.min='0';weight.max='500';weight.step='any';weight.value=String(weights.get(component.id)??component.gramsPerUnit);weight.disabled=!checked.checked;
       weight.setAttribute('aria-label',`${component.label}の1${component.unit}の重さ（g）`);weightLabel.htmlFor=weight.id;weightLabel.append(weight,make('span','','g'));
       weightTotal=make('span','food-composer-weight-total');weightRow.append(weightLabel,weightTotal);row.append(weightRow);weight.addEventListener('input',update);
     }
     if(component.note)row.append(make('small','food-composer-note',component.note));
     if(component.base)row.append(make('small','food-composer-note','ベースは1個分。複数個や半分は、登録する皿の量で調整できます。'));
-    controls.push({component,row,checked,amount,weight,weightTotal});sections.get(component.section).grid.append(row);
-    checked.addEventListener('change',()=>{amount.disabled=!checked.checked||component.base===true;if(weight)weight.disabled=!checked.checked;update();});amount.addEventListener('input',update);
+    const control={component,row,checked,amount,weight,weightTotal,lastPositive:Number(amount.value)>0?amount.value:String(component.defaultAmount)};controls.push(control);sections.get(component.section).grid.append(row);
+    configureQuantityInput(amount);if(weight)configureQuantityInput(weight);
+    checked.addEventListener('change',()=>{
+      if(checked.checked){try{if(readQuantityInput(amount)<=0)amount.value=control.lastPositive;}catch{amount.value=control.lastPositive;}}
+      amount.disabled=!checked.checked||component.base===true;if(weight)weight.disabled=!checked.checked;update();
+    });
+    amount.addEventListener('input',()=>{
+      try{
+        const value=readQuantityInput(amount,{label:`${component.label}の量`});
+        if(value===0&&component.base!==true){checked.checked=false;amount.disabled=true;if(weight)weight.disabled=true;}
+        else if(value>0)control.lastPositive=amount.value;
+      }catch{/* 空欄・不正値を0として選択解除しません。updateで登録を止めます。 */}
+      update();
+    });
   }
   const error=make('p','food-composer-error');error.setAttribute('role','status');error.setAttribute('aria-live','polite');error.hidden=true;
   const preview=make('div','food-composer-preview'),title=make('p','food-composer-preview-title'),nutrients=make('dl','food-composer-nutrients'),values=new Map();
@@ -73,26 +86,24 @@ export function mountFoodComposer({kind,data,initial,onChange=()=>{},onError=()=
   reset.addEventListener('click',()=>{
     search.value='';
     for(const section of sections.values())section.fieldset.hidden=false;
-    for(const control of controls){control.row.hidden=false;control.checked.checked=amounts.has(control.component.id);control.amount.value=String(amounts.get(control.component.id)??control.component.defaultAmount);control.amount.disabled=!control.checked.checked||control.component.base===true;if(control.weight){control.weight.value=String(weights.get(control.component.id)??control.component.gramsPerUnit);control.weight.disabled=!control.checked.checked;}}
+    for(const control of controls){control.row.hidden=false;control.checked.checked=(amounts.get(control.component.id)??0)>0;control.amount.value=String(amounts.get(control.component.id)??control.component.defaultAmount);control.lastPositive=Number(control.amount.value)>0?control.amount.value:String(control.component.defaultAmount);control.amount.disabled=!control.checked.checked||control.component.base===true;if(control.weight){control.weight.value=String(weights.get(control.component.id)??control.component.gramsPerUnit);control.weight.disabled=!control.checked.checked;}}
     update();
   });
   function update(){
     for(const control of controls){
       control.row.className=`food-composer-option${control.checked.checked?' is-selected':''}`;
       if(control.weightTotal){
-        const grams=Number(control.amount.value)*Number(control.weight.value);
-        control.weightTotal.textContent=control.checked.checked&&Number.isFinite(grams)&&grams>0?`選択量：約${rounded(grams)}g`:'';
+        try{
+          const grams=readQuantityInput(control.amount)*readQuantityInput(control.weight);
+          control.weightTotal.textContent=control.checked.checked&&grams>0?`選択量：約${rounded(grams)}g`:'';
+        }catch{control.weightTotal.textContent='';}
       }
     }
     try{
       const selected=[];
       for(const control of controls.filter(control=>control.checked.checked)){
-        if(String(control.amount.value).trim()==='')throw Error(`${control.component.label}の量を入力してください。`);
-        const amount=Number(control.amount.value);
-        // 飲まない汁・使わないソースは0も指定できます。空欄とは区別します。
-        if(amount===0&&control.component.food===false)continue;
-        if(control.weight&&String(control.weight.value).trim()==='')throw Error(`${control.component.label}の1${control.component.unit}の重さを入力してください。`);
-        selected.push({id:control.component.id,amount,...(control.weight?{gramsPerUnit:Number(control.weight.value)}:{})});
+        const amount=readQuantityInput(control.amount,{label:`${control.component.label}の量`});
+        selected.push({id:control.component.id,amount,...(control.weight?{gramsPerUnit:readQuantityInput(control.weight,{label:`${control.component.label}の1${control.component.unit}の重さ`})}:{})});
       }
       const recipe=buildFoodSelection({id:recipeId,kind,components:selected},data);
       title.textContent=`${recipe.name} / 1皿`;
