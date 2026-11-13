@@ -2,13 +2,57 @@
 import importlib.util
 import json
 from pathlib import Path
+import posixpath
+import re
 import tempfile
 import unittest
+from html.parser import HTMLParser
 
 
 SPEC = importlib.util.spec_from_file_location("build_pages", Path(__file__).resolve().parents[1] / "tools/build_pages.py")
 pages = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(pages)
+
+
+class EntryAssets(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.paths = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "script" and attrs.get("src"):
+            self.paths.append(attrs["src"])
+        if tag == "link" and attrs.get("rel") == "stylesheet":
+            self.paths.append(attrs["href"])
+
+
+class MealPalettePublishedAssetsTests(unittest.TestCase):
+    def test_all_entry_assets_and_transitive_modules_are_published(self):
+        root = Path(__file__).resolve().parents[1]
+        manifest = json.loads((root / "pages-projects.json").read_text())
+        project = next(p for p in manifest["projects"] if p["source"] == "projects/recipe-suggester")
+        source = root / project["source"]
+        listed = set(project["files"])
+        entry = EntryAssets()
+        entry.feed((source / "index.html").read_text())
+        pending = list(entry.paths)
+        visited = set()
+        while pending:
+            relative = pending.pop().split("?", 1)[0].split("#", 1)[0]
+            if re.match(r"^(?:[a-z]+:|//)", relative):
+                continue
+            relative = posixpath.normpath(relative)
+            if relative in visited:
+                continue
+            visited.add(relative)
+            self.assertTrue(relative in listed or any(parent.as_posix() in listed for parent in Path(relative).parents),
+                            f"Pages manifest omits required asset: {relative}")
+            asset = source / relative
+            self.assertTrue(asset.is_file(), f"Missing source asset: {relative}")
+            if asset.suffix == ".js":
+                imports = re.findall(r'''(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)['"](\.[^'"]+)['"]''', asset.read_text())
+                pending.extend(posixpath.join(posixpath.dirname(relative), path) for path in imports)
 
 
 class PagesBuildTests(unittest.TestCase):
