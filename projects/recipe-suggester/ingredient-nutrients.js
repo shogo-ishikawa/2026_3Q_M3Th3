@@ -1,3 +1,6 @@
+import {SEAFOOD_NUTRITION} from './seafood-foods.js';
+import {WORLD_NUTRITION} from './world-foods.js';
+import {NOODLE_NUTRITION} from './noodle-foods.js';
 import {PALETTE_NUTRITION} from './palette-foods.js';
 import {MEAT_CHOICE_NUTRITION} from './meat-choice-foods.js';
 import {MAPO_NUTRITION} from './mapo-nutrition.js';
@@ -699,5 +702,5 @@ export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(
       rawNutritionSource,
       estimatedNutrients: Object.freeze(estimatedNutrients),
     })];
-  }).concat(Object.entries(PALETTE_NUTRITION),Object.entries(MEAT_CHOICE_NUTRITION),Object.entries(MAPO_NUTRITION)),
+  }).concat(Object.entries(PALETTE_NUTRITION),Object.entries(MEAT_CHOICE_NUTRITION),Object.entries(MAPO_NUTRITION),Object.entries(SEAFOOD_NUTRITION),Object.entries(WORLD_NUTRITION),Object.entries(NOODLE_NUTRITION)),
 ));

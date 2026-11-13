@@ -16,11 +16,11 @@ const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const date = '2026-11-13';
 const near = (a,b) => assert.ok(Math.abs(a-b)<1e-8, `${a} != ${b}`);
 
-test('料理を変更せず66の見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
+test('料理を変更せず68の見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
   const before = JSON.stringify(RECIPES);
   const groups = groupMenuRecipes(RECIPES);
   assert.ok(groups.length < RECIPES.length - 200, '一覧を整理し、詳細で選べる種類を増やす');
-  assert.equal(groups.filter(group => group.isGroup).length, 66);
+  assert.equal(groups.filter(group => group.isGroup).length, 68);
   assert.ok(groups.filter(group => group.isGroup).reduce((sum,group) => sum+group.variantCount,0) >= 300);
   const ids = groups.flatMap(group => group.recipes.map(recipe => recipe.id));
   assert.equal(new Set(ids).size, RECIPES.length);
@@ -200,8 +200,8 @@ test('追加した見出しは実際の同じ料理の種類へ到達し、別�
   for (const [id, groupId, label, expectedIds] of [
     ['daily-pizza-margherita','pizza','ピザ',['daily-pizza-margherita','daily-pizza-mixed','daily-pizza-teriyaki','daily-pizza-seafood']],
     ['daily-fried-rice-egg','fried-rice','チャーハン',['daily-fried-rice-egg','daily-fried-rice-gomoku','daily-fried-rice-kimchi','daily-fried-rice-shrimp']],
-    ['daily-ramen-soy','ramen','ラーメン',['daily-ramen-soy','daily-ramen-salt','daily-ramen-miso','daily-ramen-tanmen']],
-    ['classic-croquette-potato','croquette','コロッケ',['classic-croquette-potato','classic-croquette-pumpkin','classic-croquette-cream']],
+    ['daily-ramen-soy','ramen','ラーメン',['daily-ramen-soy','daily-ramen-salt','daily-ramen-miso','daily-ramen-tanmen','noodle-ramen-niboshi','noodle-ramen-miso-butter-corn','noodle-ramen-tonkotsu','noodle-ramen-iekei','noodle-ramen-jiro','noodle-ramen-seabura','noodle-ramen-tantan']],
+    ['classic-croquette-potato','croquette','コロッケ',['classic-croquette-potato','classic-croquette-pumpkin','classic-croquette-cream','world-crab-cream-croquette']],
     ['drink-milk','milk','牛乳・豆乳',['drink-milk','drink-soy-milk']],
     ['drink-orange-juice','juice','果汁・野菜ジュース',['drink-orange-juice','drink-apple-juice','drink-tomato-juice']],
   ]) {

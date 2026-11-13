@@ -1,0 +1,8 @@
+.noodle-basic-controls { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:10px 18px; padding:18px; border:1px solid #dce2d1; border-radius:12px; background:#fffefa; }
+.noodle-field-label { display:block; min-width:0; color:#3d5139; font-size:13px; font-weight:600; }
+.noodle-field-label input,.noodle-field-label select { width:100%; box-sizing:border-box; margin-top:7px; }
+.noodle-basic-controls .food-composer-note { margin:0; align-self:end; font-weight:400; }
+.noodle-soup-note { grid-column:1/-1; }
+.noodle-composer .food-composer-tools { margin-top:20px; }
+.noodle-source-note { line-height:1.8; }
+@media(max-width:640px) { .noodle-basic-controls { grid-template-columns:1fr; padding:14px; } }

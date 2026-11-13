@@ -41,11 +41,13 @@ export const MENU_VARIATION_GROUPS = freeze([
     'daily-pasta-genovese','daily-pasta-bolognese','daily-pasta-arrabbiata','daily-pasta-pescatore',
     'daily-pasta-napolitan','daily-pasta-japanese-mushroom','daily-pasta-tuna-tomato','daily-pasta-vongole',
   ]),
-  meal('curry', 'カレーライス', [
+  meal('curry', 'カレー', [
     'daily-curry-chicken','daily-curry-pork','daily-curry-beef','daily-curry-vegetable','daily-curry-keema',
     'varied-green-curry-rice','varied-butter-chicken-rice',
+    'world-massaman-chicken','world-mutton-curry','world-saag-chicken','world-saag-paneer',
   ]),
-  meal('retort-curry', 'レトルトカレーライス', [
+  meal('naan', 'ナン', ['world-naan-plain','world-naan-garlic','world-naan-butter','world-naan-cheese','world-naan-sesame','world-naan-wholewheat'], {mealBase:false}),
+  meal('retort-curry', 'レトルトカレー', [
     'prepared-retort-beef-curry','prepared-retort-pork-curry','prepared-retort-chicken-curry',
     'prepared-retort-vegetable-curry','prepared-retort-keema-curry',
   ], {nature:'retort'}),
@@ -88,7 +90,10 @@ export const MENU_VARIATION_GROUPS = freeze([
   // 旧main-roleの主食は、既存の区分を保つため別の明示グループです。
   meal('pizza', 'ピザ', ['daily-pizza-margherita','daily-pizza-mixed','daily-pizza-teriyaki','daily-pizza-seafood']),
   meal('fried-rice', 'チャーハン', ['daily-fried-rice-egg','daily-fried-rice-gomoku','daily-fried-rice-kimchi','daily-fried-rice-shrimp']),
-  meal('ramen', 'ラーメン', ['daily-ramen-soy','daily-ramen-salt','daily-ramen-miso','daily-ramen-tanmen']),
+  meal('ramen', 'ラーメン', ['daily-ramen-soy','daily-ramen-salt','daily-ramen-miso','daily-ramen-tanmen',
+    'noodle-ramen-niboshi','noodle-ramen-miso-butter-corn','noodle-ramen-tonkotsu','noodle-ramen-iekei',
+    'noodle-ramen-jiro','noodle-ramen-seabura','noodle-ramen-tantan']),
+  meal('chinese-noodles', '油そば・冷たい中華麺・汁なし担々麺', ['noodle-aburasoba','noodle-hiyashi-chuka','noodle-soupless-tantan']),
   meal('donburi', '丼もの', [
     'daily-donburi-oyako','daily-donburi-pork','daily-donburi-mapo','daily-donburi-chinese','daily-donburi-teriyaki',
     'familiar-katsudon','familiar-sauce-katsudon','familiar-chicken-katsudon','familiar-tendon','familiar-kakiage-don',
@@ -129,8 +134,10 @@ export const MENU_VARIATION_GROUPS = freeze([
     'classic-sashimi-tuna','classic-sashimi-tuna-mediumfat','classic-sashimi-salmon','classic-sashimi-yellowtail',
     'classic-sashimi-seabream','classic-sashimi-bonito','classic-sashimi-aji','classic-sashimi-squid',
     'classic-sashimi-octopus','classic-sashimi-scallop','classic-sashimi-assorted',
+    'seafood-sashimi-mizudako','seafood-sashimi-amaebi','seafood-sashimi-inada','seafood-sashimi-hirame','seafood-sashimi-tsubu',
+    'seafood-sashimi-shimesaba','seafood-sashimi-iwashi','seafood-sashimi-sanma','seafood-sashimi-akaebi','seafood-sashimi-hiramasa',
   ], {nature:'ready-to-eat'}),
-  dish('croquette', 'コロッケ', ['classic-croquette-potato','classic-croquette-pumpkin','classic-croquette-cream']),
+  dish('croquette', 'コロッケ', ['classic-croquette-potato','classic-croquette-pumpkin','classic-croquette-cream','world-crab-cream-croquette']),
   dish('stew', 'シチュー', ['familiar-beef-stew','familiar-chicken-cream-stew','familiar-pork-cream-stew']),
   dish('nabe', '鍋料理', ['familiar-yose-nabe','familiar-kimchi-nabe','familiar-sesame-soy-nabe','familiar-chanko-nabe']),
   dish('yakitori', '焼き鳥', [
@@ -223,7 +230,7 @@ function definitionFor(recipe) {
 export function variationSearchAliases(recipe) {
   if (!recipe || typeof recipe !== 'object' || typeof recipe.id !== 'string') throw Error('料理の情報を確認してください。');
   const definition = definitionFor(recipe);
-  return definition ? [definition.label] : [];
+  return definition ? [definition.label,...(definition.id==='curry'?['カレーライス']:definition.id==='retort-curry'?['レトルトカレーライス']:[])] : [];
 }
 
 /** 元の小分類名を尊重します。量の単位や別のレシピ名へ置き換えません。 */

@@ -1,3 +1,6 @@
+import {WORLD_INGREDIENTS,WORLD_RECIPES} from '../world-foods.js';
+import {SEAFOOD_INGREDIENTS,SEAFOOD_RECIPES} from '../seafood-foods.js';
+import {NOODLE_INGREDIENTS,NOODLE_RECIPES} from '../noodle-foods.js';
 import {MAPO_INGREDIENTS} from '../mapo-nutrition.js';
 import {MAPO_RECIPES} from '../mapo-foods.js';
 import {MEAT_CHOICE_INGREDIENTS} from '../meat-choice-foods.js';
@@ -17,6 +20,7 @@ import {createCatalogEntry} from '../record-actions.js';
 import {NUTRIENT_KEYS, itemNutrition, recipeNutrition, summariseEntries} from '../nutrition.js';
 import {shoppingForEntries} from '../shopping.js';
 
+const v310RecipeIds=new Set([...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES].map(recipe=>recipe.id));
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const near = (actual, expected, label = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${label}: ${actual} != ${expected}`);
@@ -32,11 +36,11 @@ const independentNutrition = ingredients => Object.fromEntries(NUTRIENT_KEYS.map
 // 固定値はv3.6.0の独立した旧版worktreeと /tmp/meal37-baseline.json（855品・370食材）から計算。
 // 画面のグループ化と具材選択は、旧レシピの材料・量・栄養・手順・ID・出典を書き換えません。
 test('表示の集約とカスタム調理を加えても旧855品と370食材の全内容を維持する', () => {
-  const legacy=RECIPES.filter(recipe=>!PALETTE_RECIPES.some(added=>added.id===recipe.id)&&!MAPO_RECIPES.some(added=>added.id===recipe.id));
+  const legacy=RECIPES.filter(recipe=>!PALETTE_RECIPES.some(added=>added.id===recipe.id)&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id));
   assert.equal(legacy.length, 855);
   assert.equal(hash(legacy.map(originalRecipe)), '21f7782f30165e8fba48cfaffc3b5c7c47c23500e037e32e249cee79e53dad23');
   const newIds = new Set(Object.keys(DISH_CUSTOM_INGREDIENTS));
-  const originals = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIds.has(id)&&!Object.hasOwn(PALETTE_INGREDIENTS,id)&&!Object.hasOwn(MEAT_CHOICE_INGREDIENTS,id)&&!Object.hasOwn(MAPO_INGREDIENTS,id)).map(([id,item])=>[id,originalNutrients(item)]));
+  const originals = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIds.has(id)&&!Object.hasOwn(PALETTE_INGREDIENTS,id)&&!Object.hasOwn(MEAT_CHOICE_INGREDIENTS,id)&&!Object.hasOwn(MAPO_INGREDIENTS,id)&&!Object.hasOwn(WORLD_INGREDIENTS,id)&&!Object.hasOwn(SEAFOOD_INGREDIENTS,id)&&!Object.hasOwn(NOODLE_INGREDIENTS,id)).map(([id,item])=>[id,originalNutrients(item)]));
   assert.equal(Object.keys(originals).length, 370);
   assert.equal(hash(originals), '6525de4ed92e28ebcff68c94c070ec83dbdf3a9ad73243a63087ac2d641469cd');
   assert.equal(hash(Object.fromEntries(Object.entries(originals).map(([id, value]) => [id,

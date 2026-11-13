@@ -12,6 +12,7 @@ FILES = (
     "palette-foods.js", "food-composer.js", "food-composer-ui.js", "food-composer.css",
     "meat-choice-foods.js", "meat-choices.js", "meat-choices-ui.js",
     "mapo-foods.js", "mapo-nutrition.js",
+    "seafood-foods.js", "world-foods.js", "noodle-foods.js", "noodle-composer.js", "noodle-composer-ui.js", "noodle-composer.css", "curry-rice.js", "curry-rice-ui.js",
     "recipe-arrangement.js", "recipe-arrangement-ui.js", "recipe-arrangement.css",
     "catalog.js", "dietary-reference.js", "intake.js", "tabs.js", "everyday-foods.js", "app-icon.svg",
     "journal.js", "nutrition.js", "shopping.js", "ingredient-nutrients.js", "expanded-foods.js",

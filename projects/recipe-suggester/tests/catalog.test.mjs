@@ -196,7 +196,7 @@ test('cooking form filters refine dish families without replacing them', () => {
     meal('cup','カップうどん','staple',{family:'udon',nature:'instant'}),
     meal('own','自分の料理','main',{family:'main',custom:true}),
   ];
-  assert.deepEqual(catalogFamilies(recipes,{nature:'retort'}),[{id:'curry',label:'カレーライス',count:1}]);
+  assert.deepEqual(catalogFamilies(recipes,{nature:'retort'}),[{id:'curry',label:'カレー',count:1}]);
   assert.deepEqual(catalogVariants(recipes,'curry',{nature:'retort'}).map(r=>r.id),['pack']);
   assert.deepEqual(catalogVariants(recipes,'curry',{nature:'instant'}),[]);
   assert.equal(catalogFamilies(recipes,{role:'staple',nature:'home-cooked',query:'カレー'})[0].count,1);
