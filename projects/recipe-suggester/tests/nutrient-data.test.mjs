@@ -92,17 +92,17 @@ test('cooked legumes use cooked profiles rather than dry-bean composition', () =
   }
 });
 
-test('unknown and trace components stay null while source-defined zeros stay zero', () => {
+test('raw unknown and trace components stay null while source-defined zeros stay zero', () => {
   for (const id of ['turmeric', 'cumin']) {
-    assert.deepEqual(INGREDIENT_NUTRITION[id].nutritionPerUnit,
+    assert.deepEqual(INGREDIENT_NUTRITION[id].rawNutritionPerUnit,
       Object.fromEntries(keys.map(key => [key, null])));
   }
-  assert.equal(INGREDIENT_NUTRITION.cashew.nutritionPerUnit.salt, null);
-  assert.equal(INGREDIENT_NUTRITION.soba.nutritionPerUnit.salt, null);
-  assert.equal(INGREDIENT_NUTRITION.somen.nutritionPerUnit.salt, null);
-  assert.equal(INGREDIENT_NUTRITION.soy_sauce.nutritionPerUnit.fiber, null);
-  assert.equal(INGREDIENT_NUTRITION.green_tea.nutritionPerUnit.fiber, null);
-  assert.equal(INGREDIENT_NUTRITION.lemon.nutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.cashew.rawNutritionPerUnit.salt, null);
+  assert.equal(INGREDIENT_NUTRITION.soba.rawNutritionPerUnit.salt, null);
+  assert.equal(INGREDIENT_NUTRITION.somen.rawNutritionPerUnit.salt, null);
+  assert.equal(INGREDIENT_NUTRITION.soy_sauce.rawNutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.green_tea.rawNutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.lemon.rawNutritionPerUnit.fiber, null);
   assert.equal(value('egg', 'fiber'), 0);
   assert.deepEqual(INGREDIENT_NUTRITION.water.nutritionPerUnit,
     Object.fromEntries(keys.map(key => [key, 0])));
@@ -159,10 +159,10 @@ test('sugared drinks and unsweetened carbonated water remain separate', () => {
   close(value('cola', 'carbs', 250), 29.355);
   close(value('sports_drink', 'kcal', 500), 106.05);
   close(value('sports_drink', 'salt', 500), 0.505);
-  assert.equal(INGREDIENT_NUTRITION.cola.nutritionPerUnit.fat, null);
-  assert.equal(INGREDIENT_NUTRITION.cola.nutritionPerUnit.fiber, null);
-  assert.equal(INGREDIENT_NUTRITION.sports_drink.nutritionPerUnit.fat, null);
-  assert.equal(INGREDIENT_NUTRITION.sports_drink.nutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.cola.rawNutritionPerUnit.fat, null);
+  assert.equal(INGREDIENT_NUTRITION.cola.rawNutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.sports_drink.rawNutritionPerUnit.fat, null);
+  assert.equal(INGREDIENT_NUTRITION.sports_drink.rawNutritionPerUnit.fiber, null);
   assert.deepEqual(INGREDIENT_NUTRITION.carbonated_water.nutritionPerUnit,
     Object.fromEntries(keys.map(key => [key, 0])));
 });
@@ -219,7 +219,7 @@ test('small-dish ingredients distinguish dried macaroni, cooked vegetables and s
   close(value('mozuku', 'salt', 50), 0.3);
   close(value('mekabu', 'salt', 50), 0.2);
   close(value('konjac', 'kcal', 100), 5);
-  assert.equal(INGREDIENT_NUTRITION.konjac.nutritionPerUnit.fat, null);
+  assert.equal(INGREDIENT_NUTRITION.konjac.rawNutritionPerUnit.fat, null);
   assert.equal(INGREDIENT_NUTRITION.konjac.nutritionPerUnit.salt, 0);
   assert.match(INGREDIENT_NUTRITION.macaroni.nutritionSource, /乾マカロニ/);
   assert.match(INGREDIENT_NUTRITION.bamboo_shoot_cooked.nutritionSource, /下ゆで/);
@@ -269,8 +269,8 @@ test('burger model ingredients use cooked food profiles and retain unmeasured fi
   close(value('burger_chicken_patty', 'fat', 80), 10.24);
   close(value('ready_breaded_fish', 'fat', 80), 17.44);
   close(value('ready_sliced_ham', 'salt', 20), 0.46);
-  assert.equal(INGREDIENT_NUTRITION.burger_chicken_patty.nutritionPerUnit.fiber, null);
-  assert.equal(INGREDIENT_NUTRITION.ready_breaded_fish.nutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.burger_chicken_patty.rawNutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.ready_breaded_fish.rawNutritionPerUnit.fiber, null);
   assert.match(INGREDIENT_NUTRITION.hamburger_bun.nutritionSource, /コッペパン/);
   assert.match(INGREDIENT_NUTRITION.ready_sliced_ham.nutritionSource, /食品番号11176/);
   assert.match(INGREDIENT_NUTRITION.ready_breaded_fish.nutritionSource, /衣と吸収油/);
@@ -302,7 +302,7 @@ test('familiar cooked dishes use the actual raw cut or species and drained produ
     ['parmesan_cheese', '13038', [445, 44, 30.8, 1.9, 0, 3.8]],
   ]) {
     for (const [index, key] of keys.entries()) {
-      if (expected[index] === null) assert.equal(INGREDIENT_NUTRITION[id].nutritionPerUnit[key], null);
+      if (expected[index] === null) assert.equal(INGREDIENT_NUTRITION[id].rawNutritionPerUnit[key], null);
       else close(value(id, key, 100), expected[index]);
     }
     assert.match(INGREDIENT_NUTRITION[id].nutritionSource, new RegExp(`食品番号${code}`));
@@ -319,7 +319,8 @@ test('追加のいくらと酒類は公式値と体積換算を使い、数字�
   close(value('perf_beer','kcal',350),39*1.008*3.5);
   for(const key of ['fat','fiber','salt'])assert.equal(INGREDIENT_NUTRITION.perf_beer.nutritionPerUnit[key],0);
   close(value('perf_wine_white','carbs',150),2*0.998*1.5);
-  assert.equal(INGREDIENT_NUTRITION.perf_chuhai.nutritionPerUnit.fat,null);
+  assert.equal(INGREDIENT_NUTRITION.perf_chuhai.rawNutritionPerUnit.fat,null);
+  close(INGREDIENT_NUTRITION.perf_chuhai.nutritionPerUnit.fat,0.0003003);
 });
 
 test('商品用の購入材料は未測定値を残し、商品表示と一般成分表を混同しない',()=>{

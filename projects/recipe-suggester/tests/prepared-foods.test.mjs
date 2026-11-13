@@ -108,15 +108,19 @@ test('レトルト丼とカレーは具とご飯を分けた購入構成で完�
   assert.match(get('retort-mapodon').sourceNote, /豆腐入り.*素/);
 });
 
-test('完成品の栄養は1個分の参考配合とし、未測定の食物繊維を0にしない', () => {
+test('完成品の栄養は1個分の参考配合とし、食物繊維は材料の概算を合計する', () => {
   const burger = get('burger-plain');
   assert.deepEqual(burger.ingredients, [{id: 'prepared_item_burger_plain', amount: 2}]);
   assert.deepEqual(data.ingredients.prepared_item_burger_plain.nutritionPerUnit,
     Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null])));
   close(recipeNutrition(burger, data).kcal, 322.82);
   close(itemNutrition(itemFromRecipe(burger, data, 1.5)).kcal, 484.23);
-  assert.equal(get('burger-chicken').manualNutrition.fiber, null);
-  assert.equal(get('burger-fish').manualNutrition.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.burger_chicken_patty.rawNutritionPerUnit.fiber, null);
+  assert.equal(INGREDIENT_NUTRITION.ready_breaded_fish.rawNutritionPerUnit.fiber, null);
+  // チキン: バンズ60g×3.9%＋カツ90g×0.65%＋キャベツ20g×1.8%＋ソース8ml×1.195×0.5%。
+  close(get('burger-chicken').manualNutrition.fiber, 3.3328);
+  // フィッシュ: バンズ60g×3.9%＋白身フライ80g×0.65%＋レタス10g×1.1%。
+  close(get('burger-fish').manualNutrition.fiber, 2.97);
   for (const recipe of PREPARED_RECIPES.filter(recipe => recipe.manualNutrition)) {
     assert.deepEqual(Object.keys(recipe.manualNutrition), NUTRIENT_KEYS, recipe.id);
     assert.ok(recipe.manualNutrition.kcal > 0, recipe.id);

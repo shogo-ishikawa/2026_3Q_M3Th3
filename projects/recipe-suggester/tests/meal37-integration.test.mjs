@@ -1,3 +1,4 @@
+import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -28,9 +29,9 @@ const independentNutrition = ingredients => Object.fromEntries(NUTRIENT_KEYS.map
 // 画面のグループ化と具材選択は、旧レシピの材料・量・栄養・手順・ID・出典を書き換えません。
 test('表示の集約とカスタム調理を加えても旧855品と370食材の全内容を維持する', () => {
   assert.equal(RECIPES.length, 855);
-  assert.equal(hash(RECIPES), '21f7782f30165e8fba48cfaffc3b5c7c47c23500e037e32e249cee79e53dad23');
+  assert.equal(hash(RECIPES.map(originalRecipe)), '21f7782f30165e8fba48cfaffc3b5c7c47c23500e037e32e249cee79e53dad23');
   const newIds = new Set(Object.keys(DISH_CUSTOM_INGREDIENTS));
-  const originals = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIds.has(id)));
+  const originals = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIds.has(id)).map(([id,item])=>[id,originalNutrients(item)]));
   assert.equal(Object.keys(originals).length, 370);
   assert.equal(hash(originals), '6525de4ed92e28ebcff68c94c070ec83dbdf3a9ad73243a63087ac2d641469cd');
   assert.equal(hash(Object.fromEntries(Object.entries(originals).map(([id, value]) => [id,

@@ -659,3 +659,6 @@ dialog::backdrop { background: #122a39b0; backdrop-filter: blur(3px); }
 #catalog-variant-count { display:block; margin-top:7px; color:#9cb4bd; font-size:10px; }
 .detail-variation-label { display:block; margin:0 0 20px; padding:16px; border:1px solid var(--line); border-radius:7px; background:#f0f7f3; }
 .detail-variation-content { min-width:0; }
+
+.nutrition-basis { margin:18px 0; min-width:0; }
+.nutrition-basis .ingredient-list li { overflow-wrap:anywhere; line-height:1.7; }

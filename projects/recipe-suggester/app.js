@@ -411,7 +411,7 @@ function openVariationRecipe(recipeId,group){
       amount:priorAmount?.value,unit:priorAmount?.dataset.unit,edited:priorAmount?.dataset.edited==='true'};
     const r=describeRecipe(select.value,data()),item=snapshot(select.value);
     $('dialog-meta').textContent=`${familyLabel(r)} / ${amount(recipePortion(r,data()).amount,recipePortion(r,data()).unit)}`;
-    content.replaceChildren(catalogRecordForm(r.id,{initial}),snapshotDetails(item));
+    content.replaceChildren(catalogRecordForm(r.id,{initial}),snapshotDetails(item,{showNutritionBasis:true}));
   };
   select.addEventListener('change',guard(redraw));redraw();
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
@@ -433,13 +433,20 @@ function openSaladComposer(recipeId){
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 
-function snapshotDetails(item){
+function snapshotDetails(item,{showNutritionBasis=false}={}){
   const purchased=['instant','retort','fast-food','ready-to-eat'].includes(item.nature),custom=recipeById(item.recipeId)?.custom===true;
   const box=node('div','recipe-detail-content');
   if(item.nature)box.append(node('p','food-nature',FOOD_NATURES.find(n=>n.id===item.nature)?.label??item.nature));if(item.sourceNote)box.append(node('p','source-note',item.sourceNote));
   const n=itemNutrition(item);box.append(node('p','field-note',NUTRIENT_KEYS.map(k=>`${NUTRIENT_LABELS[k]} ${n[k]===null?'未入力':amount(n[k],NUTRIENT_UNITS[k])}`).join(' / ')));
   box.append(node('h3','',`${purchased?'商品・食品の量':item.ingredientsKnown?'材料':'商品・材料の代表例'}（${item.portion?amount(item.portion.amount*item.quantity,item.portion.unit):amount(item.quantity,'人分')}）`));const ul=node('ul','ingredient-list');for(const part of item.ingredients)ul.append(node('li','',`${INGREDIENTS[part.id]?.name??'未登録の食材'} ${amount(part.amount*item.quantity,INGREDIENTS[part.id]?.unit??'')}`));box.append(ul);
   if(!item.ingredientsKnown)box.append(node('p','field-note','原材料の詳細は未確認です。市販品は実際の商品表示を確認してください。買う商品の構成が登録済みの場合は、その商品量を買い物リストに反映します。'));
+  if(showNutritionBasis&&recipeById(item.recipeId)?.manualNutrition===undefined&&item.ingredients.length){
+    const basis=node('details','nutrition-basis'),sources=node('ul','ingredient-list');
+    basis.append(node('summary','','栄養の見積もりに使う食材・部位'));
+    basis.append(node('p','field-note','材料の代表的な栄養値に使用量を掛け、人数で割った概算です。肉は記載の部位と皮・脂身の状態を使います。微量や未登録の成分は、食品ごとに根拠を示して補っています。油や煮汁を残す量、加熱で落ちる脂は補正していません。'));
+    for(const part of item.ingredients){const ingredient=INGREDIENTS[part.id];if(ingredient)sources.append(node('li','',`${ingredient.name}：${ingredient.nutritionSource}`));}
+    basis.append(sources);box.append(basis);
+  }
   if(item.steps.length&&(!purchased||custom)){box.append(node('h3','','作り方'));const ol=node('ol','recipe-steps');for(const s of item.steps)ol.append(node('li','',s));box.append(ol);}
   else if(purchased)box.append(node('p','field-note','調理や温めが必要な場合は商品の表示に従ってください。'));
   else box.append(node('p','field-note','作り方は未登録です。'));
@@ -451,7 +458,7 @@ function openSnapshot(item,minutes,catalogId=null){
   $('dialog-title').textContent=item.name;
   $('dialog-meta').textContent=`${item.recipeId&&recipeById(item.recipeId)?familyLabel(recipeById(item.recipeId)):ROLES[item.role]} / ${item.portion?amount(item.portion.amount*item.quantity,item.portion.unit):amount(item.quantity,'人分')}${minutes&&!purchased?` / 約${minutes}分`:''}`;
   const box=$('dialog-content');box.replaceChildren();
-  if(catalogId)box.append(catalogRecordForm(catalogId));box.append(snapshotDetails(item));
+  if(catalogId)box.append(catalogRecordForm(catalogId));box.append(snapshotDetails(item,{showNutritionBasis:Boolean(catalogId)}));
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 

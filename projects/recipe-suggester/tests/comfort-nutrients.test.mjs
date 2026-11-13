@@ -29,7 +29,7 @@ test('豚小腸ゆで11169は可食部1gの6成分と調理状態を保つ',()=>
 test('牛腱ゆで11101は1g値を使用し、総炭水化物Trを別列や0で補わない',()=>{
   const id='beef_tendon_boiled',profile=INGREDIENT_NUTRITION[id];
   assert.equal(COMFORT_INGREDIENTS[id].unit,'g');assert.equal(INGREDIENTS[id].unit,'g');
-  assert.deepEqual(profile.nutritionPerUnit,{kcal:1.57,protein:.31,fat:.051,carbs:null,fiber:0,salt:.002});
+  assert.deepEqual(profile.rawNutritionPerUnit,{kcal:1.57,protein:.31,fat:.051,carbs:null,fiber:0,salt:.002});
   assert.match(profile.nutritionSource,/食品番号11101/);
   assert.match(profile.nutritionSource,/https:\/\/fooddb\.mext\.go\.jp\/details\/details\.pl\?ITEM_NO=11_11101_7/);
   assert.match(profile.nutritionSource,/食品名は腱.*すじ/);
@@ -38,7 +38,7 @@ test('牛腱ゆで11101は1g値を使用し、総炭水化物Trを別列や0で�
   assert.match(INGREDIENTS[id].note,/下ゆで後.*水気.*腱/);
   const full=ingredientNutrition(id,100);
   close(full.kcal,157);close(full.protein,31);close(full.fat,5.1);close(full.salt,.2);
-  assert.equal(full.carbs,null);assert.equal(full.fiber,0);
+  close(full.carbs,0.03);assert.equal(full.fiber,0);
 });
 
 test('豚肉・牛肉のアレルゲンを継承しても栄養は調理済み部位の値で計算する',()=>{

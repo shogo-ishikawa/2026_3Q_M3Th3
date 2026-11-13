@@ -1,3 +1,4 @@
+import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -65,6 +66,7 @@ takeaway_unaju takeaway_shumai takeaway_frozen_suigyoza takeaway_spring_roll tak
 spring_roll_wrappers green_chilli fish_sauce eel_shirayaki beef_short_rib beef_tongue chicken_skin
 `.trim().split(/\s+/u);
 const recipeCore=recipe=>{
+  recipe=originalRecipe(recipe);
   recipe=historicalRole(recipe);
   const{name,variantLabel,sourceNote,family,...rest}=recipe;
   return {...rest,...(recipe.portion?{portion:Object.fromEntries(Object.entries(recipe.portion).filter(([key])=>key!=='label'))}:{})};
@@ -78,11 +80,11 @@ test('旧784品は名称・間食分類と3品の副菜への移動以外の量�
   assert.equal(hash(portions),'e040b0df1e816e804480fc58319d7cbe9738b25719482f5518c090ecf724c916');
   const ingredients=Object.fromEntries(legacyIngredientIds.map(id=>{
     assert.ok(INGREDIENTS[id],id);
-    const{name,note,...rest}=INGREDIENTS[id];return[id,rest];
+    const{name,note,...rest}=originalNutrients(INGREDIENTS[id]);return[id,rest];
   }));
   assert.equal(Object.keys(ingredients).length,303);
   assert.equal(hash(ingredients),'50950b4afa3d853957a845a0d4b68542c09b86498e027f408597e69bf318fa2f');
-  const profiles=Object.fromEntries(legacyIngredientIds.map(id=>[id,{nutritionPerUnit:INGREDIENTS[id].nutritionPerUnit,nutritionSource:INGREDIENTS[id].nutritionSource}]));
+  const profiles=Object.fromEntries(legacyIngredientIds.map(id=>[id,{nutritionPerUnit:INGREDIENTS[id].rawNutritionPerUnit,nutritionSource:INGREDIENTS[id].rawNutritionSource}]));
   assert.equal(hash(profiles),'2a7c214bd54f7d9d3943735d03fdab4d01833111670a97c7f2a3c30bd980aafa');
 });
 

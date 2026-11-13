@@ -1,3 +1,4 @@
+import {originalNutrients} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -55,7 +56,7 @@ test('一般的な表示名にしても、参照商品・店舗・URLと値の�
 
 test('18品は表示名と出典だけを改訂し、元の数量・栄養・原材料と確認状況を保つ',()=>{
   const recipes=RECIPES.filter(r=>changedIds.has(r.id)).map(({name,variantLabel,sourceNote,portion,...r})=>({...r,portion:{amount:portion.amount,unit:portion.unit}}));
-  const ingredients=Object.fromEntries(Object.entries(INGREDIENTS).filter(([id])=>changedIngredients.has(id)).map(([id,{name,note,...i}])=>[id,i]));
+  const ingredients=Object.fromEntries(Object.entries(INGREDIENTS).filter(([id])=>changedIngredients.has(id)).map(([id,item])=>[id,originalNutrients(item)]).map(([id,{name,note,...i}])=>[id,i]));
   assert.equal(recipes.length,18);assert.equal(Object.keys(ingredients).length,18);
   // v3.4.0の独立した固定値。表示名・出典の変更で、数量や栄養を入れ替えない。
   assert.equal(hash(recipes),'78e59388d4ddf46f0806ce66abe5fcc18f8f7488490a0d3c4a67f459dcb3ce99');

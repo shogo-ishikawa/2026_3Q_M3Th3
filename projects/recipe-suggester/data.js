@@ -20,7 +20,7 @@ import { DISH_CUSTOM_INGREDIENTS } from './dish-customisation.js';
 import { decorateRecipe } from './catalog-metadata.js';
 import { INGREDIENT_NUTRITION } from './ingredient-nutrients.js';
 
-export const DATA_VERSION = '3.7.0';
+export const DATA_VERSION = '3.7.1';
 
 // 2026年の消費者庁の表示対象。特定原材料9品目と推奨20品目。
 export const ALLERGENS = [
@@ -290,7 +290,7 @@ for (const [id, parents] of Object.entries(DERIVED_FROM)) INGREDIENTS[id].derive
 
 Object.assign(INGREDIENTS, EXTRA_INGREDIENTS, EVERYDAY_INGREDIENTS, CLASSIC_MAIN_INGREDIENTS, CLASSIC_SIDE_INGREDIENTS, PREPARED_INGREDIENTS, FAMILIAR_MAIN_INGREDIENTS, FAMILIAR_SIDE_INGREDIENTS, SUSHI_INGREDIENTS, PERFORMANCE_INGREDIENTS, TAKEAWAY_INGREDIENTS, VARIED_INGREDIENTS, COMFORT_INGREDIENTS, CONFECTIONERY_INGREDIENTS, DESSERT_INGREDIENTS, ACCOMPANIMENT_INGREDIENTS, Object.fromEntries(Object.entries({...SALAD_INGREDIENTS,...DISH_CUSTOM_INGREDIENTS}).map(([id,item])=>[id,{...item}])));
 for (const [id, item] of Object.entries(INGREDIENTS)) {
-  // 材料の宣言単位あたりの参考値。未登録成分はゼロにせず不明のまま扱います。
+  // 宣言単位あたりの参考値。根拠付きの概算補完を使用し、原表の値も別に保持します。
   Object.assign(item, INGREDIENT_NUTRITION[id] ?? {
     nutritionPerUnit: {kcal:null,protein:null,fat:null,carbs:null,fiber:null,salt:null},
     nutritionSource:'栄養値は未登録です。',

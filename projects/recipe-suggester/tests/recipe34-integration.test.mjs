@@ -1,3 +1,4 @@
+import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -32,8 +33,8 @@ const snapshot = (id, quantity = 1) => ({...itemFromRecipe(describeRecipe(id, da
 const entry = (id, items, status = 'eaten') => ({id, date: '2026-11-13', meal: 'dinner', status, items, note: ''});
 
 test('旧711品・268食材は手順と表示文言・間食分類の整理と3品の副菜への移動以外のID・材料・分量・栄養を保持する', () => {
-  const original = RECIPES.filter(recipe => !addedIds.has(recipe.id));
-  const ingredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredients.has(id)));
+  const original = RECIPES.filter(recipe => !addedIds.has(recipe.id)).map(originalRecipe);
+  const ingredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredients.has(id)).map(([id,item])=>[id,originalNutrients(item)]));
   assert.equal(original.length, 711);
   assert.equal(Object.keys(ingredients).length, 268);
   // v3.5の変更は表示名・説明と間食9品のfamilyです。stepsは従来どおり除外し、

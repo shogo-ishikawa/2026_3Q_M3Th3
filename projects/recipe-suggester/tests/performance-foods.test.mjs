@@ -90,8 +90,10 @@ test('MEXT酒類はgをmlへ換算し、アルコール由来のエネルギー�
   close(recipeNutrition(get('wine_white'),data).carbs,2.994);
   close(recipeNutrition(get('sake'),data).kcal,192.4074);
   close(recipeNutrition(get('whisky'),data).kcal,66.8304);
-  assert.equal(recipeNutrition(get('wine_red'),data).fiber,null);
-  assert.equal(recipeNutrition(get('shochu'),data).salt,null);
+  assert.equal(INGREDIENT_NUTRITION.perf_wine_red.rawNutritionPerUnit.fiber,null);
+  assert.equal(recipeNutrition(get('wine_red'),data).fiber,0);
+  assert.equal(INGREDIENT_NUTRITION.perf_shochu.rawNutritionPerUnit.salt,null);
+  assert.equal(recipeNutrition(get('shochu'),data).salt,0); // 未測定の原表と、無調味蒸留酒の食塩0仮定を区別
   const highball=get('highball');assert.equal(highball.portion.unit,'杯');assert.deepEqual(highball.ingredients,[{id:'perf_whisky',amount:90},{id:'carbonated_water',amount:270}]);
   close(recipeNutrition(highball,data).kcal,100.2456);
 });

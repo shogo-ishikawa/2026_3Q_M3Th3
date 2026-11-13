@@ -1,3 +1,4 @@
+import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -36,8 +37,8 @@ const snapshot = (recipe, quantity = 1) => ({...itemFromRecipe(describeRecipe(re
 const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 1e-8, `${label}: ${actual} != ${expected}`);
 
 test('既存580品は手順と表示文言・間食分類の整理と3品の副菜への移動以外の材料・量・栄養・一意性を保つ', () => {
-  const originalRecipes = RECIPES.filter(recipe => !addedIds.has(recipe.id));
-  const originalIngredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredientIds.has(id)));
+  const originalRecipes = RECIPES.filter(recipe => !addedIds.has(recipe.id)).map(originalRecipe);
+  const originalIngredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredientIds.has(id)).map(([id,item]) => [id,originalNutrients(item)]));
   assert.equal(originalRecipes.length, 580);
   assert.equal(Object.keys(originalIngredients).length, 235);
   // 寿司・飲料の8品は下で意図を検査します。572品・235食材の基準件数は維持します。

@@ -2,7 +2,8 @@
  * 日本食品標準成分表（八訂）増補2023年から引用して換算した参考値。
  * 2026-03-27更新の公式Excelを2026-11-12に確認。食品番号ごとの可食部100g値。
  * プロフィール順序: kcal, protein, fat, carbs, fiber, salt。単位はkcal/g/g/g/g/g。
- * nullは未測定・微量等で確定できない値。0は成分表に0/(0)とある値。
+ * rawNutritionPerUnitは元資料の未測定・微量等をnullで保持。
+ * nutritionPerUnitは根拠を明記した概算補完を加えた、実際の計算用の値。
  * 調理による水分変化・溶出・油の残留を補正した実測値ではありません。
  * 対応食品、体積換算、例外は docs/nutrition-sources.md を参照。
  */
@@ -632,10 +633,48 @@ const INGREDIENT_PROFILES = Object.freeze({
   takeaway_beef_karubi: ["unknown", 1, "セブンプレミアム 牛カルビ焼きの購入品。栄養はメニューに公式の1袋を基準に設定し、食材単体の成分値とは区別します。確認日2026-11-13。https://www.sej.co.jp/products/a/item/101220"],
 });
 
+// 元資料の未確定値とは別に、家庭料理の計算に使う概算値を指定します。
+// ここにない不明成分（商品表示や利用者の未入力など）は自動で補いません。
+const TRACE_NOTE = '成分表のTr/(Tr)を0.01以上0.05g未満/100gと読み、範囲の中央0.03g/100gで概算。分析値ではありません。https://fooddb.mext.go.jp/help.html';
+const TRACE_COMPONENTS = Object.freeze({
+  '11101': ['carbs'], '10252': ['carbs'], '07150': ['fiber'], '07156': ['fiber'],
+  '02003': ['fat'], '02005': ['fat'], '16001': ['fat'], '16025': ['fat'],
+  '16007': ['fat'], '16010': ['fat'], '16011': ['fat'],
+  '16022': ['fat'], '16040': ['protein'], '16042': ['protein'], '16045': ['fat'],
+  '16053': ['fat'], '16055': ['protein'], '16057': ['fat'], '16059': ['fat'],
+  '17007': ['fiber'],
+});
+const FILTERED_DRINK_CODES = new Set(['16025','16037','16040','16042','16044','16045','16053','16055','16057','16010','16011','16022']);
+const USDA_SPICES = 'USDA SR28（2015）香辛料報告の一般値。https://www.ars.usda.gov/ARSUserFiles/80400535/Data/SR/SR28/reports/sr28fg02.pdf';
+const USDA_FIBER = 'USDA SR Legacy（2018）の類似する単品香辛料から食物繊維を概算。https://www.nal.usda.gov/sites/default/files/page-files/Total_Dietary_Fiber.pdf';
+// 100g当たり。ナトリウムmgから食塩相当量gへの係数は2.54/1000。
+const SPICE_ESTIMATES = Object.freeze({
+  cumin: [375, 17.81, 22.27, 44.24, 10.5, 168 * 2.54 / 1000], // NDB02014, p68
+  turmeric: [312, 9.68, 3.25, 67.14, 22.7, 27 * 2.54 / 1000], // NDB02043, p137
+});
+const SPICE_FIBER = Object.freeze({black_pepper:25.3, chilli:27.2, dried_basil:37.7, paprika_powder:34.9});
+
+function ingredientEstimates(id, code) {
+  const values = {}, notes = [];
+  const add = (key, value, note) => {values[key] = value; if(!notes.includes(note))notes.push(note);};
+  for(const key of TRACE_COMPONENTS[code] ?? []) add(key, 0.03, TRACE_NOTE);
+  if(code==='16015') add('salt', 0, '原表の食塩相当量は未測定。無調味の蒸留焼酎を想定し、食塩を0g/100gと仮定。塩・果汁等を加えた製品には適用しません。');
+  if(FILTERED_DRINK_CODES.has(code)) add('fiber', 0, '原表の食物繊維は未測定。無糖のろ過した茶・コーヒー、清澄な酒・みりん、繊維を添加しない飲料を想定し、計算上0g/100gで近似。茶葉・果肉入り・繊維添加品には適用しません。');
+  if(SPICE_ESTIMATES[id]) KEYS.forEach((key, index) => add(key, SPICE_ESTIMATES[id][index], `${USDA_SPICES} ${id==='cumin'?'NDB02014 クミン種を粉末にも近似、p68':'NDB02043 ターメリック粉、p137'}。食塩相当量はNa(mg)×2.54÷1000。`));
+  if(Object.hasOwn(SPICE_FIBER,id)) add('fiber', SPICE_FIBER[id], USDA_FIBER);
+  if(id==='cashew') add('salt', 0.04064, '無塩のカシューナッツはUSDA SR28の無塩乾煎り品（NDB12085、p62）のNa16mg/100gから食塩0.04064g/100gを近似。味付け品の塩を加算しません。https://www.ars.usda.gov/ARSUserFiles/80400535/Data/SR/SR28/reports/sr28fg12.pdf');
+  if(id==='soba') add('salt', 0.1 * 2.6, '食塩を加えずゆでて湯切りする想定。干しそばゆで01130の食塩0.1g/100gと成分表の重量変化率260%から、乾麺100g当たり0.26gで概算。つゆは別材料。');
+  if(id==='somen') add('salt', 0.2 * 2.7, '食塩を加えずゆでて湯切りする想定。そうめん・ひやむぎゆで01044の食塩0.2g/100gと成分表の重量変化率270%から、乾麺100g当たり0.54gで概算。つゆは別材料。');
+  // 完成品の一般例を材料として使う場合の繊維だけを、衣・肉の代表構成で近似。
+  if(id==='burger_chicken_patty') add('fiber', 0.65, '調理済みささみフライの繊維は未測定。100g中の乾燥パン粉を約10gと仮定し、パン粉の繊維6.5g/100gから0.65g/100gで近似。');
+  if(id==='ready_breaded_fish') add('fiber', 0.65, '調理済み白身フライの繊維は未測定。100g中の乾燥パン粉を約10gと仮定し、パン粉の繊維6.5g/100gから0.65g/100gで近似。');
+  return {values, notes};
+}
+
 export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(
   Object.entries(INGREDIENT_PROFILES).map(([id, [code, gramsPerUnit, note]]) => {
     const profile = FOOD_PROFILES[code];
-    const nutritionPerUnit = Object.fromEntries(KEYS.map((key, index) => {
+    const rawNutritionPerUnit = Object.fromEntries(KEYS.map((key, index) => {
       // 味付け品の塩分や湯切り前の乾麺の塩分を摂取量と断定しません。
       const unknownSalt = ['cashew', 'soba', 'somen'].includes(id) && key === 'salt';
       const value = unknownSalt ? null : profile[index];
@@ -643,9 +682,17 @@ export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(
     }));
     const source = code === 'unknown' ? '対応する栄養値は未登録。'
       : code === 'water' ? '水の定義値。' : `${SOURCE} 食品番号${code}の代表値。`;
+    const rawNutritionSource = `${source} ${note}`;
+    const estimates = ingredientEstimates(id, code);
+    const estimatedNutrients = KEYS.filter(key => rawNutritionPerUnit[key]===null && Object.hasOwn(estimates.values,key));
+    const nutritionPerUnit = Object.fromEntries(KEYS.map(key => [key, estimatedNutrients.includes(key)
+      ? Number((estimates.values[key] * gramsPerUnit / 100).toFixed(8)) : rawNutritionPerUnit[key]]));
     return [id, Object.freeze({
       nutritionPerUnit: Object.freeze(nutritionPerUnit),
-      nutritionSource: `${source} ${note}`,
+      nutritionSource: estimatedNutrients.length ? `原表の対応・換算：${rawNutritionSource} 計算用の概算補完（${estimatedNutrients.map(key=>({kcal:'エネルギー',protein:'たんぱく質',fat:'脂質',carbs:'炭水化物',fiber:'食物繊維',salt:'食塩相当量'})[key]).join('・')}）：${estimates.notes.join(' ')}` : rawNutritionSource,
+      rawNutritionPerUnit: Object.freeze(rawNutritionPerUnit),
+      rawNutritionSource,
+      estimatedNutrients: Object.freeze(estimatedNutrients),
     })];
   }),
 ));
