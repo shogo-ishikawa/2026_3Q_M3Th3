@@ -9,6 +9,10 @@ const freeze = value => {
 const meal = (id, label, recipeIds, extra = {}) => ({
   id, label, recipeIds, role: 'staple', nature: 'home-cooked', staple: true, mealBase: true, ...extra,
 });
+const dish = (id, label, recipeIds, extra = {}) => meal(id, label, recipeIds,
+  {role:'main', staple:false, mealBase:false, ...extra});
+const drink = (id, label, recipeIds, extra = {}) => dish(id, label, recipeIds, {role:'drink', ...extra});
+const snack = (id, label, recipeIds, extra = {}) => dish(id, label, recipeIds, {role:'snack', ...extra});
 
 /** 明示した既存IDだけをまとめます。新しい料理を名前だけで自動所属させません。 */
 export const MENU_VARIATION_GROUPS = freeze([
@@ -62,7 +66,12 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('omelette', 'オムレツ', [
     'classic-omelette-plain','classic-omelette-cheese','classic-omelette-spinach','classic-omelette-bacon',
   ], {role:'main', staple:false, mealBase:false}),
-  meal('nigiri', 'にぎり寿司', ['classic-sushi-tuna','classic-sushi-salmon','classic-sushi-shrimp','classic-sushi-squid']),
+  meal('nigiri', 'にぎり寿司', [
+    'classic-sushi-tuna','classic-sushi-salmon','classic-sushi-shrimp','classic-sushi-squid',
+    'palette-nigiri-chutoro','palette-nigiri-seabream','palette-nigiri-yellowtail','palette-nigiri-scallop',
+    'palette-nigiri-octopus','palette-nigiri-egg','palette-nigiri-anago',
+    'classic-sushi-assorted',
+  ]),
   meal('hosomaki', '細巻き', [
     'sushi-hosomaki-kappa','sushi-hosomaki-tekka','sushi-hosomaki-natto','sushi-hosomaki-ume-shiso','sushi-hosomaki-tuna-mayo',
   ]),
@@ -75,6 +84,98 @@ export const MENU_VARIATION_GROUPS = freeze([
     'drink-green-tea','drink-roasted-tea','drink-barley-tea','drink-oolong-tea','drink-black-tea','drink-milk-tea','drink-ginger-tea',
   ], {role:'drink', staple:false, mealBase:false}),
   meal('coffee', 'コーヒー', ['drink-coffee','drink-cafe-au-lait','drink-soy-latte'], {role:'drink', staple:false, mealBase:false}),
+  // 同じ料理の味・主材料の違いを詳細の選択肢へまとめます。
+  // 旧main-roleの主食は、既存の区分を保つため別の明示グループです。
+  meal('pizza', 'ピザ', ['daily-pizza-margherita','daily-pizza-mixed','daily-pizza-teriyaki','daily-pizza-seafood']),
+  meal('fried-rice', 'チャーハン', ['daily-fried-rice-egg','daily-fried-rice-gomoku','daily-fried-rice-kimchi','daily-fried-rice-shrimp']),
+  meal('ramen', 'ラーメン', ['daily-ramen-soy','daily-ramen-salt','daily-ramen-miso','daily-ramen-tanmen']),
+  meal('donburi', '丼もの', [
+    'daily-donburi-oyako','daily-donburi-pork','daily-donburi-mapo','daily-donburi-chinese','daily-donburi-teriyaki',
+    'familiar-katsudon','familiar-sauce-katsudon','familiar-chicken-katsudon','familiar-tendon','familiar-kakiage-don',
+    'familiar-tenshinhan','familiar-kaisen-don','familiar-tekka-don','familiar-salmon-don',
+    'varied-yakitori-don','varied-yakiniku-don','varied-unadon',
+  ]),
+  meal('rice-bowls', '具だくさんの丼', [
+    'chicken-rice-bowl','beef-rice-bowl','pork-rice-bowl','tofu-rice-bowl','tofu-natto-rice',
+  ], {role:'main'}),
+  meal('omelette-rice', 'オムライス', ['classic-omelette-rice-cheese','classic-omelette-rice-mushroom','classic-omelette-rice-tomato']),
+  meal('retort-donburi', 'レトルト丼', [
+    'prepared-retort-gyudon','prepared-retort-oyakodon','prepared-retort-chukadon','prepared-retort-mapodon',
+  ], {nature:'retort'}),
+  meal('burger', 'ハンバーガー', [
+    'prepared-burger-plain','prepared-burger-cheese','prepared-burger-teriyaki',
+    'prepared-burger-chicken','prepared-burger-fish','prepared-burger-double',
+  ], {nature:'fast-food'}),
+  meal('bought-sandwich', 'サンドイッチ（購入品の一般例）', [
+    'prepared-sandwich-egg','prepared-sandwich-ham','prepared-sandwich-tuna','prepared-sandwich-vegetable',
+  ], {nature:'ready-to-eat'}),
+  meal('hot-sandwich', 'ホットサンド', ['chicken-sandwich','breakfast-egg-sandwich'], {role:'main'}),
+  meal('toast', 'トースト', [
+    'staple-butter-toast','staple-garlic-toast','staple-cheese-toast','staple-sesame-toast','staple-avocado-toast',
+  ], {mealBase:false}),
+  meal('sliced-bread', '食パン', ['staple-plain-bread','staple-wholegrain-bread'], {nature:'ready-to-eat', mealBase:false}),
+  meal('oatmeal', 'オートミールがゆ', ['staple-oatmeal-water','staple-oatmeal-milk','staple-oatmeal-soy'], {mealBase:false}),
+  dish('hamburg', 'ハンバーグ', [
+    'beef-hamburg','tofu-burger','classic-hamburg','familiar-hamburg-oroshi','familiar-hamburg-stew','familiar-hamburg-cheese',
+  ]),
+  dish('gyoza', '餃子', ['classic-gyoza','varied-boiled-gyoza','varied-shrimp-boiled-gyoza','varied-fried-gyoza']),
+  dish('karaage', '鶏の唐揚げ', ['daily-snack-oven-karaage','classic-karaage-thigh','classic-karaage-breast','classic-karaage-salt']),
+  dish('grilled-fish', '焼き魚', [
+    'tuna-cube','classic-grilled-salmon','classic-grilled-mackerel','classic-grilled-hokke',
+    'classic-grilled-aji','classic-grilled-saury','classic-grilled-shishamo','familiar-buri-teriyaki',
+  ]),
+  dish('sashimi', '刺身', [
+    'classic-sashimi-tuna','classic-sashimi-tuna-mediumfat','classic-sashimi-salmon','classic-sashimi-yellowtail',
+    'classic-sashimi-seabream','classic-sashimi-bonito','classic-sashimi-aji','classic-sashimi-squid',
+    'classic-sashimi-octopus','classic-sashimi-scallop','classic-sashimi-assorted',
+  ], {nature:'ready-to-eat'}),
+  dish('croquette', 'コロッケ', ['classic-croquette-potato','classic-croquette-pumpkin','classic-croquette-cream']),
+  dish('stew', 'シチュー', ['familiar-beef-stew','familiar-chicken-cream-stew','familiar-pork-cream-stew']),
+  dish('nabe', '鍋料理', ['familiar-yose-nabe','familiar-kimchi-nabe','familiar-sesame-soy-nabe','familiar-chanko-nabe']),
+  dish('yakitori', '焼き鳥', [
+    'familiar-yakitori-negima','varied-yakitori-thigh-salt','varied-yakitori-thigh-tare','varied-yakitori-breast-salt',
+    'varied-yakitori-skin','varied-yakitori-tsukune','varied-yakitori-tsukune-cheese','varied-yakitori-ume-shiso',
+  ]),
+  dish('takeaway-yakitori', '焼き鳥（テイクアウト）', [
+    'takeaway-yakitori-momo-tare','takeaway-yakitori-momo-salt','takeaway-yakitori-negima-tare',
+    'takeaway-yakitori-tsukune-tare','takeaway-yakitori-kawa-tare','takeaway-yakitori-sunagimo-salt',
+  ], {nature:'ready-to-eat'}),
+  dish('tempura', '天ぷら', ['familiar-tempura-assorted','varied-shrimp-tempura','varied-squid-tempura','varied-whitefish-tempura']),
+  dish('vegetable-tempura', '野菜・きのこの天ぷら', ['varied-vegetable-tempura','varied-shimeji-tempura'], {role:'side'}),
+  dish('takeaway-tempura', '天ぷら（外食）', ['takeaway-tempura-shrimp','takeaway-tempura-squid'], {nature:'ready-to-eat'}),
+  dish('potage', 'ポタージュ', [
+    'soup-004','soup-006','soup-008','calendar-soup-cauliflower-potato','familiar-side-corn-potage',
+  ], {role:'soup'}),
+  dish('instant-potage', 'カップスープ', [
+    'takeaway-knorr-corn','takeaway-knorr-potage','takeaway-knorr-mushroom','takeaway-knorr-spinach','takeaway-knorr-pumpkin','takeaway-knorr-tomato',
+  ], {role:'soup', nature:'instant'}),
+  dish('instant-harusame', '春雨スープ（即席）', [
+    'takeaway-harusame-wonton','takeaway-harusame-egg','takeaway-harusame-tantan',
+    'takeaway-harusame-wakame-vegetable','takeaway-harusame-wakame-gomtang',
+  ], {role:'soup', nature:'instant'}),
+  snack('yoghurt', 'ヨーグルト（トッピング）', [
+    'snack-banana-yogurt','snack-kiwi-yogurt','snack-berry-yogurt','snack-apple-raisin-yogurt','snack-sweet-potato-yogurt',
+  ]),
+  snack('cheese', 'チーズ', [
+    'daily-snack-plain-cheese','daily-snack-mozzarella','palette-cheese-camembert','palette-cheese-cheddar',
+    'palette-cheese-cream','palette-cheese-blue','palette-cheese-processed','palette-cheese-parmesan',
+  ], {nature:'ready-to-eat'}),
+  snack('nuts', 'ナッツ', [
+    'snack-almond','snack-walnut','snack-cashew','snack-peanut','snack-nuts-raisin',
+    'palette-nuts-pistachio','palette-nuts-macadamia','palette-nuts-pine',
+  ], {nature:'ready-to-eat'}),
+  drink('milk', '牛乳・豆乳', ['drink-milk','drink-soy-milk'], {nature:'ready-to-eat'}),
+  drink('flavoured-milk', 'フルーツミルク・豆乳', ['drink-banana-soy','drink-strawberry-milk']),
+  drink('juice', '果汁・野菜ジュース', ['drink-orange-juice','drink-apple-juice','drink-tomato-juice'], {nature:'ready-to-eat'}),
+  drink('tomato-juice-product', 'トマトジュース（市販品）', ['takeaway-tomato-unsalted','takeaway-tomato-low-salt'], {nature:'ready-to-eat'}),
+  drink('water', '水・無糖炭酸水', ['drink-water','daily-drink-sparkling-water'], {nature:'ready-to-eat'}),
+  drink('lemon-water', 'レモン水・レモン炭酸水', ['drink-lemon-water','daily-drink-lemon-sparkling']),
+  // 選択式の料理は1つの入口を用意し、具材の組み合わせ自体はDBへ列挙しません。
+  dish('oden', 'おでん', ['palette-oden']),
+  meal('bagel', 'ベーグル', ['palette-bagel'], {nature:'ready-to-eat', mealBase:false}),
+  snack('waffle', 'ワッフル', ['palette-waffle']),
+  snack('muffin', 'マフィン', ['palette-muffin']),
+  meal('sandwich', 'サンドイッチ', ['palette-sandwich']),
 ]);
 
 /** 追加時の重複所属を検知し、ある料理が複数の入口へ消えることを防ぎます。 */

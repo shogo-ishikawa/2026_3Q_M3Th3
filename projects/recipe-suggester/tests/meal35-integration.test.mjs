@@ -1,3 +1,4 @@
+import {PALETTE_INGREDIENTS, PALETTE_RECIPES} from '../palette-foods.js';
 import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +24,7 @@ const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, 
 
 const data={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const newRecipePrefixes=['confectionery-','dessert-','comfort-','acmp-'];
+const newRecipePrefixes=['confectionery-','dessert-','comfort-','acmp-','palette-'];
 // v3.4.0の公開DBの303食材。今回追加する素材と混ぜず、栄養や原料情報を照合します。
 const legacyIngredientIds=`
 chicken chicken_breast chicken_minced pork pork_minced beef beef_minced salmon
@@ -127,8 +128,8 @@ test('追加63品を実際の公開DBへ統合し、未確認の購入品だけ�
   const products=[...CONFECTIONERY_RECIPES,...DESSERT_RECIPES];
   const additions=[...products,...COMFORT_RECIPES];
   assert.equal(additions.length,63);
-  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length);
+  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length);
+  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);
   for(const recipe of additions)assert.ok(RECIPES.some(integrated=>integrated.id===recipe.id),recipe.id);

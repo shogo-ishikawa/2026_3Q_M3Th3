@@ -1,3 +1,4 @@
+import {PALETTE_NUTRITION} from './palette-foods.js';
 /**
  * 日本食品標準成分表（八訂）増補2023年から引用して換算した参考値。
  * 2026-03-27更新の公式Excelを2026-11-12に確認。食品番号ごとの可食部100g値。
@@ -694,5 +695,5 @@ export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(
       rawNutritionSource,
       estimatedNutrients: Object.freeze(estimatedNutrients),
     })];
-  }),
+  }).concat(Object.entries(PALETTE_NUTRITION)),
 ));
