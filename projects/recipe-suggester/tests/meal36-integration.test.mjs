@@ -1,3 +1,4 @@
+import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -25,7 +26,7 @@ const recordInput = (recipeId, amount = 1, status = 'planned') => ({recipeId, da
 // 固定値は変更前の v3.5.0（e6eb306）の独立 worktree 847品・363食材から計算。
 // 分類変更した3品だけ role/family を除き、残る844品では分類も含めてすべて照合します。
 test('旧847品と363食材は、指定3品の主菜から副菜への移動以外の全内容を保持する', () => {
-  const originals = RECIPES.filter(recipe => !newIds.has(recipe.id));
+  const originals = RECIPES.filter(recipe => !newIds.has(recipe.id)).map(originalRecipe);
   assert.equal(originals.length, 847);
   const projected = originals.map(recipe => {
     if (!movedIds.includes(recipe.id)) return recipe;
@@ -37,7 +38,7 @@ test('旧847品と363食材は、指定3品の主菜から副菜への移動以�
     return rest;
   });
   assert.equal(hash(projected), '9109f818df0caebd831eb24565efcb68edc1831479a2777217ccc8995c60361b');
-  const ingredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIngredientIds.has(id)));
+  const ingredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIngredientIds.has(id)).map(([id,item])=>[id,originalNutrients(item)]));
   assert.equal(Object.keys(ingredients).length, 363);
   assert.equal(hash(ingredients), '19f36fa2fef787890372a301497c7b6efec60f8ab430c25b6d50f0cf606b89bf');
   const profiles = Object.fromEntries(Object.entries(ingredients).map(([id, ingredient]) => [id,

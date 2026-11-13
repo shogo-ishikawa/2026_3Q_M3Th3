@@ -69,17 +69,18 @@ test('豚と牛の派生元・大豆・小麦をもつや牛すじ、調味料�
   assert.ok(candidates({allergens:['wheat']}).has(get('tongue-salt').id));
 });
 
-test('下ゆで済みの可食部成分を使い、牛すじの微量炭水化物は0に置き換えない',()=>{
+test('下ゆで済みの可食部成分を使い、牛すじの微量炭水化物は原表と概算を区別する',()=>{
   const expected={pork_small_intestine_boiled:{food:'11169',values:[159,14,11.9,0,0,0]},beef_tendon_boiled:{food:'11101',values:[157,31,5.1,null,0,0.2]}};
   const keys=['kcal','protein','fat','carbs','fiber','salt'];
   for(const [id,{food,values}] of Object.entries(expected)){
     assert.match(COMFORT_INGREDIENTS[id].name,/ゆで・味付けなし/);
     assert.match(COMFORT_INGREDIENTS[id].note,/下ゆで後/);
     assert.ok(INGREDIENT_NUTRITION[id],id);assert.ok(INGREDIENT_NUTRITION[id].nutritionSource.includes(`食品番号${food}`));
-    keys.forEach((key,index)=>values[index]===null?assert.equal(INGREDIENT_NUTRITION[id].nutritionPerUnit[key],null):close(INGREDIENT_NUTRITION[id].nutritionPerUnit[key],values[index]/100));
+    keys.forEach((key,index)=>values[index]===null?assert.equal(INGREDIENT_NUTRITION[id].rawNutritionPerUnit[key],null):close(INGREDIENT_NUTRITION[id].nutritionPerUnit[key],values[index]/100));
   }
   const nutrition=recipeNutrition(get('bokkake'),data);
-  assert.equal(nutrition.carbs,null);assert.ok(nutrition.kcal>0);assert.ok(nutrition.protein>0);
+  close(INGREDIENT_NUTRITION.beef_tendon_boiled.nutritionPerUnit.carbs,0.0003);
+  assert.ok(nutrition.carbs>0);assert.ok(nutrition.kcal>0);assert.ok(nutrition.protein>0);
 });
 
 test('ぼっかけ半皿を3人分へ換算し、下ゆで済み牛すじとこんにゃくを買い物へ反映する',()=>{
@@ -98,7 +99,7 @@ test('そばめしのご飯とめんを記録量から一度だけ換算する',
   assert.equal(record.items.length,1);assert.equal(list.missingMenus.length,0);
 });
 
-test('5品の量・材料・手順・未登録栄養を記録に保存して復元できる',()=>{
+test('5品の量・材料・手順・概算栄養を記録に保存して復元できる',()=>{
   const state=defaultJournal('2026-11-13');
   state.entries=COMFORT_RECIPES.map(recipe=>createCatalogEntry({recipeId:recipe.id,date:'2026-11-13',meal:'dinner',status:'eaten',amount:0.75},data));
   const parsed=parseJournal(JSON.stringify(state),data);
@@ -107,5 +108,5 @@ test('5品の量・材料・手順・未登録栄養を記録に保存して復�
     assert.ok(record.items[0].steps.length>=6);
     assert.ok(Object.values(itemNutrition(record.items[0])).every(value=>value===null||Number.isFinite(value)&&value>=0));
   }
-  assert.equal(parsed.entries.find(record=>record.items[0].recipeId===get('bokkake').id).items[0].nutrition.carbs,null);
+  close(parsed.entries.find(record=>record.items[0].recipeId===get('bokkake').id).items[0].nutrition.carbs,18.4583575);
 });
