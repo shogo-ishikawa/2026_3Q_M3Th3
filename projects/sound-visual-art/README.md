@@ -2,7 +2,7 @@
 
 指先の動きや音から光の風景を作るブラウザーアプリです。学生作品「音と視覚のつながりとデジタルアート」の発想を引き継ぎ、公開用の体験と教材へ発展させています。
 
-対応版：v1.1.0
+対応版：v1.1.1
 
 [アプリを開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/sound-visual-art/) · [Colabで計算を試す](https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/sound-visual-art/lumen_lab.ipynb) · [使い方](docs/manual.md) · [仕組みと学生版との対応](docs/design.md) · [学生コードからの来歴](docs/provenance.md)
 
@@ -66,7 +66,7 @@
 
 ## ローカルで動かす
 
-ZIPを展開すると`v1.1.0`フォルダーができます。その中で次のコマンドを実行します。
+ZIPを展開すると`v1.1.1`フォルダーができます。その中で次のコマンドを実行します。
 
 ```sh
 python3 -m http.server 8000
@@ -82,6 +82,6 @@ node --test tests/*.test.mjs
 
 ## 配布と更新
 
-Macでの配置先は`/Users/shogo/Dropbox/share_data/open_material/misc/apps/LUMEN/v1.1.0`です。展開したバージョンのファイルを`tools/sync_project.sh`で授業リポジトリへHTTPS同期できます。
+Macでの配置先は`/Users/shogo/Dropbox/share_data/open_material/misc/apps/LUMEN/v1.1.1`です。展開したバージョンのファイルを`tools/sync_project.sh`で授業リポジトリへHTTPS同期できます。
 
 配布ZIPに利用者の音源やマイク音声は入りません。学生の氏名や学籍番号も公開用の画面とサンプルに使いません。
