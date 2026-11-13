@@ -209,7 +209,7 @@ function matchesQuery(recipe, query, familyId = recipeFamily(recipe)) {
   const family = categories.get(familyId);
   return matchesJapaneseQuery([recipe.name, recipe.variantLabel, family.label,
     FOOD_NATURES.find(nature => nature.id === recipeNature(recipe)).label,
-    ...(recipe.tags ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)], query);
+    ...(recipe.tags ?? []), ...(recipe.searchAliases ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)], query);
 }
 
 function recipeList(recipes) {

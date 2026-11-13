@@ -73,7 +73,11 @@
         "accompaniment-foods.js",
         "salad-builder.js",
         "salad-builder-ui.js",
-        "salad-builder.css"
+        "salad-builder.css",
+        "dish-customisation.js",
+        "dish-customisation-ui.js",
+        "dish-customisation.css",
+        "menu-variations.js"
       ]
     },
     {

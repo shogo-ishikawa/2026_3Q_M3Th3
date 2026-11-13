@@ -8,7 +8,7 @@ FILES = (
     "README.md", "VERSION", "package.json", "CLAUDE_CODE_PROMPT.md",
     "index.html", "styles.css", "app.js", "storage.js", "planner.js", "data.js",
     "recipe_suggester.ipynb", "meal_planner.ipynb",
-    "classics-mains.js", "classics-sides.js", "prepared-foods.js", "catalog-metadata.js", "dish-hierarchy.js", "record-actions.js", "sushi-foods.js", "performance-foods.js", "cooking-instructions.js", "japanese-search.js", "varied-recipes.js", "comfort-foods.js", "confectionery-foods.js", "dessert-foods.js", "accompaniment-foods.js", "salad-builder.js", "salad-builder-ui.js", "salad-builder.css", "takeaway-foods.js", "familiar-mains.js", "familiar-sides.js",
+    "classics-mains.js", "classics-sides.js", "prepared-foods.js", "catalog-metadata.js", "dish-hierarchy.js", "record-actions.js", "sushi-foods.js", "performance-foods.js", "cooking-instructions.js", "japanese-search.js", "varied-recipes.js", "comfort-foods.js", "confectionery-foods.js", "dessert-foods.js", "accompaniment-foods.js", "salad-builder.js", "salad-builder-ui.js", "salad-builder.css", "dish-customisation.js", "dish-customisation-ui.js", "dish-customisation.css", "menu-variations.js", "takeaway-foods.js", "familiar-mains.js", "familiar-sides.js",
     "catalog.js", "dietary-reference.js", "intake.js", "tabs.js", "everyday-foods.js", "app-icon.svg",
     "journal.js", "nutrition.js", "shopping.js", "ingredient-nutrients.js", "expanded-foods.js",
 )

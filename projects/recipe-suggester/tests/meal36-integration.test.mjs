@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {ACCOMPANIMENT_INGREDIENTS, ACCOMPANIMENT_RECIPES} from '../accompaniment-foods.js';
 import {SALAD_INGREDIENTS, buildSaladRecipe} from '../salad-builder.js';
+import {DISH_CUSTOM_INGREDIENTS} from '../dish-customisation.js';
 import {browseDishes} from '../dish-hierarchy.js';
 import {describeRecipe, eligibleRecipes} from '../planner.js';
 import {defaultJournal, parseJournal, JOURNAL_KEY} from '../journal.js';
@@ -17,7 +18,7 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const movedIds = ['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon'];
 const newIds = new Set(ACCOMPANIMENT_RECIPES.map(recipe => recipe.id));
-const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS)]);
+const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS)]);
 const date = '2026-11-13';
 const recordInput = (recipeId, amount = 1, status = 'planned') => ({recipeId, date, meal: 'dinner', status, amount});
 

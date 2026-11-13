@@ -9,6 +9,7 @@
 const KEYS = Object.freeze(['kcal', 'protein', 'fat', 'carbs', 'fiber', 'salt']);
 const SOURCE = '日本食品標準成分表（八訂）増補2023年（2026-03-27更新）';
 const FOOD_PROFILES = Object.freeze({
+  "01117": [223, 4, 0.6, 50.8, 0.5, 0],
   "10263": [265, 17.7, 21.7, 0.1, 0, 0.9],
   "09005": [303, 40, 3.5, 41.8, 25.2, 4.3],
   "10202": [131, 24, 4.7, 0.4, 0, 4.6],
@@ -256,6 +257,8 @@ const FOOD_PROFILES = Object.freeze({
 
 // [食品番号, 1宣言単位当たりの対応食品の可食重量g, 換算・対応上の補足]
 const INGREDIENT_PROFILES = Object.freeze({
+  dish_pork_belly_sliced: ["11129", 1, "既存pork_bellyと同じ食品番号。脂身つきの薄切り生肉の可食重量。焼いた後の重量や赤身だけの値ではありません。確認日2026-11-13。https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=11_11129_7"],
+  dish_mochi: ["01117", 1, "もち米のみの無調味の切り餅を加熱前の可食重量で換算。あん入り、揚げ餅、調味済み製品ではありません。確認日2026-11-13。https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=1_01117_7"],
   acmp_tuna_oil: ["10263", 1, "油と液汁を含む製品重量。油切りした身だけの重量へ同じ値を当てません。確認日2026-11-13。出典: https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=10_10263_7"],
   acmp_seasoned_nori: ["09005", 1, "味付けのりの製品重量。焼きのりとは別の食品番号です。確認日2026-11-13。出典: https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=9_09005_7"],
   acmp_tarako: ["10202", 1, "塩蔵品の非加熱可食部重量。塩蔵前の生卵巣や焼きたらこではありません。確認日2026-11-13。出典: https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=10_10202_7"],
