@@ -102,7 +102,19 @@
         "canteen-foods.js",
         "tavern-foods.js",
         "bistro-foods.js",
-        "soup311-foods.js"
+        "soup311-foods.js",
+        "meal-sets.js",
+        "meal-sets-ui.js",
+        "meal-sets-ui.css",
+        "purchase-conversion.js",
+        "purchase-conversion-ui.js",
+        "purchase-conversion-ui.css",
+        "batch-cooking.js",
+        "batch-cooking-ui.js",
+        "batch-cooking-ui.css",
+        "restaurant-menu.js",
+        "restaurant-menu-ui.js",
+        "restaurant-menu-ui.css"
       ]
     },
     {

@@ -11,6 +11,8 @@ export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={
     // メモだけの予定を「材料なし＝買い物不要」と解釈しません。
     if(!entry.items.length){missingMenus.push({name:entry.note?.trim().slice(0,200)||'メニュー未入力の予定',entryId:entry.id});continue;}
     for(const item of entry.items){
+    // 作り置きは用意済みの料理を取り分けます。材料を再購入しません。
+    if(item.batchId||item.restaurant)continue;
     if(!amount(item.quantity)||item.quantity===0)throw Error('予定の分量を確認してください。');
     if(!Array.isArray(item.ingredients)||!item.ingredients.length||(!item.ingredientsKnown&&item.shoppingKnown!==true)){missingMenus.push({name:item.name,entryId:entry.id});continue;}
     // 原材料は商品表示を要確認でも、買う商品と量が分かる場合は合算できます。

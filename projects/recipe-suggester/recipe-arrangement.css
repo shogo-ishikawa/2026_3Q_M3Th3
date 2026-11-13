@@ -15,3 +15,11 @@
 .arrangement-preview { margin-top:24px; }
 .arrangement-remove { min-height:42px; }
 @media(max-width:580px) { .arrangement-picker { grid-template-columns:1fr; padding:14px; } .arrangement-picker>* { grid-column:1!important; } .arrangement-selected-row { padding:12px; } }
+.arrangement-original-list { display:grid; gap:10px; }
+.arrangement-original-actions { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
+.recipe-arrangement .arrangement-original-amount { max-width:160px; margin-right:8px; }
+.arrangement-edit-note,.arrangement-replacement-note { color:#65725c; font-size:13px; line-height:1.8; }
+.arrangement-replacement-note,.arrangement-cancel-replacement { grid-column:1/-1; margin:0; }
+.arrangement-replacement-note { color:#344c37; font-weight:600; }
+.arrangement-original-row:has(input:disabled) { opacity:.72; }
+@media(max-width:580px) { .arrangement-original-row { grid-template-columns:1fr; } .arrangement-original-actions { justify-content:flex-start; } }

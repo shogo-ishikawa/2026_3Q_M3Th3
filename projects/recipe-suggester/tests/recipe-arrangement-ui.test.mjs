@@ -54,3 +54,26 @@ test('製品の本数と未登録重量を混同せず、選んだ時点で元�
   add(root,'perf_bar_manzoku',1);assert.ok(recipe);assert.equal(find(root,'arrangement-input-unit').textContent,'本');assert.match(find(root,'arrangement-conversion').textContent,/g換算は未登録/);
   assert.equal(recipe.ingredients.find(part=>part.id==='perf_bar_manzoku').amount,1);assert.equal(recipe.manualNutrition.kcal,null);
 }));
+
+test('元の材料の量を変更し、空欄時は登録を無効にし、削除と元に戻す操作ができる',()=>withDocument(()=>{
+  const base={name:'卵とチーズ',role:'main',servings:2,ingredients:[{id:'egg',amount:2},{id:'cheese',amount:40}],steps:[]};
+  let recipe;const root=mountRecipeArrangement({baseRecipe:base,data,onChange:value=>{recipe=value;}});
+  const input=find(root,'arrangement-original-amount');assert.equal(input.value,'50');input.value='25';input.emit('input');assert.equal(recipe.ingredients.find(part=>part.id==='egg').amount,.5);
+  input.value='';input.emit('input');assert.equal(recipe,null);input.value='25';input.emit('input');assert.ok(recipe);
+  const rows=all(root).filter(element=>element.className.includes('arrangement-original-row'));
+  find(rows[1],'arrangement-original-remove').emit('click');assert.ok(!recipe.ingredients.some(part=>part.id==='cheese'));assert.ok(!recipe.allergens.includes('milk'));
+  const updatedRows=all(root).filter(element=>element.className.includes('arrangement-original-row'));
+  find(updatedRows[1],'arrangement-original-restore').emit('click');assert.ok(recipe.ingredients.some(part=>part.id==='cheese'));
+}));
+
+test('元の食材を選択中は追加ピッカーが置き換えとなり、肉の種類と量を変更する',()=>withDocument(()=>{
+  let recipe;const root=mountRecipeArrangement({baseRecipe,data,onChange:value=>{recipe=value;}});
+  find(root,'arrangement-original-replace').emit('click');assert.match(find(root,'arrangement-replacement-note').textContent,/置き換えます/);assert.match(find(root,'arrangement-add').textContent,/置き換える/);
+  add(root,'chicken_breast',120);assert.ok(recipe);assert.equal(recipe.ingredients.find(part=>part.id==='chicken_breast').amount,120);assert.ok(!recipe.ingredients.some(part=>part.id===baseRecipe.ingredients[0].id));assert.equal(find(root,'arrangement-replacement-note').hidden,true);
+}));
+
+test('集計された商品表示の材料編集は無効にして理由を表示し、追加操作は使える',()=>withDocument(()=>{
+  let recipe;const root=mountRecipeArrangement({baseRecipe:{...baseRecipe,manualNutrition:{kcal:500,protein:25,fat:20,carbs:30,fiber:1,salt:2}},data,onChange:value=>{recipe=value;}});
+  assert.equal(find(root,'arrangement-original-amount').disabled,true);assert.match(find(root,'arrangement-edit-note').textContent,/材料との対応が確定できない/);
+  add(root,'shimeji',20);assert.ok(recipe);assert.ok(recipe.manualNutrition.kcal>500);
+}));
