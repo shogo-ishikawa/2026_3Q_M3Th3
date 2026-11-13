@@ -6,7 +6,7 @@ const own=(value,key)=>Object.hasOwn(value??{},key);
 const newId=prefix=>`${prefix}-${globalThis.crypto?.randomUUID?.()??`${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 const positive=(value,max)=>typeof value==='number'&&Number.isFinite(value)&&value>0&&value<=max;
 const mealIds=new Set(['breakfast','lunch','dinner','snack']);
-const itemKeys=new Set(['id','recipeId','name','quantity','nutrition','ingredients','groups','proteinSources','allergens','allergensKnown','ingredientsKnown','steps','role','portion','nature','sourceNote','shoppingKnown','restaurant']);
+const itemKeys=new Set(['id','recipeId','name','quantity','nutrition','ingredients','groups','proteinSources','allergens','allergensKnown','ingredientsKnown','steps','role','portion','nature','sourceNote','shoppingKnown','restaurant','nutritionBasis']);
 const batchKeys=new Set(['id','name','preparedDate','totalGrams','sourceQuantity','item','archived']);
 const round=value=>Number(value.toFixed(3)).toLocaleString('ja-JP');
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -94,7 +94,7 @@ export function assertBatchUsage(batches,entries){
     }
     const expectedParts=new Map(source.ingredients.map(part=>[part.id,part.amount*factor]));
     if(!Array.isArray(item.ingredients)||item.ingredients.length!==expectedParts.size||item.ingredients.some(part=>!expectedParts.has(part.id)||!equalNumber(part.amount,expectedParts.get(part.id))))throw Error('作り置きの取り分けの材料が、調理時に保存した100g当たりの量と一致しません。');
-    for(const key of ['recipeId','name','role','allergensKnown','ingredientsKnown','nature','shoppingKnown','steps','restaurant'])if(!equalData(item[key],source[key]))throw Error('作り置きの取り分けの情報が、調理時の保存内容と一致しません。');
+    for(const key of ['recipeId','name','role','allergensKnown','ingredientsKnown','nature','shoppingKnown','steps','restaurant','nutritionBasis'])if(!equalData(item[key],source[key]))throw Error('作り置きの取り分けの情報が、調理時の保存内容と一致しません。');
     for(const key of ['allergens','groups','proteinSources'])if(!equalData([...(item[key]??[])].sort(),[...(source[key]??[])].sort()))throw Error('作り置きの取り分けの食材・アレルギー情報が、調理時の保存内容と一致しません。');
   }
   for(const batch of batches)batchBalance(batch,entries);

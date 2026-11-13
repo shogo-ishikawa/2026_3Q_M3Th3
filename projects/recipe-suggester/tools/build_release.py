@@ -17,6 +17,10 @@ FILES = (
     "meal-sets.js", "meal-sets-ui.js", "meal-sets-ui.css", "purchase-conversion.js", "purchase-conversion-ui.js", "purchase-conversion-ui.css", "batch-cooking.js", "batch-cooking-ui.js", "batch-cooking-ui.css", "restaurant-menu.js", "restaurant-menu-ui.js", "restaurant-menu-ui.css",
     "recipe-arrangement.js", "recipe-arrangement-ui.js", "recipe-arrangement.css",
     "quantity-input.js", "quantity-input.css",
+    "favourites.js", "favourites-ui.js", "favourites-ui.css", "meal-overlap.js",
+    "nutrition-basis.js", "nutrition-basis-ui.js", "nutrition-basis-ui.css",
+    "text-log.js", "text-log-ui.js", "text-log-ui.css",
+    "soup-intake.js", "soup-intake-ui.js", "soup-intake-ui.css",
     "catalog.js", "dietary-reference.js", "intake.js", "tabs.js", "everyday-foods.js", "app-icon.svg",
     "journal.js", "nutrition.js", "shopping.js", "ingredient-nutrients.js", "expanded-foods.js",
 )

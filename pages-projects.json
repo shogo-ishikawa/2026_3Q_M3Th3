@@ -116,7 +116,20 @@
         "restaurant-menu-ui.js",
         "restaurant-menu-ui.css",
         "quantity-input.js",
-        "quantity-input.css"
+        "quantity-input.css",
+        "favourites.js",
+        "favourites-ui.js",
+        "favourites-ui.css",
+        "meal-overlap.js",
+        "nutrition-basis.js",
+        "nutrition-basis-ui.js",
+        "nutrition-basis-ui.css",
+        "text-log.js",
+        "text-log-ui.js",
+        "text-log-ui.css",
+        "soup-intake.js",
+        "soup-intake-ui.js",
+        "soup-intake-ui.css"
       ]
     },
     {

@@ -26,9 +26,9 @@ test('ポトフの初期値は既存ベーコンと野菜の1人分を正確に�
   const oldNutrition=recipeNutrition(source,data);
   for(const key of NUTRIENT_KEYS)near(result.manualNutrition[key],oldNutrition[key]);
   assert.equal(JSON.stringify(source),before);
-  assert.match(foodComposerDefinition('pot-au-feu').intro,/煮汁を全量食べる/);
-  assert.match(result.sourceNote,/煮汁・調味料を全量食べる/);
-  assert.match(result.sourceNote,/買い物は用意する全量/);
+  assert.match(foodComposerDefinition('pot-au-feu').intro,/食べた分は汁と具の摂取割合で調整/);
+  assert.match(result.sourceNote,/具材・煮汁・調味料の全量を表示/);
+  assert.match(result.sourceNote,/買い物には用意する全量/);
 });
 
 test('ポトフで選んだ肉・野菜・水・塩だけを栄養と材料へ計上する',()=>{

@@ -1,0 +1,9 @@
+.nutrition-basis-badge{display:inline-flex;align-items:center;max-width:100%;padding:.22rem .55rem;border:1px solid #dce2d8;border-radius:999px;background:#f1f3ed;color:#58624f;font-size:.68rem;font-weight:550;line-height:1.5;white-space:normal;vertical-align:middle}
+.nutrition-basis-ingredients{background:#edf3e7;border-color:#d8e3ce;color:#4b6541}
+.nutrition-basis-official{background:#edf2f5;border-color:#d9e3e9;color:#466171}
+.nutrition-basis-manual{background:#f4f0e8;border-color:#e4ddcf;color:#77634a}
+.nutrition-basis-estimate{background:#f0f3e8;border-color:#dfe6cf;color:#5e6c42}
+.nutrition-basis-mixed{background:#f6f1e6;border-color:#e8ddbf;color:#78673e}
+.nutrition-basis-unknown{background:#f2f2ef;border-color:#e0e1db;color:#72756b}
+.entry-item .nutrition-basis-badge{justify-self:start}
+.recipe-card .nutrition-basis-badge{margin-top:.55rem}

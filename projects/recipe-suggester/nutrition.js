@@ -1,3 +1,4 @@
+import {deriveRecipeBasis} from './nutrition-basis.js';
 /** Estimates for a single person's recorded portions. Unknown values stay unknown. */
 import {FOOD_NATURES} from './catalog.js';
 export const NUTRIENT_KEYS = ['kcal','protein','fat','carbs','fiber','salt'];
@@ -69,7 +70,7 @@ export function itemFromRecipe(recipe,data,quantity=1) {
   // しょうゆだけを「大豆のたんぱく源を食べた1食」とは数えません。
   const directMetas=ingredients.map(part=>data.ingredients[part.id]);
   const unique=values=>[...new Set(values)];
-  return {id:globalThis.crypto?.randomUUID?.()??`item-${Date.now()}-${Math.random().toString(36).slice(2)}`,recipeId:recipe.id??null,name:recipe.name,quantity,
+  return {id:globalThis.crypto?.randomUUID?.()??`item-${Date.now()}-${Math.random().toString(36).slice(2)}`,recipeId:recipe.id??null,name:recipe.name,quantity,nutritionBasis:deriveRecipeBasis(recipe,data),
     nutrition:recipeNutrition(recipe,data),ingredients:ingredients.map(p=>({id:p.id,amount:p.amount/recipe.servings})),
     groups:unique([...(recipe.groups??[]),...directMetas.flatMap(p=>p?.groups??[])]),proteinSources:unique([...(recipe.proteinSources??[]),...directMetas.flatMap(p=>p?.proteinSources??[])]),
     allergens:unique([...(recipe.allergens??[]),...metas.flatMap(p=>p?.allergens??[])]),allergensKnown:confirmed.allergensKnown,
