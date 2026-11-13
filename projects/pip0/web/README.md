@@ -34,7 +34,7 @@
 
 ## ローカルで起動する
 
-ダウンロードしたZIPを展開すると`v1.0.0`フォルダーができます。Python 3がある場合は、そのフォルダーで次を実行します。
+ダウンロードしたZIPを展開すると`v1.0.1`フォルダーができます。Python 3がある場合は、そのフォルダーで次を実行します。
 
 ```bash
 python3 -m http.server 8000
@@ -85,14 +85,14 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 python3 tools/build_release.py
 ```
 
-`dist/pip0-web_v1.0.0.zip`へ配布物を作成します。公開用のブラウザコードと説明書・検証用コードだけを梱包し、Windows版や学生の提出ZIPを混ぜません。
+`dist/pip0-web_v1.0.1.zip`へ配布物を作成します。公開用のブラウザコードと説明書・検証用コードだけを梱包し、Windows版や学生の提出ZIPを混ぜません。
 
 ## HTTPSで授業リポジトリへ反映する
 
-例として`/Users/shogo/Dropbox/share_data/open_material/misc/apps/pip0-web/v1.0.0`へ展開した場合は、次のように実行します。引数は授業リポジトリのローカルパスです。
+例として`/Users/shogo/Dropbox/share_data/open_material/misc/apps/pip0-web/v1.0.1`へ展開した場合は、次のように実行します。引数は授業リポジトリのローカルパスです。
 
 ```bash
-cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/pip0-web/v1.0.0
+cd /Users/shogo/Dropbox/share_data/open_material/misc/apps/pip0-web/v1.0.1
 bash tools/sync_project.sh /Users/shogo/Dropbox/share_data/open_material/misc/apps/2026_3Q_M3Th3
 ```
 

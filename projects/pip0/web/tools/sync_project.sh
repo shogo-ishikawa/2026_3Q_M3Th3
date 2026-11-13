@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 展開先の例：/Users/shogo/Dropbox/share_data/open_material/misc/apps/pip0-web/v1.0.0
+# 展開先の例：/Users/shogo/Dropbox/share_data/open_material/misc/apps/pip0-web/v1.0.1
 # このスクリプトが入っているバージョン自身を同期元にします。
 PROJECT_SOURCE="$(cd "$(dirname "$0")/.." && pwd)"
 CLASS_CHECKOUT="${1:?授業リポジトリのローカルパスを指定してください。}"
