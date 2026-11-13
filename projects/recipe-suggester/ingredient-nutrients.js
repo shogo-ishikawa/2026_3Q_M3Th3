@@ -1,4 +1,5 @@
 import {PALETTE_NUTRITION} from './palette-foods.js';
+import {MEAT_CHOICE_NUTRITION} from './meat-choice-foods.js';
 /**
  * 日本食品標準成分表（八訂）増補2023年から引用して換算した参考値。
  * 2026-03-27更新の公式Excelを2026-11-12に確認。食品番号ごとの可食部100g値。
@@ -689,11 +690,13 @@ export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(
     const nutritionPerUnit = Object.fromEntries(KEYS.map(key => [key, estimatedNutrients.includes(key)
       ? Number((estimates.values[key] * gramsPerUnit / 100).toFixed(8)) : rawNutritionPerUnit[key]]));
     return [id, Object.freeze({
+      // 未登録プロフィールの1は栄養計算用の仮値で、1個＝1gという意味ではありません。
+      ...(code === 'unknown' ? {} : {gramsPerUnit}),
       nutritionPerUnit: Object.freeze(nutritionPerUnit),
       nutritionSource: estimatedNutrients.length ? `原表の対応・換算：${rawNutritionSource} 計算用の概算補完（${estimatedNutrients.map(key=>({kcal:'エネルギー',protein:'たんぱく質',fat:'脂質',carbs:'炭水化物',fiber:'食物繊維',salt:'食塩相当量'})[key]).join('・')}）：${estimates.notes.join(' ')}` : rawNutritionSource,
       rawNutritionPerUnit: Object.freeze(rawNutritionPerUnit),
       rawNutritionSource,
       estimatedNutrients: Object.freeze(estimatedNutrients),
     })];
-  }).concat(Object.entries(PALETTE_NUTRITION)),
+  }).concat(Object.entries(PALETTE_NUTRITION),Object.entries(MEAT_CHOICE_NUTRITION)),
 ));

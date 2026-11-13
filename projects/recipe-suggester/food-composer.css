@@ -267,3 +267,9 @@
   .salad-component,
   .dish-component { transition: none; }
 }
+
+/* Count inputs keep their edible-weight conversion visible and adjustable. */
+.food-composer-weight { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
+.food-composer-weight-label { display:flex; align-items:center; gap:6px; margin:0; }
+.food-composer-weight-input { width:78px; min-height:36px; padding:5px 7px; }
+.food-composer-weight-total { color:#526d3e; font-weight:600; }

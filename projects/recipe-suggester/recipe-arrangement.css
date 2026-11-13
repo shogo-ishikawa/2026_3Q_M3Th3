@@ -1,0 +1,17 @@
+.recipe-arrangement .arrangement-label { display:block; margin:0; color:#344c37; font-size:13px; font-weight:600; }
+.recipe-arrangement input,.recipe-arrangement select,.recipe-arrangement textarea { width:100%; min-width:0; margin-top:7px; font-weight:400; background:#fffefa; }
+.recipe-arrangement>.arrangement-label { margin:18px 0; }
+.arrangement-picker { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin:24px 0; padding:20px; border:1px solid #dce2d1; border-radius:12px; background:#edf2e5; }
+.arrangement-picker>.arrangement-label:nth-child(3),.arrangement-add,.arrangement-conversion { grid-column:1/-1; }
+.recipe-arrangement .arrangement-amount { width:calc(100% - 34px); margin-right:8px; }
+.arrangement-input-unit,.arrangement-row-unit { font-weight:400; white-space:nowrap; }
+.arrangement-conversion { margin:0; color:#65725c; font-size:12px; line-height:1.8; }
+.arrangement-selected-title { margin:24px 0 12px; color:#344c37; font-size:14px; }
+.arrangement-selected { display:grid; gap:10px; }
+.arrangement-selected-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:7px 12px; padding:14px; border:1px solid #dce2d1; border-radius:11px; background:#fffefa; }
+.recipe-arrangement .arrangement-added-amount { max-width:180px; margin:7px 8px 0 0; }
+.arrangement-equivalent { grid-column:1/-1; color:#65725c; font-size:12px; }
+.arrangement-empty { color:#65725c; font-size:13px; line-height:1.8; }
+.arrangement-preview { margin-top:24px; }
+.arrangement-remove { min-height:42px; }
+@media(max-width:580px) { .arrangement-picker { grid-template-columns:1fr; padding:14px; } .arrangement-picker>* { grid-column:1!important; } .arrangement-selected-row { padding:12px; } }

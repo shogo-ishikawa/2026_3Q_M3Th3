@@ -63,7 +63,7 @@ test('マフィンは生地原材料と選んだ具材を加算し、他の具�
 test('初期値は呼ぶたび独立し、入口で選んだチーズ・ナッツの種類を引き継ぐ',()=>{
   const source=defaultFoodSelection('oden');source.components[0].amount=999;
   assert.equal(defaultFoodSelection('oden').components[0].amount,1);
-  assert.deepEqual(defaultFoodSelection('cheese',{recipeId:'palette-cheese-cheddar'}).components,[{id:'cheddar',amount:20}]);
+  assert.deepEqual(defaultFoodSelection('cheese',{recipeId:'palette-cheese-cheddar'}).components,[{id:'cheddar',amount:1}]);
   assert.deepEqual(defaultFoodSelection('nuts',{recipeId:'palette-nuts-pistachio'}).components,[{id:'pistachio',amount:15}]);
   assert.equal(foodComposerFor(undefined),null);assert.equal(foodComposerFor('classic-sushi-tuna').kind,'sushi');
   assert.ok(Object.isFrozen(FOOD_COMPOSERS));
@@ -97,4 +97,45 @@ test('記録は確定時の材料・量・栄養を保存し、その後の再�
   assert.notEqual(changed.manualNutrition.kcal,one.manualNutrition.kcal);
   assert.equal(JSON.stringify(item),before);
   near(itemNutrition(item).kcal,one.manualNutrition.kcal*0.5);
+});
+
+
+test('刺身の切れ数を可食部gへ換算し、1切れの重さを実物に合わせて変更できる',()=>{
+  const pieces=compose('sashimi',['tuna',3],['squid',2]);
+  near(part(pieces,'tuna_lean_sashimi'),45);near(part(pieces,'squid_sashimi'),10);
+  near(part(pieces,'soy_sauce'),3.3);near(part(pieces,'shiso'),.55);
+  assert.match(pieces.name,/まぐろ赤身 3切れ（約45g）/);
+  // 各刺身は元の100g皿を魚介45g・10gに比例換算する。
+  const tuna=recipeNutrition(RECIPES.find(recipe=>recipe.id==='classic-sashimi-tuna'),data);
+  const squid=recipeNutrition(RECIPES.find(recipe=>recipe.id==='classic-sashimi-squid'),data);
+  for(const key of Object.keys(tuna))near(pieces.manualNutrition[key],tuna[key]*.45+squid[key]*.1);
+  const thick=buildFoodSelection({kind:'sashimi',components:[{id:'tuna',amount:3,gramsPerUnit:20}]},data);
+  near(part(thick,'tuna_lean_sashimi'),60);near(part(thick,'soy_sauce'),3.6);
+  assert.match(thick.sourceNote,/約60g/);
+  for(const gramsPerUnit of [0,-1,NaN,Infinity,'15',501])assert.throws(()=>buildFoodSelection({kind:'sashimi',components:[{id:'tuna',amount:3,gramsPerUnit}]},data),/重さ/);
+  assert.throws(()=>buildFoodSelection({kind:'oden',components:[{id:'daikon',amount:1,gramsPerUnit:15}]},data),/変更できません/);
+  assert.throws(()=>buildFoodSelection({kind:'sashimi',components:[{id:'tuna',amount:20,gramsPerUnit:500}]},data),/合計量/);
+});
+
+test('チーズの個数・枚数・小さじ杯数をgへ換算し、大きさを変更した分だけ加算する',()=>{
+  const plate=compose('cheese',['processed-cheese',2],['cheddar',1],['parmesan',1]);
+  near(part(plate,'palette_processed_cheese'),34);near(part(plate,'palette_cheddar'),18);near(part(plate,'parmesan_cheese'),2);
+  const small=buildFoodSelection({kind:'cheese',components:[{id:'processed-cheese',amount:2,gramsPerUnit:10}]},data);
+  near(part(small,'palette_processed_cheese'),20);near(small.manualNutrition.kcal,62.6);near(small.manualNutrition.fat,5.2);
+  const powder=buildFoodSelection(defaultFoodSelection('cheese',{recipeId:'palette-cheese-parmesan'}),data);
+  near(part(powder,'parmesan_cheese'),10);
+});
+
+test('イングリッシュマフィンはパンの栄養と選んだ具材を加算し、焼き菓子と分ける',()=>{
+  const before=JSON.stringify(data),plain=compose('english-muffin',['base',1]);
+  assert.equal(plain.role,'staple');assert.equal(plain.family,'bread');assert.equal(plain.mealBase,true);
+  near(part(plain,'palette_english_muffin'),60);near(plain.manualNutrition.kcal,134.4);near(plain.manualNutrition.protein,4.86);near(plain.manualNutrition.fat,2.16);near(plain.manualNutrition.carbs,24.48);near(plain.manualNutrition.fiber,.72);near(plain.manualNutrition.salt,.72);
+  const filled=compose('english-muffin',['base',1],['ham',20],['cheese',20]);
+  near(part(filled,'ready_sliced_ham'),20);near(part(filled,'cheese'),20);assert.ok(filled.manualNutrition.kcal>plain.manualNutrition.kcal);
+  assert.ok(!filled.ingredients.some(part=>part.id==='palette_muffin_base'||part.id==='flour'));
+  assert.equal(foodComposerFor('palette-english-muffin').kind,'english-muffin');assert.equal(foodComposerFor('palette-muffin').kind,'muffin');
+  assert.ok(RECIPES.some(recipe=>recipe.id==='palette-muffin'&&recipe.role==='snack'));
+  assert.equal(plain.ingredientsKnown,false);assert.equal(plain.allergensKnown,false);assert.equal(plain.shoppingKnown,true);
+  assert.throws(()=>compose('english-muffin',['ham',20]),/ベース/);assert.throws(()=>compose('english-muffin',['base',2]),/量/);
+  assert.equal(JSON.stringify(data),before);
 });

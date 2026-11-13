@@ -1,7 +1,8 @@
 // 補完前の原表プロフィールで、過去版の固定ハッシュを引き続き照合します。
 // 今回の概算値は nutrition-estimates.test.mjs で独立に確認します。
 export function originalNutrients(ingredient) {
-  const {rawNutritionPerUnit, rawNutritionSource, estimatedNutrients, ...original} = ingredient;
+  // v3.9で追加した重量換算メタデータは、旧版の栄養・分量の固定契約に含めません。
+  const {rawNutritionPerUnit, rawNutritionSource, estimatedNutrients, gramsPerUnit, ...original} = ingredient;
   return {...original, nutritionPerUnit:rawNutritionPerUnit, nutritionSource:rawNutritionSource};
 }
 

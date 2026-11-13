@@ -1,3 +1,4 @@
+import {MEAT_CHOICE_INGREDIENTS} from '../meat-choice-foods.js';
 import {PALETTE_INGREDIENTS, PALETTE_RECIPES} from '../palette-foods.js';
 import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
@@ -129,7 +130,7 @@ test('追加63品を実際の公開DBへ統合し、未確認の購入品だけ�
   const additions=[...products,...COMFORT_RECIPES];
   assert.equal(additions.length,63);
   assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length);
+  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);
   for(const recipe of additions)assert.ok(RECIPES.some(integrated=>integrated.id===recipe.id),recipe.id);
