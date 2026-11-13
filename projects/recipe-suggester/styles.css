@@ -1124,11 +1124,23 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
 .menu-card-entry{display:flex;flex-direction:column;min-width:0;gap:.45rem}
 .menu-card-entry .recipe-card{width:100%;flex:1}
 .menu-card-entry>.favourite-current{align-self:flex-start;font-size:.73rem;padding:.45rem .7rem;min-height:34px}
-.recipe-card-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;width:100%}
-.recipe-card-titles{display:contents}
-.recipe-card .recipe-card-titles .recipe-meta{display:block;grid-column:1;grid-row:1;padding-right:0}
-.recipe-card .recipe-card-heading h3{grid-column:1/-1;grid-row:2;margin:8px 0 14px;overflow-wrap:break-word;word-break:normal;line-break:strict}
-.recipe-illustration{display:flex;align-items:center;justify-content:center;grid-column:2;grid-row:1;width:64px;height:48px;margin:-4px -5px 0 0;border-radius:22px;background:radial-gradient(ellipse at 55% 58%,#eaf0df 0,#f4f5eb 60%,transparent 72%);pointer-events:none}
-.recipe-illustration svg{display:block;width:100%;height:auto}
-@media(max-width:600px){.recipe-card-heading{display:block}.recipe-card-heading .recipe-illustration{position:absolute;top:17px;right:12px;width:42px;height:38px;margin:0}.recipe-card .recipe-card-titles .recipe-meta{min-height:38px;padding-right:42px}}
-@media print{.recipe-illustration{display:none}}
+/* 個別に描いた料理の完成イメージ。未作成の料理へ分類絵を流用しません。 */
+.recipe-card-heading{display:block;width:100%}
+.recipe-card-titles{display:block;min-width:0}
+.recipe-card .recipe-card-titles .recipe-meta{display:block;padding-right:0}
+.recipe-card .recipe-card-heading h3{margin:10px 0 16px;overflow-wrap:break-word;word-break:normal;line-break:strict}
+.recipe-art{margin:0;min-width:0;color:#8a7b62}
+.recipe-art[hidden]{display:none}
+.recipe-art-image-frame{display:block;overflow:hidden;background:#fffaf1;border:1px solid #eee6d7;border-radius:11px}
+.recipe-art img{display:block;width:100%;object-fit:contain}
+.recipe-art figcaption{margin-top:5px;color:#8a7b62;font-size:9px;line-height:1.6;letter-spacing:.025em;font-weight:400}
+.recipe-art-card{width:100%;margin:0 0 14px}
+.recipe-art-card .recipe-art-image-frame{aspect-ratio:16/10;max-height:210px}
+.recipe-art-card img{height:100%}
+.recipe-card.has-recipe-art::before{opacity:.4}
+.recipe-art-detail{margin:0 0 24px;padding-bottom:17px;border-bottom:1px solid var(--line,#e3e7da)}
+.recipe-art-detail img{height:auto;max-height:340px}
+.recipe-art-detail .recipe-art-image-frame{background:#fffaf1}
+.recipe-art-note{margin:7px 0 0;font-size:11px;line-height:1.8;color:#7b7d6f;font-weight:400}
+@media(max-width:600px){.recipe-art-card{margin-bottom:11px}.recipe-art-card .recipe-art-image-frame{border-radius:8px}.recipe-art figcaption{font-size:8px}.recipe-art-detail img{max-height:270px}.recipe-art-note{font-size:10px}}
+@media print{.recipe-art{display:none}}

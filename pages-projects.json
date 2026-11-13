@@ -131,7 +131,9 @@
         "soup-intake-ui.js",
         "soup-intake-ui.css",
         "recipe-illustration.js",
-        "recipe-illustration-ui.js"
+        "recipe-illustration-ui.js",
+        "recipe-artwork-manifest.js",
+        "assets"
       ]
     },
     {
