@@ -719,7 +719,7 @@ function catalogRecordForm(recipeId,{getCustomRecipe=null,initial={},saveLabelTe
     const composed=getCustomRecipe?getCustomRecipe():null;
     if(getCustomRecipe&&!composed)throw Error('材料と量を確認してください。');
     const save=saveLabel?.querySelector('input')?.checked===true;
-    const catalogData=composed?{...data(),recipes:[...data().recipes,composed]}:data();
+    const catalogData=composed?{...data(),recipes:[...data().recipes.filter(recipe=>recipe.id!==composed.id),composed]}:data();
     const entry=createCatalogEntry({recipeId:composed?.id??recipeId,date:date.value,meal:meal.value,status:status.value,amount:Number(qty.value),note:''},catalogData);
     // マイメニューを作らない場合も、その時の材料・量・栄養を記録へ残します。
     if(composed&&!save)entry.items[0].recipeId=null;
