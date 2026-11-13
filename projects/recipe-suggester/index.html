@@ -15,6 +15,10 @@
   <link rel="stylesheet" href="food-composer.css">
   <link rel="stylesheet" href="noodle-composer.css">
   <link rel="stylesheet" href="recipe-arrangement.css">
+  <link rel="stylesheet" href="meal-sets-ui.css">
+  <link rel="stylesheet" href="purchase-conversion-ui.css">
+  <link rel="stylesheet" href="batch-cooking-ui.css">
+  <link rel="stylesheet" href="restaurant-menu-ui.css">
 </head>
 <body>
 <a class="skip-link" href="#main">本文へ移動</a><div class="app-layout">
@@ -27,7 +31,7 @@
 <p class="eyebrow">MAKE ROOM FOR GOOD FOOD</p>
 <h1 id="hero-title">食事と栄養をひとつの場所に。</h1>
 </div>
-<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v3.11.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
+<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v3.12.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
 <section class="tab-panel" id="panel-record" role="tabpanel" aria-labelledby="tab-record" tabindex="0" hidden><section class="calendar-section" id="calendar" aria-labelledby="calendar-title">
       <div class="section-heading">
 <div>
@@ -93,7 +97,10 @@
 <p id="catalog-serving-label" class="field-note">ご飯はg、おにぎりは個数で記録できます。</p>
 </div>
           <details class="day-records" open><summary>この日の記録</summary><div id="calendar-entry-list" class="calendar-entry-list" aria-live="polite"></div>
-          </details><details class="manual-details"><summary><span>見つからない食事を入力</span><span class="summary-plus" aria-hidden="true">＋</span></summary><form id="manual-form" class="manual-form">
+          </details>
+          <details class="manual-details"><summary>定番セット・過去の食事をコピー</summary><div id="meal-sets-tools"></div></details>
+          <details class="manual-details"><summary>作り置き・取り分けを管理</summary><div id="batch-cooking-tools"></div></details>
+          <details class="manual-details"><summary><span>見つからない食事を入力</span><span class="summary-plus" aria-hidden="true">＋</span></summary><form id="manual-form" class="manual-form">
             <label for="manual-name">料理・飲み物の名前<input id="manual-name" type="text" maxlength="120" placeholder="例：お店の日替わりランチ" required></label>
             <div class="field-pair">
 <label for="manual-role">種類<select id="manual-role"><option value="staple">主食</option>
@@ -320,6 +327,7 @@
 <option value="7">7日分</option></select></label>
 </div>
 <p class="field-note">献立の設定人数分を合計し、手持ちの量を差し引きます。カレンダーは「これからの予定」だけが対象です。</p>
+<p class="field-note">不足量を購入時の重量・包装数へ換算できます。店別登録の外食と作り置きの取り分けは、材料を買い物へ加えません。</p>
 <p id="shopping-status" class="shopping-status" role="status"></p>
 <div id="shopping-list" class="shopping-list" aria-live="polite"></div>
 <div class="shopping-actions">
@@ -354,6 +362,7 @@
 <div class="more-recipes"><button id="more-recipes" class="button-secondary" type="button" hidden>もっと見る</button></div>
 <details class="custom-catalog-details"><summary>自分のデータベースを管理する</summary><p class="field-note">登録済みの食材と量からオリジナルレシピを作れます。レシピだけの保存もできます。ここで削除しても、カレンダーに記録済みの食事は残ります。</p>
 <button id="create-original-recipe" type="button" class="button-primary">オリジナルレシピを作る</button>
+<button id="create-restaurant-menu" type="button" class="button-secondary">店別・サイズ別メニューを登録</button>
 <div id="custom-catalog-list" class="custom-catalog-list"></div></details></section>
 
     </section><section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden><div class="section-heading">
@@ -426,8 +435,8 @@
 <p><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/meal_planner.ipynb">Pythonで献立の選び方を学ぶColab教材</a>では、条件の確認やレシピの組み合わせを試せます。ブラウザー版の全機能を移植したものではありません。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/recipe_suggester.ipynb">初期のColab教材</a>も残しています。</p>
 <p class="about-links"><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/manual.md">使い方</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/sources.md">データと出典</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/recipe-suggester">コードを見る</a></p>
 </div></details>
-  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v3.11.0</small></span><div class="footer-links">
-<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v3.11.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
+  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v3.12.0</small></span><div class="footer-links">
+<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v3.12.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
 </div></footer>
 </div>
 </div>

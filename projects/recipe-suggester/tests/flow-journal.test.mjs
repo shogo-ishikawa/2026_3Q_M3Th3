@@ -79,6 +79,9 @@ test('旧v1とv2を読み込んでも食事区分と主食設定を引き継ぎ�
   assert.ok(!Object.hasOwn(migrated1.settings, 'stapleMode'));
   const version2 = state();
   version2.version = 2;
+  delete version2.mealSets;
+  delete version2.purchaseSettings;
+  delete version2.batches;
   delete version2.profile;
   delete version2.completedDays;
   delete version2.settings.stapleAmount;

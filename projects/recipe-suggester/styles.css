@@ -1116,3 +1116,8 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
 .arrangement-save-area { padding: 1rem 0; border-bottom: 1px solid var(--line, #dce2d7); }
 .arrangement-save-area .field-note { margin-bottom: 0; }
 #create-original-recipe { margin: .5rem 0 1rem; }
+/* 材料の必要量と購入時の換算量を、折り返して読める幅で並べます。 */
+.shopping-purchase-row .shopping-amount{max-width:min(46%,20rem);overflow-wrap:anywhere;font-size:.84rem;line-height:1.6}
+.shopping-purchase-row{padding-bottom:.6rem;border-bottom:1px solid var(--line,#e4e8e4)}
+.shopping-purchase-row .purchase-editor{margin:0 0 .4rem 2.1rem}
+@media(max-width:600px){.shopping-purchase-row .shopping-item{display:grid;grid-template-columns:1.3rem minmax(0,1fr)}.shopping-purchase-row .shopping-amount{grid-column:2;max-width:100%;text-align:left}.shopping-purchase-row .purchase-editor{margin-left:0}}

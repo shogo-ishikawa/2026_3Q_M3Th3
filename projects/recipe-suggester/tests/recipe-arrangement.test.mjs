@@ -75,3 +75,40 @@ test('元料理に材料がなく栄養も不明なら、食材を足しても�
   assert.ok(Object.values(result.manualNutrition).every(value=>value===null));assert.equal(result.ingredientsKnown,false);assert.equal(result.allergensKnown,false);assert.equal(result.shoppingKnown,false);
   const item=itemFromRecipe(result,data);assert.equal(item.ingredients.length,1);assert.equal(item.ingredientsKnown,false);
 });
+
+test('元材料の油を半量にし、チーズを削除し、肉を替えた最終材料から栄養と買い物を再計算する',()=>{
+  const source={id:'sample',name:'鶏肉のチーズ焼き',role:'main',servings:2,ingredients:[{id:'chicken',amount:200},{id:'cheese',amount:40},{id:'oil',amount:20}],steps:['鶏肉を焼いてチーズを載せる。']};
+  const original=JSON.stringify(source),frozen=itemFromRecipe(source,data);
+  const arranged=buildRecipeArrangement({baseRecipe:source,additions:[],ingredientEdits:[{id:'chicken',replacementId:'chicken_breast',amount:100,unit:'g'},{id:'cheese',amount:0},{id:'oil',amount:4.565,unit:'g'}]},data);
+  assert.deepEqual(arranged.ingredients,[{id:'chicken_breast',amount:100},{id:'oil',amount:5}]);
+  const expected=recipeNutrition({servings:1,ingredients:arranged.ingredients},data);
+  for(const key of NUTRIENT_KEYS)near(arranged.manualNutrition[key],expected[key]);
+  assert.ok(!arranged.allergens.includes('milk'));assert.ok(arranged.proteinSources.includes('meat'));assert.ok(!arranged.groups.includes('dairy'));
+  assert.equal(JSON.stringify(source),original);assert.ok(frozen.ingredients.some(part=>part.id==='cheese'));assert.ok(frozen.allergens.includes('milk'));
+  assert.match(arranged.steps.at(-1),/変更後の材料に読み替え/);
+  const shopping=shoppingForEntries([{id:'planned-edit',date:'2026-11-13',status:'planned',items:[itemFromRecipe(arranged,data,2)]}],data,{from:'2026-11-13',to:'2026-11-13',servings:3});
+  near(shopping.items.find(row=>row.id==='chicken_breast').required,600);near(shopping.items.find(row=>row.id==='oil').required,30);assert.ok(!shopping.items.some(row=>row.id==='cheese'));
+});
+
+test('商品表示や一部だけ飲んだスープの栄養を原材料量で減算せず、追加は従来どおり許す',()=>{
+  const source={...base,manualNutrition:{kcal:10,protein:1,fat:1,carbs:1,fiber:0,salt:.1}};
+  assert.throws(()=>buildRecipeArrangement({baseRecipe:source,additions:[],ingredientEdits:[{id:base.ingredients[0].id,amount:0}]},data),/商品表示やスープ摂取量/);
+  const arranged=buildRecipeArrangement({baseRecipe:source,additions:[{id:'shimeji',amount:20}]},data);
+  near(arranged.manualNutrition.kcal,10+INGREDIENTS.shimeji.nutritionPerUnit.kcal*20);
+  const matched={...base,manualNutrition:recipeNutrition(base,data)};
+  const reduced=buildRecipeArrangement({baseRecipe:matched,additions:[],ingredientEdits:[{id:base.ingredients[0].id,amount:10,unit:'g'}]},data);
+  assert.deepEqual(reduced.manualNutrition,recipeNutrition({...reduced,manualNutrition:undefined},data));
+});
+
+test('不明の材料を取り除くと残った材料から計算し直すが、不明の原材料は編集しない',()=>{
+  const source={name:'チーズと表示未確認のバー',role:'main',servings:1,ingredients:[{id:'cheese',amount:20},{id:'perf_bar_manzoku',amount:1}],steps:[]};
+  assert.equal(recipeNutrition(source,data).kcal,null);
+  const edited=buildRecipeArrangement({baseRecipe:source,additions:[],ingredientEdits:[{id:'perf_bar_manzoku',amount:0}]},data);
+  near(edited.manualNutrition.kcal,INGREDIENTS.cheese.nutritionPerUnit.kcal*20);
+  assert.throws(()=>buildRecipeArrangement({baseRecipe:{...source,ingredientsKnown:false},additions:[],ingredientEdits:[{id:'cheese',amount:0}]},data),/原材料が未確認/);
+});
+
+test('削除で材料が空になる操作・重複する変更・負数・不正単位・存在しない置き換え先を拒否する',()=>{
+  const source={name:'卵',role:'main',servings:1,ingredients:[{id:'egg',amount:1}],steps:[]};
+  for(const ingredientEdits of [[{id:'egg',amount:0}],[{id:'egg',amount:-1}],[{id:'egg',amount:10,unit:'kg'}],[{id:'egg',amount:0,unit:'kg'}],[{id:'egg',amount:25},{id:'egg',amount:20}],[{id:'egg',replacementId:'no-food',amount:25}],[{id:'egg',amount:NaN}]])assert.throws(()=>buildRecipeArrangement({baseRecipe:source,additions:[],ingredientEdits},data));
+});

@@ -321,6 +321,7 @@ test('v2 JSON migration retains snapshots and personal database without inventin
   current.settings.allergens = ['milk']; current.settings.excludedIngredients = ['butter'];
   current.pantry = [{id: 'milk', amount: 50}]; current.shoppingChecks = ['milk'];
   const legacy = structuredClone(current); legacy.version = 2;
+  delete legacy.mealSets; delete legacy.purchaseSettings; delete legacy.batches;
   delete legacy.profile; delete legacy.completedDays; delete legacy.settings.stapleAmount; delete legacy.settings.drinkAmount;
   const sourceText = JSON.stringify(legacy);
   const migrated = parseJournal(sourceText, data);

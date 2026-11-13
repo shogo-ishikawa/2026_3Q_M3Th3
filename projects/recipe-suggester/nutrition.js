@@ -75,7 +75,8 @@ export function itemFromRecipe(recipe,data,quantity=1) {
     allergens:unique([...(recipe.allergens??[]),...metas.flatMap(p=>p?.allergens??[])]),allergensKnown:confirmed.allergensKnown,
     ingredientsKnown:confirmed.ingredientsKnown,steps:[...(recipe.steps??[])],role:recipe.role,
     ...(recipe.nature===undefined?{}:{nature:recipe.nature}),...(recipe.sourceNote===undefined?{}:{sourceNote:recipe.sourceNote}),
-    ...(recipe.shoppingKnown===undefined?{}:{shoppingKnown:recipe.shoppingKnown})};
+    ...(recipe.shoppingKnown===undefined?{}:{shoppingKnown:recipe.shoppingKnown}),
+    ...(recipe.restaurant===undefined?{}:{restaurant:structuredClone(recipe.restaurant)})};
 }
 export function itemNutrition(item) {
   if(!validAmount(item?.quantity)||item.quantity===0)throw Error('食事の分量を確認してください。');

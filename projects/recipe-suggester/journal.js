@@ -2,6 +2,10 @@
 import {CATALOG_CATEGORIES, FOOD_NATURES} from './catalog.js';
 import {deriveReference} from './dietary-reference.js';
 import {recipeConfirmation} from './nutrition.js';
+import {validateMealSets} from './meal-sets.js';
+import {validatePurchaseSettings} from './purchase-conversion.js';
+import {validateBatches, assertBatchUsage} from './batch-cooking.js';
+import {validateRestaurantMetadata} from './restaurant-menu.js';
 import {STORAGE_KEY as LEGACY_KEY, defaultState, validateState, GROUP_IDS, PROTEIN_IDS, GENRES} from './storage.js';
 
 export const JOURNAL_KEY = 'kondate-note-v3';
@@ -14,8 +18,8 @@ export const DEFAULT_TARGETS = Object.freeze({kcal: 2000, protein: 60, fat: 65, 
 const MAX_BYTES = 2 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode'];
-const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown'];
-const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown'];
+const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant'];
+const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant'];
 const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。アレルギーと除外食材を選び直してください。バックアップがあれば「記録を読み込む」から取り込めます。';
 const unknownNutrition = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
 const unique = values => [...new Set(values)];
@@ -67,7 +71,7 @@ export function entriesForDay(entries, date) {
 
 export function defaultJournal(today = dateKey()) {
   if (!dateIsValid(today)) throw new Error('日付を確認してください。');
-  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: []};
+  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: []};
 }
 
 // JSON以外のオブジェクト、アクセサー、危険なキーをデータとして受け付けません。
@@ -201,6 +205,7 @@ function customRecipe(source, context) {
   if (ingredientsKnown && !ingredients.length) throw new Error('材料を確認済みにする場合は、材料を登録してください。');
   if (source.shoppingKnown === true && !ingredients.length) throw new Error('買い物に使う商品を確認済みにする場合は、商品を登録してください。');
   const extra = sourceMetadata(source);
+  if (source.restaurant !== undefined) extra.restaurant = validateRestaurantMetadata(source.restaurant, context.data, {historical: true});
   if (source.portion !== undefined) extra.portion = portion(source.portion);
   if (source.family !== undefined) {
     if (!CATALOG_CATEGORIES.some(category => category.id === source.family)) throw new Error('メニューの大分類が登録されていません。');
@@ -233,7 +238,17 @@ function snapshot(source, context, itemIds) {
     groups: ids(source.groups, new Set(GROUP_IDS), '食品群'), proteinSources: ids(source.proteinSources, new Set(PROTEIN_IDS), '主な食材'),
     allergens: ids(source.allergens, context.allergenIds, 'アレルゲン'), allergensKnown: bool(source.allergensKnown, false, 'アレルゲンの確認状況'),
     ingredientsKnown: bool(source.ingredientsKnown, false, '材料の確認状況'), steps: steps(source.steps), role: source.role,
-    ...(source.portion === undefined ? {} : {portion: portion(source.portion)}), ...sourceMetadata(source)};
+    ...(source.portion === undefined ? {} : {portion: portion(source.portion)}),
+    ...(source.batchId === undefined ? {} : {batchId: identifier(source.batchId, '作り置きの識別子')}),
+    ...(source.restaurant === undefined ? {} : {restaurant: validateRestaurantMetadata(source.restaurant, context.data, {historical: true})}), ...sourceMetadata(source)};
+}
+
+/** 記録・定番セット・作り置きで共通の保存用スナップショット検証。 */
+export function validateFrozenItems(items, data) {
+  safeGraph(items);
+  const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), allergenIds: new Set(data.allergens.map(a => a.id))};
+  const itemIds = new Set();
+  return list(items, LIMITS.items, '食事の内容').map(item => snapshot(item, context, itemIds));
 }
 
 function settings(source, data, recipes) {
@@ -266,7 +281,7 @@ function profile(value) {
 }
 
 function validateV3(value, data) {
-  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks'], '保存データ');
+  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches'], '保存データ');
   const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), recipeIds: new Set(data.recipes.map(recipe => recipe.id)), allergenIds: new Set(data.allergens.map(allergen => allergen.id)), customIds: new Set()};
   const customRecipes = list(value.customRecipes, LIMITS.customRecipes, 'マイレシピ').map(recipe => customRecipe(recipe, context));
   const recipes = [...data.recipes, ...customRecipes];
@@ -302,7 +317,11 @@ function validateV3(value, data) {
   const completedDays = list(value.completedDays, 36600, '記録を完了した日').map(date => { if (!dateIsValid(date)) throw new Error('記録を完了した日付を確認してください。'); return date; });
   if (new Set(completedDays).size !== completedDays.length) throw new Error('記録を完了した日付が重複しています。');
   const shoppingChecks = unique(list(value.shoppingChecks, LIMITS.shoppingChecks, '買い物のチェック').map(id => text(id, 200, '買い物の識別子')));
-  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks};
+  const mealSets = validateMealSets(value.mealSets === undefined ? [] : value.mealSets, data);
+  const purchaseSettings = validatePurchaseSettings(value.purchaseSettings === undefined ? [] : value.purchaseSettings, data);
+  const batches = validateBatches(value.batches === undefined ? [] : value.batches, data, {validateItem: item => validateFrozenItems([item], data)[0]});
+  assertBatchUsage(batches, entries);
+  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches};
 }
 
 function legacyNutrition(recipe, data) {
