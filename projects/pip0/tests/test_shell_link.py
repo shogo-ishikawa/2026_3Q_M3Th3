@@ -7,14 +7,18 @@
 import io
 import json
 import logging
+import ntpath
+import subprocess
 import sys
 import threading
 import time
+from functools import partial
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from pip0 import shell_link
+from pip0 import netguard, shell_link
 from pip0.shell_link import ShellError, ShellLink, ShellTimeout, ShellUnavailable
 
 FAKE_SHELL = Path(__file__).with_name("fake_shell.py")
@@ -86,6 +90,34 @@ def started(make_link, *arguments, on_event=None):
     assert link.start() == {"ok": True, "reason": ""}
     recorder.wait_for("shell.ready")
     return link, recorder
+
+
+@pytest.mark.parametrize("user_folder", ["student", "学生　太郎"])
+def test_windows_shell_start_survives_unusable_audit_command_line(monkeypatch, user_folder):
+    """Windowsの監査引数を模擬し、許可済みシェルの起動からIPCまで確認する。"""
+    path = rf"C:\Users\{user_folder}\AppData\Local\Programs\pip0\shell\Pip0Shell.exe"
+    monkeypatch.setattr(netguard, "_allowed", frozenset({netguard.normalise_program(path, ntpath)}))
+    monkeypatch.setattr(netguard, "_counts", {})
+    monkeypatch.setattr(netguard, "is_allowed_program", partial(netguard.is_allowed_program, pathmod=ntpath))
+    monkeypatch.setattr(shell_link, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
+    real_popen = subprocess.Popen
+
+    def windows_popen(command, executable=None, **options):
+        command_line = subprocess.list2cmdline(command)
+        netguard.audit_hook("subprocess.Popen", (executable, command_line, None, None))
+        # _winapi.CreateProcess の第2引数がコマンド文字列として読めない場合を模擬する。
+        netguard.audit_hook("_winapi.CreateProcess", (executable, "\x02", None))
+        options.pop("creationflags")
+        return real_popen([sys.executable, str(FAKE_SHELL)], **options)
+
+    monkeypatch.setattr(subprocess, "Popen", windows_popen)
+    link = ShellLink([path], on_event=None)
+    try:
+        assert link.start() == {"ok": True, "reason": ""}
+        assert link.request("echo", {"started": True}) == {"started": True}
+    finally:
+        link.stop(timeout=2)
 
 
 # ----------------------------------------------------------------------

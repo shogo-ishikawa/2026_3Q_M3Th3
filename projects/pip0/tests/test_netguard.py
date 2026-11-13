@@ -212,7 +212,7 @@ def test_only_allowed_executables_can_be_started():
 
         def run_allowed():
             completed = subprocess.run([sys.executable, "-c", "print('allowed')"],
-                                       capture_output=True, text=True, timeout=60)
+                                       executable=sys.executable, capture_output=True, text=True, timeout=60)
             return completed.stdout.strip()
 
         results = {
