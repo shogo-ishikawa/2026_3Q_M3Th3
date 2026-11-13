@@ -34,6 +34,7 @@ import {nutritionBasisBadge} from './nutrition-basis-ui.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -363,7 +364,8 @@ function renderCatalog(){
   for(const menu of menus.slice(0,recipeLimit)){
     const r=menu.recipe,customiser=dishCustomiserFor(r.id),foodComposer=foodComposerFor(r.id),meatChoice=meatChoiceFor(r.id),noodle=noodleComposerFor(r.id),curry=curryRiceFor(r.id,data());
     const card=button('',()=>openRecipe(menu.selectedRecipeId,{variationRecipes:variationScope,query}),'recipe-card');
-    card.append(node('span','recipe-meta',`${familyLabel(r)} / ${r.genre}`),node('h3','',menu.label));
+    const heading=node('div','recipe-card-heading'),titles=node('div','recipe-card-titles');
+    titles.append(node('span','recipe-meta',`${familyLabel(r)} / ${r.genre}`),node('h3','',menu.label));heading.append(titles,recipeIllustrationElement(r));card.append(heading);
     if(noodle){
       card.append(node('p','',noodle.soup.length?'トッピングと飲んだスープの量を選べます':'麺の量とトッピングを選べます'),node('span','food-customisation',noodle.soup.length?'麺・具・スープを分けて栄養を計算':'麺・たれ・具の栄養を合計'));
     }else if(curry){
