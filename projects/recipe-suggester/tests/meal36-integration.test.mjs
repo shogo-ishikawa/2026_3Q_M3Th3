@@ -1,3 +1,4 @@
+import {PALETTE_INGREDIENTS, PALETTE_RECIPES} from '../palette-foods.js';
 import {originalNutrients, originalRecipe} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,8 +19,8 @@ const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const movedIds = ['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon'];
-const newIds = new Set(ACCOMPANIMENT_RECIPES.map(recipe => recipe.id));
-const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS)]);
+const newIds = new Set([...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES].map(recipe => recipe.id));
+const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS)]);
 const date = '2026-11-13';
 const recordInput = (recipeId, amount = 1, status = 'planned') => ({recipeId, date, meal: 'dinner', status, amount});
 
@@ -74,7 +75,7 @@ test('以前に主菜として記録した納豆とゆで卵は、分類を更�
 
 test('ご飯のお供8品を単品の副菜として記録し、生卵と牛丼のご飯を二重計上しない', () => {
   assert.equal(ACCOMPANIMENT_RECIPES.length, 8);
-  assert.equal(RECIPES.length, 855);
+  assert.equal(RECIPES.length, 855+PALETTE_RECIPES.length);
   for (const source of ACCOMPANIMENT_RECIPES) {
     const recipe = RECIPES.find(candidate => candidate.id === source.id);
     assert.ok(recipe, source.id);

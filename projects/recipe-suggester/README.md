@@ -1,14 +1,16 @@
 # Meal Palette（ミールパレット）
 
-対応版：v3.7.1 ／ 更新日：2026年11月13日
+対応版：v3.8.0 ／ 更新日：2026年11月13日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
 
-v3.7.1は855品のレシピと372種類の食材・調味料を収録しています。肉じゃがは牛肉と豚肉、お好み焼きは具材やトッピングを料理の中で選べます。同じ料理のバリエーションは一覧へ並べすぎず、詳細の中で選ぶ形にまとめました。選んだ内容に合わせて材料、栄養、作り方を表示します。サラダの材料選択、食事の記録、3食まとめての提案、栄養の振り返り、買い物も引き続き使えます。保存済みの料理名や量、栄養は記録時点の内容を保ちます。
+v3.8.0は883品のレシピと396種類の食材・調味料を収録しています。おでんの具材、寿司・刺身・焼き鳥・天ぷらの種類と量を選んで、一皿として記録できます。ベーグルとワッフルはトッピング、マフィンとサンドイッチは具材を選べます。チーズやナッツも食べる種類とg数を組み合わせられます。
 
-v3.7.1では栄養計算を見直しました。牛・豚・鶏の種類と部位に対応する値に加え、酒やみりんの微量脂質、香辛料などの未登録成分を一般値から補います。肉料理を含む材料計算734品で6成分の概算を表示します。料理の詳細にある「栄養の見積もりに使う食材・部位」で計算の前提を確認できます。過去の食事記録は保存時の栄養を保ちます。
+一覧では65グループに同じ料理の種類をまとめ、883品を631件の入口から探せるようにしました。肉じゃがやサラダの選択機能、食事カレンダー、栄養の振り返り、買い物リストも引き続き使えます。記録画面の区分は「主食・主菜・副菜・汁物・飲み物・間食」の順です。画面全体の配色、文字の大きさ、余白も見直しました。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.7.1.zip)
+v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
+
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.8.0.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
@@ -136,6 +138,8 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `confectionery-foods.js`・`dessert-foods.js` | 公式表示に基づく菓子・スナック・スイーツの記録例 |
 | `comfort-foods.js` | 肉豆腐やもつ煮など家庭向けの料理5品 |
 | `accompaniment-foods.js` | ツナや単品の卵、のり、魚卵、鮭フレークなどのご飯のお供 |
+| `food-composer.js`・`food-composer-ui.js`・`food-composer.css` | おでん、寿司、刺身、焼き鳥、天ぷら、チーズ、ナッツ、パンやお菓子の選択と一皿分の計算 |
+| `palette-foods.js` | 新しい単品食品、握り寿司とトッピングの材料・栄養値 |
 | `salad-builder.js`・`salad-builder-ui.js`・`salad-builder.css` | 野菜とドレッシングの組み合わせ、分量の入力、栄養の概算 |
 | `dish-customisation.js`・`dish-customisation-ui.js`・`dish-customisation.css` | 肉じゃがとお好み焼きの具材選択、材料・栄養・作り方の更新 |
 | `menu-variations.js` | 既存レシピを料理ごとの入口へまとめ、詳細で選ぶための対応 |
@@ -153,10 +157,10 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `app.js`・`tabs.js`・`index.html`・`styles.css` | 操作、タブの切り替え、表示 |
 | `storage.js` | 旧版のAPIと互換処理 |
 
-ZIPは`v3.7.1/`に展開します。Macでは次の場所に置けます。
+ZIPは`v3.8.0/`に展開します。Macでは次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.7.1
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.8.0
 ```
 
 展開したフォルダーで`python3 tools/serve.py`を実行し、表示されたURLを開きます。`npm test`で確認できます。背景は[設計と開発](docs/design.md)、実際の確認範囲は[検証記録](docs/validation.md)をご覧ください。

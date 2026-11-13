@@ -1,3 +1,4 @@
+import {PALETTE_RECIPES} from '../palette-foods.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
@@ -20,7 +21,7 @@ import {shoppingForEntries} from '../shopping.js';
 // 各追加モジュールの単体テストとは別に、公開アプリが import する完成DBを使います。
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
-const unconfirmedIds = new Set([...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES].filter(recipe => recipe.allergensKnown === false).map(recipe => recipe.id));
+const unconfirmedIds = new Set([...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...TAKEAWAY_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES].filter(recipe => recipe.allergensKnown === false).map(recipe => recipe.id));
 const settings = {startDate: '2026-11-12', days: 7, servings: 3, meal: 'dinner', seed: 73};
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const snapshot = (id, amount) => {
@@ -41,7 +42,7 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
     assert.ok(typeof recipe.variantLabel === 'string' && recipe.variantLabel.trim(), recipe.id);
     assert.equal(typeof recipe.mealBase, 'boolean', recipe.id);
   }
-  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES]) {
+  for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES]) {
     const integrated = byId.get(source.id);
     assert.ok(integrated, source.id);
     assert.deepEqual(integrated.ingredients, source.ingredients, source.id);
