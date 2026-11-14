@@ -35,8 +35,8 @@ import {nutritionBasisBadge} from './nutrition-basis-ui.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.21.0';
-import {recipeArtwork,liveBreadArtworkRecipe} from './recipe-illustration.js?v=3.21.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.22.0';
+import {recipeArtwork,liveBreadArtworkRecipe} from './recipe-illustration.js?v=3.22.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -111,6 +111,8 @@ function addQuickEntry(entry,message='食事を記録しました。'){
 
 function renderSettings(){
   const s=state.settings,p=s.preferences;
+  document.documentElement.dataset.textSize=s.textSize;
+  for(const input of document.querySelectorAll('input[name="text-size"]'))input.checked=input.value===s.textSize;
   $('hide-recipe-illustrations').checked=s.hideRecipeIllustrations;
   if(s.hideRecipeIllustrations){
     for(const artwork of document.querySelectorAll('.recipe-art'))artwork.remove();
@@ -907,6 +909,9 @@ bind('manual-form','submit',event=>{event.preventDefault();const r=readManual(),
 });
 for(const [id,key]of [['start-date','startDate'],['plan-days','days'],['servings','servings'],['plan-meal','meal']])bind(id,'change',()=>commit(next=>{next.settings[key]=['days','servings'].includes(key)?Number($(id).value):$(id).value;}));
 bind('hide-recipe-illustrations','change',()=>{recipeLimit=12;commit(next=>{next.settings.hideRecipeIllustrations=$('hide-recipe-illustrations').checked;},{invalidate:false,message:$('hide-recipe-illustrations').checked?'料理イラストを非表示にしました。':'料理イラストを表示します。'});});
+for(const input of document.querySelectorAll('input[name="text-size"]'))input.addEventListener('change',guard(()=>{
+  if(input.checked)commit(next=>{next.settings.textSize=input.value;},{invalidate:false});
+}));
 for(const id of ['genre-mode','single-genre','meal-mood'])bind(id,'change',()=>commit(next=>{next.settings.preferences.genreMode=$('genre-mode').value;next.settings.preferences.genre=$('genre-mode').value==='single'?$('single-genre').value:'all';next.settings.preferences.mood=$('meal-mood').value;}));
 bind('ratio-equal','click',()=>commit(next=>next.settings.preferences.genreRatios=Object.fromEntries(GENRES.map(g=>[g,20]))));bind('ratio-japanese','click',()=>commit(next=>next.settings.preferences.genreRatios={和食:50,洋食:20,中華:20,エスニック:10,その他:0}));
 bind('ingredient-search','input',()=>renderIngredientSearch(false));bind('preferred-search','input',()=>renderIngredientSearch(true));

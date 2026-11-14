@@ -14,7 +14,7 @@
 .dish-title {
   margin: 0 0 9px;
   color: #344c37;
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 600;
   line-height: 1.6;
   letter-spacing: -.035em;
@@ -24,7 +24,7 @@
 .dish-intro {
   margin: 0 0 20px;
   color: #637158;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.9;
 }
 .food-composer-tools {
@@ -46,7 +46,7 @@
   padding: 0 0 10px;
   border-bottom: 1px solid #dce4cf;
   color: #5b734c;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: .03em;
 }
@@ -86,7 +86,7 @@
   gap: 9px;
   min-width: 0;
   color: #44573a;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.7;
   font-weight: 550;
   cursor: pointer;
@@ -119,7 +119,7 @@
   border-radius: 8px;
   background: #fffefb;
   color: #344b36;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 550;
   font-variant-numeric: tabular-nums;
 }
@@ -128,20 +128,20 @@
 .dish-component-amount:disabled { background: #f4f5ef; border-color: #e1e6d8; color: #8d9881; }
 .food-composer-unit,
 .salad-unit,
-.dish-unit { flex: 0 0 auto; color: #637158; font-size: 11px; font-weight: 400; }
+.dish-unit { flex: 0 0 auto; color: #637158; font-size: 0.6875rem; font-weight: 400; }
 .food-composer-note,
 .salad-preparation,
 .dish-preparation {
   display: block;
   grid-column: 1 / -1;
   color: #637158;
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
 .food-composer-error,
 .salad-error,
-.dish-error { margin: 18px 0 0; color: var(--danger); font-size: 13px; line-height: 1.85; }
+.dish-error { margin: 18px 0 0; color: var(--danger); font-size: 0.8125rem; line-height: 1.85; }
 .food-composer-error:not([hidden]) { padding: 12px 14px; border: 1px solid #e1c7b9; border-radius: 9px; background: #fff4ed; }
 .food-composer-preview,
 .salad-preview,
@@ -156,7 +156,7 @@
 .dish-preview-title {
   margin-bottom: 16px;
   color: #405d38;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.85;
   overflow-wrap: anywhere;
@@ -174,28 +174,28 @@
 .dish-nutrient { min-width: 0; padding: 13px 14px; border: 1px solid #e0e6d5; border-radius: 9px; background: #fffefa; }
 .food-composer-nutrient dt,
 .salad-nutrient-label,
-.dish-nutrient-label { margin: 0; color: #637158; font-size: 11px; line-height: 1.6; font-weight: 450; }
+.dish-nutrient-label { margin: 0; color: #637158; font-size: 0.6875rem; line-height: 1.6; font-weight: 450; }
 .food-composer-nutrient dd,
 .salad-nutrient-value,
-.dish-nutrient-value { margin: 6px 0 0; color: #415837; font-size: 18px; font-weight: 550; line-height: 1.5; letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dish-nutrient-value { margin: 6px 0 0; color: #415837; font-size: 1.125rem; font-weight: 550; line-height: 1.5; letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .food-composer-allergens,
 .salad-allergens,
-.dish-allergens { margin: 12px 0 16px; color: #637158; font-size: 12px; line-height: 1.9; overflow-wrap: anywhere; }
+.dish-allergens { margin: 12px 0 16px; color: #637158; font-size: 0.75rem; line-height: 1.9; overflow-wrap: anywhere; }
 .food-composer-materials,
 .dish-materials,
 .dish-instructions { min-width: 0; padding-top: 14px; border-top: 1px solid #dce4cf; }
 .food-composer-materials > summary,
 .salad-composition-summary,
-.dish-details-summary { color: #5a754b; font-size: 12px; line-height: 1.85; font-weight: 550; }
+.dish-details-summary { color: #5a754b; font-size: 0.75rem; line-height: 1.85; font-weight: 550; }
 .food-composer-materials ul,
 .salad-material-list,
 .dish-material-list,
-.dish-step-list { margin: 13px 0 0; padding-left: 20px; color: #6b7c5e; font-size: 12px; line-height: 1.95; overflow-wrap: anywhere; }
+.dish-step-list { margin: 13px 0 0; padding-left: 20px; color: #6b7c5e; font-size: 0.75rem; line-height: 1.95; overflow-wrap: anywhere; }
 .food-composer-materials li + li,
 .dish-step + .dish-step { margin-top: 7px; }
 .salad-dressing-fields { gap: 14px; margin-top: 23px; }
 .salad-note,
-.dish-note { margin: 12px 0 18px; color: #637158; font-size: 12px; line-height: 1.9; }
+.dish-note { margin: 12px 0 18px; color: #637158; font-size: 0.75rem; line-height: 1.9; }
 .dish-components { margin-top: 23px; }
 .dish-sauce-fields { margin-top: 23px; gap: 14px; }
 .dish-sauce-fields .dish-input-unit { margin-top: 7px; }
@@ -222,10 +222,10 @@
   .dish-customiser { padding: 17px; border-radius: 12px; margin-bottom: 22px; }
   .food-composer-heading,
   .salad-title,
-  .dish-title { font-size: 18px; }
+  .dish-title { font-size: 1.125rem; }
   .food-composer-intro,
   .salad-intro,
-  .dish-intro { font-size: 12px; line-height: 1.95; }
+  .dish-intro { font-size: 0.75rem; line-height: 1.95; }
   .food-composer-tools { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 21px; }
   .food-composer-tools > button { justify-self: start; min-height: 38px; }
   .food-composer-section { margin-top: 22px; }
@@ -234,10 +234,10 @@
   .dish-component { grid-template-columns: minmax(0, 1fr) 88px; padding: 12px; gap: 6px 10px; border-radius: 9px; }
   .food-composer-choice,
   .salad-component-choice,
-  .dish-component-choice { font-size: 12px; gap: 8px; }
+  .dish-component-choice { font-size: 0.75rem; gap: 8px; }
   .food-composer-amount,
   .salad-component-amount,
-  .dish-component-amount { min-height: 39px; padding-inline: 7px; font-size: 14px; }
+  .dish-component-amount { min-height: 39px; padding-inline: 7px; font-size: 0.875rem; }
   .food-composer-nutrients,
   .salad-nutrients,
   .dish-nutrients { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -246,21 +246,21 @@
   .dish-nutrient { padding: 12px; }
   .food-composer-nutrient dd,
   .salad-nutrient-value,
-  .dish-nutrient-value { font-size: 18px; }
+  .dish-nutrient-value { font-size: 1.125rem; }
   .food-composer-note,
   .salad-preparation,
-  .dish-preparation { font-size: 10px; line-height: 1.85; }
+  .dish-preparation { font-size: 0.625rem; line-height: 1.85; }
   .food-composer-preview-title,
   .salad-preview-title,
-  .dish-preview-title { font-size: 13px; }
+  .dish-preview-title { font-size: 0.8125rem; }
   .food-composer-materials ul,
   .salad-material-list,
   .dish-material-list,
-  .dish-step-list { font-size: 12px; padding-left: 18px; }
+  .dish-step-list { font-size: 0.75rem; padding-left: 18px; }
   .salad-dressing-fields { grid-template-columns: minmax(0, 1fr); }
   .food-composer-allergens,
   .salad-allergens,
-  .dish-allergens { font-size: 11px; }
+  .dish-allergens { font-size: 0.6875rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .food-composer-option,
@@ -275,6 +275,6 @@
 .food-composer-weight-total { color:#526d3e; font-weight:600; }
 
 /* Bread starts from a named combination, then exposes the same editable ingredients. */
-.food-composer-preset-label { display:block; margin:0 0 8px; color:#405d38; font-size:13px; font-weight:600; }
+.food-composer-preset-label { display:block; margin:0 0 8px; color:#405d38; font-size:0.8125rem; font-weight:600; }
 .food-composer-preset { display:block; width:100%; min-height:44px; margin-top:7px; background:#fffefa; }
-.food-composer-preset-note { margin:0 0 22px; color:#637158; font-size:12px; line-height:1.85; }
+.food-composer-preset-note { margin:0 0 22px; color:#637158; font-size:0.75rem; line-height:1.85; }

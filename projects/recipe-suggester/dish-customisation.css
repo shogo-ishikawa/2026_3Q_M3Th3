@@ -1,35 +1,35 @@
 .dish-customiser { margin:0 0 22px; padding:19px; border:1px solid var(--line); border-radius:7px; background:#f8fbf9; min-width:0; }
-.dish-title { margin:0 0 6px; font-size:16px; }
-.dish-intro, .dish-note, .dish-allergens { color:var(--muted); font-size:11px; line-height:1.8; }
+.dish-title { margin:0 0 6px; font-size:1rem; }
+.dish-intro, .dish-note, .dish-allergens { color:var(--muted); font-size:0.6875rem; line-height:1.8; }
 .dish-intro { margin-bottom:17px; }
 .dish-meat-label, .dish-preset-label { display:block; min-width:0; }
 .dish-meat-select, .dish-preset-select, .dish-sauce-select { width:100%; min-width:0; }
 .dish-components { margin-top:17px; }
-.dish-legend { margin-bottom:9px; font-size:12px; }
+.dish-legend { margin-bottom:9px; font-size:0.75rem; }
 .dish-component-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .dish-component { display:grid; grid-template-columns:minmax(0,1fr) 87px; gap:5px 9px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:5px; min-width:0; }
-.dish-component-choice { display:flex; align-items:center; gap:7px; font-size:12px; cursor:pointer; min-width:0; }
+.dish-component-choice { display:flex; align-items:center; gap:7px; font-size:0.75rem; cursor:pointer; min-width:0; }
 .dish-component-name { overflow-wrap:anywhere; }
 .dish-component-quantity, .dish-input-unit { display:flex; align-items:center; gap:5px; min-width:0; }
-.dish-component-amount { width:100%; min-height:34px; padding:6px; margin-top:0; font-size:12px; }
-.dish-unit { color:var(--muted); font-size:11px; font-weight:500; flex:0 0 auto; }
-.dish-preparation { grid-column:1/-1; color:var(--muted); font-size:10px; line-height:1.6; }
+.dish-component-amount { width:100%; min-height:34px; padding:6px; margin-top:0; font-size:0.75rem; }
+.dish-unit { color:var(--muted); font-size:0.6875rem; font-weight:500; flex:0 0 auto; }
+.dish-preparation { grid-column:1/-1; color:var(--muted); font-size:0.625rem; line-height:1.6; }
 .dish-sauce-fields { display:grid; grid-template-columns:minmax(0,1fr) 120px 120px; gap:12px; margin-top:18px; }
 .dish-sauce-fields > label { min-width:0; }
 .dish-input-unit { margin-top:7px; }
 .dish-sauce-amount, .dish-mayonnaise-amount { margin-top:0; min-width:0; }
 .dish-note { margin:10px 0 15px; }
-.dish-error { margin:12px 0 0; color:var(--danger); font-size:12px; line-height:1.8; }
+.dish-error { margin:12px 0 0; color:var(--danger); font-size:0.75rem; line-height:1.8; }
 .dish-preview { margin-top:16px; padding-top:15px; border-top:1px solid var(--line); min-width:0; }
-.dish-preview-title { color:var(--teal); font-size:12px; font-weight:650; overflow-wrap:anywhere; margin-bottom:12px; }
+.dish-preview-title { color:var(--teal); font-size:0.75rem; font-weight:650; overflow-wrap:anywhere; margin-bottom:12px; }
 .dish-nutrients { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px 8px; margin:0 0 15px; }
 .dish-nutrient { min-width:0; }
-.dish-nutrient-label { color:var(--muted); font-size:10px; }
-.dish-nutrient-value { margin:3px 0 0; color:var(--ink); font-size:14px; font-weight:650; font-variant-numeric:tabular-nums; }
+.dish-nutrient-label { color:var(--muted); font-size:0.625rem; }
+.dish-nutrient-value { margin:3px 0 0; color:var(--ink); font-size:0.875rem; font-weight:650; font-variant-numeric:tabular-nums; }
 .dish-allergens { margin-bottom:10px; }
 .dish-materials, .dish-instructions { padding:11px 0; border-top:1px solid var(--line); }
-.dish-details-summary { color:var(--teal); font-size:12px; font-weight:600; cursor:pointer; }
-.dish-material-list, .dish-step-list { margin:10px 0 0; padding-left:20px; font-size:12px; line-height:1.9; overflow-wrap:anywhere; }
+.dish-details-summary { color:var(--teal); font-size:0.75rem; font-weight:600; cursor:pointer; }
+.dish-material-list, .dish-step-list { margin:10px 0 0; padding-left:20px; font-size:0.75rem; line-height:1.9; overflow-wrap:anywhere; }
 .dish-step + .dish-step { margin-top:8px; }
 @media(max-width:600px) {
   .dish-customiser { padding:13px; }
