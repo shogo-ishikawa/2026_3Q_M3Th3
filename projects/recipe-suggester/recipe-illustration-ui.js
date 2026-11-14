@@ -1,5 +1,5 @@
 /** 色鉛筆・水彩で描いた、料理ごとの標準的な完成イメージ。 */
-import {recipeArtwork} from './recipe-illustration.js?v=3.21.0';
+import {recipeArtwork} from './recipe-illustration.js?v=3.22.0';
 
 export function recipeIllustrationElement(recipe,{detail=false,standard=false,hidden=false}={}){
   // 画像要素を作る前に止め、非表示時の画像読み込みも防ぎます。
