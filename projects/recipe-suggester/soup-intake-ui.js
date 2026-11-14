@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 記録フォーム内へ追加する、具と汁の摂取割合の操作部。 */
 import {SOUP_INTAKE_STAGES, buildSoupIntake, soupIntakeFor} from './soup-intake.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
@@ -44,7 +45,7 @@ export function mountSoupIntake({baseRecipe,data,onChange=()=>{},onError=()=>{},
       intro.textContent=definition.homogeneous?'具をなめらかに混ぜたスープは、全体を食べた割合で計算します。':'具は全量を食べる設定が初期値です。汁を残した割合と、必要なら具を残した割合を選んでください。';
       note.textContent='買い物には、残す汁も含めて調理に必要な材料を使います。具に染みた汁や肉から溶け出す脂の移動は自動補正しない概算です。';
       previewTitle.textContent=`食べた分の栄養 / ${recipePortion(base).label}`;
-      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${formatNutrient(recipe.manualNutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       parts.replaceChildren(...recipe.ingredients.map(part=>make('li','',`${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));
       const split=Object.entries(definition.ingredientFractions).filter(([id])=>recipe.ingredients.some(part=>part.id===id)).map(([id,fraction])=>`${data.ingredients[id].name}：${fraction===0?'具':fraction===1?'汁':`汁${percent(fraction)}%・具${percent(1-fraction)}%`}`).join('、');
       source.textContent=`${split}。${recipe.sourceNote}`;

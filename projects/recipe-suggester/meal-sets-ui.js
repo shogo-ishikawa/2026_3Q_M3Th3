@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 定番セットと過去の食事のコピー。保存とカレンダー更新は呼出元が担当します。 */
 import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {createMealSet, createRepeatedMeal, mealSetWarnings, MAX_MEAL_SETS} from './meal-sets.js';
@@ -39,7 +40,7 @@ export function mountMealSets({state,data,date,meal='dinner',status='eaten',onSa
     if(!items.length){container.append(make('p','field-note','この条件の食事はありません。日付・食事・種類を選び直してください。'));return;}
     const list=make('ul','meal-sets-items');
     for(const item of items){const portion=item.portion??{amount:1,unit:'人分'};list.append(make('li','',`${item.name} ${rounded(item.quantity*portion.amount)}${portion.unit}`));}
-    const summary=sumNutrition(items);container.append(list,make('p','meal-sets-energy',`${rounded(summary.values.kcal)} kcal${summary.complete.kcal?'':' ＋不明分'}`));
+    const summary=sumNutrition(items);container.append(list,make('p','meal-sets-energy',`${formatNutrient(summary.values.kcal, 'kcal')} kcal${summary.complete.kcal?'':' ＋不明分'}`));
     const warnings=mealSetWarnings({items},settings,data);
     for(const warning of warnings)container.append(make('p','meal-sets-warning',warning));
     if(warnings.length)container.append(make('p','field-note','自動提案の対象とは別に、食べた事実や予定として手動で登録できます。'));

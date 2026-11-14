@@ -1232,3 +1232,20 @@ body[data-has-undo-notice="true"] main.page-width{padding-bottom:190px}
   .entry-item{grid-template-columns:minmax(0,1fr) minmax(100px,1fr) auto auto auto}
   .entry-item>.quantity-stepper{width:100%;max-width:100%}
 }
+
+/* 買い物の確認から持ち歩く一覧まで、1列で読み進めます。 */
+.kitchen-layout{display:flex;flex-direction:column;gap:1.5rem}
+.kitchen-layout .shopping-section{order:-1;min-width:0}
+.pantry-browse{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:.75rem;margin-bottom:1rem}
+.pantry-group-section{border-top:1px solid var(--line,#d9dfd3);padding-top:.75rem;margin-top:1rem}
+.pantry-group-section h3{font-size:1rem;margin:0 0 .5rem}
+.meal-profile{border:1px solid var(--line,#d9dfd3);border-radius:.75rem;padding:.7rem;margin:.5rem 0}
+.meal-profile legend{font-weight:700;padding:0 .3rem}
+.meal-profile .field-pair{margin:0}
+.menu-shopping-action{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:.75rem;align-items:end;grid-column:1/-1;width:100%;padding-top:.75rem;border-top:1px solid var(--line,#d9dfd3)}
+.menu-shopping-action button{min-height:44px;white-space:normal}
+.catalog-favourites-section{margin:1rem 0;border:1px solid var(--line,#d9dfd3);border-radius:1rem;padding:.75rem}
+.catalog-favourites-section>summary{min-height:44px;display:flex;align-items:center;font-weight:700;cursor:pointer}
+.shopping-omissions{margin-bottom:1rem}
+.shopping-omissions .choice-label{min-height:44px}
+@media(max-width:540px){.pantry-browse,.menu-shopping-action{grid-template-columns:minmax(0,1fr)}}

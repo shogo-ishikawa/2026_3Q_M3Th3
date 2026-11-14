@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 日々の記録に使う短い画面。保存と画面全体の更新は呼出元が担当します。 */
 import {dateIsValid,dateKey,shiftDate,MEAL_IDS} from './journal.js';
 import {recentFoods,favouriteKey} from './favourites.js';
@@ -81,7 +82,7 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
     const disclosure=make('details','quick-record-summary');disclosure.open=false;
     disclosure.append(make('summary','','登録する内容を確認'),summary.element);
     const refresh=()=>{
-      try{const value=itemNutrition(read()).kcal;preview.textContent=value===null?'エネルギー未入力':`この量で ${rounded(value)} kcal`;}catch{preview.textContent='量を確認してください。';}
+      try{const value=itemNutrition(read()).kcal;preview.textContent=value===null?'エネルギー未入力':`この量で ${formatNutrient(value, 'kcal')} kcal`;}catch{preview.textContent='量を確認してください。';}
       summary.refresh();
     };
     const remember=()=>{draftAmounts.set(draftKey,quantity.value);refresh();};

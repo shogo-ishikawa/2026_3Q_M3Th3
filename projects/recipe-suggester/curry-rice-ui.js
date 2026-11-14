@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** カレーのご飯量と、選んだ1人分の栄養・材料を表示します。 */
 import {curryRiceFor, defaultCurryRiceSelection, buildCurryRiceSelection} from './curry-rice.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
@@ -44,7 +45,7 @@ export function mountCurryRice({recipeId, data, initial, onChange = () => {}, on
       const config = {id:stableId, recipeId, riceGrams:readQuantityInput(input,{label:'ご飯のg数'})};
       const recipe = buildCurryRiceSelection(config, data);
       title.textContent = `${recipe.name} / 1人分`;
-      for (const key of NUTRIENT_KEYS) values.get(key).textContent = recipe.manualNutrition[key] === null ? '未入力' : `${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for (const key of NUTRIENT_KEYS) values.get(key).textContent = recipe.manualNutrition[key] === null ? '未入力' : `${formatNutrient(recipe.manualNutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       const labels = recipe.allergens.map(id => data.allergens?.find(allergen => allergen.id === id)?.label ?? id);
       allergens.textContent = `含まれる登録アレルゲン：${labels.length ? labels.join('、') : '登録なし'}。${recipe.allergensKnown ? '' : '商品ごとのアレルギー表示を確認してください。'}`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'dish-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));

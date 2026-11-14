@@ -65,3 +65,16 @@ test('例外がある getter でも登録合計を捏造せず、登録材料の
   assert.equal(incomplete.refresh(),null);assert.equal(byClass(incomplete.element,'record-summary-content').hidden,true);
   assert.throws(()=>createRecordSummary({data}),/登録内容/);
 }));
+
+
+test('表示だけを丸め、登録する元の栄養・数量・材料の精度は保つ',()=>withDocument(()=>{
+  const source=entry();source.items[0].quantity=1;
+  source.items[0].nutrition={kcal:148.8,protein:5.344,fat:2.46,carbs:27.84,fiber:2.52,salt:.72};
+  source.items[0].ingredients[1].amount=5.125;
+  const before=structuredClone(source),api=createRecordSummary({getEntry:()=>source,data});
+  assert.equal(byClass(api.element,'record-summary-total').textContent,'1品・合計 149 kcal');
+  const text=all(api.element).filter(node=>node.tagName==='DD').map(node=>node.textContent);
+  assert.deepEqual(text,['5.3 g','2.5 g','27.8 g','2.5 g','0.7 g']);
+  assert.match(byClass(api.element,'record-summary-material-preview').textContent,/バター 5\.125g/);
+  assert.deepEqual(source,before);
+}));

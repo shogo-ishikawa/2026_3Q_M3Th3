@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 店の表示値を入力する画面。保存・カレンダー登録は呼び出し元が行います。 */
 import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {buildRestaurantRecipe, restaurantConfigFromRecipe} from './restaurant-menu.js';
@@ -9,7 +10,6 @@ let count=0;
 const make=(tag,className='',text='')=>{const node=document.createElement(tag);node.className=className;if(text)node.textContent=text;return node;};
 const labelFor=(text,input)=>{const label=make('label','restaurant-label',text);label.htmlFor=input.id;label.append(input);return label;};
 const addOptions=(select,rows)=>{for(const [value,text]of rows){const option=make('option','',text);option.value=value;select.append(option);}};
-const rounded=value=>Number(value.toFixed(3)).toLocaleString('ja-JP');
 
 /** initialはbuildRestaurantRecipeの入力形。既存の登録を渡す場合はrecipeを使います。 */
 export function mountRestaurantMenu({baseRecipe=null,data,initial={},recipe=null,onChange=()=>{},onError=()=>{}}={}){
@@ -56,7 +56,7 @@ export function mountRestaurantMenu({baseRecipe=null,data,initial={},recipe=null
       const result=buildRestaurantRecipe({id:recipeId,genericRecipeId:genericId,storeName:store.value,menuName:menuName.value,sizeName:size.value,inclusion:inclusion.value,riceIncluded:rice.checked,sidesIncluded:sides.checked,basis:basis.value,portionAmount:readQuantityInput(portion,{label:'登録する提供量'}),portionUnit:unit.value,sourceUrl:url.value,checkedDate:checkedDate.value,
         nutrition:Object.fromEntries([...nutritionFields].map(([key,control])=>[key,readQuantityInput(control,{label:NUTRIENT_LABELS[key],allowEmpty:true})])),allergensKnown:knownControl.control.checked,allergens:allergenFields.filter(field=>field.control.checked).map(field=>field.id)},data);
       title.textContent=`${result.name} / ${result.portion.amount}${result.portion.unit}全体`;
-      for(const key of NUTRIENT_KEYS)values.get(key).textContent=result.manualNutrition[key]===null?'不明':`${rounded(result.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for(const key of NUTRIENT_KEYS)values.get(key).textContent=result.manualNutrition[key]===null?'不明':`${formatNutrient(result.manualNutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       note.textContent=result.sourceNote;preview.hidden=false;error.hidden=true;error.textContent='';onError('');onChange(result);
     }catch(cause){preview.hidden=true;error.hidden=false;error.textContent=cause.message;onError(cause.message);onChange(null);}
   }

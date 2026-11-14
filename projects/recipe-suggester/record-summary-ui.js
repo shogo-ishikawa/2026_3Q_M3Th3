@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 保存前に、その量で登録する食事の合計を表示します。保存処理は持ちません。 */
 import {describeRegistration} from './record-summary.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
@@ -37,7 +38,7 @@ export function createRecordSummary({getEntry, data}={}) {
 
   function nutritionText(summary, key) {
     if (!summary.items.some(item => item.nutrition[key] !== null)) return '未入力';
-    return `${format(summary.nutrition.values[key])} ${NUTRIENT_UNITS[key]}${summary.nutrition.complete[key] ? '' : ' ＋不明分'}`;
+    return `${formatNutrient(summary.nutrition.values[key], key)} ${NUTRIENT_UNITS[key]}${summary.nutrition.complete[key] ? '' : ' ＋不明分'}`;
   }
   function refresh() {
     try {

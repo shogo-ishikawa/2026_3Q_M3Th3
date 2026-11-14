@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 import {NUTRIENT_KEYS,summariseEntries} from './nutrition.js';
 import {dateIsValid,shiftDate} from './journal.js';
 
@@ -17,8 +18,8 @@ export function analyseIntake(entries,{to,days=7,completedDays=[]}={}){
 export function compareIntake(key,value,{target,reference=null,complete=true}={}){
   if(!complete||value===null||!Number.isFinite(value))return {kind:'unknown',label:'不明分があるため比較できません'};
   if(!(target>=0)||!Number.isFinite(target))return {kind:'unknown',label:'比較する目安が未設定です'};
-  if(!reference)return {kind:'comparison',label:`設定値との差 ${value-target>=0?'+':''}${Math.round((value-target)*10)/10}`};
-  if(key==='kcal')return {kind:'comparison',label:`推定値との差 ${value-target>=0?'+':''}${Math.round(value-target)} kcal`};
+  if(!reference)return {kind:'comparison',label:`設定値との差 ${value-target>=0?'+':''}${formatNutrient(value-target, key)}`};
+  if(key==='kcal')return {kind:'comparison',label:`推定値との差 ${value-target>=0?'+':''}${formatNutrient(value-target, key)} kcal`};
   const range=reference.ranges?.[key];
   if(['fat','carbs'].includes(key)&&range){if(value<range.min)return {kind:'below',label:'記録分は目標範囲より少なめ'};if(value>range.max)return {kind:'above',label:'記録分は目標範囲より多め'};return {kind:'within',label:'記録分は目標範囲内'};}
   if(key==='salt')return value<target?{kind:'within',label:'記録分は目標量未満'}:{kind:'above',label:'記録分は目標量以上'};

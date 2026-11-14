@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** サラダの選択画面。計算と入力検査は salad-builder.js にまとめています。 */
 import {SALAD_COMPONENTS, SALAD_DRESSINGS, buildSaladRecipe} from './salad-builder.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS, recipeNutrition} from './nutrition.js';
@@ -157,7 +158,7 @@ export function mountSaladBuilder({data, initial, onChange = () => {}, onError =
       const values = recipeNutrition(recipe, data);
       error.textContent = ''; error.hidden = true; preview.hidden = false;
       previewTitle.textContent = `${recipe.name} / 1皿`;
-      for (const key of NUTRIENT_KEYS) nutrientValues.get(key).textContent = values[key] === null ? '未入力' : `${rounded(values[key])} ${NUTRIENT_UNITS[key]}`;
+      for (const key of NUTRIENT_KEYS) nutrientValues.get(key).textContent = values[key] === null ? '未入力' : `${formatNutrient(values[key], key)} ${NUTRIENT_UNITS[key]}`;
       const allergenLabels = (recipe.allergens ?? []).map(id => data.allergens?.find(allergen => allergen.id === id)?.label ?? id);
       allergies.textContent = `含まれる登録アレルゲン：${allergenLabels.length ? allergenLabels.join('、') : '登録なし'}。調味料の原材料は商品表示も確認してください。`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'salad-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));
