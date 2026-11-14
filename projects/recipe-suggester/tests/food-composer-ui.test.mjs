@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
 import {mountFoodComposer} from '../food-composer-ui.js';
+import {defaultFoodSelection} from '../food-composer.js';
 
 class Element {
   constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';}
@@ -206,4 +207,17 @@ test('手入力が別の標準配合と一致しても、明示して選んだ�
  assert.equal(preset.value,'');
  byClass(root,'food-composer-reset').emit('click');
  assert.equal(preset.value,'custom');assert.deepEqual(current.ingredients,[{id:'bread',amount:60}]);
+}));
+
+test('汎用のトースト画面は食パンのみで開き、明示したバター・ジャム・ピザの入口を変えない',()=>withDocument(()=>{
+ let plain;const root=mountFoodComposer({kind:'toast',data,onChange:r=>{plain=r;}});
+ const preset=byClass(root,'food-composer-preset');
+ assert.equal(preset.value,'custom');
+ assert.ok(preset.children.some(o=>o.value==='custom'&&o.textContent==='トーストのみ（具材を指定する）'));
+ assert.deepEqual(plain.ingredients,[{id:'bread',amount:60}]);
+ for(const id of ['butter','strawberry-jam','cheese','pizza-sauce'])assert.equal(checkbox(root,id).checked,false,id);
+ for(const [id,component] of [['staple-butter-toast','butter'],['bread-toast-jam-butter','strawberry-jam'],['bread-toast-pizza','pizza-sauce']]){
+  let current;const specific=mountFoodComposer({kind:'toast',data,initial:defaultFoodSelection('toast',{recipeId:id}),onChange:r=>{current=r;}});
+  assert.ok(current);assert.equal(checkbox(specific,component).checked,true,id);
+ }
 }));

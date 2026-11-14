@@ -1,6 +1,6 @@
 /** 同じ料理の違いを選択肢へまとめます。元のレシピや保存済みの記録は変更しません。 */
 import {recipeNature} from './catalog.js';
-import {japaneseQueryRank} from './japanese-search.js';
+import {japaneseQueryRank, normaliseJapaneseSearch} from './japanese-search.js';
 
 const freeze = value => {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -13,6 +13,73 @@ const dish = (id, label, recipeIds, extra = {}) => meal(id, label, recipeIds,
   {role:'main', staple:false, mealBase:false, ...extra});
 const drink = (id, label, recipeIds, extra = {}) => dish(id, label, recipeIds, {role:'drink', ...extra});
 const snack = (id, label, recipeIds, extra = {}) => dish(id, label, recipeIds, {role:'snack', ...extra});
+
+// 検索語や並び順に依存せず、各入口で最初に開く標準の料理を固定します。
+// 味・具材まで指定した検索では、下の検索順位を優先します。
+const standardRecipeIds = Object.freeze({
+  'nikujaga':'beef-potato',
+  'okonomiyaki':'seafood-okonomiyaki',
+  'rice':'plain-rice',
+  'onigiri':'staple-salt-onigiri',
+  'udon':'daily-udon-plain',
+  'soba':'daily-soba-plain',
+  'pasta':'daily-pasta-peperoncino',
+  'curry':'daily-curry-pork',
+  'naan':'world-naan-plain',
+  'retort-curry':'prepared-retort-beef-curry',
+  'yakisoba':'daily-yakisoba-sauce',
+  'cup-yakisoba':'prepared-cup-yakisoba-sauce',
+  'cup-udon':'prepared-cup-udon-kitsune',
+  'cup-ramen':'prepared-cup-ramen-soy',
+  'bag-ramen':'prepared-bag-ramen-soy',
+  'miso-soup':'soup-001',
+  'omelette':'classic-omelette-plain',
+  'nigiri':'classic-sushi-assorted',
+  'hosomaki':'sushi-hosomaki-kappa',
+  'futomaki':'sushi-futomaki-egg-vegetable',
+  'gunkan':'sushi-gunkan-ikura',
+  'pizza':'daily-pizza-margherita',
+  'fried-rice':'daily-fried-rice-egg',
+  'ramen':'daily-ramen-soy',
+  'chinese-noodles':'noodle-aburasoba',
+  'donburi':'daily-donburi-oyako',
+  'rice-bowls':'chicken-rice-bowl',
+  'omelette-rice':'classic-omelette-rice-cheese',
+  'retort-donburi':'prepared-retort-gyudon',
+  'burger':'prepared-burger-plain',
+  'bought-sandwich':'prepared-sandwich-egg',
+  'hot-sandwich':'bread-hot-sandwich-ham-cheese',
+  'toast':'bread-toast-custom',
+  'sliced-bread':'staple-plain-bread',
+  'oatmeal':'staple-oatmeal-water',
+  'hamburg':'classic-hamburg',
+  'mapo-tofu':'mapo-tofu-chen-style',
+  'gyoza':'classic-gyoza',
+  'karaage':'classic-karaage-thigh',
+  'grilled-fish':'classic-grilled-salmon',
+  'sashimi':'classic-sashimi-assorted',
+  'croquette':'classic-croquette-potato',
+  'stew':'familiar-beef-stew',
+  'nabe':'familiar-yose-nabe',
+  'yakitori':'familiar-yakitori-negima',
+  'takeaway-yakitori':'takeaway-yakitori-momo-tare',
+  'tempura':'familiar-tempura-assorted',
+  'vegetable-tempura':'varied-vegetable-tempura',
+  'takeaway-tempura':'takeaway-tempura-shrimp',
+  'potage':'familiar-side-corn-potage',
+  'clear-soup':'soup311-osuimono-tofu-wakame',
+  'arajiru':'soup311-arajiru-salmon',
+  'clam-chowder':'familiar-side-clam-chowder',
+  'consomme':'soup311-consomme-plain',
+  'wonton-soup':'soup311-wonton-pork',
+  'instant-potage':'takeaway-knorr-corn',
+  'instant-harusame':'takeaway-harusame-wonton',
+  'oden':'palette-oden',
+  'bagel':'palette-bagel',
+  'sandwich':'palette-sandwich',
+  'english-muffin':'bread-english-muffin-ham-cheese',
+});
+const standardQueryAliases = Object.freeze({karaage:['唐揚げ']});
 
 /** 明示した既存IDだけをまとめます。新しい料理を名前だけで自動所属させません。 */
 export const MENU_VARIATION_GROUPS = freeze([
@@ -213,7 +280,8 @@ export const MENU_VARIATION_GROUPS = freeze([
     'bread-english-muffin-sausage-egg-cheese','bread-english-muffin-bacon-egg-cheese','bread-english-muffin-tuna-cheese',
   ], {defaultRecipeId:'bread-english-muffin-ham-cheese',
     recipeProfiles:{'palette-english-muffin':{nature:'ready-to-eat',mealBase:false}}}),
-]);
+].map(group => Object.hasOwn(standardRecipeIds, group.id)
+  ? {...group, defaultRecipeId:standardRecipeIds[group.id]} : group));
 
 /** 追加時の重複所属を検知し、ある料理が複数の入口へ消えることを防ぎます。 */
 export function validateVariationDefinitions(definitions = MENU_VARIATION_GROUPS) {
@@ -306,7 +374,9 @@ export function groupMenuRecipes(candidates, {query = ''} = {}) {
     byKey.get(key).recipes.push(recipe);
   }
   return entries.map(entry => {
-    const ranked = query.trim() ? entry.recipes.map((recipe, index) => ({recipe, index,
+    const generic = entry.definition && [entry.definition.label,...(standardQueryAliases[entry.definition.id]??[])]
+      .some(label=>normaliseJapaneseSearch(label)===normaliseJapaneseSearch(query));
+    const ranked = query.trim() && !generic ? entry.recipes.map((recipe, index) => ({recipe, index,
       rank:japaneseQueryRank([recipe.name, variantLabel(recipe)], query)}))
       .sort((a,b) => a.rank - b.rank || Number(b.recipe.id===entry.definition?.defaultRecipeId)-Number(a.recipe.id===entry.definition?.defaultRecipeId) || a.index - b.index) : [];
     const preferred=entry.recipes.find(recipe=>recipe.id===entry.definition?.defaultRecipeId);

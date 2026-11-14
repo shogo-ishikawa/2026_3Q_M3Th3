@@ -83,3 +83,18 @@ test('代表商品のハム・ベーコンは原材料の未確認状態を選�
  const plain=buildFoodSelection(foodPresetSelection('sandwich','custom'),data);
  assert.equal(plain.ingredientsKnown,true);
 });
+
+test('種類を指定しないトーストは食パンだけから始まり、明示した味付けはその配合を維持する',()=>{
+ for(const options of [undefined,{recipeId:'bread-toast-custom'}]){
+  const config=defaultFoodSelection('toast',options);
+  assert.deepEqual(config.components,[{id:'base',amount:1}]);
+  const plain=buildFoodSelection(config,data);
+  assert.deepEqual(plain.ingredients,[{id:'bread',amount:60}]);
+  near(plain.manualNutrition.kcal,recipeNutrition({servings:1,ingredients:[{id:'bread',amount:60}]},data).kcal);
+ }
+ for(const id of ['staple-butter-toast','bread-toast-jam-butter','bread-toast-pizza']){
+  const source=data.recipes.find(r=>r.id===id),config=defaultFoodSelection('toast',{recipeId:id});
+  compare(buildFoodSelection(config,data),source);
+  assert.ok(config.components.some(p=>p.id!=='base'),id);
+ }
+});

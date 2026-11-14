@@ -40,6 +40,7 @@ test('defaults are independent and comparison targets are illustrative editable 
   assert.equal(source.settings.meal, 'dinner');
   assert.equal(source.settings.stapleId, 'auto');
   assert.equal(source.settings.drinkId, 'none');
+  assert.equal(source.settings.hideRecipeIllustrations, false);
   source.targets.kcal = 1800;
   source.settings.allergens.push('milk');
   assert.equal(state().targets.kcal, 2000);
@@ -60,6 +61,50 @@ test('v3 round trip preserves multiple foods, quantities, nullable snapshots, pa
   assert.equal(imported.entries[0].items[0].nutrition.fiber, null);
   imported.entries[0].items[0].nutrition.kcal = 999;
   assert.equal(source.entries[0].items[0].nutrition.kcal, 120);
+});
+
+test('料理イラストの表示設定は保存とJSONの往復で保持し、食事や除外条件を変更しない', () => {
+  const source = state();
+  source.entries = [entry()];
+  source.settings.allergens = ['milk'];
+  source.settings.excludedIngredients = ['butter'];
+  source.pantry = [{id:'carrot',amount:45}];
+  const before = structuredClone(source), storage = memoryStorage();
+  for (const hidden of [true, false]) {
+    const expected = {...source,settings:{...source.settings,hideRecipeIllustrations:hidden}};
+    assert.equal(writeJournal(storage, expected, data), true);
+    assert.deepEqual(readJournal(storage, data).state, expected);
+    assert.deepEqual(parseJournal(JSON.stringify(expected), data), expected);
+  }
+  assert.deepEqual(source, before);
+});
+
+test('表示設定のない従来のv3保存データは料理イラストを表示し、記録を引き継ぐ', () => {
+  const source = state();
+  source.entries = [entry()];
+  source.settings.allergens = ['egg'];
+  delete source.settings.hideRecipeIllustrations;
+  const before = structuredClone(source), storage = memoryStorage([[JOURNAL_KEY,JSON.stringify(source)]]);
+  const loaded = readJournal(storage, data);
+  assert.equal(loaded.message, '');
+  assert.deepEqual(loaded.state, {...source,settings:{...source.settings,hideRecipeIllustrations:false}});
+  assert.deepEqual(source, before);
+  assert.deepEqual(storage.writes, []);
+});
+
+test('表示設定は真偽値だけを受け付け、不正な保存内容を上書きしない', () => {
+  for (const invalid of [null, 0, 1, 'true', 'false', [], {}]) {
+    const source = state();
+    source.settings.hideRecipeIllustrations = invalid;
+    const raw = JSON.stringify(source), storage = memoryStorage([[JOURNAL_KEY,raw]]);
+    assert.throws(() => parseJournal(raw, data), /料理イラストの表示設定/);
+    assert.throws(() => writeJournal(storage, source, data), /料理イラストの表示設定/);
+    const loaded = readJournal(storage, data, '2026-11-12');
+    assert.equal(loaded.state.settings.hideRecipeIllustrations, false);
+    assert.match(loaded.message, /元の保存データ/);
+    assert.equal(storage.memory.get(JOURNAL_KEY), raw);
+    assert.deepEqual(storage.writes, []);
+  }
 });
 
 test('snapshots survive deletion of recipe and historical ingredient references', () => {
@@ -142,7 +187,7 @@ test('v1 migration preserves allergies, exclusions, preferences and recipe notes
   source.settings.excludedIngredients = ['butter'];
   source.settings.preferences = {...source.settings.preferences, genreMode: 'single', genre: '和食', preferredIngredients: ['carrot']};
   const migrated = parseJournal(JSON.stringify(source), data);
-  assert.deepEqual(migrated.settings, {...source.settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null});
+  assert.deepEqual(migrated.settings, {...source.settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false});
   const record = migrated.entries[0];
   assert.equal(record.status, 'eaten');
   assert.equal(record.note, 'お弁当にした');
@@ -322,7 +367,7 @@ test('v2 JSON migration retains snapshots and personal database without inventin
   current.pantry = [{id: 'milk', amount: 50}]; current.shoppingChecks = ['milk'];
   const legacy = structuredClone(current); legacy.version = 2;
   delete legacy.mealSets; delete legacy.purchaseSettings; delete legacy.batches; delete legacy.favourites;
-  delete legacy.profile; delete legacy.completedDays; delete legacy.settings.stapleAmount; delete legacy.settings.drinkAmount;
+  delete legacy.profile; delete legacy.completedDays; delete legacy.settings.stapleAmount; delete legacy.settings.drinkAmount; delete legacy.settings.hideRecipeIllustrations;
   const sourceText = JSON.stringify(legacy);
   const migrated = parseJournal(sourceText, data);
   assert.equal(migrated.version, 3);
@@ -334,6 +379,7 @@ test('v2 JSON migration retains snapshots and personal database without inventin
   assert.deepEqual(migrated.settings.excludedIngredients, ['butter']);
   assert.equal(migrated.settings.stapleAmount, null);
   assert.equal(migrated.settings.drinkAmount, null);
+  assert.equal(migrated.settings.hideRecipeIllustrations, false);
   assert.equal(JSON.stringify(legacy), sourceText);
   const storage = memoryStorage([[PREVIOUS_JOURNAL_KEY, sourceText], [STORAGE_KEY, JSON.stringify(legacyState())]]);
   const loaded = readJournal(storage, data);

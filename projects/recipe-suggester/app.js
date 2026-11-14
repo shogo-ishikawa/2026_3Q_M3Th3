@@ -35,8 +35,8 @@ import {nutritionBasisBadge} from './nutrition-basis-ui.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.20.0';
-import {recipeArtwork} from './recipe-illustration.js?v=3.20.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.21.0';
+import {recipeArtwork,liveBreadArtworkRecipe} from './recipe-illustration.js?v=3.21.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -111,6 +111,11 @@ function addQuickEntry(entry,message='食事を記録しました。'){
 
 function renderSettings(){
   const s=state.settings,p=s.preferences;
+  $('hide-recipe-illustrations').checked=s.hideRecipeIllustrations;
+  if(s.hideRecipeIllustrations){
+    for(const artwork of document.querySelectorAll('.recipe-art'))artwork.remove();
+    for(const card of document.querySelectorAll('.has-recipe-art'))card.classList.remove('has-recipe-art');
+  }
   for(const [id,value]of Object.entries({'start-date':s.startDate,'plan-days':s.days,servings:s.servings,'plan-meal':s.meal,'genre-mode':p.genreMode,'single-genre':p.genre==='all'?'和食':p.genre,'meal-mood':p.mood}))$(id).value=value;
   renderMealChoices('staple');renderMealChoices('drink');
   $('required-allergens').replaceChildren();$('other-allergens').replaceChildren();
@@ -360,12 +365,17 @@ function renderCatalog(){
     variationScope=family==='all'?browseDishes(all,{section:roleFilter}):catalogVariants(all,family);
   }
   $('catalog-safety-note').textContent=constraints?'アレルギーなどの除外条件があるため、原材料未確認の市販品は一覧に表示していません。食べたものは記録タブから登録できます。':'市販品は代表的な栄養の目安です。原材料未確認のメニューも記録できますが、自動提案の対象にはしません。商品の表示を優先してください。';
-  const illustratedOnly=$('recipe-illustrated-only').checked;
+  const illustrationsHidden=state.settings.hideRecipeIllustrations,illustrationFilter=$('recipe-illustrated-only');
+  illustrationFilter.disabled=illustrationsHidden;
+  if(illustrationsHidden)illustrationFilter.checked=false;
+  $('recipe-illustration-coverage').hidden=illustrationsHidden;
+  const illustratedOnly=illustrationFilter.checked;
   const hiddenIllustrations=illustratedOnly?candidates.filter(recipe=>!recipeArtwork(recipe)).length:0;
   if(illustratedOnly)candidates=candidates.filter(recipe=>recipeArtwork(recipe));
   const illustrationFilterNote=$('recipe-illustration-filter-note');
-  illustrationFilterNote.hidden=!illustratedOnly;
+  illustrationFilterNote.hidden=!illustratedOnly&&!illustrationsHidden;
   illustrationFilterNote.replaceChildren();
+  if(illustrationsHidden)illustrationFilterNote.append(node('span','','設定で料理イラストを非表示にしています。すべての料理を検索できます。'));
   if(illustratedOnly)illustrationFilterNote.append(node('span','',hiddenIllustrations?`イラスト限定中です。画像のない${hiddenIllustrations}種類は表示していません。`:'イラストのある料理に絞っています。'),button('イラスト限定を解除',()=>{$('recipe-illustrated-only').checked=false;recipeLimit=12;renderCatalog();},'button-secondary'));
   const menus=groupMenuRecipes(candidates,{allRecipes:variationScope,query});
   $('recipe-results-count').textContent=`${menus.length}件のメニュー / ${candidates.length}種類が見つかりました`;
@@ -375,7 +385,7 @@ function renderCatalog(){
     const card=button('',()=>openRecipe(menu.selectedRecipeId,{variationRecipes:variationScope,query}),'recipe-card');
     const heading=node('div','recipe-card-heading'),titles=node('div','recipe-card-titles');
     titles.append(node('span','recipe-meta',`${familyLabel(r)} / ${r.genre}`),node('h3','',menu.label));heading.append(titles);
-    const artwork=recipeIllustrationElement(all.find(recipe=>recipe.id===menu.selectedRecipeId));
+    const artwork=recipeIllustrationElement(all.find(recipe=>recipe.id===menu.selectedRecipeId),{hidden:illustrationsHidden});
     if(artwork){card.classList.add('has-recipe-art');card.append(artwork);}card.append(heading);
     if(noodle){
       card.append(node('p','',noodle.soup.length?'トッピングと飲んだスープの量を選べます':'麺の量とトッピングを選べます'),node('span','food-customisation',noodle.soup.length?'麺・具・スープを分けて栄養を計算':'麺・たれ・具の栄養を合計'));
@@ -615,13 +625,9 @@ function openFoodComposer(recipeId,{respectConditions=true}={}){
   box.replaceChildren();let currentRecipe=null,latestBase=null,intakeWidget=null;
   const artwork=node('div'),base=recipeById(recipeId);
   const breadKind=['english-muffin','sandwich','hot-sandwich','toast'].includes(definition.kind);
-  const materialAmounts=recipe=>{
-    const result=new Map();for(const part of recipe.ingredients)result.set(part.id,(result.get(part.id)??0)+part.amount/recipe.servings);return result;
-  };
   const refreshArtwork=recipe=>{
-    const current=recipe?materialAmounts(recipe):new Map(),original=materialAmounts(base);
-    const matches=current.size===original.size&&[...original].every(([id,value])=>Math.abs((current.get(id)??-1)-value)<1e-7);
-    artwork.replaceChildren(...(!breadKind||matches?recipeArtworkNodes(base,{detail:true,standard:true}):[]));
+    const illustratedRecipe=breadKind?liveBreadArtworkRecipe(recipe,definition):base;
+    artwork.replaceChildren(...(illustratedRecipe?recipeArtworkNodes(illustratedRecipe,{detail:true,standard:true}):[]));
   };
   const form=catalogRecordForm(recipeId,{getCustomRecipe:()=>currentRecipe});
   const arrange=arrangementAction(()=>currentRecipe,{respectConditions});arrange.disabled=true;
@@ -771,7 +777,7 @@ function openSnapshot(item,minutes,catalogId=null,{respectConditions=true}={}){
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 
-function recipeArtworkNodes(recipe,options){const artwork=recipeIllustrationElement(recipe,options);return artwork?[artwork]:[];}
+function recipeArtworkNodes(recipe,options){const artwork=recipeIllustrationElement(recipe,{...options,hidden:state.settings.hideRecipeIllustrations});return artwork?[artwork]:[];}
 
 function standardSoupDetails(item){const details=node('details','soup-standard-recipe');details.append(node('summary','','標準レシピの材料・栄養・作り方（全量）'),snapshotDetails(item,{showNutritionBasis:true}));return details;}
 
@@ -900,6 +906,7 @@ bind('manual-form','submit',event=>{event.preventDefault();const r=readManual(),
   },{message:save?'食事を記録し、自分のデータベースにも保存しました。':'食事をカレンダーに記録しました。'}))return;resetManual();
 });
 for(const [id,key]of [['start-date','startDate'],['plan-days','days'],['servings','servings'],['plan-meal','meal']])bind(id,'change',()=>commit(next=>{next.settings[key]=['days','servings'].includes(key)?Number($(id).value):$(id).value;}));
+bind('hide-recipe-illustrations','change',()=>{recipeLimit=12;commit(next=>{next.settings.hideRecipeIllustrations=$('hide-recipe-illustrations').checked;},{invalidate:false,message:$('hide-recipe-illustrations').checked?'料理イラストを非表示にしました。':'料理イラストを表示します。'});});
 for(const id of ['genre-mode','single-genre','meal-mood'])bind(id,'change',()=>commit(next=>{next.settings.preferences.genreMode=$('genre-mode').value;next.settings.preferences.genre=$('genre-mode').value==='single'?$('single-genre').value:'all';next.settings.preferences.mood=$('meal-mood').value;}));
 bind('ratio-equal','click',()=>commit(next=>next.settings.preferences.genreRatios=Object.fromEntries(GENRES.map(g=>[g,20]))));bind('ratio-japanese','click',()=>commit(next=>next.settings.preferences.genreRatios={和食:50,洋食:20,中華:20,エスニック:10,その他:0}));
 bind('ingredient-search','input',()=>renderIngredientSearch(false));bind('preferred-search','input',()=>renderIngredientSearch(true));
