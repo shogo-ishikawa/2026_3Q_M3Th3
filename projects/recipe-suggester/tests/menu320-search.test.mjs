@@ -35,8 +35,14 @@ test('ピザはすべて・主食の両方から検索でき、元の4種類を�
 test('ピザの検索候補とイラストの有無は別条件で、未対応の絵を流用しない',()=>{
   const pizzas=RECIPES.filter(recipe=>pizzaIds.includes(recipe.id));
   assert.equal(pizzas.length,4);
-  for(const recipe of pizzas){assert.equal(dishSection(recipe),'staple');assert.equal(recipeArtwork(recipe),null);}
-  assert.equal(browseDishes(enriched(),{query:'ピザ'}).filter(recipe=>recipeArtwork(recipe)).length,0);
+  for(const recipe of pizzas){
+    assert.equal(dishSection(recipe),'staple');
+    if(recipe.id==='daily-pizza-margherita')assert.equal(recipeArtwork(recipe)?.recipeId,recipe.id);
+    else assert.equal(recipeArtwork(recipe),null);
+  }
+  const illustrated=browseDishes(enriched(),{query:'ピザ'}).filter(recipe=>recipeArtwork(recipe));
+  assert.ok(ids(illustrated).includes('daily-pizza-margherita'));
+  assert.ok(ids(illustrated).includes('bread-toast-pizza'));
 });
 
 test('お刺身・お刺し身・御刺身は共通の検索で刺身と同じ候補へ到達する',()=>{

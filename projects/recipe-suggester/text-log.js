@@ -33,7 +33,10 @@ function composerPriority(recipe,query,data){
   const composer=foodComposerFor(recipe.id);if(!composer)return 0;
   const aliases=[composer.label,...variationSearchAliases(recipe)];
   if(!aliases.some(label=>normaliseJapaneseSearch(label)===normaliseJapaneseSearch(query)))return 0;
-  const anchor=composerAnchors[composer.kind]??composer.recipeIds.find(id=>data.recipes.some(recipe=>recipe.id===id));
+  const defaultPreset=composer.presets?.find(preset=>preset.id===composer.defaultPresetId);
+  const anchor=composerAnchors[composer.kind]
+    ??(data.recipes.some(recipe=>recipe.id===defaultPreset?.recipeId)?defaultPreset.recipeId:null)
+    ??composer.recipeIds.find(id=>data.recipes.some(recipe=>recipe.id===id));
   return recipe.id===anchor?-1:0;
 }
 

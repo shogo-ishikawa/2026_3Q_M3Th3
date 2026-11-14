@@ -175,7 +175,8 @@ const legacyBreadPresets={
 };
 const breadPresets=kind=>{
   const presets=BREAD_PRESETS[kind]??[],custom=presets.filter(part=>part.id==='custom');
-  return [...presets.filter(part=>part.id!=='custom'),...(legacyBreadPresets[kind]??[]),...custom];
+  return [...presets.filter(part=>part.id!=='custom'),...(legacyBreadPresets[kind]??[]),
+    ...custom.map(part=>kind==='toast'?{...part,label:'トーストのみ（具材を指定する）'}:part)];
 };
 const breadBase=(kind,label)=>formula('base',label,BREAD_BASE_INGREDIENTS[kind],'ベース','個',1,{base:true,maxAmount:1});
 const breadRecipeIds=kind=>breadPresets(kind).map(part=>part.recipeId);
@@ -200,7 +201,7 @@ const COMPOSER_DESCRIPTIONS = {
   'english-muffin':'朝食や昼食に、具材をはさむマフィン',
   sandwich:'パン2枚に具材とソースを組み合わせる',
   'hot-sandwich':'定番の組み合わせを選び、具材や量を調整',
-  toast:'バター・ジャム・チーズやピザトーストを選ぶ',
+  toast:'トーストのみから、好きな塗るものや具材を選ぶ',
 };
 
 export const FOOD_COMPOSERS = freeze([
@@ -259,9 +260,9 @@ export const FOOD_COMPOSERS = freeze([
     components:[breadBase('hot-sandwich','食パン2枚（合計約60g）'),formula('base-large','厚めの食パン2枚（合計約120g）',[['bread',120]],'ベース','個',1,{base:true,maxAmount:1}),...breadFillings],
     defaults:[['base',1],['ham',20],['cheese',20]],intro:'ハムチーズや卵、ツナ、鶏肉などから最初の組み合わせを選び、具材の削除・追加と量を調整できます。「具材を指定する」はパンだけから作れます。',
     instructions:['加熱が必要な具材は先に中まで火を通し、食パンではさんでホットサンドメーカーやフライパンで焼く。']},
-  {kind:'toast',label:'トースト',recipeIds:breadRecipeIds('toast'),presets:breadPresets('toast'),role:'staple',family:'bread',mealBase:false,genre:'洋食',minutes:10,unit:'個',baseRequired:true,
+  {kind:'toast',label:'トースト',recipeIds:breadRecipeIds('toast'),presets:breadPresets('toast'),defaultPresetId:'custom',role:'staple',family:'bread',mealBase:false,genre:'洋食',minutes:10,unit:'個',baseRequired:true,
     components:[breadBase('toast','食パン1枚（厚切り約60g）'),formula('base-wholegrain','全粒粉食パン（約60g）',[['wholegrain_bread',60]],'ベース','個',1,{base:true,maxAmount:1}),...breadFillings],
-    defaults:[['base',1],['butter',5]],intro:'バターやジャム、チーズ、ピザトーストなどを選び、塗るもの・具材と量を調整します。「具材を指定する」は食パンだけから始めます。ピザトーストは食パンを使うトーストで、ピザ生地の料理とは別です。',
+    defaults:[['base',1]],intro:'「トーストのみ（具材を指定する）」は食パンだけから始めます。バターやジャム、チーズ、ピザトーストなども選び、塗るもの・具材と量を調整できます。ピザトーストは食パンを使うトーストで、ピザ生地の料理とは別です。',
     instructions:['食パンに選んだ具材をのせてトースターで焼く。ジャムやはちみつは好みで焼いた後に塗る。']},
 ].map(definition=>({...definition,description:COMPOSER_DESCRIPTIONS[definition.kind]??definition.intro})));
 
@@ -388,6 +389,7 @@ export function defaultFoodSelection(kind,{recipeId}={}) {
   const definition=foodComposerDefinition(kind), selected=typeof recipeId==='string'?definition.components.find(part=>part.recipeId===recipeId):null;
   const preset=definition.presets?.find(part=>part.recipeId===recipeId);
   if(preset)return foodPresetSelection(kind,preset.id);
+  if(definition.defaultPresetId)return foodPresetSelection(kind,definition.defaultPresetId);
   const mapping={
     'varied-shrimp-tempura':[['shrimp',4]],'varied-squid-tempura':[['squid',4]],'varied-whitefish-tempura':[['whitefish',4]],
     'varied-shimeji-tempura':[['shimeji',4]],'varied-vegetable-tempura':[['aubergine',2],['pumpkin',2],['lotus-root',2]],

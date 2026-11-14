@@ -336,6 +336,9 @@ details[open] > summary .summary-plus { transform: rotate(45deg); }
 .custom-recipe-row .button-text { font-size: 11px; }
 /* Profile, personal reference values and backups */
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
+.appearance-settings { margin-bottom: 25px; }
+.appearance-settings .choice-label { font-size: 14px; }
+.appearance-settings .field-note { margin-bottom: 0; }
 .profile-section > .section-copy { margin-bottom: 18px; }
 .profile-section form > label, .profile-section form > .field-pair { margin-top: 16px; }
 .profile-section form > label:first-child { margin-top: 0; }

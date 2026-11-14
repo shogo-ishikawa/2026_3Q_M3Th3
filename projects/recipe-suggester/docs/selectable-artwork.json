@@ -1,0 +1,1914 @@
+{
+  "schemaVersion": 1,
+  "release": "3.21.0",
+  "scope": "飲み物と間食を除く全メニュー選択グループ、および料理ごとに構成や数量を指定できる具材・肉・麺・カレー・サラダの入口。スープの摂取割合のみを変える単独レシピは選択グループに数えない。",
+  "summary": {
+    "menuVariationGroups": 61,
+    "foodComposers": 11,
+    "dishCustomisers": 2,
+    "meatChoices": 14,
+    "noodleStyles": 14,
+    "curryRecipes": 19,
+    "saladBuilders": 1,
+    "auditEntries": 122,
+    "uniqueArtworkTargets": 104,
+    "missingArtwork": 0,
+    "initialSelectionIngredientMismatches": 27,
+    "newArtwork": 73,
+    "totalArtwork": 223,
+    "baselineMissingArtwork": 72
+  },
+  "entries": [
+    {
+      "group": "nikujaga",
+      "kind": "menu-variation",
+      "label": "肉じゃが",
+      "defaultRecipeId": "beef-potato",
+      "name": "牛肉の肉じゃが",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "okonomiyaki",
+      "kind": "menu-variation",
+      "label": "お好み焼き",
+      "defaultRecipeId": "seafood-okonomiyaki",
+      "name": "海鮮とキャベツのお好み焼き",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "rice",
+      "kind": "menu-variation",
+      "label": "ご飯",
+      "defaultRecipeId": "plain-rice",
+      "name": "ご飯",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "onigiri",
+      "kind": "menu-variation",
+      "label": "おにぎり",
+      "defaultRecipeId": "staple-salt-onigiri",
+      "name": "塩むすび",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "udon",
+      "kind": "menu-variation",
+      "label": "うどん",
+      "defaultRecipeId": "daily-udon-plain",
+      "name": "かけうどん",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "soba",
+      "kind": "menu-variation",
+      "label": "そば",
+      "defaultRecipeId": "daily-soba-plain",
+      "name": "かけそば",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "pasta",
+      "kind": "menu-variation",
+      "label": "パスタ",
+      "defaultRecipeId": "daily-pasta-peperoncino",
+      "name": "ペペロンチーノ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "curry",
+      "kind": "menu-variation",
+      "label": "カレー",
+      "defaultRecipeId": "daily-curry-pork",
+      "name": "ポークカレーライス",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "naan",
+      "kind": "menu-variation",
+      "label": "ナン",
+      "defaultRecipeId": "world-naan-plain",
+      "name": "プレーンナン",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "retort-curry",
+      "kind": "menu-variation",
+      "label": "レトルトカレー",
+      "defaultRecipeId": "prepared-retort-beef-curry",
+      "name": "レトルトビーフカレーライス（ご飯込み）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "yakisoba",
+      "kind": "menu-variation",
+      "label": "焼きそば",
+      "defaultRecipeId": "daily-yakisoba-sauce",
+      "name": "ソース焼きそば",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "cup-yakisoba",
+      "kind": "menu-variation",
+      "label": "カップ焼きそば",
+      "defaultRecipeId": "prepared-cup-yakisoba-sauce",
+      "name": "カップ焼きそば（ソース）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "cup-udon",
+      "kind": "menu-variation",
+      "label": "カップうどん",
+      "defaultRecipeId": "prepared-cup-udon-kitsune",
+      "name": "カップきつねうどん",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "cup-ramen",
+      "kind": "menu-variation",
+      "label": "カップラーメン",
+      "defaultRecipeId": "prepared-cup-ramen-soy",
+      "name": "カップラーメン（しょうゆ）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "bag-ramen",
+      "kind": "menu-variation",
+      "label": "袋入り即席ラーメン",
+      "defaultRecipeId": "prepared-bag-ramen-soy",
+      "name": "袋入り即席ラーメン（しょうゆ）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "miso-soup",
+      "kind": "menu-variation",
+      "label": "みそ汁",
+      "defaultRecipeId": "soup-001",
+      "name": "豆腐とわかめのみそ汁",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "omelette",
+      "kind": "menu-variation",
+      "label": "オムレツ",
+      "defaultRecipeId": "classic-omelette-plain",
+      "name": "プレーンオムレツ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "nigiri",
+      "kind": "menu-variation",
+      "label": "にぎり寿司",
+      "defaultRecipeId": "classic-sushi-assorted",
+      "name": "にぎり寿司の盛り合わせ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "hosomaki",
+      "kind": "menu-variation",
+      "label": "細巻き",
+      "defaultRecipeId": "sushi-hosomaki-kappa",
+      "name": "かっぱ巻き（細巻）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "futomaki",
+      "kind": "menu-variation",
+      "label": "太巻き",
+      "defaultRecipeId": "sushi-futomaki-egg-vegetable",
+      "name": "卵としいたけの太巻き",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "gunkan",
+      "kind": "menu-variation",
+      "label": "軍艦巻き",
+      "defaultRecipeId": "sushi-gunkan-ikura",
+      "name": "いくら軍艦",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "pizza",
+      "kind": "menu-variation",
+      "label": "ピザ",
+      "defaultRecipeId": "daily-pizza-margherita",
+      "name": "マルゲリータピザ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "fried-rice",
+      "kind": "menu-variation",
+      "label": "チャーハン",
+      "defaultRecipeId": "daily-fried-rice-egg",
+      "name": "卵チャーハン",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "ramen",
+      "kind": "menu-variation",
+      "label": "ラーメン",
+      "defaultRecipeId": "daily-ramen-soy",
+      "name": "しょうゆラーメン",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "chinese-noodles",
+      "kind": "menu-variation",
+      "label": "油そば・冷たい中華麺・汁なし担々麺",
+      "defaultRecipeId": "noodle-aburasoba",
+      "name": "油そば",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "donburi",
+      "kind": "menu-variation",
+      "label": "丼もの",
+      "defaultRecipeId": "daily-donburi-oyako",
+      "name": "親子丼",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "rice-bowls",
+      "kind": "menu-variation",
+      "label": "具だくさんの丼",
+      "defaultRecipeId": "chicken-rice-bowl",
+      "name": "鶏そぼろ丼",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "omelette-rice",
+      "kind": "menu-variation",
+      "label": "オムライス",
+      "defaultRecipeId": "classic-omelette-rice-cheese",
+      "name": "チーズオムライス",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "retort-donburi",
+      "kind": "menu-variation",
+      "label": "レトルト丼",
+      "defaultRecipeId": "prepared-retort-gyudon",
+      "name": "レトルト牛丼（ご飯込み）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "burger",
+      "kind": "menu-variation",
+      "label": "ハンバーガー",
+      "defaultRecipeId": "prepared-burger-plain",
+      "name": "ハンバーガー（一般例）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "bought-sandwich",
+      "kind": "menu-variation",
+      "label": "サンドイッチ（購入品の一般例）",
+      "defaultRecipeId": "prepared-sandwich-egg",
+      "name": "コンビニ風たまごサンド（一般例）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "hot-sandwich",
+      "kind": "menu-variation",
+      "label": "ホットサンド",
+      "defaultRecipeId": "bread-hot-sandwich-ham-cheese",
+      "name": "ハムチーズホットサンド",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "toast",
+      "kind": "menu-variation",
+      "label": "トースト",
+      "defaultRecipeId": "bread-toast-custom",
+      "name": "トースト（具材を指定する）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "sliced-bread",
+      "kind": "menu-variation",
+      "label": "食パン",
+      "defaultRecipeId": "staple-plain-bread",
+      "name": "食パン",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "oatmeal",
+      "kind": "menu-variation",
+      "label": "オートミールがゆ",
+      "defaultRecipeId": "staple-oatmeal-water",
+      "name": "オートミールがゆ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "hamburg",
+      "kind": "menu-variation",
+      "label": "ハンバーグ",
+      "defaultRecipeId": "classic-hamburg",
+      "name": "合いびきハンバーグ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "mapo-tofu",
+      "kind": "menu-variation",
+      "label": "麻婆豆腐",
+      "defaultRecipeId": "mapo-tofu-chen-style",
+      "name": "本格麻婆豆腐（陳建一風・にんにくの芽）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "gyoza",
+      "kind": "menu-variation",
+      "label": "餃子",
+      "defaultRecipeId": "classic-gyoza",
+      "name": "焼き餃子",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "karaage",
+      "kind": "menu-variation",
+      "label": "鶏の唐揚げ",
+      "defaultRecipeId": "classic-karaage-thigh",
+      "name": "鶏もも肉の唐揚げ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "grilled-fish",
+      "kind": "menu-variation",
+      "label": "焼き魚",
+      "defaultRecipeId": "classic-grilled-salmon",
+      "name": "鮭の塩焼き",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "sashimi",
+      "kind": "menu-variation",
+      "label": "刺身",
+      "defaultRecipeId": "classic-sashimi-assorted",
+      "name": "刺身の盛り合わせ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "croquette",
+      "kind": "menu-variation",
+      "label": "コロッケ",
+      "defaultRecipeId": "classic-croquette-potato",
+      "name": "じゃがいものコロッケ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "stew",
+      "kind": "menu-variation",
+      "label": "シチュー",
+      "defaultRecipeId": "familiar-beef-stew",
+      "name": "ビーフシチュー",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "nabe",
+      "kind": "menu-variation",
+      "label": "鍋料理",
+      "defaultRecipeId": "familiar-yose-nabe",
+      "name": "寄せ鍋",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "yakitori",
+      "kind": "menu-variation",
+      "label": "焼き鳥",
+      "defaultRecipeId": "familiar-yakitori-negima",
+      "name": "焼き鳥（ねぎま）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "takeaway-yakitori",
+      "kind": "menu-variation",
+      "label": "焼き鳥（テイクアウト）",
+      "defaultRecipeId": "takeaway-yakitori-momo-tare",
+      "name": "焼き鳥・もも（たれ・テイクアウト）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "tempura",
+      "kind": "menu-variation",
+      "label": "天ぷら",
+      "defaultRecipeId": "familiar-tempura-assorted",
+      "name": "えびと野菜の天ぷら",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "vegetable-tempura",
+      "kind": "menu-variation",
+      "label": "野菜・きのこの天ぷら",
+      "defaultRecipeId": "varied-vegetable-tempura",
+      "name": "野菜の天ぷら盛り合わせ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "takeaway-tempura",
+      "kind": "menu-variation",
+      "label": "天ぷら（外食）",
+      "defaultRecipeId": "takeaway-tempura-shrimp",
+      "name": "えびの天ぷら（外食・単品）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "potage",
+      "kind": "menu-variation",
+      "label": "ポタージュ",
+      "defaultRecipeId": "familiar-side-corn-potage",
+      "name": "コーンポタージュ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "clear-soup",
+      "kind": "menu-variation",
+      "label": "お吸い物・すまし汁",
+      "defaultRecipeId": "soup311-osuimono-tofu-wakame",
+      "name": "豆腐とわかめのお吸い物",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "arajiru",
+      "kind": "menu-variation",
+      "label": "あら汁",
+      "defaultRecipeId": "soup311-arajiru-salmon",
+      "name": "鮭のあら汁（しょうゆ仕立て）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "clam-chowder",
+      "kind": "menu-variation",
+      "label": "クラムチャウダー",
+      "defaultRecipeId": "familiar-side-clam-chowder",
+      "name": "クラムチャウダー",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "consomme",
+      "kind": "menu-variation",
+      "label": "コンソメスープ",
+      "defaultRecipeId": "soup311-consomme-plain",
+      "name": "コンソメスープ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "wonton-soup",
+      "kind": "menu-variation",
+      "label": "ワンタンスープ",
+      "defaultRecipeId": "soup311-wonton-pork",
+      "name": "豚肉と長ねぎのワンタンスープ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "instant-potage",
+      "kind": "menu-variation",
+      "label": "カップスープ",
+      "defaultRecipeId": "takeaway-knorr-corn",
+      "name": "クノール カップスープ コーンクリーム（即席）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "instant-harusame",
+      "kind": "menu-variation",
+      "label": "春雨スープ（即席）",
+      "defaultRecipeId": "takeaway-harusame-wonton",
+      "name": "エースコック スープはるさめ ワンタン（即席）",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "oden",
+      "kind": "menu-variation",
+      "label": "おでん",
+      "defaultRecipeId": "palette-oden",
+      "name": "おでん",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "bagel",
+      "kind": "menu-variation",
+      "label": "ベーグル",
+      "defaultRecipeId": "palette-bagel",
+      "name": "ベーグル",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "sandwich",
+      "kind": "menu-variation",
+      "label": "サンドイッチ",
+      "defaultRecipeId": "palette-sandwich",
+      "name": "サンドイッチ",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "english-muffin",
+      "kind": "menu-variation",
+      "label": "イングリッシュマフィン",
+      "defaultRecipeId": "bread-english-muffin-ham-cheese",
+      "name": "ハムチーズイングリッシュマフィン",
+      "notes": [
+        "検索語がない場合と見出し名による検索の標準。味・具材を指定した検索は該当する種類を優先する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "oden",
+      "kind": "food-composer",
+      "label": "おでん",
+      "defaultRecipeId": "palette-oden",
+      "name": "おでん",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "pot-au-feu",
+      "kind": "food-composer",
+      "label": "ポトフ",
+      "defaultRecipeId": "familiar-side-pot-au-feu",
+      "name": "ベーコンと野菜のポトフ",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "sushi",
+      "kind": "food-composer",
+      "label": "お寿司",
+      "defaultRecipeId": "classic-sushi-assorted",
+      "name": "にぎり寿司の盛り合わせ",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "sashimi",
+      "kind": "food-composer",
+      "label": "刺身の盛り合わせ",
+      "defaultRecipeId": "classic-sashimi-assorted",
+      "name": "刺身の盛り合わせ",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "yakitori",
+      "kind": "food-composer",
+      "label": "焼き鳥",
+      "defaultRecipeId": "familiar-yakitori-negima",
+      "name": "焼き鳥（ねぎま）",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "tempura",
+      "kind": "food-composer",
+      "label": "天ぷら",
+      "defaultRecipeId": "familiar-tempura-assorted",
+      "name": "えびと野菜の天ぷら",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "bagel",
+      "kind": "food-composer",
+      "label": "ベーグル",
+      "defaultRecipeId": "palette-bagel",
+      "name": "ベーグル",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "english-muffin",
+      "kind": "food-composer",
+      "label": "イングリッシュマフィン",
+      "defaultRecipeId": "bread-english-muffin-ham-cheese",
+      "name": "ハムチーズイングリッシュマフィン",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "sandwich",
+      "kind": "food-composer",
+      "label": "サンドイッチ",
+      "defaultRecipeId": "palette-sandwich",
+      "name": "サンドイッチ",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "hot-sandwich",
+      "kind": "food-composer",
+      "label": "ホットサンド",
+      "defaultRecipeId": "bread-hot-sandwich-ham-cheese",
+      "name": "ハムチーズホットサンド",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "toast",
+      "kind": "food-composer",
+      "label": "トースト",
+      "defaultRecipeId": "bread-toast-custom",
+      "name": "トースト（具材を指定する）",
+      "notes": [
+        "食品を組み合わせる共通画面の代表入口。他の種類を指定して開いた場合は指定したレシピを維持する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "nikujaga",
+      "kind": "dish-customiser",
+      "label": "肉じゃが",
+      "defaultRecipeId": "beef-potato",
+      "name": "牛肉の肉じゃが",
+      "notes": [],
+      "hasArtwork": true
+    },
+    {
+      "group": "okonomiyaki",
+      "kind": "dish-customiser",
+      "label": "お好み焼き",
+      "defaultRecipeId": "seafood-okonomiyaki",
+      "name": "海鮮とキャベツのお好み焼き",
+      "notes": [],
+      "hasArtwork": true
+    },
+    {
+      "group": "comfort-nikudofu-pork",
+      "kind": "meat",
+      "label": "肉豆腐",
+      "defaultRecipeId": "comfort-nikudofu-pork",
+      "name": "肉豆腐（豚肉）",
+      "notes": [
+        "肉の初期値: 豚肉"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "comfort-motsu-stew",
+      "kind": "meat",
+      "label": "もつ煮込み",
+      "defaultRecipeId": "comfort-motsu-stew",
+      "name": "もつ煮込み（豚白もつ）",
+      "notes": [
+        "肉の初期値: 豚白もつ（小腸・ゆで）"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "beef-hamburg",
+      "kind": "meat",
+      "label": "ハンバーグ",
+      "defaultRecipeId": "beef-hamburg",
+      "name": "卵を使わない牛肉ハンバーグ",
+      "notes": [
+        "肉の初期値: 牛ひき肉"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "tofu-burger",
+      "kind": "meat",
+      "label": "豆腐ハンバーグ",
+      "defaultRecipeId": "tofu-burger",
+      "name": "豆腐と鶏肉のハンバーグ",
+      "notes": [
+        "肉の初期値: 鶏ひき肉"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "classic-hamburg",
+      "kind": "meat",
+      "label": "ハンバーグ",
+      "defaultRecipeId": "classic-hamburg",
+      "name": "合いびきハンバーグ",
+      "notes": [
+        "肉の初期値: 合いびき（牛・豚を半分ずつ）"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "familiar-hamburg-oroshi",
+      "kind": "meat",
+      "label": "和風おろしハンバーグ",
+      "defaultRecipeId": "familiar-hamburg-oroshi",
+      "name": "和風おろしハンバーグ",
+      "notes": [
+        "肉の初期値: 合いびき（牛・豚を半分ずつ）"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "familiar-hamburg-stew",
+      "kind": "meat",
+      "label": "煮込みハンバーグ",
+      "defaultRecipeId": "familiar-hamburg-stew",
+      "name": "煮込みハンバーグ",
+      "notes": [
+        "肉の初期値: 合いびき（牛・豚を半分ずつ）"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "familiar-hamburg-cheese",
+      "kind": "meat",
+      "label": "チーズハンバーグ",
+      "defaultRecipeId": "familiar-hamburg-cheese",
+      "name": "チーズハンバーグ",
+      "notes": [
+        "肉の初期値: 合いびき（牛・豚を半分ずつ）"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "bistro-cheese-in-hamburg",
+      "kind": "meat",
+      "label": "チーズインハンバーグ",
+      "defaultRecipeId": "bistro-cheese-in-hamburg",
+      "name": "チーズインハンバーグ",
+      "notes": [
+        "肉の初期値: 合いびき（牛・豚を半分ずつ）"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "familiar-loco-moco",
+      "kind": "meat",
+      "label": "ロコモコ",
+      "defaultRecipeId": "familiar-loco-moco",
+      "name": "ロコモコ",
+      "notes": [
+        "肉の初期値: 合いびき（牛・豚を半分ずつ）"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "tofu-mapo",
+      "kind": "meat",
+      "label": "麻婆豆腐",
+      "defaultRecipeId": "tofu-mapo",
+      "name": "豆腐と豚肉の辛くない麻婆豆腐",
+      "notes": [
+        "肉の初期値: 豚ひき肉"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "mapo-tofu-chen-style",
+      "kind": "meat",
+      "label": "本格麻婆豆腐",
+      "defaultRecipeId": "mapo-tofu-chen-style",
+      "name": "本格麻婆豆腐（陳建一風・にんにくの芽）",
+      "notes": [
+        "肉の初期値: 豚ひき肉"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-donburi-mapo",
+      "kind": "meat",
+      "label": "麻婆豆腐丼",
+      "defaultRecipeId": "daily-donburi-mapo",
+      "name": "麻婆豆腐丼",
+      "notes": [
+        "肉の初期値: 豚ひき肉"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "familiar-mapo-aubergine",
+      "kind": "meat",
+      "label": "麻婆なす",
+      "defaultRecipeId": "familiar-mapo-aubergine",
+      "name": "麻婆なす",
+      "notes": [
+        "肉の初期値: 豚ひき肉"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-ramen-soy",
+      "kind": "noodle",
+      "label": "しょうゆ",
+      "defaultRecipeId": "daily-ramen-soy",
+      "name": "しょうゆラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-ramen-salt",
+      "kind": "noodle",
+      "label": "塩",
+      "defaultRecipeId": "daily-ramen-salt",
+      "name": "塩ラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-ramen-miso",
+      "kind": "noodle",
+      "label": "みそ",
+      "defaultRecipeId": "daily-ramen-miso",
+      "name": "みそラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-ramen-tanmen",
+      "kind": "noodle",
+      "label": "タンメン",
+      "defaultRecipeId": "daily-ramen-tanmen",
+      "name": "タンメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-ramen-niboshi",
+      "kind": "noodle",
+      "label": "煮干ししょうゆ",
+      "defaultRecipeId": "noodle-ramen-niboshi",
+      "name": "煮干ししょうゆラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-ramen-miso-butter-corn",
+      "kind": "noodle",
+      "label": "味噌バターコーン",
+      "defaultRecipeId": "noodle-ramen-miso-butter-corn",
+      "name": "味噌バターコーンラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-ramen-tonkotsu",
+      "kind": "noodle",
+      "label": "豚骨",
+      "defaultRecipeId": "noodle-ramen-tonkotsu",
+      "name": "豚骨ラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-ramen-iekei",
+      "kind": "noodle",
+      "label": "家系風・豚骨しょうゆ",
+      "defaultRecipeId": "noodle-ramen-iekei",
+      "name": "家系風・豚骨しょうゆラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-ramen-jiro",
+      "kind": "noodle",
+      "label": "二郎系風",
+      "defaultRecipeId": "noodle-ramen-jiro",
+      "name": "二郎系風ラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-ramen-seabura",
+      "kind": "noodle",
+      "label": "背脂ちゃっちゃ風",
+      "defaultRecipeId": "noodle-ramen-seabura",
+      "name": "背脂ちゃっちゃ風ラーメン",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-ramen-tantan",
+      "kind": "noodle",
+      "label": "担々麺（汁あり）",
+      "defaultRecipeId": "noodle-ramen-tantan",
+      "name": "担々麺（汁あり）",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-aburasoba",
+      "kind": "noodle",
+      "label": "油そば",
+      "defaultRecipeId": "noodle-aburasoba",
+      "name": "油そば",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-hiyashi-chuka",
+      "kind": "noodle",
+      "label": "冷やし中華",
+      "defaultRecipeId": "noodle-hiyashi-chuka",
+      "name": "冷やし中華",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "noodle-soupless-tantan",
+      "kind": "noodle",
+      "label": "汁なし担々麺",
+      "defaultRecipeId": "noodle-soupless-tantan",
+      "name": "汁なし担々麺",
+      "notes": [
+        "麺の量は種類ごとの標準量。スープは初期値が完飲、汁なしはたれ全量。追加具材は種類ごとの初期設定。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "tomato-chicken-curry",
+      "kind": "curry",
+      "label": "ルウを使わないチキンカレー",
+      "defaultRecipeId": "tomato-chicken-curry",
+      "name": "ルウを使わないチキンカレー",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "minced-dry-curry",
+      "kind": "curry",
+      "label": "野菜たっぷりドライカレー",
+      "defaultRecipeId": "minced-dry-curry",
+      "name": "野菜たっぷりドライカレー",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "rice-baked-cheese",
+      "kind": "curry",
+      "label": "野菜と豆腐の焼きカレーご飯",
+      "defaultRecipeId": "rice-baked-cheese",
+      "name": "野菜と豆腐の焼きカレーご飯",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-curry-chicken",
+      "kind": "curry",
+      "label": "チキンカレーライス",
+      "defaultRecipeId": "daily-curry-chicken",
+      "name": "チキンカレーライス",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-curry-pork",
+      "kind": "curry",
+      "label": "ポークカレーライス",
+      "defaultRecipeId": "daily-curry-pork",
+      "name": "ポークカレーライス",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-curry-beef",
+      "kind": "curry",
+      "label": "ビーフカレーライス",
+      "defaultRecipeId": "daily-curry-beef",
+      "name": "ビーフカレーライス",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-curry-vegetable",
+      "kind": "curry",
+      "label": "野菜カレーライス",
+      "defaultRecipeId": "daily-curry-vegetable",
+      "name": "野菜カレーライス",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "daily-curry-keema",
+      "kind": "curry",
+      "label": "キーマカレーライス",
+      "defaultRecipeId": "daily-curry-keema",
+      "name": "キーマカレーライス",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "prepared-retort-beef-curry",
+      "kind": "curry",
+      "label": "レトルトビーフカレーライス（ご飯込み）",
+      "defaultRecipeId": "prepared-retort-beef-curry",
+      "name": "レトルトビーフカレーライス（ご飯込み）",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "prepared-retort-pork-curry",
+      "kind": "curry",
+      "label": "レトルトポークカレーライス（ご飯込み）",
+      "defaultRecipeId": "prepared-retort-pork-curry",
+      "name": "レトルトポークカレーライス（ご飯込み）",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "prepared-retort-chicken-curry",
+      "kind": "curry",
+      "label": "レトルトチキンカレーライス（ご飯込み）",
+      "defaultRecipeId": "prepared-retort-chicken-curry",
+      "name": "レトルトチキンカレーライス（ご飯込み）",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "prepared-retort-vegetable-curry",
+      "kind": "curry",
+      "label": "レトルト野菜カレーライス（ご飯込み）",
+      "defaultRecipeId": "prepared-retort-vegetable-curry",
+      "name": "レトルト野菜カレーライス（ご飯込み）",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "prepared-retort-keema-curry",
+      "kind": "curry",
+      "label": "レトルトキーマカレーライス（ご飯込み）",
+      "defaultRecipeId": "prepared-retort-keema-curry",
+      "name": "レトルトキーマカレーライス（ご飯込み）",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "varied-green-curry-rice",
+      "kind": "curry",
+      "label": "グリーンカレーライス（手作り）",
+      "defaultRecipeId": "varied-green-curry-rice",
+      "name": "グリーンカレーライス（手作り）",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "varied-butter-chicken-rice",
+      "kind": "curry",
+      "label": "バターチキンカレーライス",
+      "defaultRecipeId": "varied-butter-chicken-rice",
+      "name": "バターチキンカレーライス",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。",
+        "初期の選択内容は標準レシピの1人分と異なる。標準レシピのイラストは配合と量の一例として表示し、実際の記録は選択した内容で計算する。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "world-massaman-chicken",
+      "kind": "curry",
+      "label": "マッサマンカレー",
+      "defaultRecipeId": "world-massaman-chicken",
+      "name": "マッサマンカレー",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "world-mutton-curry",
+      "kind": "curry",
+      "label": "マトンカレー",
+      "defaultRecipeId": "world-mutton-curry",
+      "name": "マトンカレー",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "world-saag-chicken",
+      "kind": "curry",
+      "label": "サグチキンカレー",
+      "defaultRecipeId": "world-saag-chicken",
+      "name": "サグチキンカレー",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "world-saag-paneer",
+      "kind": "curry",
+      "label": "サグパニールカレー",
+      "defaultRecipeId": "world-saag-paneer",
+      "name": "サグパニールカレー",
+      "notes": [
+        "ご飯の初期値は炊飯済み150g。元の標準レシピに含むご飯の量と異なる場合がある。0gを指定するとルーのみ。"
+      ],
+      "hasArtwork": true
+    },
+    {
+      "group": "salad",
+      "kind": "salad",
+      "label": "生野菜サラダ",
+      "defaultRecipeId": "familiar-side-raw-vegetable",
+      "name": "生野菜サラダ（ドレッシングなし）",
+      "notes": [
+        "レタス・キャベツ・きゅうり・トマト・にんじん。初期値はドレッシングなし。"
+      ],
+      "hasArtwork": true
+    }
+  ],
+  "artworkTargets": [
+    {
+      "defaultRecipeId": "beef-potato",
+      "name": "牛肉の肉じゃが",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "seafood-okonomiyaki",
+      "name": "海鮮とキャベツのお好み焼き",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "plain-rice",
+      "name": "ご飯",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "staple-salt-onigiri",
+      "name": "塩むすび",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-udon-plain",
+      "name": "かけうどん",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-soba-plain",
+      "name": "かけそば",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-pasta-peperoncino",
+      "name": "ペペロンチーノ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-curry-pork",
+      "name": "ポークカレーライス",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "world-naan-plain",
+      "name": "プレーンナン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-retort-beef-curry",
+      "name": "レトルトビーフカレーライス（ご飯込み）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-yakisoba-sauce",
+      "name": "ソース焼きそば",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-cup-yakisoba-sauce",
+      "name": "カップ焼きそば（ソース）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-cup-udon-kitsune",
+      "name": "カップきつねうどん",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-cup-ramen-soy",
+      "name": "カップラーメン（しょうゆ）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-bag-ramen-soy",
+      "name": "袋入り即席ラーメン（しょうゆ）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "soup-001",
+      "name": "豆腐とわかめのみそ汁",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-omelette-plain",
+      "name": "プレーンオムレツ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-sushi-assorted",
+      "name": "にぎり寿司の盛り合わせ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "sushi-hosomaki-kappa",
+      "name": "かっぱ巻き（細巻）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "sushi-futomaki-egg-vegetable",
+      "name": "卵としいたけの太巻き",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "sushi-gunkan-ikura",
+      "name": "いくら軍艦",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-pizza-margherita",
+      "name": "マルゲリータピザ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-fried-rice-egg",
+      "name": "卵チャーハン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-ramen-soy",
+      "name": "しょうゆラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-aburasoba",
+      "name": "油そば",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-donburi-oyako",
+      "name": "親子丼",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "chicken-rice-bowl",
+      "name": "鶏そぼろ丼",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-omelette-rice-cheese",
+      "name": "チーズオムライス",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-retort-gyudon",
+      "name": "レトルト牛丼（ご飯込み）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-burger-plain",
+      "name": "ハンバーガー（一般例）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-sandwich-egg",
+      "name": "コンビニ風たまごサンド（一般例）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "bread-hot-sandwich-ham-cheese",
+      "name": "ハムチーズホットサンド",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "bread-toast-custom",
+      "name": "トースト（具材を指定する）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "staple-plain-bread",
+      "name": "食パン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "staple-oatmeal-water",
+      "name": "オートミールがゆ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-hamburg",
+      "name": "合いびきハンバーグ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "mapo-tofu-chen-style",
+      "name": "本格麻婆豆腐（陳建一風・にんにくの芽）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-gyoza",
+      "name": "焼き餃子",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-karaage-thigh",
+      "name": "鶏もも肉の唐揚げ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-grilled-salmon",
+      "name": "鮭の塩焼き",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-sashimi-assorted",
+      "name": "刺身の盛り合わせ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "classic-croquette-potato",
+      "name": "じゃがいものコロッケ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-beef-stew",
+      "name": "ビーフシチュー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-yose-nabe",
+      "name": "寄せ鍋",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-yakitori-negima",
+      "name": "焼き鳥（ねぎま）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "takeaway-yakitori-momo-tare",
+      "name": "焼き鳥・もも（たれ・テイクアウト）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-tempura-assorted",
+      "name": "えびと野菜の天ぷら",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "varied-vegetable-tempura",
+      "name": "野菜の天ぷら盛り合わせ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "takeaway-tempura-shrimp",
+      "name": "えびの天ぷら（外食・単品）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-side-corn-potage",
+      "name": "コーンポタージュ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "soup311-osuimono-tofu-wakame",
+      "name": "豆腐とわかめのお吸い物",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "soup311-arajiru-salmon",
+      "name": "鮭のあら汁（しょうゆ仕立て）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-side-clam-chowder",
+      "name": "クラムチャウダー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "soup311-consomme-plain",
+      "name": "コンソメスープ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "soup311-wonton-pork",
+      "name": "豚肉と長ねぎのワンタンスープ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "takeaway-knorr-corn",
+      "name": "クノール カップスープ コーンクリーム（即席）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "takeaway-harusame-wonton",
+      "name": "エースコック スープはるさめ ワンタン（即席）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "palette-oden",
+      "name": "おでん",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "palette-bagel",
+      "name": "ベーグル",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "palette-sandwich",
+      "name": "サンドイッチ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "bread-english-muffin-ham-cheese",
+      "name": "ハムチーズイングリッシュマフィン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-side-pot-au-feu",
+      "name": "ベーコンと野菜のポトフ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "comfort-nikudofu-pork",
+      "name": "肉豆腐（豚肉）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "comfort-motsu-stew",
+      "name": "もつ煮込み（豚白もつ）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "beef-hamburg",
+      "name": "卵を使わない牛肉ハンバーグ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "tofu-burger",
+      "name": "豆腐と鶏肉のハンバーグ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-hamburg-oroshi",
+      "name": "和風おろしハンバーグ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-hamburg-stew",
+      "name": "煮込みハンバーグ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-hamburg-cheese",
+      "name": "チーズハンバーグ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "bistro-cheese-in-hamburg",
+      "name": "チーズインハンバーグ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-loco-moco",
+      "name": "ロコモコ",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "tofu-mapo",
+      "name": "豆腐と豚肉の辛くない麻婆豆腐",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-donburi-mapo",
+      "name": "麻婆豆腐丼",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-mapo-aubergine",
+      "name": "麻婆なす",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-ramen-salt",
+      "name": "塩ラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-ramen-miso",
+      "name": "みそラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-ramen-tanmen",
+      "name": "タンメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-ramen-niboshi",
+      "name": "煮干ししょうゆラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-ramen-miso-butter-corn",
+      "name": "味噌バターコーンラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-ramen-tonkotsu",
+      "name": "豚骨ラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-ramen-iekei",
+      "name": "家系風・豚骨しょうゆラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-ramen-jiro",
+      "name": "二郎系風ラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-ramen-seabura",
+      "name": "背脂ちゃっちゃ風ラーメン",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-ramen-tantan",
+      "name": "担々麺（汁あり）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-hiyashi-chuka",
+      "name": "冷やし中華",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "noodle-soupless-tantan",
+      "name": "汁なし担々麺",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "tomato-chicken-curry",
+      "name": "ルウを使わないチキンカレー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "minced-dry-curry",
+      "name": "野菜たっぷりドライカレー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "rice-baked-cheese",
+      "name": "野菜と豆腐の焼きカレーご飯",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-curry-chicken",
+      "name": "チキンカレーライス",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-curry-beef",
+      "name": "ビーフカレーライス",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-curry-vegetable",
+      "name": "野菜カレーライス",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "daily-curry-keema",
+      "name": "キーマカレーライス",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-retort-pork-curry",
+      "name": "レトルトポークカレーライス（ご飯込み）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-retort-chicken-curry",
+      "name": "レトルトチキンカレーライス（ご飯込み）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-retort-vegetable-curry",
+      "name": "レトルト野菜カレーライス（ご飯込み）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "prepared-retort-keema-curry",
+      "name": "レトルトキーマカレーライス（ご飯込み）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "varied-green-curry-rice",
+      "name": "グリーンカレーライス（手作り）",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "varied-butter-chicken-rice",
+      "name": "バターチキンカレーライス",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "world-massaman-chicken",
+      "name": "マッサマンカレー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "world-mutton-curry",
+      "name": "マトンカレー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "world-saag-chicken",
+      "name": "サグチキンカレー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "world-saag-paneer",
+      "name": "サグパニールカレー",
+      "hasArtwork": true
+    },
+    {
+      "defaultRecipeId": "familiar-side-raw-vegetable",
+      "name": "生野菜サラダ（ドレッシングなし）",
+      "hasArtwork": true
+    }
+  ],
+  "additionalRequestedArtwork": [
+    "bread-toast-pizza"
+  ],
+  "imageNote": "標準配合の完成例。絵は分量を計測する資料ではなく、実際の材料と数量は選択画面・材料表を確認する。"
+}

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
 import {parseTextMeal,textFoodCandidates,textAmountForRecipe,buildTextMeal,createTextMealSelection,TEXT_LOG_MAX_ROWS} from '../text-log.js';
-import {buildFoodSelection} from '../food-composer.js';
+import {buildFoodSelection,defaultFoodSelection} from '../food-composer.js';
 import {defaultJournal,parseJournal,validateJournal} from '../journal.js';
 import {itemNutrition} from '../nutrition.js';
 
@@ -88,6 +88,23 @@ test('刺身の敬称・送り仮名・かな表記を同じ候補として探�
   assert.equal(textFoodCandidates('まぐろ赤身',data)[0].id,'classic-sashimi-tuna');
   assert.equal(textFoodCandidates('お寿司',data)[0].id,'classic-sushi-assorted');
   assert.equal(textFoodCandidates('おでん',data)[0].id,'palette-oden');
+});
+
+test('一般名のトーストは具材なしを最初にし、バター・ジャム・ピザを指定した検索はその料理を保つ',()=>{
+  for(const query of ['トースト','とーすと','ﾄｰｽﾄ',' トースト ']){
+    assert.equal(textFoodCandidates(query,data)[0].id,'bread-toast-custom',query);
+    assert.equal(textFoodCandidates(query,data,{limit:1})[0].id,'bread-toast-custom',query);
+  }
+  for(const [query,id] of [['バタートースト','staple-butter-toast'],['いちごジャムバタートースト','bread-toast-jam-butter'],['ジャムバタートースト','bread-toast-jam-butter'],['ピザトースト','bread-toast-pizza']]){
+    assert.equal(textFoodCandidates(query,data)[0].id,id,query);
+  }
+  const [row]=parseTextMeal('トースト2枚',data);
+  assert.equal(row.candidates[0].id,'bread-toast-custom');assert.equal(row.rawAmount,'2');assert.equal(row.rawUnit,'枚');
+  const plain=recipe(row.candidates[0].id),converted=textAmountForRecipe(plain,row.rawAmount,row.rawUnit,data);
+  assert.equal(converted.amount,2);assert.equal(converted.unit,'枚');
+  const composed=buildFoodSelection(defaultFoodSelection('toast',{recipeId:plain.id}),data),selection=createTextMealSelection(plain.id,composed,data);
+  const item=buildTextMeal({...context,rows:[{recipeId:plain.id,amount:converted.amount,selection}]},data).items[0];
+  assert.equal(item.quantity,2);assert.equal(item.ingredients.length,1);assert.equal(item.ingredients[0].id,'bread');assert.equal(item.ingredients[0].amount*item.quantity,120);
 });
 
 test('刺身3切れとおでんの具を確定し、外側の皿数だけで倍率を掛けて一括記録する',()=>{
