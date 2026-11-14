@@ -17,6 +17,10 @@
 .text-log-standard{margin-top:10px;color:#65735f;font-size:12px;line-height:1.8}
 .text-log-standard summary{cursor:pointer}
 .text-log-standard-items{margin:6px 0 0;padding-left:1.3rem}
+.text-log-config-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.text-log-config-tools:has(.text-log-configure[hidden]){display:none}
+.text-log-configured{margin:10px 0 0;color:#3f6048;font-size:12px;line-height:1.8;overflow-wrap:anywhere}
+.text-log-configured:empty{display:none}
 .text-log-summary{margin-top:18px;padding-top:16px;border-top:1px solid #dce3d3}
 .text-log-summary:empty{display:none}
 .text-log-summary h4{margin:0 0 10px;font-size:14px;color:#344c37}

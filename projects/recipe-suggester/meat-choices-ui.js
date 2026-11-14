@@ -10,8 +10,8 @@ const make = (tag, className = '', text = '') => {
   return element;
 };
 
-export function mountMeatChoice({recipeId, data, initial, allowedMeatIds, onChange = () => {}, onError = () => {}} = {}) {
-  if (typeof onChange !== 'function' || typeof onError !== 'function') throw Error('肉の選択画面の処理を確認してください。');
+export function mountMeatChoice({recipeId, data, initial, allowedMeatIds, onChange = () => {}, onError = () => {}, onSelectionChange = () => {}} = {}) {
+  if (typeof onChange !== 'function' || typeof onError !== 'function' || typeof onSelectionChange !== 'function') throw Error('肉の選択画面の処理を確認してください。');
   const definition = meatChoiceFor(recipeId);
   if (!definition) throw Error('肉を選ぶ料理が見つかりません。');
   const selection = initial === undefined ? defaultMeatSelection(recipeId) : structuredClone(initial);
@@ -39,7 +39,8 @@ export function mountMeatChoice({recipeId, data, initial, allowedMeatIds, onChan
   function update() {
     try {
       if (!allowed.some(option => option.id === select.value)) throw Error('現在の条件に合う肉を選んでください。');
-      const recipe = buildMeatSelection({id:stableId, recipeId, meatId:select.value}, data), nutrition = recipeNutrition(recipe, data);
+      const config = {id:stableId, recipeId, meatId:select.value};
+      const recipe = buildMeatSelection(config, data), nutrition = recipeNutrition(recipe, data);
       const option = definition.options.find(option => option.id === select.value);
       note.textContent = option.note ?? 'ひき肉・薄切り肉は加熱前の可食部重量です。焼く・煮る際に流れ出る脂は差し引かない概算です。';
       title.textContent = `${recipe.name} / 1人分`;
@@ -48,9 +49,9 @@ export function mountMeatChoice({recipeId, data, initial, allowedMeatIds, onChan
       allergens.textContent = `含まれる登録アレルゲン：${labels.length ? labels.join('、') : '登録なし'}。`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'dish-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));
       steps.replaceChildren(...recipe.steps.map(step => make('li', 'dish-step', step)));
-      error.hidden = true; error.textContent = ''; preview.hidden = false; onError(''); onChange(recipe);
+      error.hidden = true; error.textContent = ''; preview.hidden = false; onError(''); onSelectionChange(structuredClone(config));onChange(recipe);
     } catch (cause) {
-      error.hidden = false; error.textContent = cause.message; preview.hidden = true; onChange(null); onError(cause.message);
+      error.hidden = false; error.textContent = cause.message; preview.hidden = true; onSelectionChange(null);onChange(null); onError(cause.message);
     }
   }
   select.addEventListener('change', update); update();

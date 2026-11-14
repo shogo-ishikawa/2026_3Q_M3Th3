@@ -24,8 +24,8 @@ const appendOptions = (select, options) => {
  * カレンダー登録のformは呼び出し元が用意します。
  * 生成時・入力変更時に確定したrecipe、不正な入力ではnullを通知します。
  */
-export function mountDishCustomiser({kind, data, initial, onChange = () => {}, onError = () => {}} = {}) {
-  if (typeof onChange !== 'function' || typeof onError !== 'function') throw Error('料理の表示処理を確認してください。');
+export function mountDishCustomiser({kind, data, initial, onChange = () => {}, onError = () => {}, onSelectionChange = () => {}} = {}) {
+  if (typeof onChange !== 'function' || typeof onError !== 'function' || typeof onSelectionChange !== 'function') throw Error('料理の表示処理を確認してください。');
   const definition = DISH_CUSTOMISERS.find(dish => dish.kind === kind);
   if (!definition) throw Error('具材を選ぶ料理が見つかりません。');
   const selection = initial === undefined ? defaultDishSelection(kind) : structuredClone(initial);
@@ -168,10 +168,10 @@ export function mountDishCustomiser({kind, data, initial, onChange = () => {}, o
       allergies.textContent = `含まれる登録アレルゲン：${labels.length ? labels.join('、') : '登録なし'}。加工品や調味料は商品の表示も確認してください。`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'dish-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));
       steps.replaceChildren(...recipe.steps.map(step => make('li', 'dish-step', step)));
-      onError(''); onChange(recipe);
+      onError(''); onSelectionChange(structuredClone(config));onChange(recipe);
     } catch (cause) {
       error.hidden = false; error.textContent = cause.message; preview.hidden = true;
-      onChange(null); onError(cause.message);
+      onSelectionChange(null);onChange(null); onError(cause.message);
     }
   }
   update();

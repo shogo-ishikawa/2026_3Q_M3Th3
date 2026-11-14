@@ -133,7 +133,9 @@
         "recipe-illustration.js",
         "recipe-illustration-ui.js",
         "recipe-artwork-manifest.js",
-        "assets"
+        "assets",
+        "text-log-configurator-ui.js",
+        "bread-foods.js"
       ]
     },
     {

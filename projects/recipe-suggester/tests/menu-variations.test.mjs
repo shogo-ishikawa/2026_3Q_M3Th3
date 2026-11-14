@@ -16,11 +16,11 @@ const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const date = '2026-11-13';
 const near = (a,b) => assert.ok(Math.abs(a-b)<1e-8, `${a} != ${b}`);
 
-test('料理を変更せず73の見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
+test('料理を変更せず74の見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
   const before = JSON.stringify(RECIPES);
   const groups = groupMenuRecipes(RECIPES);
   assert.ok(groups.length < RECIPES.length - 200, '一覧を整理し、詳細で選べる種類を増やす');
-  assert.equal(groups.filter(group => group.isGroup).length, 73);
+  assert.equal(groups.filter(group => group.isGroup).length, 74);
   assert.ok(groups.filter(group => group.isGroup).reduce((sum,group) => sum+group.variantCount,0) >= 300);
   const ids = groups.flatMap(group => group.recipes.map(recipe => recipe.id));
   assert.equal(new Set(ids).size, RECIPES.length);
@@ -33,10 +33,11 @@ test('料理を変更せず73の見出しへ種類をまとめ、全料理を重
     assert.equal(group.recipe.id, group.selectedRecipeId);
     assert.deepEqual(new Set(group.recipes.map(recipe=>recipe.id)),new Set(definition.recipeIds));
     for (const recipe of group.recipes) {
+      const profile=definition.recipeProfiles?.[recipe.id];
       assert.equal(recipe.role, definition.role);
-      assert.equal(recipeNature(recipe), definition.nature);
+      assert.equal(recipeNature(recipe), profile?.nature??definition.nature);
       assert.equal(recipe.staple, definition.staple);
-      assert.equal(recipe.mealBase, definition.mealBase);
+      assert.equal(recipe.mealBase, profile?.mealBase??definition.mealBase);
     }
   }
   assert.equal(JSON.stringify(RECIPES), before);

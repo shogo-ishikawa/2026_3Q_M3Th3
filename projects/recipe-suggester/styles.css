@@ -1147,3 +1147,5 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
 .recipe-library-status{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;margin-top:24px}
 .recipe-library-status .recipe-results-count{margin:0}
 .illustration-only-filter{width:fit-content;font-size:12px;color:#5e704f;margin:0}
+.illustration-filter-note{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;margin-top:12px;border:1px solid #d9dfc9;border-radius:12px;background:#f1f4e8;color:#526344;font-size:13px}
+.illustration-filter-note[hidden]{display:none}

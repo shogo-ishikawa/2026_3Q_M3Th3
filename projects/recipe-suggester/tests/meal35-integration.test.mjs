@@ -1,3 +1,4 @@
+import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
 import {ADDED_311_RECIPES,ADDED_311_INGREDIENTS} from './helpers/meal311-additions.mjs';
 import {WORLD_INGREDIENTS,WORLD_RECIPES} from '../world-foods.js';
 import {SEAFOOD_INGREDIENTS,SEAFOOD_RECIPES} from '../seafood-foods.js';
@@ -32,6 +33,7 @@ const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, 
 const v310RecipeIds=new Set([...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES,...ADDED_311_RECIPES].map(recipe=>recipe.id));
 const data={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const breadRecipeIds=new Set(BREAD_RECIPES.map(recipe=>recipe.id));
 const newRecipePrefixes=['confectionery-','dessert-','comfort-','acmp-','palette-'];
 // v3.4.0の公開DBの303食材。今回追加する素材と混ぜず、栄養や原料情報を照合します。
 const legacyIngredientIds=`
@@ -82,7 +84,7 @@ const recipeCore=recipe=>{
 };
 
 test('旧784品は名称・間食分類と3品の副菜への移動以外の量・材料・栄養・確認状況を保つ',()=>{
-  const original=RECIPES.filter(recipe=>!newRecipePrefixes.some(prefix=>recipe.id.startsWith(prefix))&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id));
+  const original=RECIPES.filter(recipe=>!newRecipePrefixes.some(prefix=>recipe.id.startsWith(prefix))&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id)&&!breadRecipeIds.has(recipe.id));
   assert.equal(original.length,784);
   assert.equal(hash(original.map(recipeCore)),'bd9bedc6bcef769141bb69ed7fece27de47f513ec9707246961019c515a060de');
   const portions=original.map(recipe=>{const p=recipePortion(recipe,data);return{id:recipe.id,amount:p.amount,unit:p.unit};});
@@ -136,8 +138,8 @@ test('追加63品を実際の公開DBへ統合し、未確認の購入品だけ�
   const products=[...CONFECTIONERY_RECIPES,...DESSERT_RECIPES];
   const additions=[...products,...COMFORT_RECIPES];
   assert.equal(additions.length,63);
-  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length+Object.keys(MAPO_INGREDIENTS).length+Object.keys(WORLD_INGREDIENTS).length+Object.keys(SEAFOOD_INGREDIENTS).length+Object.keys(NOODLE_INGREDIENTS).length+Object.keys(ADDED_311_INGREDIENTS).length);
+  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length);
+  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length+Object.keys(MAPO_INGREDIENTS).length+Object.keys(WORLD_INGREDIENTS).length+Object.keys(SEAFOOD_INGREDIENTS).length+Object.keys(NOODLE_INGREDIENTS).length+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);
   for(const recipe of additions)assert.ok(RECIPES.some(integrated=>integrated.id===recipe.id),recipe.id);

@@ -53,9 +53,9 @@ test('画像の定義が別料理・外部URL・不正なサイズを指す場�
   ])assert.equal(recipeArtwork(first,{artwork:{[first.id]:{...fixture[first.id],...patch}}}),null);
 });
 
-test('984品を調べても栄養や材料を変えず、実際の画像台帳にある料理だけを返す',()=>{
+test('全料理を調べても栄養や材料を変えず、実際の画像台帳にある料理だけを返す',()=>{
   const before=JSON.stringify(RECIPES),imageIds=new Set(Object.keys(RECIPE_ARTWORK));
-  assert.equal(RECIPES.length,984);
+  assert.ok(RECIPES.length>=984);
   for(const source of RECIPES){
     const result=recipeArtwork(source);
     assert.equal(result!==null,imageIds.has(source.id),source.id);

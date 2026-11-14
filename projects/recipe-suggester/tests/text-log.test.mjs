@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
-import {parseTextMeal,textFoodCandidates,textAmountForRecipe,buildTextMeal,TEXT_LOG_MAX_ROWS} from '../text-log.js';
+import {parseTextMeal,textFoodCandidates,textAmountForRecipe,buildTextMeal,createTextMealSelection,TEXT_LOG_MAX_ROWS} from '../text-log.js';
+import {buildFoodSelection} from '../food-composer.js';
+import {defaultJournal,parseJournal,validateJournal} from '../journal.js';
+import {itemNutrition} from '../nutrition.js';
 
 const data={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
 const recipe=id=>{const value=RECIPES.find(row=>row.id===id);assert.ok(value,id);return value;};
@@ -75,4 +78,57 @@ test('未解決の行・数量・日付に問題がある時は一部だけの�
   assert.throws(()=>buildTextMeal({...context,rows:[,valid]},data));
   assert.throws(()=>buildTextMeal({...context,rows:[{recipeId:'classic-boiled-egg',amount:1001}]},data));
   assert.throws(()=>buildTextMeal({...context,rows:[valid],surprise:true},data));
+});
+
+test('刺身の敬称・送り仮名・かな表記を同じ候補として探し、具材を選べる盛り合わせを優先する',()=>{
+  const expected=textFoodCandidates('刺身',data).map(item=>item.id);
+  assert.equal(expected[0],'classic-sashimi-assorted');
+  for(const alias of ['お刺身','お刺し身','御刺身','おさしみ','オサシミ'])assert.deepEqual(textFoodCandidates(alias,data).map(item=>item.id),expected,alias);
+  assert.equal(textFoodCandidates('お刺身',data,{limit:1})[0].id,'classic-sashimi-assorted');
+  assert.equal(textFoodCandidates('まぐろ赤身',data)[0].id,'classic-sashimi-tuna');
+  assert.equal(textFoodCandidates('お寿司',data)[0].id,'classic-sushi-assorted');
+  assert.equal(textFoodCandidates('おでん',data)[0].id,'palette-oden');
+});
+
+test('刺身3切れとおでんの具を確定し、外側の皿数だけで倍率を掛けて一括記録する',()=>{
+  const sashimi=buildFoodSelection({kind:'sashimi',components:[{id:'tuna',amount:3,gramsPerUnit:20}]},data);
+  const oden=buildFoodSelection({kind:'oden',components:[{id:'daikon',amount:2},{id:'egg',amount:1},{id:'broth',amount:0}]},data);
+  const fishSelection=createTextMealSelection('classic-sashimi-assorted',sashimi,data),odenSelection=createTextMealSelection('palette-oden',oden,data);
+  const input={...context,rows:[{recipeId:'plain-rice',amount:150},{recipeId:'classic-sashimi-assorted',amount:.5,selection:fishSelection},{recipeId:'palette-oden',amount:2,selection:odenSelection}]};
+  const entry=buildTextMeal(input,data);assert.equal(entry.items.length,3);
+  const [,fish,hotpot]=entry.items;
+  assert.equal(fish.quantity,.5);assert.equal(fish.portion.amount,1);assert.equal(fish.portion.unit,'皿');
+  assert.equal(fish.ingredients.find(part=>part.id==='tuna_lean_sashimi').amount*fish.quantity,30);
+  assert.equal(hotpot.quantity,2);assert.equal(hotpot.ingredients.find(part=>part.id==='daikon').amount*hotpot.quantity,240);
+  assert.equal(hotpot.ingredients.find(part=>part.id==='egg').amount*hotpot.quantity,2);
+  assert.equal(hotpot.ingredients.some(part=>part.id==='water'||part.id==='soy_sauce'),false);
+  assert.equal(itemNutrition(hotpot).kcal,178);assert.equal(itemNutrition(hotpot).fat,10.44);
+  assert.ok(fish.name.includes('3切れ'));assert.ok(hotpot.name.includes('卵 1個'));
+  const state=defaultJournal(context.date);state.entries=[entry];const saved=validateJournal(state,data),roundtrip=parseJournal(JSON.stringify(saved),data);
+  assert.deepEqual(roundtrip.entries[0].items,entry.items);
+  assert.equal(Object.hasOwn(entry.items[1],'textConfiguration'),false);
+});
+
+test('確定後のレシピやDBの変更から配合・栄養・未確認情報を保ち、再登録には別の項目IDを使う',()=>{
+  const source=buildFoodSelection({kind:'oden',components:[{id:'daikon',amount:2},{id:'egg',amount:1}]},data);
+  source.allergensKnown=false;source.ingredientsKnown=false;source.shoppingKnown=false;source.manualNutrition.salt=null;
+  const selection=createTextMealSelection('palette-oden',source,data);
+  source.manualNutrition.kcal=9999;source.ingredients[0].amount=999;source.allergensKnown=true;
+  const changed={...data,ingredients:{...data.ingredients,daikon:{...data.ingredients.daikon,nutritionPerUnit:{...data.ingredients.daikon.nutritionPerUnit,kcal:9999}}}};
+  const input={...context,rows:[{recipeId:'palette-oden',amount:1,selection}]};
+  const first=buildTextMeal(input,changed).items[0],second=buildTextMeal(input,changed).items[0];
+  assert.equal(first.nutrition.kcal,89);assert.equal(first.ingredients.find(p=>p.id==='daikon').amount,120);assert.equal(first.nutrition.salt,null);
+  assert.equal(first.allergensKnown,false);assert.equal(first.ingredientsKnown,false);assert.equal(first.shoppingKnown,false);
+  assert.notEqual(first.id,second.id);first.ingredients[0].amount=1;first.nutrition.kcal=0;assert.equal(second.nutrition.kcal,89);assert.equal(second.ingredients[0].amount,120);
+});
+
+test('確定した内容は元の行だけに結び付け、任意のスナップショットや過大な皿数を受け入れない',()=>{
+  const built=buildFoodSelection({kind:'oden',components:[{id:'egg',amount:1}]},data),selection=createTextMealSelection('palette-oden',built,data);
+  for(const invalid of [null,{},structuredClone(selection),{nutrition:{kcal:0}}])assert.throws(()=>buildTextMeal({...context,rows:[{recipeId:'palette-oden',amount:1,selection:invalid}]},data));
+  assert.throws(()=>buildTextMeal({...context,rows:[{recipeId:'classic-sashimi-assorted',amount:1,selection}]},data));
+  assert.throws(()=>buildTextMeal({...context,rows:[{recipeId:'palette-oden',amount:1001,selection}]},data));
+  assert.throws(()=>createTextMealSelection('missing',built,data));
+  assert.throws(()=>createTextMealSelection('palette-oden',{...built,servings:2},data));
+  assert.throws(()=>createTextMealSelection('palette-oden',{...built,manualNutrition:{...built.manualNutrition,fat:-1}},data));
+  assert.throws(()=>buildTextMeal({...context,date:'2026-02-30',rows:[{recipeId:'palette-oden',amount:1,selection}]},data));
 });

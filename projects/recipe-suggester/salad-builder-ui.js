@@ -28,8 +28,8 @@ export function defaultSaladSelection() {
  * 独自のformは作らず、料理詳細のカレンダー登録フォームと共存します。
  * onChange は生成時と入力変更時に呼び、入力不備があればnullを渡します。
  */
-export function mountSaladBuilder({data, initial, onChange = () => {}, onError = () => {}} = {}) {
-  if (typeof onChange !== 'function' || typeof onError !== 'function') throw Error('サラダの表示処理を確認してください。');
+export function mountSaladBuilder({data, initial, onChange = () => {}, onError = () => {}, onSelectionChange = () => {}} = {}) {
+  if (typeof onChange !== 'function' || typeof onError !== 'function' || typeof onSelectionChange !== 'function') throw Error('サラダの表示処理を確認してください。');
   const prefix = `salad-builder-${++builderCount}`;
   const selection = initial === undefined ? defaultSaladSelection() : initial;
   // 初期設定に未知の材料や重複があっても、画面で黙って捨てません。
@@ -161,10 +161,10 @@ export function mountSaladBuilder({data, initial, onChange = () => {}, onError =
       const allergenLabels = (recipe.allergens ?? []).map(id => data.allergens?.find(allergen => allergen.id === id)?.label ?? id);
       allergies.textContent = `含まれる登録アレルゲン：${allergenLabels.length ? allergenLabels.join('、') : '登録なし'}。調味料の原材料は商品表示も確認してください。`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'salad-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));
-      onError(''); onChange(recipe);
+      onError(''); onSelectionChange(structuredClone(config));onChange(recipe);
     } catch (cause) {
       error.textContent = cause.message; error.hidden = false; preview.hidden = true;
-      onChange(null); onError(cause.message);
+      onSelectionChange(null);onChange(null); onError(cause.message);
     }
   }
   update();

@@ -1,3 +1,4 @@
+import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -34,8 +35,8 @@ test('v3.10の917料理・429食材の全項目を固定ハッシュで保持す
 });
 
 test('新モジュールの料理・食材を実際の公開DBへ一度だけ取り込む',()=>{
-  assert.equal(RECIPES.length,917+ADDED_311_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,429+Object.keys(ADDED_311_INGREDIENTS).length);
+  assert.equal(RECIPES.length,917+ADDED_311_RECIPES.length+BREAD_RECIPES.length);
+  assert.equal(Object.keys(INGREDIENTS).length,429+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length);
   assert.equal(new Set(RECIPES.map(r=>r.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(r=>r.name)).size,RECIPES.length);
   for(const source of ADDED_311_RECIPES){
