@@ -222,7 +222,7 @@ test('v1 migration preserves allergies, exclusions, preferences and recipe notes
   source.settings.excludedIngredients = ['butter'];
   source.settings.preferences = {...source.settings.preferences, genreMode: 'single', genre: '和食', preferredIngredients: ['carrot']};
   const migrated = parseJournal(JSON.stringify(source), data);
-  assert.deepEqual(migrated.settings, {...source.settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard'});
+  assert.deepEqual(migrated.settings, {...source.settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard', recordView: 'detailed'});
   const record = migrated.entries[0];
   assert.equal(record.status, 'eaten');
   assert.equal(record.note, 'お弁当にした');
@@ -402,7 +402,7 @@ test('v2 JSON migration retains snapshots and personal database without inventin
   current.pantry = [{id: 'milk', amount: 50}]; current.shoppingChecks = ['milk'];
   const legacy = structuredClone(current); legacy.version = 2;
   delete legacy.mealSets; delete legacy.purchaseSettings; delete legacy.batches; delete legacy.favourites;
-  delete legacy.profile; delete legacy.completedDays; delete legacy.settings.stapleAmount; delete legacy.settings.drinkAmount; delete legacy.settings.hideRecipeIllustrations; delete legacy.settings.textSize;
+  delete legacy.profile; delete legacy.completedDays; delete legacy.settings.stapleAmount; delete legacy.settings.drinkAmount; delete legacy.settings.hideRecipeIllustrations; delete legacy.settings.textSize; delete legacy.settings.recordView;
   const sourceText = JSON.stringify(legacy);
   const migrated = parseJournal(sourceText, data);
   assert.equal(migrated.version, 3);

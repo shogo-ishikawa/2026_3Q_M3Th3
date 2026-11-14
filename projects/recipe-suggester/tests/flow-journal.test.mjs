@@ -87,7 +87,7 @@ test('旧v1とv2を読み込んでも食事区分と主食設定を引き継ぎ�
   delete version2.completedDays;
   delete version2.settings.stapleAmount;
   delete version2.settings.drinkAmount;
-  delete version2.settings.hideRecipeIllustrations; delete version2.settings.textSize;
+  delete version2.settings.hideRecipeIllustrations; delete version2.settings.textSize; delete version2.settings.recordView;
   version2.settings.meal = 'lunch';
   version2.settings.stapleId = 'rice';
   const migrated2 = validateJournal(version2, data);

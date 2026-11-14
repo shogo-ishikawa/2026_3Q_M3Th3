@@ -645,12 +645,12 @@ dialog::backdrop { background: #1e2b24a8; backdrop-filter: blur(3px); }
 .plan-staple-controls { margin:12px 18px; padding:12px 0; border-top:1px solid var(--line); }
 .plan-staple-controls summary { font-size:0.6875rem; color:var(--teal); }
 .plan-staple-controls form { display:grid; grid-template-columns:minmax(0,1fr) 90px; gap:10px; margin-top:12px; }
-.plan-staple-controls form button { grid-column:1/-1; }
+.plan-staple-controls form > button { grid-column:1/-1; }
 .plan-staple-controls label { min-width:0; }
 .plan-staple-note { margin:12px 18px; color:var(--muted); font-size:0.625rem; line-height:1.8; }
 .catalog-record-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0 0 24px; padding:18px; background:#f0f4e9; border:1px solid #d8e1cd; border-radius:8px; }
 .catalog-record-form h3 { grid-column:1/-1; margin:0; }
-.catalog-record-form button { grid-column:1/-1; }
+.catalog-record-form > button { grid-column:1/-1; }
 .catalog-record-form label { min-width:0; }
 .record-reset { margin-top:24px; padding:18px; border:1px solid var(--line); border-radius:8px; background:#fff; }
 .record-reset > summary { color:var(--teal); font-size:0.8125rem; }
@@ -1202,4 +1202,33 @@ html[data-text-size]:not([data-text-size="standard"]) .nutrition-controls > .inl
   html[data-text-size]:not([data-text-size="standard"]) .food-composer-amount-label,
   html[data-text-size]:not([data-text-size="standard"]) .dish-component-quantity,
   html[data-text-size]:not([data-text-size="standard"]) .salad-component-quantity { width:100%; max-width:100%; }
+}
+
+/* Common recording and recovery controls. */
+.record-view-toolbar{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:14px;margin-bottom:20px}
+.record-view-choice{min-width:0}.record-view-choice legend{font-size:.875rem;margin-bottom:8px}
+.record-view-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.record-view-buttons button{min-height:44px}
+.record-view-buttons button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+.journal-recovery{margin-bottom:22px;border:2px solid #b17f47;background:#fff8ec}
+.journal-recovery h2{font-size:1.25rem;margin-bottom:12px}
+.journal-recovery p{font-size:.875rem;line-height:1.85}
+.recovery-actions{display:flex;flex-wrap:wrap;gap:10px}
+.recovery-actions button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.undo-notice{position:fixed;right:18px;bottom:max(18px,env(safe-area-inset-bottom));z-index:60;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;width:min(600px,calc(100vw - 36px));padding:14px 16px;border:1px solid #8ba07c;border-radius:12px;background:#f0f5e9;box-shadow:0 6px 25px #24392235;color:var(--ink);font-size:.875rem;line-height:1.65;overflow-wrap:anywhere}
+.undo-notice button{min-height:44px;white-space:normal}
+body[data-has-undo-notice="true"] .toast{bottom:180px}
+body[data-has-undo-notice="true"] main.page-width{padding-bottom:190px}
+.catalog-record-form>.record-summary{margin-top:10px}
+#record-picker-summary{margin-top:18px;min-width:0}
+#record-picker-summary .record-summary-prompt{margin:0}
+#backup-export-time,#backup-status-note{flex-basis:100%;margin:0 0 10px}
+.data-buttons>p{width:100%}
+@media(max-width:600px){
+  .record-view-toolbar{align-items:stretch}.record-view-choice{width:100%}.record-view-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .record-view-toolbar>#undo-last-action{width:100%}
+  .recovery-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+  .undo-notice{right:10px;bottom:max(10px,env(safe-area-inset-bottom));width:calc(100vw - 20px);padding:12px;gap:8px}
+  .entry-item{grid-template-columns:minmax(0,1fr) minmax(100px,1fr) auto auto auto}
+  .entry-item>.quantity-stepper{width:100%;max-width:100%}
 }

@@ -2,7 +2,7 @@
 import {parseTextMeal,textFoodCandidates,textAmountForRecipe,buildTextMeal,createTextMealSelection} from './text-log.js';
 import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {recipePortion} from './catalog.js';
-import {sumNutrition} from './nutrition.js';
+import {createRecordSummary} from './record-summary-ui.js';
 import {mealSetWarnings} from './meal-sets.js';
 import {foodComposerFor} from './food-composer.js';
 
@@ -27,18 +27,19 @@ export function mountTextLog({data,date,meal='dinner',status='eaten',settings={}
   const submit=make('button','button-primary text-log-submit','内容を確認して一括登録');submit.type='button';submit.disabled=true;
   root.append(make('p','field-note','候補を選んだ後、おでん・刺身・パンなどは「具材・種類・個数を指定」から内訳を変更できます。具材ごとの数量を確定し、この行の量で食べた皿数などを指定します。換算が未登録の単位は基準量を確認してください。'),list,summary,message,error,submit);
   let controls=[],current=null;
+  const registrationSummary=createRecordSummary({getEntry:()=>current,data}),warnings=make('div','text-log-summary-warnings');
+  summary.append(registrationSummary.element,warnings);
   const problem=cause=>{const value=typeof cause==='string'?cause:cause.message;error.textContent=value;error.hidden=!value;if(value)onError(value);};
   function selectedRows(){return controls.map(control=>({recipeId:control.select.value,amount:readQuantityInput(control.amount,{label:`${control.source.source}の量`}),...(control.selection?{selection:control.selection}:{})}));}
+  function clearSummary(){current=null;summary.hidden=true;warnings.replaceChildren();registrationSummary.refresh();}
   function update(){
-    current=null;summary.replaceChildren();submit.disabled=true;
+    current=null;warnings.replaceChildren();registrationSummary.refresh();summary.hidden=!controls.length;submit.disabled=true;
     if(!controls.length){message.textContent='入力して「料理の候補を作る」を押してください。';return;}
     try{
       if(controls.some(control=>!control.select.value))throw Error('すべての行で料理を選んでください。見つからない行は料理名を直すか、削除できます。');
       current=buildTextMeal({rows:selectedRows(),date:dateField.value,meal:mealField.value,status:statusField.value},data);
-      const nutrition=sumNutrition(current.items),names=make('ul','text-log-preview-items');
-      for(const item of current.items){const portion=item.portion??{amount:1,unit:'人分'};names.append(make('li','',`${item.name} ${round(item.quantity*portion.amount)}${portion.unit}`));}
-      summary.append(make('h4','','登録する内容'),names,make('p','text-log-energy',`合計 ${round(nutrition.values.kcal)} kcal${nutrition.complete.kcal?'':' ＋不明分'}`));
-      for(const warning of mealSetWarnings({items:current.items},settings,data))summary.append(make('p','text-log-warning',warning));
+      registrationSummary.refresh();
+      for(const warning of mealSetWarnings({items:current.items},settings,data))warnings.append(make('p','text-log-warning',warning));
       message.textContent=`${controls.length}品の料理と量を確認して登録してください。`;submit.disabled=false;
     }catch(cause){message.textContent=cause.message;}
   }
@@ -87,7 +88,8 @@ export function mountTextLog({data,date,meal='dinner',status='eaten',settings={}
       catch(cause){fillRecipes(control,[]);chooseRecipe(control);problem(cause);}
     });
     select.addEventListener('change',()=>{chooseRecipe(control);problem('');});
-    amount.addEventListener('input',()=>{if(select.value){const portion=control.selection?.portion??recipePortion(data.recipes.find(recipe=>recipe.id===select.value),data);note.textContent=control.selection?`確定した組み合わせ${portion.amount}${portion.unit}を基準に、量を比例計算します。`:portion.label;}update();problem('');});
+    const updateAmount=()=>{if(select.value){const portion=control.selection?.portion??recipePortion(data.recipes.find(recipe=>recipe.id===select.value),data);note.textContent=control.selection?`確定した組み合わせ${portion.amount}${portion.unit}を基準に、量を比例計算します。`:portion.label;}update();problem('');};
+    amount.addEventListener('input',updateAmount);amount.addEventListener('change',updateAmount);
     configure.addEventListener('click',()=>{
       try{
         const recipeId=select.value;if(!onConfigure||!recipeId||!canConfigure(recipeId))return;
@@ -115,12 +117,12 @@ export function mountTextLog({data,date,meal='dinner',status='eaten',settings={}
   }
   parse.addEventListener('click',()=>{
     try{const rows=parseTextMeal(text.value,data);controls=[];current=null;list.replaceChildren();for(const source of rows)renderRow(source);update();problem('');}
-    catch(cause){controls=[];current=null;list.replaceChildren();summary.replaceChildren();submit.disabled=true;problem(cause);}
+    catch(cause){controls=[];list.replaceChildren();clearSummary();submit.disabled=true;problem(cause);}
   });
-  text.addEventListener('input',()=>{controls=[];current=null;list.replaceChildren();summary.replaceChildren();submit.disabled=true;message.textContent='文章を変更しました。「料理の候補を作る」を押して再確認してください。';problem('');});
+  text.addEventListener('input',()=>{controls=[];list.replaceChildren();clearSummary();submit.disabled=true;message.textContent='文章を変更しました。「料理の候補を作る」を押して再確認してください。';problem('');});
   for(const control of [dateField,mealField,statusField])control.addEventListener('change',update);
   submit.addEventListener('click',()=>{
-    try{update();if(!current)throw Error('すべての料理と量を確認してください。');if(onAdd(current)===false)return;text.value='';controls=[];current=null;list.replaceChildren();summary.replaceChildren();submit.disabled=true;message.textContent='食事を記録に追加しました。';problem('');}
+    try{update();if(!current)throw Error('すべての料理と量を確認してください。');if(onAdd(current)===false)return;text.value='';controls=[];list.replaceChildren();clearSummary();submit.disabled=true;message.textContent='食事を記録に追加しました。';problem('');}
     catch(cause){problem(cause);}
   });
   update();return root;
