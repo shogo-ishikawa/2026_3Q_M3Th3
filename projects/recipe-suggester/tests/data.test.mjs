@@ -61,7 +61,7 @@ test('the expanded collection consists of distinct complete dishes', () => {
 });
 
 test('the calendar catalogue adds meaningful staples, drinks and snacks', () => {
-  assert.equal(DATA_VERSION,'3.17.0');
+  assert.equal(DATA_VERSION,'3.18.0');
   assert.ok(EXPANDED_RECIPES.length >= 100);
   assert.ok(RECIPES.length >= 305);
   assert.ok(EXPANDED_RECIPES.filter(item => item.role === 'staple').length >= 20);
