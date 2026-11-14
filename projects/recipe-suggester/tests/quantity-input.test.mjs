@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {configureQuantityInput, readQuantityInput, stepQuantityInput, installQuantitySteppers} from '../quantity-input.js';
+import {configureQuantityInput, readQuantityInput, stepQuantityInput, installQuantitySteppers, setQuantityPresets} from '../quantity-input.js';
 
 // EventTarget/Event are native so the visible buttons exercise the same dispatched
 // input/change events as the browser. Only layout and tree insertion are faked.
@@ -14,6 +14,7 @@ class Element extends EventTarget {
   }
   append(...nodes) {for(const node of nodes){if(node.parentNode)node.parentNode.children.splice(node.parentNode.children.indexOf(node),1);node.parentNode=this;this.children.push(node);}}
   insertBefore(node,before) {const index=this.children.indexOf(before);assert.ok(index>=0);node.parentNode=this;this.children.splice(index,0,node);}
+  remove() {if(this.parentNode){this.parentNode.children.splice(this.parentNode.children.indexOf(this),1);this.parentNode=null;}}
   setAttribute(name,value) {this.attributes.set(name,String(value));}
   getAttribute(name) {return this.attributes.get(name)??null;}
   setCustomValidity(message) {this.validationMessage=message;}
@@ -31,7 +32,8 @@ function field(value='1',{min='0',max='1000',required=true}={}) {
   return {document,parent,input};
 }
 function key(input,value) {const event=new Event('keydown',{cancelable:true});Object.defineProperty(event,'key',{value});input.dispatchEvent(event);return event;}
-const buttons=input=>input.parentNode.children.find(node=>node.className==='quantity-stepper-controls').children;
+const buttons=input=>[input.parentNode.children.find(node=>node.className.includes('quantity-stepper-increase')),input.parentNode.children.find(node=>node.className.includes('quantity-stepper-decrease'))];
+const presetButtons=input=>input.parentNode.parentNode.children.find(node=>node.className==='quantity-presets')?.children??[];
 
 test('通常の小数を受け付け、空欄・不正な数値・上限外を0へ読み替えない',()=>{
   const {input}=field();configureQuantityInput(input);
@@ -44,7 +46,9 @@ test('通常の小数を受け付け、空欄・不正な数値・上限外を0�
 test('上下の実ボタンは1刻みで小数部分を保ち、フォームを送信しない',()=>{
   const {input,parent}=field('2.5');configureQuantityInput(input);
   const [up,down]=buttons(input),events=[];input.addEventListener('input',event=>events.push([event.type,event.bubbles]));input.addEventListener('change',event=>events.push([event.type,event.bubbles]));
-  assert.equal(parent.children.length,1);assert.equal(input.parentNode.className,'quantity-stepper');
+  assert.equal(parent.children.length,1);assert.equal(input.parentNode.className,'quantity-stepper-main');assert.equal(input.parentNode.parentNode.className,'quantity-stepper');
+  assert.deepEqual(input.parentNode.children.map(node=>node.tagName),['BUTTON','INPUT','BUTTON']);
+  assert.equal(input.parentNode.children[0].textContent,'−');assert.equal(input.parentNode.children[2].textContent,'＋');
   assert.equal(up.type,'button');assert.equal(down.type,'button');assert.equal(up.getAttribute('aria-label'),'まぐろの量（切れ）を増やす');
   up.dispatchEvent(new Event('click'));assert.equal(input.value,'3.5');down.dispatchEvent(new Event('click'));assert.equal(input.value,'2.5');
   assert.deepEqual(events,[['input',true],['change',true],['input',true],['change',true]]);
@@ -154,4 +158,82 @@ test('後から追加した欄にもボタンを付け、無効状態の変更�
     input.readOnly=false;stateObserver.callback([]);assert.ok(buttons(input).every(button=>!button.disabled));
     stop();assert.equal(rootObserver.disconnected,true);
   }finally{if(previous===undefined)delete globalThis.MutationObserver;else globalThis.MutationObserver=previous;}
+});
+
+test('明示した量の候補だけを表示し、未指定の栄養欄などへ候補を推測しない',()=>{
+  const {input}=field('150');configureQuantityInput(input);assert.equal(presetButtons(input).length,0);
+  input.setAttribute('aria-label','ご飯の量（g）');
+  setQuantityPresets(input,[{label:'100g',value:100},{label:'150g',value:150},{label:'200g',value:200}]);
+  assert.deepEqual(presetButtons(input).map(button=>button.textContent),['100g','150g','200g']);
+  assert.equal(presetButtons(input)[1].getAttribute('aria-pressed'),'true');
+  assert.equal(presetButtons(input)[0].getAttribute('aria-label'),'ご飯の量（g）を100gにする');
+  assert.ok(presetButtons(input).every(button=>button.type==='button'));
+});
+
+test('量の候補は小数を正確に指定し、通常と同じinput/changeを一度ずつ通知する',()=>{
+  const {input}=field('1'),events=[];configureQuantityInput(input);
+  input.addEventListener('input',event=>events.push([event.type,event.bubbles]));input.addEventListener('change',event=>events.push([event.type,event.bubbles]));
+  setQuantityPresets(input,[{label:'半分',value:.5},{label:'1皿',value:1},{label:'2皿',value:2}]);
+  presetButtons(input)[0].dispatchEvent(new Event('click'));
+  assert.equal(input.value,'0.5');assert.equal(readQuantityInput(input),.5);
+  assert.deepEqual(events,[['input',true],['change',true]]);
+  assert.equal(presetButtons(input)[0].getAttribute('aria-pressed'),'true');
+  presetButtons(input)[0].dispatchEvent(new Event('click'));assert.equal(events.length,2);
+  key(input,'ArrowUp');assert.equal(input.value,'1.5');assert.ok(presetButtons(input).every(button=>button.getAttribute('aria-pressed')==='false'));
+});
+
+test('単位や料理を変えて候補を更新・解除すると、外した古いボタンは欄を変更しない',()=>{
+  const {input}=field('150');configureQuantityInput(input);
+  setQuantityPresets(input,[{label:'100g',value:100}]);const old=presetButtons(input)[0];
+  input.setAttribute('aria-label','トーストの量（皿）');input.value='1';
+  setQuantityPresets(input,[{label:'半分',value:.5},{label:'1皿',value:1}]);
+  assert.equal(input.parentNode.parentNode.children.filter(node=>node.className==='quantity-presets').length,1);
+  old.dispatchEvent(new Event('click'));assert.equal(input.value,'1');
+  const current=presetButtons(input)[0];current.dispatchEvent(new Event('click'));assert.equal(input.value,'0.5');
+  setQuantityPresets(input,[]);assert.equal(presetButtons(input).length,0);
+  current.dispatchEvent(new Event('click'));assert.equal(input.value,'0.5');
+});
+
+test('候補を先に設定してから欄を組み立てても、走査と再設定でラッパーを重複しない',()=>{
+  const document=new Document(),parent=document.createElement('label'),input=document.createElement('input');input.value='1';
+  setQuantityPresets(input,[{label:'半分',value:.5}]);configureQuantityInput(input);assert.equal(input.parentNode,null);
+  parent.append(input);document.append(parent);installQuantitySteppers(document);configureQuantityInput(input);installQuantitySteppers(document);
+  assert.equal(parent.children.length,1);assert.equal(buttons(input).length,2);assert.equal(presetButtons(input).length,1);
+  let changes=0;input.addEventListener('change',()=>changes++);presetButtons(input)[0].dispatchEvent(new Event('click'));assert.equal(changes,1);
+});
+
+test('候補も上下限・整数専用・disabled・readonlyを尊重し、無効な候補は操作できない',()=>{
+  const {input}=field('2',{min:'1',max:'3'});configureQuantityInput(input,{integerOnly:true});
+  setQuantityPresets(input,[{label:'半分',value:.5},{label:'1.5',value:1.5},{label:'3',value:3},{label:'4',value:4}]);
+  assert.deepEqual(presetButtons(input).map(button=>button.disabled),[true,true,false,true]);
+  for(const index of [0,1,3])presetButtons(input)[index].dispatchEvent(new Event('click'));assert.equal(input.value,'2');
+  input.disabled=true;presetButtons(input)[2].dispatchEvent(new Event('click'));assert.equal(input.value,'2');
+  input.disabled=false;input.readOnly=true;presetButtons(input)[2].dispatchEvent(new Event('click'));assert.equal(input.value,'2');
+  input.readOnly=false;presetButtons(input)[2].dispatchEvent(new Event('click'));assert.equal(input.value,'3');
+});
+
+test('候補の0は通常入力と同様に選択解除を通知し、不正な入力は明示した有効値で直せる',()=>{
+  const {input}=field('1');let zeros=0;configureQuantityInput(input,{onZero:()=>zeros++});setQuantityPresets(input,[{label:'なし',value:0},{label:'1',value:1}]);
+  input.value='abc';input.dispatchEvent(new Event('input'));assert.notEqual(input.validationMessage,'');
+  presetButtons(input)[1].dispatchEvent(new Event('click'));assert.equal(input.value,'1');assert.equal(input.validationMessage,'');
+  presetButtons(input)[0].dispatchEvent(new Event('click'));assert.equal(input.value,'0');assert.equal(zeros,1);
+});
+
+test('候補の無効状態と説明を属性変更で更新し、再設定した整数条件も反映する',()=>{
+  const previous=globalThis.MutationObserver,observers=[];
+  globalThis.MutationObserver=class{constructor(callback){this.callback=callback;observers.push(this);}observe(target){this.target=target;}disconnect(){}};
+  try{
+    const {input}=field('1');configureQuantityInput(input);setQuantityPresets(input,[{label:'半分',value:.5},{label:'2',value:2}]);
+    const observer=observers.find(row=>row.target===input);input.disabled=true;observer.callback([]);assert.ok(presetButtons(input).every(button=>button.disabled));
+    input.disabled=false;input.max='1';observer.callback([]);assert.deepEqual(presetButtons(input).map(button=>button.disabled),[false,true]);
+    input.setAttribute('aria-label','料理の量（皿）');observer.callback([]);assert.equal(presetButtons(input)[0].getAttribute('aria-label'),'料理の量（皿）を半分にする');
+    configureQuantityInput(input,{integerOnly:true});assert.ok(presetButtons(input).every(button=>button.disabled));
+  }finally{if(previous===undefined)delete globalThis.MutationObserver;else globalThis.MutationObserver=previous;}
+});
+
+test('不正な候補は現在の候補や値を上書きせずに拒否する',()=>{
+  const {input}=field('1');configureQuantityInput(input);setQuantityPresets(input,[{label:'2',value:2}]);
+  for(const presets of [null,{},[{label:'',value:2}],[{label:'2',value:'2'}],[{label:'負数',value:-1}],[{label:'不明',value:NaN}],[{label:'∞',value:Infinity}],Array.from({length:9},()=>({label:'2',value:2}))]){
+    assert.throws(()=>setQuantityPresets(input,presets),/候補/);assert.equal(input.value,'1');assert.deepEqual(presetButtons(input).map(button=>button.textContent),['2']);
+  }
 });

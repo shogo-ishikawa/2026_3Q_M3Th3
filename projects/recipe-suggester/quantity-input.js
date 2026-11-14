@@ -1,6 +1,8 @@
-/** 上下操作は1刻み、手入力は小数も使える共通数量欄。 */
+/** 増減は1刻み、手入力は小数も使える共通数量欄。 */
 const configurations=new WeakMap();
 const decorations=new WeakMap();
+const presetChoices=new WeakMap();
+const presetVersions=new WeakMap();
 const decimal=/^(?:\d+(?:\.\d*)?|\.\d+)$/;
 const bound=value=>value!==undefined&&value!==null&&String(value).trim()!==''&&Number.isFinite(Number(value))?Number(value):null;
 
@@ -25,16 +27,38 @@ function describe(input){
   if(label){const text=[...label.childNodes].filter(node=>node.nodeType===3).map(node=>node.textContent).join('').trim();if(text)return text;}
   return '数量';
 }
+function canOperate(input){return !input.disabled&&!input.readOnly;}
+function presetAllowed(input,value){
+  const min=bound(input.min),max=bound(input.max);
+  return configurations.has(input)&&canOperate(input)&&(min===null||value>=min)&&(max===null||value<=max)
+    &&(!configurations.get(input).integerOnly||Number.isInteger(value));
+}
+function syncDecoration(input){
+  const decoration=decorations.get(input);if(!decoration)return;
+  for(const {button,direction}of decoration.buttons){
+    const action=direction===1?'増やす':'減らす';
+    button.setAttribute('aria-label',`${describe(input)}を${action}`);
+    button.title=`${configurations.get(input).step}ずつ${action}`;
+    button.disabled=!canOperate(input);
+  }
+  const raw=String(input.value??'').trim(),valid=decimal.test(raw)&&!input.validity?.badInput;
+  decoration.presetRow?.setAttribute('aria-label',`${describe(input)}のよく使う量`);
+  for(const {button,value,label}of decoration.presetButtons){
+    button.disabled=!presetAllowed(input,value);
+    button.setAttribute('aria-label',`${describe(input)}を${label}にする`);
+    button.setAttribute('aria-pressed',String(valid&&Number(raw)===value));
+  }
+}
 function validate(input){
   let message='';
   try{readQuantityInput(input,{label:describe(input),allowEmpty:!input.required});}catch(error){message=error.message;}
-  input.setCustomValidity?.(message);
-  const decoration=decorations.get(input);
-  if(decoration)for(const [index,button]of [...decoration.children].entries()){
-    const label=index===0?'増やす':'減らす';button.setAttribute('aria-label',`${describe(input)}を${label}`);button.title=`${configurations.get(input).step}ずつ${label}`;
-  }
+  input.setCustomValidity?.(message);syncDecoration(input);
 }
-function canOperate(input){return !input.disabled&&!input.readOnly;}
+function dispatchQuantity(input){
+  input.dispatchEvent?.(new Event('input',{bubbles:true}));
+  input.dispatchEvent?.(new Event('change',{bubbles:true}));
+  validate(input);
+}
 
 /** キーボードと表示ボタンの共通処理。小数部分を丸めて整数にはしません。 */
 export function stepQuantityInput(input,direction){
@@ -51,34 +75,57 @@ export function stepQuantityInput(input,direction){
     if(next<min){if(min===0)next=0;else return false;}
   }
   if(max!==null&&next>max||next<min||config.integerOnly&&!Number.isInteger(next)||!Number.isFinite(next)||next===current)return false;
-  input.value=String(next);
-  input.dispatchEvent?.(new Event('input',{bubbles:true}));
-  input.dispatchEvent?.(new Event('change',{bubbles:true}));
-  validate(input);
-  return true;
+  input.value=String(next);dispatchQuantity(input);return true;
+}
+
+function renderPresets(input){
+  const decoration=decorations.get(input);if(!decoration)return;
+  if(decoration.presetRow)decoration.presetRow.remove();
+  decoration.presetRow=null;decoration.presetButtons=[];
+  const choices=presetChoices.get(input)??[];if(!choices.length)return;
+  const document=input.ownerDocument??globalThis.document,row=document.createElement('span');
+  row.className='quantity-presets';row.setAttribute('role','group');row.setAttribute('aria-label',`${describe(input)}のよく使う量`);
+  const version=presetVersions.get(input);
+  for(const {label,value}of choices){
+    const button=document.createElement('button');button.type='button';button.className='quantity-preset-button';button.textContent=label;
+    button.addEventListener('click',()=>{
+      // 外した古いボタンが、単位変更後の欄へ値を戻さないようにします。
+      if(version!==presetVersions.get(input)||!presetAllowed(input,value))return;
+      const raw=String(input.value??'').trim();
+      if(!input.validity?.badInput&&decimal.test(raw)&&Number(raw)===value)return;
+      input.value=String(value);dispatchQuantity(input);
+    });
+    decoration.presetButtons.push({button,value,label});row.append(button);
+  }
+  decoration.presetRow=row;decoration.wrapper.append(row);syncDecoration(input);
+}
+
+/** 呼び出し元が単位と意味を確かめた量だけを表示します。空配列で消せます。 */
+export function setQuantityPresets(input,presets=[]){
+  if(!input||!Array.isArray(presets)||presets.length>8||presets.some(p=>!p||typeof p.label!=='string'||!p.label.trim()||p.label.length>40||typeof p.value!=='number'||!Number.isFinite(p.value)||p.value<0))throw Error('数量の候補を確認してください。');
+  presetChoices.set(input,presets.map(({label,value})=>({label:label.trim(),value})));
+  presetVersions.set(input,(presetVersions.get(input)??0)+1);
+  wrap(input);renderPresets(input);return input;
 }
 
 function wrap(input){
   if(!configurations.has(input))return;
-  const parent=input.parentNode;
-  if(!parent?.insertBefore||parent.classList?.contains('quantity-stepper'))return;
-  const document=input.ownerDocument??globalThis.document;
-  if(!document?.createElement)return;
+  const existing=decorations.get(input);
+  if(existing&&input.parentNode===existing.main&&existing.main.parentNode===existing.wrapper)return;
+  const parent=input.parentNode;if(!parent?.insertBefore)return;
+  const document=input.ownerDocument??globalThis.document;if(!document?.createElement)return;
   const wrapper=document.createElement('span');wrapper.className='quantity-stepper';
   if(parent.tagName==='LABEL'&&[...(parent.childNodes??[])].some(node=>node.nodeType===3&&node.textContent.trim()))wrapper.className+=' quantity-stepper-labelled';
-  const controls=document.createElement('span');controls.className='quantity-stepper-controls';
-  for(const [direction,symbol,label]of [[1,'▴','増やす'],[-1,'▾','減らす']]){
-    const button=document.createElement('button');button.type='button';button.className='quantity-stepper-button';button.textContent=symbol;
-    button.setAttribute('aria-label',`${describe(input)}を${label}`);button.title=`${configurations.get(input).step}ずつ${label}`;
-    button.addEventListener('click',()=>{stepQuantityInput(input,direction);});
-    controls.append(button);
+  const main=document.createElement('span');main.className='quantity-stepper-main';
+  const buttons=[];
+  for(const [direction,symbol]of [[-1,'−'],[1,'＋']]){
+    const button=document.createElement('button');button.type='button';button.className=`quantity-stepper-button quantity-stepper-${direction===1?'increase':'decrease'}`;button.textContent=symbol;
+    button.addEventListener('click',()=>{stepQuantityInput(input,direction);});buttons.push({button,direction});
   }
-  parent.insertBefore(wrapper,input);wrapper.append(input,controls);
-  decorations.set(input,controls);
-  input.classList?.add('quantity-stepper-input');
-  const sync=()=>{for(const button of controls.children)button.disabled=!canOperate(input);};
-  sync();
-  if(typeof MutationObserver!=='undefined')new MutationObserver(sync).observe(input,{attributes:true,attributeFilter:['disabled','readonly']});
+  parent.insertBefore(wrapper,input);wrapper.append(main);main.append(buttons[0].button,input,buttons[1].button);
+  decorations.set(input,{wrapper,main,buttons,presetRow:null,presetButtons:[]});
+  input.classList?.add('quantity-stepper-input');syncDecoration(input);renderPresets(input);
+  if(typeof MutationObserver!=='undefined')new MutationObserver(()=>syncDecoration(input)).observe(input,{attributes:true,attributeFilter:['disabled','readonly','min','max','aria-label']});
 }
 
 /** 何度呼んでもイベントを重複登録しません。栄養値・係数には別のstepを指定できます。 */
@@ -103,7 +150,7 @@ export function configureQuantityInput(input,{step=1,integerOnly=false,onZero}={
   validate(input);wrap(input);queueMicrotask(()=>validate(input));return input;
 }
 
-/** 後から表示されるダイアログや記録欄にも同じ上下ボタンを付けます。 */
+/** 後から表示されるダイアログや記録欄にも同じ増減ボタンを付けます。 */
 export function installQuantitySteppers(root=globalThis.document){
   const scan=node=>{
     if(node?.matches?.('input[data-quantity-step]'))wrap(node);

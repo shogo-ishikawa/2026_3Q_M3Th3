@@ -135,7 +135,15 @@
         "recipe-artwork-manifest.js",
         "assets",
         "text-log-configurator-ui.js",
-        "bread-foods.js"
+        "bread-foods.js",
+        "journal-history.js",
+        "quick-record-ui.js",
+        "quick-record-ui.css",
+        "record-summary.js",
+        "record-summary-ui.js",
+        "record-summary-ui.css",
+        "catalog-filter-ui.js",
+        "catalog-filter-ui.css"
       ]
     },
     {

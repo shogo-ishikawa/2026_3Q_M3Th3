@@ -23,7 +23,7 @@ test('お気に入りの根拠・未入力成分・最後の量をJSONとブラ�
   assert.equal(restored.favourites[0].item.nutrition.fat,null);
   assert.equal(restored.favourites[0].item.quantity,1.2);
   assert.equal(recentFoods(restored.entries,{date:day})[0].item.quantity,1.2);
-  const stored=new Map();assert.equal(writeJournal({setItem:(key,value)=>stored.set(key,value)},restored,data),true);
+  const stored=new Map();assert.equal(writeJournal({getItem:key=>stored.get(key)??null,setItem:(key,value)=>stored.set(key,value)},restored,data),true);
   assert.deepEqual(parseJournal(stored.get(JOURNAL_KEY),data),restored);
   const copy=createRepeatedMeal({items:[restored.favourites[0].item],date:'2026-11-14',meal:'dinner',status:'planned'},data);
   assert.notEqual(copy.items[0].id,restored.favourites[0].item.id);

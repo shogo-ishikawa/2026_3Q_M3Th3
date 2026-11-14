@@ -12,6 +12,8 @@ import {STORAGE_KEY as LEGACY_KEY, defaultState, validateState, GROUP_IDS, PROTE
 
 export const JOURNAL_KEY = 'kondate-note-v3';
 export const PREVIOUS_JOURNAL_KEY = 'kondate-note-v2';
+export const JOURNAL_BACKUP_KEY = 'meal-palette-raw-backups-v1';
+export const JOURNAL_EXPORT_KEY = 'meal-palette-last-export';
 export const DEFAULT_PROFILE = Object.freeze({ageBand: 'unset', sex: 'unset', activity: 'unset', mode: 'manual'});
 export const NUTRIENT_KEYS = ['kcal', 'protein', 'fat', 'carbs', 'fiber', 'salt'];
 export const MEAL_IDS = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -19,11 +21,11 @@ export const ROLE_IDS = ['main', 'side', 'soup', 'staple', 'drink', 'snack'];
 export const DEFAULT_TARGETS = Object.freeze({kcal: 2000, protein: 60, fat: 65, carbs: 280, fiber: 20, salt: 6.5});
 const MAX_BYTES = 2 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000};
-const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize'];
+const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'];
 const TEXT_SIZE_IDS = ['standard', 'large', 'larger', 'largest'];
 const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis'];
 const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant', 'nutritionBasis'];
-const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。アレルギーと除外食材を選び直してください。バックアップがあれば「記録を読み込む」から取り込めます。';
+const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。復旧方法を選ぶまで設定や記録の変更は保存できません。復旧画面から元のデータを書き出すか、バックアップを読み込んでください。復旧後はアレルギーと除外食材も確認してください。';
 const unknownNutrition = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
 const unique = values => [...new Set(values)];
 
@@ -74,7 +76,7 @@ export function entriesForDay(entries, date) {
 
 export function defaultJournal(today = dateKey()) {
   if (!dateIsValid(today)) throw new Error('日付を確認してください。');
-  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard'}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: [], favourites: []};
+  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard', recordView: 'detailed'}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: [], favourites: []};
 }
 
 // JSON以外のオブジェクト、アクセサー、危険なキーをデータとして受け付けません。
@@ -257,7 +259,7 @@ export function validateFrozenItems(items, data) {
 
 function settings(source, data, recipes) {
   record(source, SETTINGS_KEYS, '献立の設定');
-  const legacy = Object.fromEntries(Object.entries(source).filter(([key]) => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize'].includes(key)));
+  const legacy = Object.fromEntries(Object.entries(source).filter(([key]) => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'].includes(key)));
   const clean = validateState({version: 1, settings: legacy, history: []}, data).settings;
   const meal = source.meal ?? 'dinner';
   let stapleId = source.stapleId ?? 'auto';
@@ -275,8 +277,10 @@ function settings(source, data, recipes) {
   }
   const textSize = source.textSize === undefined ? 'standard' : source.textSize;
   if (!TEXT_SIZE_IDS.includes(textSize)) throw new Error('文字の大きさを確認してください。');
+  const recordView = source.recordView === undefined ? 'detailed' : source.recordView;
+  if (!['simple', 'detailed'].includes(recordView)) throw new Error('記録の表示方法を確認してください。');
   // 旧v3の形はそのまま保ち、未指定時のモードは提案側で主食IDから判断します。
-  return {...clean, meal, stapleId, drinkId, stapleAmount, drinkAmount: amount(source.drinkAmount, '飲み物の量'), ...(mode === undefined ? {} : {stapleMode: mode}), hideRecipeIllustrations: bool(source.hideRecipeIllustrations, false, '料理イラストの表示設定'), textSize};
+  return {...clean, meal, stapleId, drinkId, stapleAmount, drinkAmount: amount(source.drinkAmount, '飲み物の量'), ...(mode === undefined ? {} : {stapleMode: mode}), hideRecipeIllustrations: bool(source.hideRecipeIllustrations, false, '料理イラストの表示設定'), textSize, recordView};
 }
 
 function profile(value) {
@@ -347,7 +351,7 @@ function legacyNutrition(recipe, data) {
 
 function migrateV1(value, data) {
   record(value, ['version', 'settings', 'history'], '旧版の保存データ');
-  record(value.settings, SETTINGS_KEYS.filter(key => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize'].includes(key)), '旧版の献立の設定');
+  record(value.settings, SETTINGS_KEYS.filter(key => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'].includes(key)), '旧版の献立の設定');
   // 現在のDBから消えた料理の識別子も、過去の記録として残します。
   const missing = new Set();
   for (const entry of list(value.history, 1000, '旧版の食事の記録')) {
@@ -384,7 +388,7 @@ export function validateJournal(value, data) {
   if (value?.version === 1) return migrateV1(value, data);
   if (value?.version === 2) {
     record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'shoppingChecks'], '旧版の保存データ');
-    record(value.settings, SETTINGS_KEYS.filter(key => !['stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize'].includes(key)), '旧版の献立の設定');
+    record(value.settings, SETTINGS_KEYS.filter(key => !['stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'].includes(key)), '旧版の献立の設定');
     return validateV3({...value, version: 3, profile: {...DEFAULT_PROFILE}, completedDays: [], settings: {...value.settings, stapleAmount: null, drinkAmount: null}}, data);
   }
   if (value?.version !== 3) throw new Error('Meal Paletteか献立ノートの保存ファイルを選んでください。');
@@ -398,22 +402,94 @@ export function parseJournal(source, data) {
   return validateJournal(value, data);
 }
 
+const JOURNAL_KEYS = [JOURNAL_KEY, PREVIOUS_JOURNAL_KEY, LEGACY_KEY];
+function storedJournal(storage) {
+  for (const key of JOURNAL_KEYS) {
+    const raw = storage.getItem(key);
+    if (raw !== null) return {key, raw};
+  }
+  return null;
+}
+
 export function readJournal(storage, data, today = dateKey()) {
+  let source;
   try {
-    const current = storage.getItem(JOURNAL_KEY);
-    if (current !== null) return {state: parseJournal(current, data), message: ''};
-    const previous = storage.getItem(PREVIOUS_JOURNAL_KEY);
-    if (previous !== null) return {state: parseJournal(previous, data), message: '献立ノートの記録と設定を引き継ぎました。プロフィールは未選択のままです。'};
-    const legacy = storage.getItem(LEGACY_KEY);
-    if (legacy !== null) return {state: parseJournal(legacy, data), message: '以前の記録をカレンダー形式に引き継ぎました。栄養成分が分からない料理は「未入力」として残しています。'};
-    return {state: defaultJournal(today), message: ''};
+    source = storedJournal(storage);
+    if (!source) return {state: defaultJournal(today), message: '', recovery: null};
+    const state = parseJournal(source.raw, data);
+    const message = source.key === JOURNAL_KEY ? '' : source.key === PREVIOUS_JOURNAL_KEY
+      ? '献立ノートの記録と設定を引き継ぎました。プロフィールは未選択のままです。'
+      : '以前の記録をカレンダー形式に引き継ぎました。栄養成分が分からない料理は「未入力」として残しています。';
+    return {state, message, recovery: null};
   } catch {
-    return {state: defaultJournal(today), message: INVALID_MESSAGE};
+    return {state: defaultJournal(today), message: INVALID_MESSAGE, recovery: source ?? null};
   }
 }
 
+/** Ordinary saves cannot replace an unreadable current or legacy source. */
 export function writeJournal(storage, state, data) {
   const clean = validateJournal(state, data);
-  try { storage.setItem(JOURNAL_KEY, JSON.stringify(clean)); return true; }
-  catch { return false; }
+  try {
+    const source = storedJournal(storage);
+    if (source) parseJournal(source.raw, data);
+    storage.setItem(JOURNAL_KEY, JSON.stringify(clean));
+    return true;
+  } catch { return false; }
+}
+
+function validTimestamp(value) {
+  if (typeof value !== 'string') return false;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value;
+}
+
+function rawBackups(storage) {
+  const raw = storage.getItem(JOURNAL_BACKUP_KEY);
+  if (raw === null) return [];
+  const backups = JSON.parse(raw);
+  if (!Array.isArray(backups) || backups.some(backup => !backup || Array.isArray(backup)
+    || Object.keys(backup).some(key => !['key', 'raw', 'savedAt'].includes(key))
+    || !JOURNAL_KEYS.includes(backup.key) || typeof backup.raw !== 'string'
+    || !validTimestamp(backup.savedAt))) throw Error('退避したデータを読み込めません。');
+  return backups;
+}
+
+/** Explicit import/restart: archive the original before writing the new journal. */
+export function replaceJournal(storage, state, data) {
+  const clean = validateJournal(state, data);
+  try {
+    const source = storedJournal(storage);
+    if (source) {
+      const backups = rawBackups(storage);
+      const previous = backups.find(backup => backup.key === source.key && backup.raw === source.raw);
+      const backup = previous ?? {...source, savedAt: new Date().toISOString()};
+      const history = backups.filter(item => item !== previous);
+      history.push(backup);
+      // Retain all distinct originals. A quota failure leaves the current source untouched.
+      storage.setItem(JOURNAL_BACKUP_KEY, JSON.stringify(history));
+    }
+    storage.setItem(JOURNAL_KEY, JSON.stringify(clean));
+    return true;
+  } catch { return false; }
+}
+
+export function readJournalBackups(storage) {
+  try { return rawBackups(storage); } catch { return []; }
+}
+
+export function readJournalBackup(storage) {
+  return readJournalBackups(storage).at(-1) ?? null;
+}
+
+/** This records an export operation, not proof that a download reached a device. */
+export function markJournalExport(storage, at = new Date().toISOString()) {
+  if (!validTimestamp(at)) return false;
+  try { storage.setItem(JOURNAL_EXPORT_KEY, at); return true; } catch { return false; }
+}
+
+export function readJournalExportTime(storage) {
+  try {
+    const value = storage.getItem(JOURNAL_EXPORT_KEY);
+    return validTimestamp(value) ? value : null;
+  } catch { return null; }
 }

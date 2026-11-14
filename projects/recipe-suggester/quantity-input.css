@@ -1,12 +1,19 @@
-.quantity-stepper{display:inline-flex;align-items:stretch;position:relative;min-width:0;width:100%;vertical-align:middle}
-.quantity-stepper>input.quantity-stepper-input{width:100%;max-width:100%;min-width:0;margin:0;padding-right:2.25rem;appearance:textfield;-moz-appearance:textfield}
+.quantity-stepper{display:inline-block;container-type:inline-size;position:relative;min-width:0;max-width:100%;width:100%;vertical-align:middle}
+.quantity-stepper-main{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:6px;align-items:stretch;min-width:0;width:100%}
+.quantity-stepper input.quantity-stepper-input{grid-column:2;grid-row:1;width:100%;max-width:100%;min-width:0;min-height:44px;margin:0;padding:9px 6px;text-align:center;appearance:textfield;-moz-appearance:textfield}
 .quantity-stepper-labelled{margin-top:6px}
-.quantity-stepper>input::-webkit-inner-spin-button,.quantity-stepper>input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-.quantity-stepper-controls{position:absolute;inset:4px 4px 4px auto;width:1.65rem;display:grid;grid-template-rows:1fr 1fr;gap:1px}
-.quantity-stepper .quantity-stepper-button{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:3px;background:#edf1e8;color:#4b6547;font:700 .8125rem/1 sans-serif;cursor:pointer;touch-action:manipulation}
-.quantity-stepper .quantity-stepper-button:hover{background:#dce6d2}
-.quantity-stepper .quantity-stepper-button:focus-visible{outline:2px solid #42664e;outline-offset:1px;z-index:1}
-.quantity-stepper .quantity-stepper-button:disabled{opacity:.35;cursor:default}
+.quantity-stepper input::-webkit-inner-spin-button,.quantity-stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.quantity-stepper .quantity-stepper-button{display:flex;align-items:center;justify-content:center;grid-row:1;min-width:0;min-height:44px;width:100%;margin:0;padding:6px 0;border:1px solid #cbd6c3;border-radius:7px;background:#edf1e8;color:#36533b;font:700 1.15rem/1.2 sans-serif;cursor:pointer;touch-action:manipulation}
+.quantity-stepper-decrease{grid-column:1}.quantity-stepper-increase{grid-column:3}
+.quantity-stepper .quantity-stepper-button:hover,.quantity-preset-button:hover{background:#dce6d2}
+.quantity-stepper .quantity-stepper-button:focus-visible,.quantity-preset-button:focus-visible{outline:3px solid #42664e;outline-offset:2px;z-index:1}
+.quantity-stepper .quantity-stepper-button:disabled,.quantity-preset-button:disabled{opacity:.4;cursor:default}
+.quantity-presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-width:0;width:100%}
+.quantity-stepper .quantity-preset-button{flex:1 1 4rem;min-width:0;min-height:44px;padding:8px 6px;border:1px solid #cbd6c3;border-radius:7px;background:#fff;color:#36533b;font:inherit;font-size:.8rem;line-height:1.5;overflow-wrap:anywhere;cursor:pointer;touch-action:manipulation}
+.quantity-preset-button[aria-pressed="true"]{border-color:#42664e;background:#e8f0df;box-shadow:inset 0 0 0 1px #42664e}
 .input-unit>.quantity-stepper{flex:1;width:auto}
-.entry-item>.quantity-stepper,.pantry-row>.quantity-stepper{width:6.2rem;flex:0 0 6.2rem}
-.recipe-arrangement .arrangement-original-row .quantity-stepper{max-width:160px}
+.entry-item>.quantity-stepper,.pantry-row>.quantity-stepper{width:12rem;flex:0 1 12rem}
+.recipe-arrangement .arrangement-original-row .quantity-stepper{max-width:240px}
+/* Compact fields keep the same large targets by placing controls below the value. */
+@container(max-width:175px){.quantity-stepper-main{grid-template-columns:repeat(2,minmax(0,1fr))}.quantity-stepper input.quantity-stepper-input{grid-column:1/-1;grid-row:1}.quantity-stepper .quantity-stepper-decrease{grid-column:1;grid-row:2}.quantity-stepper .quantity-stepper-increase{grid-column:2;grid-row:2}}
+@container(max-width:93px){.quantity-stepper-main{grid-template-columns:minmax(0,1fr)}.quantity-stepper .quantity-stepper-decrease{grid-column:1;grid-row:2}.quantity-stepper .quantity-stepper-increase{grid-column:1;grid-row:3}}

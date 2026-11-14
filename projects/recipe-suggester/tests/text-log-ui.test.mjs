@@ -31,7 +31,7 @@ test('全行の料理と量が揃ったプレビューだけを一括確認し�
   natto.value='1';natto.emit('input');
   const soup=byClass(rows[2],'text-log-recipe');assert.equal(soup.value,'');soup.value=soup.children.find(option=>option.value).value;soup.emit('change');
   const soupAmount=byClass(rows[2],'text-log-amount');if(!soupAmount.value){soupAmount.value='1';soupAmount.emit('input');}
-  assert.equal(byClass(root,'text-log-submit').disabled,false);assert.equal(added.length,0);assert.ok(byClasses(root,'text-log-preview-items')[0].children.length===3);
+  assert.equal(byClass(root,'text-log-submit').disabled,false);assert.equal(added.length,0);assert.ok(byClasses(root,'record-summary-items')[0].children.length===3);
   field(root,'date').value='2026-11-14';field(root,'meal').value='lunch';field(root,'status').value='planned';field(root,'status').emit('change');
   byClass(root,'text-log-submit').emit('click');assert.equal(added.length,1);assert.equal(added[0].items.length,3);assert.equal(added[0].date,'2026-11-14');assert.equal(added[0].meal,'lunch');assert.equal(added[0].status,'planned');
   assert.equal(byClasses(root,'text-log-row').length,0);assert.equal(byClass(root,'text-log-source').value,'');assert.equal(byClass(root,'text-log-submit').disabled,true);
