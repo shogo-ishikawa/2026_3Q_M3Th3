@@ -1,6 +1,6 @@
 /** 個別の標準レシピに対応する完成イメージだけを返します。分類画像は流用しません。 */
 import {RECIPES} from './data.js';
-import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js?v=3.16.0';
+import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js?v=3.17.0';
 
 const canonicalRecipes=new Map(RECIPES.map(recipe=>[recipe.id,recipe]));
 const own=(value,key)=>Object.hasOwn(value??{},key);

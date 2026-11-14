@@ -1144,3 +1144,6 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
 .recipe-art-note{margin:7px 0 0;font-size:11px;line-height:1.8;color:#7b7d6f;font-weight:400}
 @media(max-width:600px){.recipe-art-card{margin-bottom:11px}.recipe-art-card .recipe-art-image-frame{border-radius:8px}.recipe-art figcaption{font-size:8px}.recipe-art-detail img{max-height:270px}.recipe-art-note{font-size:10px}}
 @media print{.recipe-art{display:none}}
+.recipe-library-status{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;margin-top:24px}
+.recipe-library-status .recipe-results-count{margin:0}
+.illustration-only-filter{width:fit-content;font-size:12px;color:#5e704f;margin:0}
