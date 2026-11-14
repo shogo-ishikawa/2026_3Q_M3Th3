@@ -1,5 +1,6 @@
 /** 単品のお気に入りと最近の食事。料理・栄養は保存時点の値を保ちます。 */
 import {dateIsValid, dateKey, MEAL_IDS, validateFrozenItems} from './journal.js';
+import {GENRES} from './storage.js';
 
 export const MAX_FAVOURITES=200;
 const uid=prefix=>`${prefix}-${globalThis.crypto?.randomUUID?.()??`${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
@@ -42,20 +43,26 @@ export function validateFavourites(raw,data){
   if(!Array.isArray(raw)||raw.length>MAX_FAVOURITES)throw Error(`お気に入りは${MAX_FAVOURITES}件以下にしてください。`);
   const ids=new Set(),keys=new Set();
   return raw.map(source=>{
-    if(!isRecord(source)||Object.keys(source).some(key=>!['id','name','item'].includes(key))||typeof source.id!=='string'||!/^favourite-[a-zA-Z0-9_-]+$/.test(source.id)||source.id.length>120||ids.has(source.id))throw Error('お気に入りの識別子と内容を確認してください。');
+    if(!isRecord(source)||Object.keys(source).some(key=>!['id','name','item','genre'].includes(key))||typeof source.id!=='string'||!/^favourite-[a-zA-Z0-9_-]+$/.test(source.id)||source.id.length>120||ids.has(source.id))throw Error('お気に入りの識別子と内容を確認してください。');
     ids.add(source.id);
     if(source.item?.batchId!==undefined)throw Error('作り置きは残量画面から記録してください。');
     const item=validateFrozenItems([source.item],data)[0],key=favouriteKey(item);
     if(keys.has(key))throw Error('同じ内容のお気に入りが重複しています。');keys.add(key);
-    return {id:source.id,name:checkedText(source.name,'お気に入りの名前'),item};
+    if(own(source,'genre')&&!GENRES.includes(source.genre))throw Error('お気に入りのジャンルを確認してください。');
+    return {id:source.id,name:checkedText(source.name,'お気に入りの名前'),item,...(own(source,'genre')?{genre:source.genre}:{})};
   });
 }
 
 export function createFavourite(item,data,options={}){
   safe(item);safe(options);
-  if(!isRecord(options)||Object.keys(options).some(key=>key!=='name'))throw Error('お気に入りの名前を確認してください。');
+  if(!isRecord(options)||Object.keys(options).some(key=>!['name','genre'].includes(key)))throw Error('お気に入りの名前を確認してください。');
   const name=own(options,'name')?options.name:item?.name;
-  return validateFavourites([{id:uid('favourite'),name,item:{...item,id:uid('favourite-item')}}],data)[0];
+  // 具材選択で生まれた一時レシピも、呼出元が確認したジャンルを単品の外側に残します。
+  const suppliedGenre=own(options,'genre')&&options.genre!==undefined;
+  if(suppliedGenre&&!GENRES.includes(options.genre))throw Error('お気に入りのジャンルを確認してください。');
+  const recipeGenre=data?.recipes?.find(recipe=>recipe.id===item?.recipeId)?.genre;
+  const genre=suppliedGenre?options.genre:GENRES.includes(recipeGenre)?recipeGenre:undefined;
+  return validateFavourites([{id:uid('favourite'),name,item:{...item,id:uid('favourite-item')},...(genre!==undefined?{genre}:{})}],data)[0];
 }
 
 /** 実食済みの単品を新しい日付・登録順から取り出し、最後に食べた量を初期値にします。 */

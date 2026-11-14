@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 種類・具材と量を選ぶ共通画面。配合・検証はfood-composer.jsが担当します。 */
 import {availableFoodComponents, availableFoodPresets, buildFoodSelection, defaultFoodSelection, foodComposerDefinition, foodPresetSelection, matchingFoodPreset} from './food-composer.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
@@ -135,7 +136,7 @@ export function mountFoodComposer({kind,data,initial,onChange=()=>{},onSelection
         presetSelect.value=matched&&matched.id===baseline?.id?matched.id:'';
       }
       title.textContent=`${recipe.name} / 1皿`;
-      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${formatNutrient(recipe.manualNutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       const labels=recipe.allergens.map(id=>data.allergens?.find(allergen=>allergen.id===id)?.label??id);
       allergies.textContent=recipe.allergensKnown?`含まれる登録アレルゲン：${labels.length?labels.join('、'):'登録なし'}。商品の原材料も確認してください。`:'購入品などの原材料・アレルギー情報は未確認です。実物の商品表示を確認してください。';
       source.textContent=recipe.sourceNote;

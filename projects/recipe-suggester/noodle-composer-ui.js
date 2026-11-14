@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 麺の量・追加の具・スープ摂取量を選ぶ画面。登録formは呼び出し側で作ります。 */
 import {NOODLE_SOUP_INTAKES, buildNoodleSelection, defaultNoodleSelection, noodleComposerFor, noodleToppings} from './noodle-composer.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
@@ -77,7 +78,7 @@ export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onErr
       const config={id:stableId,recipeId,noodleAmount:readQuantityInput(noodles,{label:'麺の量'}),soupIntake:soup?.value??'none',toppings};
       const recipe=buildNoodleSelection(config,data);
       title.textContent=`${recipe.name} / 1杯分`;
-      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${formatNutrient(recipe.manualNutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       const names=recipe.allergens.map(id=>data.allergens?.find(item=>item.id===id)?.label??id);
       allergens.textContent=recipe.allergensKnown?`含まれる登録アレルゲン：${names.length?names.join('、'):'登録なし'}。実物の商品表示も確認してください。`:'原材料・アレルギー情報は未確認です。実物の表示を確認してください。';
       note.textContent=recipe.sourceNote;parts.replaceChildren(...recipe.ingredients.map(part=>make('li','food-composer-material',`${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));steps.replaceChildren(...recipe.steps.map(step=>make('li','food-composer-step',step)));

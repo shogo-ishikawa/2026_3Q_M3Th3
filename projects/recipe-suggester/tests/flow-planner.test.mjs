@@ -173,7 +173,7 @@ test('主菜を汁麺へ替えると追加の主食と汁物を外し、戻す�
   const restored = replaceRecipe(changed, {dayIndex: 0, recipeId: 'udon-main'}, data);
   assert.equal(restored.ok, true);
   assert.ok(restored.days[0].recipeIds.includes('bread'));
-  assert.ok(restored.days[0].recipeIds.includes('soup'));
+  assert.ok(!restored.days[0].recipeIds.includes('soup'), '洋食の朝食は主菜・パン・副菜で構成する');
   assert.ok(original.days[0].recipeIds.includes('bread'));
-  assert.ok(original.days[0].recipeIds.includes('soup'));
+  assert.ok(!original.days[0].recipeIds.includes('soup'));
 });

@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 文章入力の1行を組み立てる画面。ここでは記録を保存しません。 */
 import {foodComposerFor, defaultFoodSelection} from './food-composer.js';
 import {mountFoodComposer} from './food-composer-ui.js';
@@ -96,7 +97,7 @@ export function mountTextRecipeConfigurator({recipeId,data,initialRecipe,onChang
   function preview(recipe){
     const box=make('div','food-composer-preview'),nutrition=recipeNutrition(recipe,data),metrics=make('dl','food-composer-nutrients');
     box.append(make('h3','',recipe.name));
-    for(const key of NUTRIENT_KEYS){const metric=make('div','food-composer-nutrient');metric.append(make('dt','food-composer-nutrient-label',NUTRIENT_LABELS[key]),make('dd','food-composer-nutrient-value',nutrition[key]===null?'不明':`${Number(nutrition[key].toFixed(3)).toLocaleString('ja-JP')} ${NUTRIENT_UNITS[key]}`));metrics.append(metric);}
+    for(const key of NUTRIENT_KEYS){const metric=make('div','food-composer-nutrient');metric.append(make('dt','food-composer-nutrient-label',NUTRIENT_LABELS[key]),make('dd','food-composer-nutrient-value',nutrition[key]===null?'不明':`${formatNutrient(nutrition[key], key)} ${NUTRIENT_UNITS[key]}`));metrics.append(metric);}
     const parts=make('ul');for(const part of recipe.ingredients)parts.append(make('li','',`${data.ingredients[part.id]?.name??part.id} ${Number((part.amount/recipe.servings).toFixed(3))}${data.ingredients[part.id]?.unit??''}`));
     box.append(make('p','field-note','表示は1人分です。食べる全体量は、元の行の数量欄で指定します。'),metrics,parts);return box;
   }

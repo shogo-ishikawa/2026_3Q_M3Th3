@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 作り置きは完成後に量り、1回に食べるg数で記録します。保存は呼び出し元が担当します。 */
 import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {createBatch,takeBatch,batchBalance} from './batch-cooking.js';
@@ -60,7 +61,7 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
     if(!batch.item.ingredients.length)materials.append(make('li','','元の料理の材料は未登録です。'));
     materialDetails.append(make('summary','','調理時の材料と全体の栄養を見る'),materials);
     const values=make('dl','batch-nutrients');
-    for(const key of NUTRIENT_KEYS){const metric=make('div','batch-nutrient');metric.append(make('dt','',NUTRIENT_LABELS[key]),make('dd','',batch.item.nutrition[key]===null?'不明':`${round(batch.item.nutrition[key])} ${NUTRIENT_UNITS[key]}`));values.append(metric);}
+    for(const key of NUTRIENT_KEYS){const metric=make('div','batch-nutrient');metric.append(make('dt','',NUTRIENT_LABELS[key]),make('dd','',batch.item.nutrition[key]===null?'不明':`${formatNutrient(batch.item.nutrition[key], key)} ${NUTRIENT_UNITS[key]}`));values.append(metric);}
     materialDetails.append(values,make('p','field-note','調理済みの取り分け分は買い物リストへ加えません。調理前に材料を買う場合は、通常の献立予定で管理してください。'),make('p','field-note',batch.item.sourceNote??''));card.append(materialDetails);
     if(!archived&&balance.remainingGrams>1e-6){
       const id=`${prefix}-${batch.id}`,takeForm=make('form','batch-take-form'),takeGrams=input(id,'take-grams','number',Math.min(100,balance.remainingGrams));takeGrams.min='0.001';takeGrams.max=String(balance.remainingGrams);takeGrams.step='any';takeGrams.required=true;
@@ -68,7 +69,7 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
       const meal=make('select','batch-take-meal');meal.id=`${id}-meal`;for(const [value,label]of meals){const option=make('option','',label);option.value=value;meal.append(option);}meal.value='dinner';
       const status=make('select','batch-take-status');status.id=`${id}-status`;for(const [value,label]of [['eaten','食べた'],['planned','食べる予定']]){const option=make('option','',label);option.value=value;status.append(option);}status.value='eaten';
       const nutritionPreview=make('p','batch-portion-preview field-note');
-      function updatePreview(){try{const entry=takeBatch({batchId:batch.id,grams:readQuantityInput(takeGrams,{label:'取り分ける量'}),date:takeDate.value,meal:meal.value,status:status.value},batches,entries),nutrition=itemNutrition(entry.items[0]);nutritionPreview.textContent=`この${round(Number(takeGrams.value))}g：${nutrition.kcal===null?'エネルギー不明':`${round(nutrition.kcal)} kcal`} · たんぱく質 ${nutrition.protein===null?'不明':`${round(nutrition.protein)}g`}`;}catch{nutritionPreview.textContent='取り分ける量と日付を確認してください。';}}
+      function updatePreview(){try{const entry=takeBatch({batchId:batch.id,grams:readQuantityInput(takeGrams,{label:'取り分ける量'}),date:takeDate.value,meal:meal.value,status:status.value},batches,entries),nutrition=itemNutrition(entry.items[0]);nutritionPreview.textContent=`この${round(Number(takeGrams.value))}g：${nutrition.kcal===null?'エネルギー不明':`${formatNutrient(nutrition.kcal, 'kcal')} kcal`} · たんぱく質 ${nutrition.protein===null?'不明':`${formatNutrient(nutrition.protein, 'protein')}g`}`;}catch{nutritionPreview.textContent='取り分ける量と日付を確認してください。';}}
       takeGrams.addEventListener('input',updatePreview);takeDate.addEventListener('change',updatePreview);
       takeForm.append(field('食べる量（完成重量g）',takeGrams),field('記録する日付',takeDate),field('食事区分',meal),field('状態',status),nutritionPreview,action('この量を記録'));
       takeForm.addEventListener('submit',event=>{event.preventDefault();try{onRecord(takeBatch({batchId:batch.id,grams:readQuantityInput(takeGrams,{label:'取り分ける量'}),date:takeDate.value,meal:meal.value,status:status.value},batches,entries));problem('');}catch(cause){problem(cause);}});updatePreview();card.append(takeForm);

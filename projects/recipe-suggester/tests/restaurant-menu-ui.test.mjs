@@ -43,3 +43,14 @@ test('提供量は1単位ずつ変わり小数を保持し、未掲載成分と�
   fiber.validity={badInput:false};fiber.emit('input');assert.ok(recipe);assert.equal(recipe.manualNutrition.fiber,null);
   set(root,'restaurant-portion','0x10');assert.equal(recipe,null);
 }));
+
+
+test('公式値の入力は原値を保ち、提供量のプレビューだけ整数と小数第一位にする',()=>withDocument(()=>{
+  const original={...initial,nutrition:{kcal:450.49,protein:30.234,fat:20.456,carbs:35.789,fiber:null,salt:2.549}};
+  let recipe;const root=mountRestaurantMenu({baseRecipe:base,data,initial:original,onChange:value=>{recipe=value;}});
+  assert.equal(find(root,'restaurant-nutrient-kcal').value,'450.49');
+  assert.equal(find(root,'restaurant-nutrient-salt').value,'2.549');
+  assert.equal(recipe.manualNutrition.kcal,450.49);assert.equal(recipe.manualNutrition.salt,2.549);
+  const text=all(root).filter(node=>node.className==='food-composer-nutrient-value').map(node=>node.textContent);
+  assert.deepEqual(text,['450 kcal','30.2 g','20.5 g','35.8 g','不明','2.5 g']);
+}));

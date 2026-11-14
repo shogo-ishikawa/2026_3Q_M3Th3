@@ -8,6 +8,7 @@ import {validateBatches, assertBatchUsage} from './batch-cooking.js';
 import {validateRestaurantMetadata} from './restaurant-menu.js';
 import {validateFavourites} from './favourites.js';
 import {validateNutritionBasis} from './nutrition-basis.js';
+import {normaliseMealPreferences} from './meal-profiles.js';
 import {STORAGE_KEY as LEGACY_KEY, defaultState, validateState, GROUP_IDS, PROTEIN_IDS, GENRES} from './storage.js';
 
 export const JOURNAL_KEY = 'kondate-note-v3';
@@ -20,8 +21,8 @@ export const MEAL_IDS = ['breakfast', 'lunch', 'dinner', 'snack'];
 export const ROLE_IDS = ['main', 'side', 'soup', 'staple', 'drink', 'snack'];
 export const DEFAULT_TARGETS = Object.freeze({kcal: 2000, protein: 60, fat: 65, carbs: 280, fiber: 20, salt: 6.5});
 const MAX_BYTES = 2 * 1024 * 1024;
-const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000};
-const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'];
+const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000, shoppingExtras: 200, shoppingList: 500};
+const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'mealPreferences', 'shoppingOmittedIds'];
 const TEXT_SIZE_IDS = ['standard', 'large', 'larger', 'largest'];
 const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis'];
 const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant', 'nutritionBasis'];
@@ -76,7 +77,7 @@ export function entriesForDay(entries, date) {
 
 export function defaultJournal(today = dateKey()) {
   if (!dateIsValid(today)) throw new Error('日付を確認してください。');
-  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard', recordView: 'detailed'}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: [], favourites: []};
+  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard', recordView: 'detailed', mealPreferences: normaliseMealPreferences(), shoppingOmittedIds: []}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: [], favourites: [], shoppingExtras: [], shoppingList: null};
 }
 
 // JSON以外のオブジェクト、アクセサー、危険なキーをデータとして受け付けません。
@@ -259,7 +260,7 @@ export function validateFrozenItems(items, data) {
 
 function settings(source, data, recipes) {
   record(source, SETTINGS_KEYS, '献立の設定');
-  const legacy = Object.fromEntries(Object.entries(source).filter(([key]) => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'].includes(key)));
+  const legacy = Object.fromEntries(Object.entries(source).filter(([key]) => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'mealPreferences', 'shoppingOmittedIds'].includes(key)));
   const clean = validateState({version: 1, settings: legacy, history: []}, data).settings;
   const meal = source.meal ?? 'dinner';
   let stapleId = source.stapleId ?? 'auto';
@@ -279,8 +280,43 @@ function settings(source, data, recipes) {
   if (!TEXT_SIZE_IDS.includes(textSize)) throw new Error('文字の大きさを確認してください。');
   const recordView = source.recordView === undefined ? 'detailed' : source.recordView;
   if (!['simple', 'detailed'].includes(recordView)) throw new Error('記録の表示方法を確認してください。');
+  const mealPreferences = mealPreferencesSetting(source.mealPreferences, clean.preferences.mood);
+  const shoppingOmittedIds = ids(source.shoppingOmittedIds, new Set(Object.keys(data.ingredients)), '買い物で省く食材');
   // 旧v3の形はそのまま保ち、未指定時のモードは提案側で主食IDから判断します。
-  return {...clean, meal, stapleId, drinkId, stapleAmount, drinkAmount: amount(source.drinkAmount, '飲み物の量'), ...(mode === undefined ? {} : {stapleMode: mode}), hideRecipeIllustrations: bool(source.hideRecipeIllustrations, false, '料理イラストの表示設定'), textSize, recordView};
+  return {...clean, meal, stapleId, drinkId, stapleAmount, drinkAmount: amount(source.drinkAmount, '飲み物の量'), ...(mode === undefined ? {} : {stapleMode: mode}), hideRecipeIllustrations: bool(source.hideRecipeIllustrations, false, '料理イラストの表示設定'), textSize, recordView, mealPreferences, shoppingOmittedIds};
+}
+
+
+// 旧版の共通の気分は朝・昼・夕へ引き継ぎ、新しく選んだ条件を勝手に変えません。
+function mealPreferencesSetting(value, legacyMood = 'all') {
+  const meals = ['breakfast', 'lunch', 'dinner'];
+  if (value === undefined) return normaliseMealPreferences(Object.fromEntries(meals.map(meal => [meal, {volume: 'normal', mood: legacyMood}])));
+  record(value, meals, '朝昼夕の食事設定');
+  if (meals.some(meal => !Object.hasOwn(value, meal))) throw new Error('朝昼夕の食事設定を確認してください。');
+  for (const meal of meals) {
+    record(value[meal], ['volume', 'mood'], '食事の量と気分');
+    if (!Object.hasOwn(value[meal], 'volume') || !Object.hasOwn(value[meal], 'mood')) throw new Error('食事の量と気分を確認してください。');
+  }
+  return normaliseMealPreferences(value);
+}
+
+// 買い物の候補と確定リストも、登録時点の配合・数量をそのまま保存します。
+function shoppingMenus(value, data, {prepared = false} = {}) {
+  if (prepared && value === null) return null;
+  const seen = new Set(), maximum = prepared ? LIMITS.shoppingList : LIMITS.shoppingExtras;
+  return list(value === undefined ? [] : value, maximum, '買い物のメニュー').map(source => {
+    record(source, prepared ? ['id', 'item', 'servings', 'ingredientIds'] : ['id', 'item', 'servings'], '買い物のメニュー');
+    const id = text(source.id, prepared ? 500 : 120, '買い物のメニューの識別子');
+    if (['__proto__', 'constructor', 'prototype'].includes(id) || seen.has(id)) throw new Error('買い物のメニューの識別子が重複または不正です。');
+    seen.add(id);
+    if (!Number.isInteger(source.servings) || source.servings < 1 || source.servings > 8) throw new Error('買い物の人数は1〜8人で指定してください。');
+    const item = validateFrozenItems([source.item], data)[0];
+    if (!prepared) return {id, item, servings: source.servings};
+    // DBから削除された材料も、過去のスナップショットにある場合は残して注意へ回します。
+    const ingredientIds = ids(source.ingredientIds, new Set(item.ingredients.map(part => part.id)), '買い物で選んだ食材');
+    if (source.ingredientIds === undefined) throw new Error('買い物で選んだ食材を確認してください。');
+    return {id, item, servings: source.servings, ingredientIds};
+  });
 }
 
 function profile(value) {
@@ -291,7 +327,7 @@ function profile(value) {
 }
 
 function validateV3(value, data) {
-  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites'], '保存データ');
+  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList'], '保存データ');
   const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), recipeIds: new Set(data.recipes.map(recipe => recipe.id)), allergenIds: new Set(data.allergens.map(allergen => allergen.id)), customIds: new Set()};
   const customRecipes = list(value.customRecipes, LIMITS.customRecipes, 'マイレシピ').map(recipe => customRecipe(recipe, context));
   const recipes = [...data.recipes, ...customRecipes];
@@ -332,7 +368,9 @@ function validateV3(value, data) {
   const batches = validateBatches(value.batches === undefined ? [] : value.batches, data, {validateItem: item => validateFrozenItems([item], data)[0]});
   assertBatchUsage(batches, entries);
   const favourites = validateFavourites(value.favourites === undefined ? [] : value.favourites, data);
-  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites};
+  const shoppingExtras = shoppingMenus(value.shoppingExtras, data);
+  const shoppingList = value.shoppingList === undefined ? null : shoppingMenus(value.shoppingList, data, {prepared: true});
+  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites, shoppingExtras, shoppingList};
 }
 
 function legacyNutrition(recipe, data) {
@@ -351,7 +389,7 @@ function legacyNutrition(recipe, data) {
 
 function migrateV1(value, data) {
   record(value, ['version', 'settings', 'history'], '旧版の保存データ');
-  record(value.settings, SETTINGS_KEYS.filter(key => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'].includes(key)), '旧版の献立の設定');
+  record(value.settings, SETTINGS_KEYS.filter(key => !['meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'mealPreferences', 'shoppingOmittedIds'].includes(key)), '旧版の献立の設定');
   // 現在のDBから消えた料理の識別子も、過去の記録として残します。
   const missing = new Set();
   for (const entry of list(value.history, 1000, '旧版の食事の記録')) {
@@ -388,7 +426,7 @@ export function validateJournal(value, data) {
   if (value?.version === 1) return migrateV1(value, data);
   if (value?.version === 2) {
     record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'shoppingChecks'], '旧版の保存データ');
-    record(value.settings, SETTINGS_KEYS.filter(key => !['stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView'].includes(key)), '旧版の献立の設定');
+    record(value.settings, SETTINGS_KEYS.filter(key => !['stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'mealPreferences', 'shoppingOmittedIds'].includes(key)), '旧版の献立の設定');
     return validateV3({...value, version: 3, profile: {...DEFAULT_PROFILE}, completedDays: [], settings: {...value.settings, stapleAmount: null, drinkAmount: null}}, data);
   }
   if (value?.version !== 3) throw new Error('Meal Paletteか献立ノートの保存ファイルを選んでください。');

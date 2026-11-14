@@ -143,7 +143,15 @@
         "record-summary-ui.js",
         "record-summary-ui.css",
         "catalog-filter-ui.js",
-        "catalog-filter-ui.css"
+        "catalog-filter-ui.css",
+        "catalog-favourites-ui.js",
+        "catalog-favourites-ui.css",
+        "meal-profiles.js",
+        "nutrient-format.js",
+        "shopping-categories.js",
+        "shopping-workflow.js",
+        "shopping-workflow-ui.js",
+        "shopping-workflow-ui.css"
       ]
     },
     {

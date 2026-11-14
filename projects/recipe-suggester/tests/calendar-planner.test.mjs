@@ -30,7 +30,12 @@ test('calendar proposals support every meal and snacks do not become a full dinn
     if (meal === 'snack') {
       assert.deepEqual(roles.sort(), ['drink', 'snack']);
       assert.ok(!plan.days[0].warnings.some(text => /主食の食品群|野菜の食品群|たんぱく源の食品群/.test(text)));
-    } else for (const role of ['main', 'side', 'soup']) assert.ok(roles.includes(role));
+    } else {
+      assert.ok(roles.includes('main'));
+      if (meal === 'breakfast') { assert.ok(roles.includes('soup')); assert.ok(!roles.includes('side')); }
+      if (meal === 'lunch') { assert.ok(roles.includes('side')); assert.ok(!roles.includes('soup')); }
+      if (meal === 'dinner') for (const role of ['side', 'soup']) assert.ok(roles.includes(role));
+    }
   }
   assert.throws(() => generatePlan(settings({meal: 'snack'}), DATA), /朝食・昼食・夕食/);
 });

@@ -66,3 +66,23 @@ test('getterや循環を実行せずに拒否する',()=>{
   assert.throws(()=>createFavourite(item,data));assert.throws(()=>favouriteKey(item));assert.equal(reads,0);
   const raw=[];raw.push(raw);assert.throws(()=>validateFavourites(raw,data));assert.throws(()=>recentFoods(Array(1),{date:'2026-11-13'}));
 });
+
+test('新しいお気に入りはジャンルを外側へ保存し、具材選択の単品と過去の栄養を書き換えない',()=>{
+  const original=entry(75.5).items[0],before=structuredClone(original),resolved=createFavourite(original,data);
+  assert.equal(resolved.genre,'和食');assert.deepEqual(original,before);assert.equal(Object.hasOwn(resolved.item,'genre'),false);
+  const composed={...structuredClone(original),recipeId:'temporary-bread-recipe'},composedBefore=structuredClone(composed),saved=createFavourite(composed,data,{name:'いつものパン',genre:'洋食'});
+  assert.equal(saved.genre,'洋食');assert.equal(saved.name,'いつものパン');assert.equal(saved.item.quantity,75.5/150);assert.deepEqual(saved.item.nutrition,composedBefore.nutrition);assert.deepEqual(saved.item.ingredients,composedBefore.ingredients);assert.deepEqual(composed,composedBefore);
+  assert.deepEqual(validateFavourites(JSON.parse(JSON.stringify([saved])),{...data,recipes:[]})[0],saved);
+});
+
+test('旧お気に入りのジャンル欠落を補完せず、不正な新しいジャンルは保存前に拒否する',()=>{
+  const old=createFavourite(entry().items[0],data);delete old.genre;
+  assert.deepEqual(validateFavourites([old],data),[old]);assert.equal(Object.hasOwn(validateFavourites([old],data)[0],'genre'),false);
+  const unlinked={...entry().items[0],recipeId:null};assert.equal(Object.hasOwn(createFavourite(unlinked,data),'genre'),false);
+  assert.equal(createFavourite(entry().items[0],data,{genre:undefined}).genre,'和食');
+  for(const genre of [null,'','未分類','all','invalid',true,1,{}]){
+    assert.throws(()=>createFavourite(entry().items[0],data,{genre}),/ジャンル/);
+    assert.throws(()=>validateFavourites([{...old,genre}],data),/ジャンル/);
+  }
+  assert.equal(createFavourite(entry().items[0],data,{genre:'その他'}).genre,'その他');
+});

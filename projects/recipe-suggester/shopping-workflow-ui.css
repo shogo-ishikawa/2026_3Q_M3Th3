@@ -1,0 +1,55 @@
+.shopping-workflow { display: grid; gap: 1.4rem; min-width: 0; }
+.shopping-review { border: 1px solid var(--line, #d8dfcf); border-radius: 1rem; background: var(--surface, #fff); min-width: 0; }
+.shopping-review-title { padding: 1rem; color: var(--ink, #243b30); font-weight: 700; min-height: 44px; cursor: pointer; }
+.shopping-review-body { display: grid; gap: .85rem; padding: 0 1rem 1rem; }
+.shopping-selection-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.shopping-selection-actions button, .shopping-prepare, .shopping-remove-extra { min-height: 44px; }
+.shopping-selection-status { color: var(--green, #365d47); font-size: .85rem; }
+.shopping-menu-cards { display: grid; gap: .75rem; }
+.shopping-menu-card { border: 1px solid var(--line, #d8dfcf); border-radius: .8rem; padding: .9rem; min-width: 0; }
+.shopping-menu-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem; }
+.shopping-menu-heading h4 { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.shopping-menu-context { margin: .35rem 0 .7rem; color: var(--muted, #687266); font-size: .8rem; overflow-wrap: anywhere; }
+.shopping-menu-toggle, .shopping-material-choice, .shopping-hide-purchased { display: flex; align-items: center; gap: .65rem; min-height: 44px; cursor: pointer; }
+.shopping-menu-toggle { font-size: .85rem; font-weight: 600; }
+.shopping-menu-materials { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .3rem .75rem; margin-top: .5rem; }
+.shopping-material-choice { padding: .35rem .45rem; border-radius: .45rem; background: #f4f6ef; min-width: 0; }
+.shopping-material-choice > span { min-width: 0; display: grid; gap: .15rem; overflow-wrap: anywhere; }
+.shopping-material-choice strong { font-size: .85rem; }
+.shopping-material-choice small { color: var(--muted, #687266); font-size: .75rem; }
+.shopping-menu-toggle input, .shopping-material-choice input, .shopping-hide-purchased input, .shopping-check-label input { flex: 0 0 auto; width: 1.3rem; height: 1.3rem; accent-color: #365d47; }
+.shopping-review-warning { color: #86622b; font-size: .8rem; margin-top: .65rem; }
+.shopping-prepare { width: 100%; }
+.shopping-final { display: grid; gap: .85rem; min-width: 0; }
+.shopping-final > h3 { margin: 0; font-size: 1.15rem; }
+.shopping-final-note, .shopping-final-prompt { font-size: .85rem; color: var(--muted, #687266); line-height: 1.7; }
+.shopping-check-progress { font-size: 1rem; font-weight: 700; color: var(--green, #365d47); }
+.shopping-hide-purchased { font-size: .85rem; }
+.shopping-checklist { display: grid; gap: 1.1rem; min-width: 0; }
+.shopping-check-group { display: grid; gap: .5rem; min-width: 0; }
+.shopping-check-group > h4 { margin: 0; padding: .45rem .65rem; border-radius: .4rem; background: #e9efdd; font-size: .85rem; }
+.shopping-check-row { border: 1px solid var(--line, #d8dfcf); border-radius: .7rem; padding: .6rem .75rem; min-width: 0; background: #fff; }
+.shopping-check-label { display: flex; align-items: center; gap: .8rem; min-height: 56px; cursor: pointer; }
+.shopping-check-label input { width: 1.6rem; height: 1.6rem; }
+.shopping-check-description { display: grid; gap: .2rem; min-width: 0; overflow-wrap: anywhere; }
+.shopping-check-description strong { font-size: 1rem; }
+.shopping-check-quantity { color: var(--green, #365d47); font-weight: 700; font-size: .95rem; }
+.shopping-check-description small { color: var(--muted, #687266); font-size: .75rem; }
+.shopping-check-row.is-purchased .shopping-check-description strong { color: #7e877b; text-decoration: line-through; }
+.shopping-check-row.is-purchased { background: #f4f6ef; }
+.shopping-ingredient-sources { margin: .2rem 0; font-size: .8rem; color: var(--muted, #687266); }
+.shopping-ingredient-sources > summary, .shopping-stock-summary > summary { cursor: pointer; padding-block: .6rem; min-height: 44px; }
+.shopping-ingredient-sources ul, .shopping-stock-summary ul { margin: .4rem 0 .4rem 1.2rem; padding: 0; line-height: 1.7; overflow-wrap: anywhere; }
+.shopping-source-total { margin-top: .4rem; line-height: 1.7; overflow-wrap: anywhere; }
+.shopping-check-row .purchase-editor { margin-top: .25rem; }
+.shopping-check-row .purchase-editor-summary { font-size: .75rem; min-height: 44px; padding-block: .65rem; }
+.shopping-stock-summary { font-size: .85rem; color: var(--muted, #687266); }
+.shopping-workflow [hidden] { display: none !important; }
+@media (max-width: 520px) {
+  .shopping-review-title { padding: .8rem; }
+  .shopping-review-body { padding-inline: .65rem; }
+  .shopping-menu-card { padding: .7rem; }
+  .shopping-menu-materials { grid-template-columns: 1fr; }
+  .shopping-selection-actions { display: grid; grid-template-columns: 1fr; }
+  .shopping-check-row { padding-inline: .65rem; }
+}

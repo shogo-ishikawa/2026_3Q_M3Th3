@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 元の材料の減量・削除・置き換えと食材追加の画面。 */
 import {configureQuantityInput,readQuantityInput} from './quantity-input.js';
 import {ARRANGEMENT_CATEGORIES, arrangementIngredientOptions, buildRecipeArrangement, ingredientAmountFromInput, arrangementBaseIngredients, arrangementEditAvailability} from './recipe-arrangement.js';
@@ -104,7 +105,7 @@ export function mountRecipeArrangement({baseRecipe=null,data,initial={},onChange
       const ingredientEdits=[...baseEdits.values()].map(part=>({...part,amount:readQuantityInput(originalInputs.get(part.id),{label:'元の材料の量'})}));
       const recipe=buildRecipeArrangement({id:recipeId,baseRecipe,additions,ingredientEdits,name:name.value,...(!baseRecipe?{role:role.value,steps:steps.value.split('\n')}:{})},data);
       title.textContent=`${recipe.name} / 1皿（1人分）の合計`;
-      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'不明':`${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'不明':`${formatNutrient(recipe.manualNutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       const labels=recipe.allergens.map(id=>data.allergens?.find(item=>item.id===id)?.label??id);
       allergies.textContent=recipe.allergensKnown?`含まれる登録アレルゲン：${labels.length?labels.join('、'):'登録なし'}。`:'元の料理や追加食品の原材料・アレルギー情報には未確認の部分があります。実物の商品表示を確認してください。';
       information.textContent=recipe.sourceNote;materialList.replaceChildren(...recipe.ingredients.map(part=>make('li','food-composer-material',`${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));

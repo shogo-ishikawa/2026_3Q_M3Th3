@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 肉じゃがとお好み焼きの選択画面。配合・栄養・工程は純粋関数で作ります。 */
 import {DISH_CUSTOMISERS, defaultDishSelection, buildCustomDish} from './dish-customisation.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS, recipeNutrition} from './nutrition.js';
@@ -163,7 +164,7 @@ export function mountDishCustomiser({kind, data, initial, onChange = () => {}, o
       const recipe = buildCustomDish(config, data), nutrition = recipeNutrition(recipe, data);
       error.hidden = true; error.textContent = ''; preview.hidden = false;
       title.textContent = `${recipe.name} / 1皿`;
-      for (const key of NUTRIENT_KEYS) values.get(key).textContent = nutrition[key] === null ? '未入力' : `${rounded(nutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for (const key of NUTRIENT_KEYS) values.get(key).textContent = nutrition[key] === null ? '未入力' : `${formatNutrient(nutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       const labels = (recipe.allergens ?? []).map(id => data.allergens?.find(allergen => allergen.id === id)?.label ?? id);
       allergies.textContent = `含まれる登録アレルゲン：${labels.length ? labels.join('、') : '登録なし'}。加工品や調味料は商品の表示も確認してください。`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'dish-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));

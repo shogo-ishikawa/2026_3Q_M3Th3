@@ -1,3 +1,4 @@
+import {formatNutrient} from './nutrient-format.js';
 /** 肉の選択と1人分の栄養・材料・作り方の表示。登録用formは呼び出し元で用意します。 */
 import {meatChoiceFor, defaultMeatSelection, buildMeatSelection} from './meat-choices.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS, recipeNutrition} from './nutrition.js';
@@ -44,7 +45,7 @@ export function mountMeatChoice({recipeId, data, initial, allowedMeatIds, onChan
       const option = definition.options.find(option => option.id === select.value);
       note.textContent = option.note ?? 'ひき肉・薄切り肉は加熱前の可食部重量です。焼く・煮る際に流れ出る脂は差し引かない概算です。';
       title.textContent = `${recipe.name} / 1人分`;
-      for (const key of NUTRIENT_KEYS) values.get(key).textContent = nutrition[key] === null ? '未入力' : `${rounded(nutrition[key])} ${NUTRIENT_UNITS[key]}`;
+      for (const key of NUTRIENT_KEYS) values.get(key).textContent = nutrition[key] === null ? '未入力' : `${formatNutrient(nutrition[key], key)} ${NUTRIENT_UNITS[key]}`;
       const labels = recipe.allergens.map(id => data.allergens?.find(allergen => allergen.id === id)?.label ?? id);
       allergens.textContent = `含まれる登録アレルゲン：${labels.length ? labels.join('、') : '登録なし'}。`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'dish-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));

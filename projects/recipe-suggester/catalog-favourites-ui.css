@@ -1,0 +1,25 @@
+.catalog-favourites{padding:1.2rem;margin:0 0 1.4rem;border:1px solid var(--line,#dce2d7);border-radius:16px;background:var(--card,#fffefa);min-width:0}
+.catalog-favourites-heading h3{margin:0 0 .55rem;font-size:1.1rem;color:var(--ink,#26342e)}
+.catalog-favourites-heading .field-note{margin:.45rem 0 1rem}
+.catalog-favourites-controls{display:grid;gap:.85rem;min-width:0}
+.catalog-favourites-genres{display:flex;flex-wrap:wrap;gap:.45rem}
+.catalog-favourites-genre{min-height:44px;padding:.55rem .75rem;white-space:normal}
+.catalog-favourites-genre[aria-pressed="true"]{background:var(--teal,#35624e);color:white;border-color:var(--teal,#35624e)}
+.catalog-favourites-search-label{display:grid;gap:.4rem;font-size:.85rem;font-weight:600;max-width:28rem;min-width:0}
+.catalog-favourites-search{width:100%;min-width:0;min-height:44px}
+.catalog-favourites-group{margin:1.05rem 0 0;min-width:0}
+.catalog-favourites-group-title{margin:0 0 .7rem;font-size:1rem;color:var(--teal,#35624e)}
+.catalog-favourites-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:.75rem;min-width:0}
+.catalog-favourite-card{border:1px solid var(--line,#dce2d7);border-radius:12px;background:#f6f8f0;padding:1rem;min-width:0}
+.catalog-favourite-title{margin:0;font-size:.95rem}
+.catalog-favourite-open{border:0;background:transparent;color:var(--ink,#26342e);font:inherit;font-weight:700;text-align:left;padding:.1rem 0;min-height:44px;overflow-wrap:anywhere;max-width:100%;cursor:pointer}
+.catalog-favourite-open:hover{text-decoration:underline;text-underline-offset:.2rem}
+.catalog-favourite-original,.catalog-favourite-amount,.catalog-favourite-warning{font-size:.8rem;line-height:1.65;margin:.45rem 0;overflow-wrap:anywhere}
+.catalog-favourite-original{color:var(--muted,#626e65)}
+.catalog-favourite-amount{font-weight:600}
+.catalog-favourite-warning{color:#92573e}
+.catalog-favourite-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:.8rem}
+.catalog-favourite-actions button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;font-size:.8rem}
+.catalog-favourite-remove{padding:.6rem .2rem}
+.catalog-favourites-empty,.catalog-favourites-error,.catalog-favourites-unclassified{overflow-wrap:anywhere}
+@media(max-width:600px){.catalog-favourites{padding:.85rem}.catalog-favourite-card{padding:.85rem}.catalog-favourite-actions{align-items:stretch}.catalog-favourite-actions .button-primary,.catalog-favourite-actions .button-secondary{flex:1 1 150px}}

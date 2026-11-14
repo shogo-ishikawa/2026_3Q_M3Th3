@@ -25,3 +25,10 @@ test('食塩の未満・脂質の範囲・不明・単なるエネルギー差�
  assert.equal(compareIntake('kcal',2000,{target:2000,reference}).kind,'comparison');
  assert.equal(compareIntake('protein',0,{target:65,reference,complete:false}).kind,'unknown');
 });
+
+
+test('比較する差にもエネルギーは整数、他成分は小数第一位を適用する',()=>{
+ assert.equal(compareIntake('kcal',2000.6,{target:2000}).label,'設定値との差 +1');
+ assert.equal(compareIntake('protein',60.26,{target:60}).label,'設定値との差 +0.3');
+ assert.equal(compareIntake('salt',6.46,{target:6.5}).label,'設定値との差 0');
+});
