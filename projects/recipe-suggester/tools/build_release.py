@@ -21,7 +21,7 @@ FILES = (
     "recipe-artwork-manifest.js",
     "favourites.js", "favourites-ui.js", "favourites-ui.css", "meal-overlap.js",
     "nutrition-basis.js", "nutrition-basis-ui.js", "nutrition-basis-ui.css",
-    "text-log.js", "text-log-ui.js", "text-log-ui.css",
+    "text-log.js", "text-log-ui.js", "text-log-ui.css", "text-log-configurator-ui.js", "bread-foods.js",
     "soup-intake.js", "soup-intake-ui.js", "soup-intake-ui.css",
     "catalog.js", "dietary-reference.js", "intake.js", "tabs.js", "everyday-foods.js", "app-icon.svg",
     "journal.js", "nutrition.js", "shopping.js", "ingredient-nutrients.js", "expanded-foods.js",

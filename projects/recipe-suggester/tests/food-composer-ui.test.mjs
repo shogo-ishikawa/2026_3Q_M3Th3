@@ -141,3 +141,69 @@ test('チーズは初期の個数・枚数・重さと選択後のg数を扱う'
   assert.equal(current.ingredients.find(part=>part.id==='palette_processed_cheese').amount,20);
   assert.equal(amount(root,'チェダー','枚').disabled,true);
 }));
+
+test('マフィンは標準朝食を先に選び、削除・量変更・選んだ標準量への復帰ができる',()=>withDocument(()=>{
+ let current;const root=mountFoodComposer({kind:'english-muffin',data,onChange:recipe=>{current=recipe;}}),preset=byClass(root,'food-composer-preset');
+ assert.equal(preset.value,'ham-cheese');
+ assert.ok(preset.children.some(option=>option.value==='custom'&&option.textContent==='具材を指定する'));
+ preset.value='sausage-egg-cheese';preset.emit('change');
+ assert.equal(current.ingredients.find(p=>p.id==='pork_minced').amount,45);
+ assert.equal(current.ingredients.find(p=>p.id==='egg').amount,1);
+ assert.equal(current.ingredients.find(p=>p.id==='oil').amount,2);
+ assert.ok(!current.ingredients.some(p=>p.id==='ready_sliced_ham'));
+ const cheese=amount(root,'チーズ','g');cheese.value='0';cheese.emit('input');
+ assert.equal(preset.value,'');assert.equal(checkbox(root,'cheese').checked,false);
+ assert.ok(!current.ingredients.some(p=>p.id==='cheese'));
+ byClass(root,'food-composer-reset').emit('click');
+ assert.equal(preset.value,'sausage-egg-cheese');assert.equal(cheese.value,'15');assert.equal(checkbox(root,'cheese').checked,true);
+}));
+
+test('具材を指定するはパンだけへ戻し、サンドイッチの材料を一から選べる',()=>withDocument(()=>{
+ let current;const root=mountFoodComposer({kind:'sandwich',data,onChange:recipe=>{current=recipe;}}),preset=byClass(root,'food-composer-preset');
+ preset.value='custom';preset.emit('change');
+ assert.deepEqual(current.ingredients,[{id:'bread',amount:60}]);
+ assert.equal(preset.value,'custom');
+ const tomato=checkbox(root,'tomato');tomato.checked=true;tomato.emit('change');
+ assert.equal(current.ingredients.find(p=>p.id==='tomato').amount,30);
+ assert.equal(preset.value,'');assert.ok(!current.ingredients.some(p=>p.id==='ready_sliced_ham'));
+ const quantity=amount(root,'トマト','g');quantity.value='12.5';quantity.emit('input');
+ assert.equal(current.ingredients.find(p=>p.id==='tomato').amount,12.5);
+}));
+
+test('トーストの組み合わせは基礎パンも正しく切り替え、ピザ生地を使わない',()=>withDocument(()=>{
+ let current;const root=mountFoodComposer({kind:'toast',data,onChange:recipe=>{current=recipe;}}),preset=byClass(root,'food-composer-preset');
+ preset.value='legacy-wholegrain-avocado';preset.emit('change');
+ assert.equal(current.ingredients.find(p=>p.id==='wholegrain_bread').amount,60);
+ assert.equal(checkbox(root,'base-wholegrain').checked,true);assert.equal(checkbox(root,'base').checked,false);
+ preset.value='pizza';preset.emit('change');
+ assert.equal(current.ingredients.find(p=>p.id==='bread').amount,60);
+ assert.ok(!current.ingredients.some(p=>p.id==='wholegrain_bread'||p.id==='pizza_base'));
+ assert.equal(checkbox(root,'base').checked,true);assert.equal(checkbox(root,'base-wholegrain').checked,false);
+ assert.equal(current.ingredients.find(p=>p.id==='bread_ketchup').amount,16);
+ const whole=checkbox(root,'base-wholegrain');whole.checked=true;whole.emit('change');
+ assert.equal(checkbox(root,'base').checked,false);assert.equal(current.ingredients.find(p=>p.id==='wholegrain_bread').amount,60);
+ assert.equal(preset.value,'');
+}));
+
+test('切れ数と1切れ重量の編集状態を確定結果より先に独立したコピーで返す',()=>withDocument(()=>{
+ const events=[],configs=[];let current;
+ const root=mountFoodComposer({kind:'sashimi',data,onSelectionChange:config=>{events.push('selection');configs.push(config);},onChange:recipe=>{events.push('recipe');current=recipe;}});
+ assert.deepEqual(events.slice(0,2),['selection','recipe']);
+ const quantity=amount(root,'まぐろ赤身','切れ'),weight=find(root,e=>e.attributes['aria-label']==='まぐろ赤身の1切れの重さ（g）');
+ quantity.value='3';quantity.emit('input');weight.value='18';weight.emit('input');
+ const draft=configs.at(-1);assert.equal(draft.components.find(p=>p.id==='tuna').amount,3);assert.equal(draft.components.find(p=>p.id==='tuna').gramsPerUnit,18);
+ draft.components.find(p=>p.id==='tuna').amount=99;
+ assert.equal(current.ingredients.find(p=>p.id==='tuna_lean_sashimi').amount,54);
+ quantity.value='';quantity.emit('input');assert.equal(configs.at(-1),null);assert.equal(current,null);
+ quantity.value='2';quantity.emit('input');assert.equal(configs.at(-1).components.find(p=>p.id==='tuna').amount,2);
+}));
+
+test('手入力が別の標準配合と一致しても、明示して選んだ組み合わせの復帰点を変えない',()=>withDocument(()=>{
+ let current;const root=mountFoodComposer({kind:'toast',data,onChange:r=>{current=r;}}),preset=byClass(root,'food-composer-preset');
+ preset.value='custom';preset.emit('change');
+ const butter=checkbox(root,'butter');butter.checked=true;butter.emit('change');
+ assert.equal(current.ingredients.find(p=>p.id==='butter').amount,5);
+ assert.equal(preset.value,'');
+ byClass(root,'food-composer-reset').emit('click');
+ assert.equal(preset.value,'custom');assert.deepEqual(current.ingredients,[{id:'bread',amount:60}]);
+}));

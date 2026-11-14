@@ -1,5 +1,6 @@
 import {PALETTE_RECIPES} from '../palette-foods.js';
 import test from 'node:test';
+import {BREAD_RECIPES} from '../bread-foods.js';
 import assert from 'node:assert/strict';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {CLASSIC_MAIN_RECIPES} from '../classics-mains.js';
@@ -60,7 +61,7 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
 
 test('統合後も未確認商品を記録用に残し、自動献立と差し替えには入れない', () => {
   const unconfirmed = new Set(RECIPES.filter(recipe => describeRecipe(recipe.id, data).allergensKnown === false).map(recipe => recipe.id));
-  assert.deepEqual(unconfirmed, unconfirmedIds);
+  assert.deepEqual(unconfirmed, new Set([...unconfirmedIds,...BREAD_RECIPES.filter(recipe=>recipe.allergensKnown===false).map(recipe=>recipe.id)]));
   const safe = new Set(eligibleRecipes({}, data).map(recipe => recipe.id));
   assert.equal(safe.size, RECIPES.filter(recipe => !unconfirmed.has(recipe.id) && recipe.family !== 'alcohol').length);
   const plan = generateCalendarPlan(settings, data);

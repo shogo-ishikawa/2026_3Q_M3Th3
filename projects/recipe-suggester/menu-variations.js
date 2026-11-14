@@ -114,9 +114,17 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('bought-sandwich', 'サンドイッチ（購入品の一般例）', [
     'prepared-sandwich-egg','prepared-sandwich-ham','prepared-sandwich-tuna','prepared-sandwich-vegetable',
   ], {nature:'ready-to-eat'}),
-  meal('hot-sandwich', 'ホットサンド', ['chicken-sandwich','breakfast-egg-sandwich'], {role:'main'}),
+  meal('hot-sandwich', 'ホットサンド', [
+    'chicken-sandwich','breakfast-egg-sandwich',
+    'bread-hot-sandwich-ham-cheese','bread-hot-sandwich-egg-cheese','bread-hot-sandwich-tuna-melt',
+    'bread-hot-sandwich-chicken-cabbage','bread-hot-sandwich-bacon-egg','bread-hot-sandwich-sausage-cheese',
+    'bread-hot-sandwich-pizza','bread-hot-sandwich-corn-cheese','bread-hot-sandwich-mushroom-cheese',
+    'bread-hot-sandwich-avocado-ham','bread-hot-sandwich-custom',
+  ], {role:'main',defaultRecipeId:'bread-hot-sandwich-ham-cheese'}),
   meal('toast', 'トースト', [
     'staple-butter-toast','staple-garlic-toast','staple-cheese-toast','staple-sesame-toast','staple-avocado-toast',
+    'bread-toast-jam-butter','bread-toast-marmalade-butter','bread-toast-honey-butter','bread-toast-avocado',
+    'bread-toast-pizza','bread-toast-peanut-butter','bread-toast-custom',
   ], {mealBase:false}),
   meal('sliced-bread', '食パン', ['staple-plain-bread','staple-wholegrain-bread'], {nature:'ready-to-eat', mealBase:false}),
   meal('oatmeal', 'オートミールがゆ', ['staple-oatmeal-water','staple-oatmeal-milk','staple-oatmeal-soy'], {mealBase:false}),
@@ -194,7 +202,17 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('bagel', 'ベーグル', ['palette-bagel'], {nature:'ready-to-eat', mealBase:false}),
   snack('waffle', 'ワッフル', ['palette-waffle']),
   snack('muffin', 'マフィン', ['palette-muffin']),
-  meal('sandwich', 'サンドイッチ', ['palette-sandwich']),
+  meal('sandwich', 'サンドイッチ', [
+    'palette-sandwich','bread-sandwich-egg-mayo','bread-sandwich-tuna-cucumber',
+    'bread-sandwich-ham-cheese','bread-sandwich-vegetable','bread-sandwich-chicken','bread-sandwich-custom',
+  ]),
+  // パンだけの旧レシピを保持し、調理済みの具入りタイプと同じ入口で選びます。
+  // この旧IDに限る明示プロフィールで、他の料理の提供形態・構成条件は緩めません。
+  meal('english-muffin', 'イングリッシュマフィン', [
+    'palette-english-muffin','bread-english-muffin-ham-cheese','bread-english-muffin-egg-cheese',
+    'bread-english-muffin-sausage-egg-cheese','bread-english-muffin-bacon-egg-cheese','bread-english-muffin-tuna-cheese',
+  ], {defaultRecipeId:'bread-english-muffin-ham-cheese',
+    recipeProfiles:{'palette-english-muffin':{nature:'ready-to-eat',mealBase:false}}}),
 ]);
 
 /** 追加時の重複所属を検知し、ある料理が複数の入口へ消えることを防ぎます。 */
@@ -208,6 +226,15 @@ export function validateVariationDefinitions(definitions = MENU_VARIATION_GROUPS
     }
     groups.add(group.id);
     if(group.defaultRecipeId!==undefined&&!group.recipeIds.includes(group.defaultRecipeId))throw Error('最初に表示する料理を種類の一覧に含めてください。');
+    if(group.recipeProfiles!==undefined){
+      if(!group.recipeProfiles||typeof group.recipeProfiles!=='object'||Array.isArray(group.recipeProfiles))throw Error('料理の提供形態の条件を確認してください。');
+      for(const [id,profile] of Object.entries(group.recipeProfiles)){
+        if(!group.recipeIds.includes(id)||!profile||typeof profile!=='object'||Array.isArray(profile)||
+          Object.keys(profile).some(key=>!['nature','mealBase'].includes(key))||
+          (profile.nature!==undefined&&!['unspecified','home-cooked','instant','retort','fast-food','ready-to-eat'].includes(profile.nature))||
+          (profile.mealBase!==undefined&&typeof profile.mealBase!=='boolean'))throw Error('料理の提供形態の条件を確認してください。');
+      }
+    }
     for (const id of group.recipeIds) {
       if (typeof id !== 'string' || !id.trim() || recipes.has(id)) throw Error('同じ料理を複数の種類に登録できません。');
       recipes.add(id);
@@ -232,8 +259,9 @@ function checkedRecipes(recipes) {
 function definitionFor(recipe) {
   if (recipe.custom === true) return null;
   const definition = definitionByRecipe.get(recipe.id);
-  if (!definition || recipe.role !== definition.role || recipeNature(recipe) !== definition.nature ||
-      recipe.staple !== definition.staple || recipe.mealBase !== definition.mealBase) return null;
+  const profile=definition?.recipeProfiles?.[recipe.id];
+  if (!definition || recipe.role !== definition.role || recipeNature(recipe) !== (profile?.nature??definition.nature) ||
+      recipe.staple !== definition.staple || recipe.mealBase !== (profile?.mealBase??definition.mealBase)) return null;
   return definition;
 }
 

@@ -9,8 +9,8 @@ const rounded=value=>Number(value.toFixed(2)).toLocaleString('ja-JP');
 const percent=value=>Number((value*100).toFixed(6));
 const labelFor=(text,input)=>{const label=make('label','soup-intake-label');label.htmlFor=input.id;label.append(make('span','soup-intake-label-text',text),input);return label;};
 
-export function mountSoupIntake({baseRecipe,data,onChange=()=>{},onError=()=>{},initial={}}={}){
-  if(typeof onChange!=='function'||typeof onError!=='function')throw Error('汁の摂取量の表示処理を確認してください。');
+export function mountSoupIntake({baseRecipe,data,onChange=()=>{},onError=()=>{},onSelectionChange=()=>{},initial={}}={}){
+  if(typeof onChange!=='function'||typeof onError!=='function'||typeof onSelectionChange!=='function')throw Error('汁の摂取量の表示処理を確認してください。');
   let base=baseRecipe,definition=soupIntakeFor(base,data);
   if(!definition)throw Error('この料理は汁の摂取割合に対応していません。');
   const first=buildSoupIntake({baseRecipe:base,brothRatio:initial.brothRatio??1,solidRatio:initial.solidRatio??1},data);
@@ -36,7 +36,8 @@ export function mountSoupIntake({baseRecipe,data,onChange=()=>{},onError=()=>{},
       definition=soupIntakeFor(base,data);
       if(!definition)throw Error('この組み合わせは汁と具の配分を確認できません。');
       if(String(broth.value).trim()===''||String(solids.value).trim()==='')throw Error('汁と具の割合を選んでください。');
-      const recipe=buildSoupIntake({baseRecipe:base,id:stableId,brothRatio:Number(broth.value),solidRatio:Number(solids.value)},data);
+      const config={brothRatio:Number(broth.value),solidRatio:Number(solids.value)};
+      const recipe=buildSoupIntake({baseRecipe:base,id:stableId,...config},data);
       solidLabel.hidden=definition.homogeneous;
       brothLabel.children[0].textContent=definition.homogeneous?'食べたスープ全体の割合':'飲んだ汁の割合';
       broth.setAttribute('aria-label',definition.homogeneous?'食べたスープ全体の割合':'飲んだ汁の割合');
@@ -47,8 +48,8 @@ export function mountSoupIntake({baseRecipe,data,onChange=()=>{},onError=()=>{},
       parts.replaceChildren(...recipe.ingredients.map(part=>make('li','',`${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));
       const split=Object.entries(definition.ingredientFractions).filter(([id])=>recipe.ingredients.some(part=>part.id===id)).map(([id,fraction])=>`${data.ingredients[id].name}：${fraction===0?'具':fraction===1?'汁':`汁${percent(fraction)}%・具${percent(1-fraction)}%`}`).join('、');
       source.textContent=`${split}。${recipe.sourceNote}`;
-      error.hidden=true;error.textContent='';preview.hidden=false;onError('');onChange(recipe);
-    }catch(cause){error.hidden=false;error.textContent=cause.message;preview.hidden=true;onChange(null);onError(cause.message);}
+      error.hidden=true;error.textContent='';preview.hidden=false;onError('');onSelectionChange(structuredClone(config));onChange(recipe);
+    }catch(cause){error.hidden=false;error.textContent=cause.message;preview.hidden=true;onSelectionChange(null);onChange(null);onError(cause.message);}
   }
   broth.addEventListener('change',update);solids.addEventListener('change',update);
   root.setBaseRecipe=recipe=>{base=recipe;update();};

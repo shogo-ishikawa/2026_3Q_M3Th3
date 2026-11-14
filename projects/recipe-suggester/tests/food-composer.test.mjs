@@ -57,7 +57,7 @@ test('マフィンは生地原材料と選んだ具材を加算し、他の具�
   assert.ok(!plain.ingredients.some(part=>part.id==='palette_muffin_base'),'生地の原材料を買い物へ展開する');
   assert.throws(()=>compose('muffin',['blueberry',15]),/ベース/);
   assert.throws(()=>compose('muffin',['base',2]),/量/);
-  assert.throws(()=>compose('sandwich',['base',1]),/具材/);
+  assert.deepEqual(compose('sandwich',['base',1]).ingredients,[{id:'bread',amount:60}]);
 });
 
 test('初期値は呼ぶたび独立し、入口で選んだチーズ・ナッツの種類を引き継ぐ',()=>{

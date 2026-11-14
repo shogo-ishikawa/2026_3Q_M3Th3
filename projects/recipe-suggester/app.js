@@ -29,13 +29,14 @@ import {restaurantVariantsFor} from './restaurant-menu.js';
 import {createFavourite,favouriteKey} from './favourites.js';
 import {mountFavourites} from './favourites-ui.js';
 import {mountTextLog} from './text-log-ui.js';
+import {canConfigureTextRecipe,mountTextRecipeConfigurator} from './text-log-configurator-ui.js';
 import {mealOverlapWarnings} from './meal-overlap.js';
 import {nutritionBasisBadge} from './nutrition-basis-ui.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.19.0';
-import {recipeArtwork} from './recipe-illustration.js?v=3.19.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.20.0';
+import {recipeArtwork} from './recipe-illustration.js?v=3.20.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -359,7 +360,13 @@ function renderCatalog(){
     variationScope=family==='all'?browseDishes(all,{section:roleFilter}):catalogVariants(all,family);
   }
   $('catalog-safety-note').textContent=constraints?'アレルギーなどの除外条件があるため、原材料未確認の市販品は一覧に表示していません。食べたものは記録タブから登録できます。':'市販品は代表的な栄養の目安です。原材料未確認のメニューも記録できますが、自動提案の対象にはしません。商品の表示を優先してください。';
-  if($('recipe-illustrated-only').checked)candidates=candidates.filter(recipe=>recipeArtwork(recipe));
+  const illustratedOnly=$('recipe-illustrated-only').checked;
+  const hiddenIllustrations=illustratedOnly?candidates.filter(recipe=>!recipeArtwork(recipe)).length:0;
+  if(illustratedOnly)candidates=candidates.filter(recipe=>recipeArtwork(recipe));
+  const illustrationFilterNote=$('recipe-illustration-filter-note');
+  illustrationFilterNote.hidden=!illustratedOnly;
+  illustrationFilterNote.replaceChildren();
+  if(illustratedOnly)illustrationFilterNote.append(node('span','',hiddenIllustrations?`イラスト限定中です。画像のない${hiddenIllustrations}種類は表示していません。`:'イラストのある料理に絞っています。'),button('イラスト限定を解除',()=>{$('recipe-illustrated-only').checked=false;recipeLimit=12;renderCatalog();},'button-secondary'));
   const menus=groupMenuRecipes(candidates,{allRecipes:variationScope,query});
   $('recipe-results-count').textContent=`${menus.length}件のメニュー / ${candidates.length}種類が見つかりました`;
   const grid=$('recipe-grid');grid.replaceChildren();
@@ -392,7 +399,7 @@ function renderCatalog(){
     card.append(nutritionBasisBadge(r,catalogData));
     if(!isComposableRecipe(r.id)){const wrapper=node('div','menu-card-entry');wrapper.append(card,favouriteAction(()=>snapshot(r.id)));grid.append(wrapper);}else grid.append(card);
   }
-  if(!menus.length)grid.append(node('p','empty-note','条件に合うメニューがありません。検索や避ける食材の設定を確認してください。'));
+  if(!menus.length)grid.append(node('p','empty-note',hiddenIllustrations?'イラスト付きの候補がありません。「イラスト限定を解除」で画像のない料理も表示できます。':'条件に合うメニューがありません。検索や避ける食材の設定を確認してください。'));
   $('more-recipes').hidden=menus.length<=recipeLimit;
   $('custom-catalog-list').replaceChildren();if(!state.customRecipes.length)$('custom-catalog-list').append(node('p','field-note','「オリジナルレシピを作る」から材料を選んで保存できます。既存の料理をアレンジして保存することもできます。'));
   for(const r of state.customRecipes){const row=node('div','custom-recipe-row');row.append(button(r.name,()=>openRecipe(r.id)),node('small','',r.allergensKnown?'アレルギー情報を確認済み':'アレルギー情報は未確認'),button('削除',()=>{if(!confirm(`「${r.name}」を自分のデータベースから削除しますか？記録済みの食事は残ります。`))return;commit(next=>{next.customRecipes=next.customRecipes.filter(c=>c.id!==r.id);if(next.settings.stapleId===r.id){next.settings.stapleId='auto';next.settings.stapleMode='adaptive';next.settings.stapleAmount=null;}if(next.settings.drinkId===r.id)next.settings.drinkId='none';},{message:'メニューを削除しました。過去の記録は残しています。'});}));if(r.restaurant)row.append(button('表示値・提供量を編集',()=>openRestaurantRegistration(null,{editingRecipe:r})));$('custom-catalog-list').append(row);}
@@ -446,7 +453,7 @@ function menuCandidates(catalogData){
       allergens:r.allergens,allergensKnown:r.allergensKnown,ingredientsKnown:r.ingredientsKnown,groups:r.groups,proteinSources:r.proteinSources});
   }
   // 特定の魚や肉の名を別の具へ置き換えず、汎用の組立て入口だけを残します。
-  const anchors=new Set(['palette-oden','familiar-side-pot-au-feu','palette-bagel','palette-waffle','palette-muffin','palette-english-muffin','palette-sandwich','classic-sushi-assorted','classic-sashimi-assorted','familiar-tempura-assorted']);
+  const anchors=new Set(['palette-oden','familiar-side-pot-au-feu','palette-bagel','palette-waffle','palette-muffin','palette-english-muffin','palette-sandwich','bread-hot-sandwich-custom','bread-toast-custom','classic-sushi-assorted','classic-sashimi-assorted','familiar-tempura-assorted']);
   for(const definition of FOOD_COMPOSERS){
     const choice=eligibleFoodSelection(definition.kind,state.settings,catalogData);
     for(const id of definition.recipeIds.filter(id=>anchors.has(id))){
@@ -518,7 +525,9 @@ function renderRecordTools(){
   const sets=$('meal-sets-tools'),batches=$('batch-cooking-tools');
   $('favourites-tools')?.replaceChildren(mountFavourites({favourites:state.favourites,entries:state.entries,data:data(),settings:state.settings,date:selectedDate,meal:$('calendar-meal').value,status:$('calendar-status').value,
     onAdd:entry=>addQuickEntry(entry),onSave:favourite=>saveFavourite(favourite.item),onDelete:id=>commit(next=>{next.favourites=next.favourites.filter(saved=>saved.id!==id);},{invalidate:false,message:'お気に入りから外しました。'}),onError:message=>tell(message,true)}));
-  $('text-log-tools')?.replaceChildren(mountTextLog({data:data(),settings:state.settings,date:selectedDate,meal:$('calendar-meal').value,status:$('calendar-status').value,onAdd:entry=>addQuickEntry(entry,'文章で選んだ料理をまとめて記録しました。'),onError:message=>tell(message,true)}));
+  $('text-log-tools')?.replaceChildren(mountTextLog({data:data(),settings:state.settings,date:selectedDate,meal:$('calendar-meal').value,status:$('calendar-status').value,
+    canConfigure:recipeId=>canConfigureTextRecipe(recipeId,data()),onConfigure:openTextRecipeConfiguration,
+    onAdd:entry=>addQuickEntry(entry,'文章で選んだ料理をまとめて記録しました。'),onError:message=>tell(message,true)}));
   if(sets)sets.replaceChildren(mountMealSets({state,data:data(),date:selectedDate,meal:$('calendar-meal').value,status:$('calendar-status').value,
     onSave:set=>commit(next=>next.mealSets.push(set),{message:'定番セットを保存しました。'}),
     onDelete:id=>commit(next=>{next.mealSets=next.mealSets.filter(s=>s.id!==id);},{message:'定番セットを削除しました。食事の記録は残ります。'}),
@@ -527,6 +536,24 @@ function renderRecordTools(){
     onCreate:batch=>commit(next=>next.batches.push(batch),{message:'作り置きを登録しました。食べた量をgで記録できます。'}),
     onRecord:entry=>addQuickEntry(entry,'作り置きから取り分けた量を記録しました。'),
     onArchive:id=>commit(next=>{next.batches.find(b=>b.id===id).archived=true;},{message:'作り置きを一覧から片付けました。過去の記録は残ります。'}),onError:message=>tell(message,true)}));
+}
+/** 文章の下書きへ内訳を返し、一括登録するまでは記録を保存しません。 */
+function openTextRecipeConfiguration({recipeId,initialRecipe,onConfirm}){
+  if(typeof onConfirm!=='function'||!canConfigureTextRecipe(recipeId,data()))throw Error('内訳を選べる料理を選んでください。');
+  const box=$('dialog-content');box.replaceChildren();
+  $('dialog-title').textContent='文章の料理の内訳を選ぶ';
+  $('dialog-meta').textContent='具材と数量を選び、この行へ反映';
+  let currentRecipe=null;
+  const confirm=button('この行に反映',()=>{
+    if(!currentRecipe)throw Error('具材と量を確認してください。');
+    if(onConfirm(currentRecipe)!==false)$('recipe-dialog').close();
+  },'button-primary');confirm.disabled=true;
+  const notice=node('p','notice error');notice.hidden=true;
+  const builder=mountTextRecipeConfigurator({recipeId,data:data(),initialRecipe,
+    onChange:recipe=>{currentRecipe=recipe;confirm.disabled=!recipe;},
+    onError:message=>{notice.textContent=message;notice.hidden=!message;}});
+  box.append(node('p','field-note','ここでは1皿・1組分の内訳を選びます。食べた全体量と記録する日は元の行で確認し、一括登録します。'),builder,notice,confirm);
+  if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 function openRecipe(id,{variationRecipes=null,respectConditions=true,query='',recordInitial={}}={}){
   if(noodleComposerFor(id)){openMealComposer(id,{type:'noodle',respectConditions,recordInitial});return;}
@@ -586,6 +613,16 @@ function openFoodComposer(recipeId,{respectConditions=true}={}){
   $('dialog-title').textContent=`${definition.label}を組み合わせる`;
   $('dialog-meta').textContent='選んだ種類と量で1皿分';
   box.replaceChildren();let currentRecipe=null,latestBase=null,intakeWidget=null;
+  const artwork=node('div'),base=recipeById(recipeId);
+  const breadKind=['english-muffin','sandwich','hot-sandwich','toast'].includes(definition.kind);
+  const materialAmounts=recipe=>{
+    const result=new Map();for(const part of recipe.ingredients)result.set(part.id,(result.get(part.id)??0)+part.amount/recipe.servings);return result;
+  };
+  const refreshArtwork=recipe=>{
+    const current=recipe?materialAmounts(recipe):new Map(),original=materialAmounts(base);
+    const matches=current.size===original.size&&[...original].every(([id,value])=>Math.abs((current.get(id)??-1)-value)<1e-7);
+    artwork.replaceChildren(...(!breadKind||matches?recipeArtworkNodes(base,{detail:true,standard:true}):[]));
+  };
   const form=catalogRecordForm(recipeId,{getCustomRecipe:()=>currentRecipe});
   const arrange=arrangementAction(()=>currentRecipe,{respectConditions});arrange.disabled=true;
   const constraints=respectConditions&&(state.settings.allergens.length||state.settings.excludedIngredients.length);
@@ -596,6 +633,7 @@ function openFoodComposer(recipeId,{respectConditions=true}={}){
   const acceptRecipe=recipe=>{
       const allowed=!recipe||!constraints||eligibleRecipes(state.settings,{...data(),recipes:[recipe]}).length>0;
       currentRecipe=allowed?recipe:null;
+      refreshArtwork(currentRecipe);
       arrange.disabled=!currentRecipe;
       conditionNotice.hidden=allowed;
       conditionNotice.textContent=allowed?'':'避ける食材の設定に合わないか、原材料が未確認の組み合わせです。選ぶ材料を変更してください。実際に食べた内容は「記録」タブから残せます。';
@@ -604,7 +642,7 @@ function openFoodComposer(recipeId,{respectConditions=true}={}){
   const builder=mountFoodComposer({kind:definition.kind,data:data(),initial,
     onChange:recipe=>{latestBase=recipe;if(intakeWidget&&recipe){intakeWidget.hidden=false;intakeWidget.setBaseRecipe(recipe);}else{if(intakeWidget)intakeWidget.hidden=true;acceptRecipe(recipe);}},onError:()=>{}});
   if(latestBase&&soupIntakeFor(latestBase,data()))intakeWidget=mountSoupIntake({baseRecipe:latestBase,data:data(),onChange:acceptRecipe,onError:()=>{}});
-  box.append(...recipeArtworkNodes(recipeById(recipeId),{detail:true,standard:true}),builder,...(intakeWidget?[intakeWidget]:[]),conditionNotice,arrange,form);
+  box.append(artwork,builder,...(intakeWidget?[intakeWidget]:[]),conditionNotice,arrange,form);
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 function openDishComposer(recipeId,{respectConditions=true,query=''}={}){

@@ -18,13 +18,25 @@ class EntryAssets(HTMLParser):
     def __init__(self):
         super().__init__()
         self.paths = []
+        self.module_map = ""
+        self.in_module_map = False
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag == "script" and attrs.get("type") == "importmap":
+            self.in_module_map = True
         if tag == "script" and attrs.get("src"):
             self.paths.append(attrs["src"])
         if tag == "link" and attrs.get("rel") == "stylesheet":
             self.paths.append(attrs["href"])
+
+    def handle_endtag(self, tag):
+        if tag == "script":
+            self.in_module_map = False
+
+    def handle_data(self, data):
+        if self.in_module_map:
+            self.module_map += data
 
 
 class MealPalettePublishedAssetsTests(unittest.TestCase):
@@ -36,7 +48,12 @@ class MealPalettePublishedAssetsTests(unittest.TestCase):
         listed = set(project["files"])
         entry = EntryAssets()
         entry.feed((source / "index.html").read_text())
+        version = (source / "VERSION").read_text().strip()
+        module_map = json.loads(entry.module_map)["imports"]
+        self.assertEqual(module_map, {"./" + path.name: "./" + path.name + "?v=" + version
+                                     for path in sorted(source.glob("*.js"))})
         pending = list(entry.paths)
+        pending.extend(module_map.values())
         visited = set()
         while pending:
             relative = pending.pop().split("?", 1)[0].split("#", 1)[0]

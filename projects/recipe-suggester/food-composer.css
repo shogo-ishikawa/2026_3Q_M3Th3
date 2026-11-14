@@ -273,3 +273,8 @@
 .food-composer-weight-label { display:flex; align-items:center; gap:6px; margin:0; }
 .food-composer-weight-input { width:78px; min-height:36px; padding:5px 7px; }
 .food-composer-weight-total { color:#526d3e; font-weight:600; }
+
+/* Bread starts from a named combination, then exposes the same editable ingredients. */
+.food-composer-preset-label { display:block; margin:0 0 8px; color:#405d38; font-size:13px; font-weight:600; }
+.food-composer-preset { display:block; width:100%; min-height:44px; margin-top:7px; background:#fffefa; }
+.food-composer-preset-note { margin:0 0 22px; color:#637158; font-size:12px; line-height:1.85; }

@@ -3,6 +3,7 @@ import {recipePortion} from './catalog.js';
 import {NUTRIENT_KEYS, itemFromRecipe, recipeConfirmation, recipeNutrition} from './nutrition.js';
 import {eligibleRecipes} from './planner.js';
 import {SEAFOOD_SASHIMI_CHOICES} from './seafood-foods.js';
+import {BREAD_PRESETS, BREAD_COMPONENT_INGREDIENTS, BREAD_BASE_INGREDIENTS} from './bread-foods.js';
 
 const freeze = value => {
   if (value && typeof value === 'object') {Object.values(value).forEach(freeze); Object.freeze(value);}
@@ -127,7 +128,7 @@ const sweetToppings = [
   material('almond','アーモンド','almond','トッピング','g',5,1,{food:false}),
 ];
 const savouryFillings = [
-  material('ham','ハム','ready_sliced_ham','具材','g',20,1,{food:false}),
+  material('ham','ハム','ready_sliced_ham','具材','g',20,1,{food:false,ingredientsKnown:false,allergensKnown:false}),
   material('prosciutto','生ハム','palette_prosciutto','具材','g',15,1,{food:false}),
   material('cheese','チーズ','cheese','具材','g',20,1,{food:false}),
   material('cream-cheese','クリームチーズ','palette_cream_cheese','具材','g',20,1,{food:false}),
@@ -140,6 +141,44 @@ const savouryFillings = [
   material('mayonnaise','マヨネーズ','mayonnaise','ソース','g',5,1,{food:false}),
   material('butter','バター','butter','ソース','g',5,1,{food:false}),
 ];
+// Presets and the freely editable choices share exactly the same ingredient formulas.
+const additionalBreadComponents=Object.entries(BREAD_COMPONENT_INGREDIENTS).map(([id,part])=>formula(id,part.label,
+  part.ingredients,part.section??'具材',part.unit??'g',part.defaultAmount??10,{food:false,
+    ...(part.ingredientsKnown===false?{ingredientsKnown:false}:{}),...(part.allergensKnown===false?{allergensKnown:false}:{}),
+    ...(part.note?{note:part.note}:{})}));
+const breadExtras=[
+  material('olive-oil','オリーブ油','olive_oil','調味料・薬味','ml',3,1,{food:false}),
+  material('oil','植物油','oil','調味料・薬味','ml',2,1,{food:false}),
+  material('garlic','にんにく','garlic','調味料・薬味','g',1.5,1,{food:false}),
+  material('parsley','パセリ','parsley','調味料・薬味','g',1,1,{food:false}),
+  material('sesame','ごま','sesame','調味料・薬味','g',4,1,{food:false}),
+  material('black-pepper','黒こしょう','black_pepper','調味料・薬味','g',0.1,1,{food:false}),
+  material('lemon','レモン汁','lemon','調味料・薬味','g',2.5,1,{food:false}),
+  material('salt','塩','salt','調味料・薬味','g',0.2,1,{food:false}),
+  material('yogurt','ヨーグルト','yogurt','ソース','g',20,1,{food:false}),
+  material('chicken-plain','鶏むね肉（調味前）','chicken_breast','具材','g',50,1,{food:false,note:'加熱する前の皮なし可食部です。中心まで十分に加熱します。'}),
+  formula('scrambled-egg','牛乳入り卵焼き',[['egg',1],['milk',10],['oil',2],['salt',0.25]],'具材','個',1,
+    {food:false,note:'卵1個・牛乳10ml・油2ml・塩0.25gの配合です。中まで固めて焼きます。'}),
+];
+const breadFillings=[...savouryFillings,...additionalBreadComponents,...sweetToppings,...breadExtras]
+  .filter((part,index,all)=>all.findIndex(other=>other.id===part.id)===index);
+const legacyBreadPresets={
+  'hot-sandwich':[
+    {id:'legacy-chicken-cabbage',label:'鶏肉とキャベツ（パン多め）',recipeId:'chicken-sandwich',components:[['base-large',1],['chicken-plain',110],['cabbage',90],['yogurt',20],['lemon',5],['salt',1],['oil',5]]},
+    {id:'legacy-egg-lettuce',label:'卵とレタス（牛乳入り卵焼き）',recipeId:'breakfast-egg-sandwich',components:[['base',1],['scrambled-egg',1],['lettuce',20]]},
+  ],
+  toast:[
+    {id:'legacy-garlic',label:'ガーリックトースト',recipeId:'staple-garlic-toast',components:[['base',1],['olive-oil',4],['garlic',1.5],['parsley',1]]},
+    {id:'legacy-sesame',label:'黒こしょうとごま',recipeId:'staple-sesame-toast',components:[['base',1],['olive-oil',3],['sesame',4],['black-pepper',0.1]]},
+    {id:'legacy-wholegrain-avocado',label:'全粒粉のアボカドレモン',recipeId:'staple-avocado-toast',components:[['base-wholegrain',1],['avocado',50],['lemon',2.5],['salt',0.2]]},
+  ],
+};
+const breadPresets=kind=>{
+  const presets=BREAD_PRESETS[kind]??[],custom=presets.filter(part=>part.id==='custom');
+  return [...presets.filter(part=>part.id!=='custom'),...(legacyBreadPresets[kind]??[]),...custom];
+};
+const breadBase=(kind,label)=>formula('base',label,BREAD_BASE_INGREDIENTS[kind],'ベース','個',1,{base:true,maxAmount:1});
+const breadRecipeIds=kind=>breadPresets(kind).map(part=>part.recipeId);
 const sashimi = [['tuna','まぐろ赤身',15,2],['tuna-mediumfat','まぐろ中トロ',15,2],['salmon','サーモン',15,2],['yellowtail','ぶり',15,2],['seabream','たい',15,2],['bonito','かつお',15,2],['aji','あじ',10,3],['squid','いか',5,6],['octopus','マダコ（ボイル）',5,6],['scallop','ほたて',10,3]]
   .map(([id,label,gramsPerUnit,defaultAmount])=>choice(id,label,`classic-sashimi-${id}`,'刺身','切れ',defaultAmount,
     {gramsPerUnit,note:`切り分けた可食部1切れを約${gramsPerUnit}gとする目安です。厚さや実物の重量に合わせて変更できます。`}))
@@ -160,6 +199,8 @@ const COMPOSER_DESCRIPTIONS = {
   muffin:'プレーン生地に混ぜ込む具材を選ぶ',
   'english-muffin':'朝食や昼食に、具材をはさむマフィン',
   sandwich:'パン2枚に具材とソースを組み合わせる',
+  'hot-sandwich':'定番の組み合わせを選び、具材や量を調整',
+  toast:'バター・ジャム・チーズやピザトーストを選ぶ',
 };
 
 export const FOOD_COMPOSERS = freeze([
@@ -197,10 +238,9 @@ export const FOOD_COMPOSERS = freeze([
   {kind:'bagel',label:'ベーグル',recipeIds:['palette-bagel'],role:'staple',family:'bread',genre:'その他',minutes:10,unit:'個',baseRequired:true,
     components:[material('base','プレーンベーグル（約100g）','palette_bagel','ベース','個',1,100,{base:true,maxAmount:1}),...savouryFillings,...sweetToppings.filter(part=>!savouryFillings.some(other=>other.id===part.id))],
     defaults:[['base',1]],intro:'ベーグル1個に加える具材とトッピングを選びます。各g数はこの1個に使う量です。',instructions:['ベーグルを横半分に切り、好みで軽くトーストする。ゆで卵を選んだ場合は固ゆでして殻を除く。', '選んだ具材とトッピングを表示量に用意し、はさむか添える。']},
-  {kind:'english-muffin',label:'イングリッシュマフィン',recipeIds:['palette-english-muffin'],role:'staple',family:'bread',mealBase:true,genre:'洋食',minutes:10,unit:'個',baseRequired:true,
-    components:[material('base','プレーンイングリッシュマフィン（約60g）','palette_english_muffin','ベース','個',1,60,{base:true,maxAmount:1}),
-      ...savouryFillings,...sweetToppings.filter(part=>!savouryFillings.some(other=>other.id===part.id))],
-    defaults:[['base',1],['ham',20],['cheese',20]],intro:'朝食や昼食に食べるパンタイプのマフィン1個に、はさむ具材とトッピングを選びます。焼き菓子のマフィンとは別メニューです。各g数はこの1個分です。',
+  {kind:'english-muffin',label:'イングリッシュマフィン',recipeIds:breadRecipeIds('english-muffin'),presets:breadPresets('english-muffin'),role:'staple',family:'bread',mealBase:true,genre:'洋食',minutes:15,unit:'個',baseRequired:true,
+    components:[breadBase('english-muffin','プレーンイングリッシュマフィン（約60g）'),...breadFillings],
+    defaults:[['base',1],['ham',20],['cheese',20]],intro:'最初に定番や朝食向けの組み合わせを選び、その下で具材を外したり量を変えたりできます。「具材を指定する」はパン1個だけから始めます。焼き菓子のマフィンは別メニューです。',
     instructions:['イングリッシュマフィンを横半分に割り、切り口を軽くトーストする。','選んだ具材とソースを用意してはさむ。ゆで卵は固ゆでして殻を除き、野菜は洗って水気を切る。食べるまで冷蔵する。']},
   {kind:'waffle',label:'ワッフル',recipeIds:['palette-waffle'],role:'snack',family:'cake',genre:'その他',minutes:10,unit:'個',baseRequired:true,
     components:[material('base','プレーンワッフル（約70g）','palette_waffle','ベース','個',1,70,{base:true,maxAmount:1}),...sweetToppings],defaults:[['base',1]],
@@ -211,10 +251,18 @@ export const FOOD_COMPOSERS = freeze([
         .map(([id,label,ingredientId,amount])=>material(id,label,ingredientId,'混ぜ込む具材','g',amount,1,{food:false}))],
     defaults:[['base',1],['blueberry',15]],intro:'プレーン生地70gを1個分として、混ぜ込む具材を選びます。焼いた後の重量は水分の変化で変わります。',
     instructions:['プレーンのマフィン生地を1個分用意する。具材は食べない部分を除き、ナッツやチョコレートは小さく刻む。', '選んだ具材を生地に混ぜて型に入れ、180℃に予熱したオーブンで約20〜25分焼く。竹串に生の生地が付かず中心まで火が通ったことを確認する。']},
-  {kind:'sandwich',label:'サンドイッチ',recipeIds:['palette-sandwich'],role:'staple',family:'bread',mealBase:true,genre:'その他',minutes:15,unit:'個',baseRequired:true, fillingRequired:true,
-    components:[material('base','食パン2枚（合計約60g）','bread','ベース','個',1,60,{base:true,maxAmount:1}),...savouryFillings],
-    defaults:[['base',1],['ham',20],['lettuce',15],['mayonnaise',5]],intro:'パン2枚で作る1組を1個として、具材とソースを選びます。各g数は1個分です。',
+  {kind:'sandwich',label:'サンドイッチ',recipeIds:breadRecipeIds('sandwich'),presets:breadPresets('sandwich'),role:'staple',family:'bread',mealBase:true,genre:'洋食',minutes:15,unit:'個',baseRequired:true,
+    components:[breadBase('sandwich','食パン2枚（合計約60g）'),...breadFillings],
+    defaults:[['base',1],['ham',20],['lettuce',10],['mayonnaise',5]],intro:'定番の組み合わせを選んでから、具材・ソースと量を調整できます。「具材を指定する」はパンだけから始めます。パン2枚で作る1組を1個とし、各g数はこの1個分です。',
     instructions:['パン2枚と選んだ具材を用意する。ゆで卵を選んだ場合は固ゆでし、殻を除いて切る。野菜は洗って十分に水気を切る。', 'ソースを塗り、選んだ具材を重ねてはさむ。食べやすく切り、食べるまで冷蔵する。']},
+  {kind:'hot-sandwich',label:'ホットサンド',recipeIds:breadRecipeIds('hot-sandwich'),presets:breadPresets('hot-sandwich'),role:'staple',family:'bread',mealBase:true,genre:'洋食',minutes:20,unit:'個',baseRequired:true,
+    components:[breadBase('hot-sandwich','食パン2枚（合計約60g）'),formula('base-large','厚めの食パン2枚（合計約120g）',[['bread',120]],'ベース','個',1,{base:true,maxAmount:1}),...breadFillings],
+    defaults:[['base',1],['ham',20],['cheese',20]],intro:'ハムチーズや卵、ツナ、鶏肉などから最初の組み合わせを選び、具材の削除・追加と量を調整できます。「具材を指定する」はパンだけから作れます。',
+    instructions:['加熱が必要な具材は先に中まで火を通し、食パンではさんでホットサンドメーカーやフライパンで焼く。']},
+  {kind:'toast',label:'トースト',recipeIds:breadRecipeIds('toast'),presets:breadPresets('toast'),role:'staple',family:'bread',mealBase:false,genre:'洋食',minutes:10,unit:'個',baseRequired:true,
+    components:[breadBase('toast','食パン1枚（厚切り約60g）'),formula('base-wholegrain','全粒粉食パン（約60g）',[['wholegrain_bread',60]],'ベース','個',1,{base:true,maxAmount:1}),...breadFillings],
+    defaults:[['base',1],['butter',5]],intro:'バターやジャム、チーズ、ピザトーストなどを選び、塗るもの・具材と量を調整します。「具材を指定する」は食パンだけから始めます。ピザトーストは食パンを使うトーストで、ピザ生地の料理とは別です。',
+    instructions:['食パンに選んだ具材をのせてトースターで焼く。ジャムやはちみつは好みで焼いた後に塗る。']},
 ].map(definition=>({...definition,description:COMPOSER_DESCRIPTIONS[definition.kind]??definition.intro})));
 
 const byKind = new Map(FOOD_COMPOSERS.map(definition=>[definition.kind,definition]));
@@ -295,10 +343,21 @@ function selectedInstructions(definition,selected) {
     '選んだ具材を生地に混ぜて型に入れ、180℃に予熱したオーブンで約20〜25分焼く。竹串に生の生地が付かず中心まで火が通ったことを確認する。',
   ];
   if(definition.kind==='waffle'&&selected.length===1)return [definition.instructions[0]];
-  if(['bagel','sandwich','english-muffin'].includes(definition.kind))return [
-    definition.kind==='bagel'?'ベーグルを横半分に切り、好みで軽くトーストする。':definition.kind==='english-muffin'?'イングリッシュマフィンを横半分に割り、切り口を軽くトーストする。':'食パン2枚と選んだ具材を用意する。野菜は洗って水気を切る。',
+  if(['bagel','sandwich','english-muffin','hot-sandwich','toast'].includes(definition.kind))return [
+    definition.kind==='bagel'?'ベーグルを横半分に切り、好みで軽くトーストする。':definition.kind==='english-muffin'?'イングリッシュマフィンを横半分に割り、切り口を軽くトーストする。':definition.kind==='toast'?'選んだ食パン1人分を用意する。':'選んだ食パン2枚分と具材を用意する。野菜は洗って水気を切る。',
     ...(has('boiled-egg')?['卵は固ゆでして殻を除き、食べやすく切る。']:[]),
-    ...(selected.length>1?['選んだ具材とソースを表示量に用意し、はさむか添える。食べるまで冷蔵する。']:[]),
+    ...(has('fried-egg')?['目玉焼きは材料に含まれる油で焼き、ふたをして白身と黄身が固まるまで加熱する。']:[]),
+    ...(has('scrambled-egg')?['卵へ表示量の牛乳と塩を混ぜ、材料に含まれる油で中まで固まるまで焼く。']:[]),
+    ...(has('sausage-patty')?['ソーセージパティは材料表の豚ひき肉と塩・黒こしょうを混ぜて平たく成形する。材料に含まれる油で両面を焼き、中心75℃で1分以上を確認する。']:[]),
+    ...(has('chicken')||has('chicken-plain')?['鶏むね肉は加熱前の可食部を表示量に量り、薄めに切る。選んだ調味料と油を使って両面を焼き、最も厚い部分の中心75℃で1分以上を確認する。鶏肉のソテーには表示した配合の油と塩を含むため、別の油を重ねて加算しない。']:[]),
+    ...(has('bacon')?['ベーコンは製品に表示された調理方法に従い、中まで熱くなるまで加熱する。']:[]),
+    ...(has('shimeji')?['しめじは石づきを除いて小房に分け、材料に含まれるオリーブ油と塩で中まで火が通るまで炒める。']:[]),
+    ...(has('corn')?['生のコーンは先にやわらかくなるまで加熱する。加熱済み製品は表示に従って用意する。']:[]),
+    ...(has('pizza-sauce')?['表示量のケチャップとトマトペーストを混ぜ、簡易ピザソースを作る。']:[]),
+    ...(has('onion')||has('green-pepper')?['玉ねぎやピーマンは薄切りにする。']:[]),
+    ...(definition.kind==='hot-sandwich'?['加熱済みの具材と選んだソースをパンではさむ。バターは好みで外側に薄く塗り、ホットサンドメーカーの説明に従って両面を焼く。フライパンなら弱めの中火で押さえながら両面を焼き、具も十分に温める。熱い具と溶けたチーズに注意して切る。']:
+      definition.kind==='toast'?['選んだバターやソース、加熱済みの具材を食パンに広げてトースターで焼く。チーズは溶けるまで加熱する。焦げそうなら時間や火力を調整し、ジャム・はちみつは好みで焼いた後に塗る。']:
+      selected.length>1?['選んだ具材とソースを表示量に用意し、はさむか添える。作ったら早めに食べ、すぐ食べない分は冷蔵する。']:[]),
   ];
   return [...definition.instructions];
 }
@@ -309,8 +368,26 @@ export function foodComposerDefinition(kind) {
   if(!definition)throw Error('組み合わせる料理の種類が見つかりません。');
   return definition;
 }
+/** 標準の組み合わせも、自由入力と同じ材料・量の配列へ変換します。 */
+export function foodPresetSelection(kind,presetId,{id}={}) {
+  const definition=foodComposerDefinition(kind),preset=definition.presets?.find(part=>part.id===presetId);
+  if(!preset)throw Error('最初の組み合わせを選んでください。');
+  return {kind,...(id===undefined?{}:{id}),components:preset.components.map(([id,amount])=>({id,amount}))};
+}
+export function matchingFoodPreset(kind,selection) {
+  const normalise=parts=>JSON.stringify(parts.map(part=>[part.id,part.amount,part.gramsPerUnit??null]).sort(([a],[b])=>a.localeCompare(b)));
+  if(!selection||selection.kind!==kind||!Array.isArray(selection.components))return null;
+  const key=normalise(selection.components);
+  return foodComposerDefinition(kind).presets?.find(preset=>normalise(preset.components.map(([id,amount])=>({id,amount})))===key)??null;
+}
+export function availableFoodPresets(kind,data,options={}) {
+  const available=new Set(availableFoodComponents(kind,data,options).map(part=>part.id));
+  return (foodComposerDefinition(kind).presets??[]).filter(preset=>preset.components.every(([id])=>available.has(id)));
+}
 export function defaultFoodSelection(kind,{recipeId}={}) {
   const definition=foodComposerDefinition(kind), selected=typeof recipeId==='string'?definition.components.find(part=>part.recipeId===recipeId):null;
+  const preset=definition.presets?.find(part=>part.recipeId===recipeId);
+  if(preset)return foodPresetSelection(kind,preset.id);
   const mapping={
     'varied-shrimp-tempura':[['shrimp',4]],'varied-squid-tempura':[['squid',4]],'varied-whitefish-tempura':[['whitefish',4]],
     'varied-shimeji-tempura':[['shimeji',4]],'varied-vegetable-tempura':[['aubergine',2],['pumpkin',2],['lotus-root',2]],
@@ -321,7 +398,7 @@ export function defaultFoodSelection(kind,{recipeId}={}) {
     'snack-nuts-raisin':[['almond',7.5],['walnut',7.5],['raisin',10]],
     'palette-nuts-pistachio':[['pistachio',15]],'palette-nuts-macadamia':[['macadamia',15]],'palette-nuts-pine':[['pine',15]],
   };
-  const defaults=selected?[[selected.id,selected.defaultAmount]]:mapping[recipeId]??definition.defaults;
+  const defaults=selected?[[selected.id,selected.defaultAmount]]:mapping[recipeId]??definition.presets?.find(part=>!part.custom)?.components??definition.defaults;
   return {kind,components:defaults.map(([id,amount])=>({id,amount}))};
 }
 
@@ -372,6 +449,10 @@ export function buildFoodSelection(config,data) {
         shoppingKnown&&=ingredient.shoppingKnown!==false;
       }
     }
+    // Some representative prepared ingredients predate explicit confirmation flags.
+    // A component can retain an unconfirmed product state, never promote one.
+    allergensKnown&&=component.allergensKnown!==false;ingredientsKnown&&=component.ingredientsKnown!==false;
+    shoppingKnown&&=component.shoppingKnown!==false;
     for(const ingredient of ingredients){
       if(!own(data.ingredients,ingredient.id)||!valid(ingredient.amount,1e6))throw Error('材料の種類と分量を確認してください。');
       parts.set(ingredient.id,(parts.get(ingredient.id)??0)+ingredient.amount);

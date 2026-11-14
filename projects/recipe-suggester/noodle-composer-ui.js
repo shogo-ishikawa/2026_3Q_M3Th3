@@ -10,8 +10,8 @@ const make=(tag,className='',text='')=>{const element=document.createElement(tag
 const labelFor=(title,input)=>{const label=make('label','noodle-field-label',title);label.htmlFor=input.id;label.append(input);return label;};
 const numericValue = input => {try {return readQuantityInput(input);} catch {return NaN;}};
 
-export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onError=()=>{},allowedToppingIds}={}){
-  if(typeof onChange!=='function'||typeof onError!=='function')throw Error('麺の選択画面の表示処理を確認してください。');
+export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onError=()=>{},onSelectionChange=()=>{},allowedToppingIds}={}){
+  if(typeof onChange!=='function'||typeof onError!=='function'||typeof onSelectionChange!=='function')throw Error('麺の選択画面の表示処理を確認してください。');
   const model=noodleComposerFor(recipeId),selection=initial??defaultNoodleSelection(recipeId);
   if(!model||selection.recipeId!==recipeId)throw Error('麺料理の初期設定を確認してください。');
   const first=buildNoodleSelection(selection,data),stableId=first.id,prefix=`noodle-composer-${++count}`;
@@ -74,14 +74,15 @@ export function mountNoodleComposer({recipeId,data,initial,onChange=()=>{},onErr
         if(String(control.amount.value).trim()==='')throw Error(`${control.topping.label}の量を入力してください。`);
         return {id:control.topping.id,amount:readQuantityInput(control.amount,{label:`${control.topping.label}の量`})};
       });
-      const recipe=buildNoodleSelection({id:stableId,recipeId,noodleAmount:readQuantityInput(noodles,{label:'麺の量'}),soupIntake:soup?.value??'none',toppings},data);
+      const config={id:stableId,recipeId,noodleAmount:readQuantityInput(noodles,{label:'麺の量'}),soupIntake:soup?.value??'none',toppings};
+      const recipe=buildNoodleSelection(config,data);
       title.textContent=`${recipe.name} / 1杯分`;
       for(const key of NUTRIENT_KEYS)values.get(key).textContent=recipe.manualNutrition[key]===null?'未入力':`${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
       const names=recipe.allergens.map(id=>data.allergens?.find(item=>item.id===id)?.label??id);
       allergens.textContent=recipe.allergensKnown?`含まれる登録アレルゲン：${names.length?names.join('、'):'登録なし'}。実物の商品表示も確認してください。`:'原材料・アレルギー情報は未確認です。実物の表示を確認してください。';
       note.textContent=recipe.sourceNote;parts.replaceChildren(...recipe.ingredients.map(part=>make('li','food-composer-material',`${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));steps.replaceChildren(...recipe.steps.map(step=>make('li','food-composer-step',step)));
-      error.hidden=true;error.textContent='';preview.hidden=false;onError('');onChange(recipe);
-    }catch(cause){error.hidden=false;error.textContent=cause.message;preview.hidden=true;onChange(null);onError(cause.message);}
+      error.hidden=true;error.textContent='';preview.hidden=false;onError('');onSelectionChange(structuredClone(config));onChange(recipe);
+    }catch(cause){error.hidden=false;error.textContent=cause.message;preview.hidden=true;onSelectionChange(null);onChange(null);onError(cause.message);}
   }
   update();return root;
 }

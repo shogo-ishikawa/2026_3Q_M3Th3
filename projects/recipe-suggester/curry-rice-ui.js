@@ -11,8 +11,8 @@ const make = (tag, className = '', text = '') => {
   return element;
 };
 
-export function mountCurryRice({recipeId, data, initial, onChange = () => {}, onError = () => {}} = {}) {
-  if (typeof onChange !== 'function' || typeof onError !== 'function') throw Error('ご飯の選択画面の処理を確認してください。');
+export function mountCurryRice({recipeId, data, initial, onChange = () => {}, onError = () => {}, onSelectionChange = () => {}} = {}) {
+  if (typeof onChange !== 'function' || typeof onError !== 'function' || typeof onSelectionChange !== 'function') throw Error('ご飯の選択画面の処理を確認してください。');
   const definition = curryRiceFor(recipeId, data);
   if (!definition) throw Error('ご飯の量を変更できるカレーが見つかりません。');
   const selection = initial === undefined ? defaultCurryRiceSelection(recipeId, data) : structuredClone(initial);
@@ -41,16 +41,17 @@ export function mountCurryRice({recipeId, data, initial, onChange = () => {}, on
   function update() {
     try {
       if (typeof input.value !== 'string' || !input.value.trim()) throw Error('ご飯のg数を入力してください。ルーのみの場合は0を入力します。');
-      const recipe = buildCurryRiceSelection({id:stableId, recipeId, riceGrams:readQuantityInput(input,{label:'ご飯のg数'})}, data);
+      const config = {id:stableId, recipeId, riceGrams:readQuantityInput(input,{label:'ご飯のg数'})};
+      const recipe = buildCurryRiceSelection(config, data);
       title.textContent = `${recipe.name} / 1人分`;
       for (const key of NUTRIENT_KEYS) values.get(key).textContent = recipe.manualNutrition[key] === null ? '未入力' : `${rounded(recipe.manualNutrition[key])} ${NUTRIENT_UNITS[key]}`;
       const labels = recipe.allergens.map(id => data.allergens?.find(allergen => allergen.id === id)?.label ?? id);
       allergens.textContent = `含まれる登録アレルゲン：${labels.length ? labels.join('、') : '登録なし'}。${recipe.allergensKnown ? '' : '商品ごとのアレルギー表示を確認してください。'}`;
       materialList.replaceChildren(...recipe.ingredients.map(part => make('li', 'dish-material', `${data.ingredients[part.id].name} ${rounded(part.amount)} ${data.ingredients[part.id].unit}`)));
       steps.replaceChildren(...recipe.steps.map(step => make('li', 'dish-step', step)));
-      input.setAttribute('aria-invalid', 'false'); error.hidden = true; error.textContent = ''; preview.hidden = false; onError(''); onChange(recipe);
+      input.setAttribute('aria-invalid', 'false'); error.hidden = true; error.textContent = ''; preview.hidden = false; onError(''); onSelectionChange(structuredClone(config));onChange(recipe);
     } catch (cause) {
-      input.setAttribute('aria-invalid', 'true'); error.hidden = false; error.textContent = cause.message; preview.hidden = true; onChange(null); onError(cause.message);
+      input.setAttribute('aria-invalid', 'true'); error.hidden = false; error.textContent = cause.message; preview.hidden = true; onSelectionChange(null);onChange(null); onError(cause.message);
     }
   }
   input.addEventListener('input', update); input.addEventListener('change', update); update();
