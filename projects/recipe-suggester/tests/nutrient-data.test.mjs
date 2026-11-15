@@ -1,10 +1,12 @@
+import {createPantryExtraIngredients} from '../pantry-extra-ingredients.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { INGREDIENTS } from '../data.js';
 import { INGREDIENT_NUTRITION } from '../ingredient-nutrients.js';
 
+const PROFILES = {...INGREDIENT_NUTRITION,...createPantryExtraIngredients(INGREDIENTS)};
 const keys = ['kcal', 'protein', 'fat', 'carbs', 'fiber', 'salt'];
-const value = (id, key, amount = 1) => INGREDIENT_NUTRITION[id].nutritionPerUnit[key] * amount;
+const value = (id, key, amount = 1) => PROFILES[id].nutritionPerUnit[key] * amount;
 const close = (actual, expected, tolerance = 1e-6) => assert.ok(
   Math.abs(actual - expected) <= tolerance,
   `expected ${expected}, received ${actual}`,
@@ -12,12 +14,12 @@ const close = (actual, expected, tolerance = 1e-6) => assert.ok(
 
 test('every built-in ingredient has an attributed six-component profile', () => {
   for (const id of Object.keys(INGREDIENTS)) {
-    const metadata = INGREDIENT_NUTRITION[id];
+    const metadata = PROFILES[id];
     assert.ok(metadata, `missing ingredient profile: ${id}`);
     assert.deepEqual(Object.keys(metadata.nutritionPerUnit), keys);
     assert.ok(metadata.nutritionSource.length > 20, `missing source: ${id}`);
   }
-  for (const [id, metadata] of Object.entries(INGREDIENT_NUTRITION)) {
+  for (const [id, metadata] of Object.entries(PROFILES)) {
     for (const key of keys) {
       const number = metadata.nutritionPerUnit[key];
       assert.ok(number === null || (Number.isFinite(number) && number >= 0), `${id}.${key}`);
@@ -30,7 +32,7 @@ test('new staples, unsweetened drinks and berries also have profiles', () => {
     'brown_rice', 'cooked_barley', 'wholegrain_bread', 'oatmeal', 'somen',
     'green_tea', 'roasted_tea', 'barley_tea', 'oolong_tea', 'black_tea', 'coffee',
     'cocoa_powder', 'orange_juice', 'apple_juice', 'tomato_juice', 'strawberry', 'blueberry',
-  ]) assert.ok(INGREDIENT_NUTRITION[id], id);
+  ]) assert.ok(PROFILES[id], id);
 });
 
 test('an egg means 50g edible weight, and a shell-on clam uses its edible yield', () => {
@@ -88,13 +90,13 @@ test('cooked legumes use cooked profiles rather than dry-bean composition', () =
   ]) {
     close(value(id, 'kcal', 100), kcal);
     close(value(id, 'fiber', 100), fiber);
-    assert.ok(INGREDIENT_NUTRITION[id].nutritionSource.includes(`食品番号${code}`), id);
+    assert.ok(PROFILES[id].nutritionSource.includes(`食品番号${code}`), id);
   }
 });
 
 test('raw unknown and trace components stay null while source-defined zeros stay zero', () => {
   for (const id of ['turmeric', 'cumin']) {
-    assert.deepEqual(INGREDIENT_NUTRITION[id].rawNutritionPerUnit,
+    assert.deepEqual(PROFILES[id].rawNutritionPerUnit,
       Object.fromEntries(keys.map(key => [key, null])));
   }
   assert.equal(INGREDIENT_NUTRITION.cashew.rawNutritionPerUnit.salt, null);
@@ -194,7 +196,7 @@ test('sashimi uses the declared species, edible parts and fat classification', (
     close(value(id, 'kcal', 100), kcal);
     close(value(id, 'protein', 100), protein);
     close(value(id, 'fat', 100), fat);
-    assert.match(INGREDIENT_NUTRITION[id].nutritionSource, new RegExp(`食品番号${code}`));
+    assert.match(PROFILES[id].nutritionSource, new RegExp(`食品番号${code}`));
   }
   assert.match(INGREDIENT_NUTRITION.tuna_mediumfat_sashimi.nutritionSource, /中トロ専用の分析値ではなく/);
   assert.match(INGREDIENT_NUTRITION.salmon_sashimi.nutritionSource, /サーモントラウト/);
@@ -238,7 +240,7 @@ test('instant noodles include dry contents and seasoning, with water counted sep
   ]) {
     close(value(id, 'kcal', 100), kcal);
     close(value(id, 'salt', 100), salt);
-    assert.match(INGREDIENT_NUTRITION[id].nutritionSource, /乾燥/);
+    assert.match(PROFILES[id].nutritionSource, /乾燥/);
   }
   // A dry 90g serving plus 400ml water retains 90g of dry contents in this model.
   close(value('cup_ramen_soy_dry', 'kcal', 90) + value('water', 'kcal', 400), 375.3);
@@ -255,8 +257,8 @@ test('prepared curry and donburi toppings do not already contain a serving of ri
     ['retort_mapo_topping', '18049', 104],
   ]) {
     close(value(id, 'kcal', 100), kcal);
-    assert.match(INGREDIENT_NUTRITION[id].nutritionSource, new RegExp(`食品番号${code}`));
-    assert.match(INGREDIENT_NUTRITION[id].nutritionSource, /ご飯/);
+    assert.match(PROFILES[id].nutritionSource, new RegExp(`食品番号${code}`));
+    assert.match(PROFILES[id].nutritionSource, /ご飯/);
   }
   close(value('retort_beef_curry', 'kcal', 180) + value('rice', 'kcal', 150), 448.2);
   close(value('retort_mapo_topping', 'protein', 100), 7.8);
@@ -284,10 +286,10 @@ test('unidentified bought products keep unknown components separate from complet
     'prepared_item_sandwich_egg', 'prepared_item_sandwich_ham', 'prepared_item_sandwich_tuna',
     'prepared_item_sandwich_vegetable',
   ]) {
-    assert.deepEqual(INGREDIENT_NUTRITION[id].nutritionPerUnit,
+    assert.deepEqual(PROFILES[id].nutritionPerUnit,
       Object.fromEntries(keys.map(key => [key, null])), id);
-    assert.match(INGREDIENT_NUTRITION[id].nutritionSource, /商品表示を確認/);
-    assert.doesNotMatch(INGREDIENT_NUTRITION[id].nutritionSource, /食品番号/);
+    assert.match(PROFILES[id].nutritionSource, /商品表示を確認/);
+    assert.doesNotMatch(PROFILES[id].nutritionSource, /食品番号/);
   }
 });
 
@@ -302,10 +304,10 @@ test('familiar cooked dishes use the actual raw cut or species and drained produ
     ['parmesan_cheese', '13038', [445, 44, 30.8, 1.9, 0, 3.8]],
   ]) {
     for (const [index, key] of keys.entries()) {
-      if (expected[index] === null) assert.equal(INGREDIENT_NUTRITION[id].rawNutritionPerUnit[key], null);
+      if (expected[index] === null) assert.equal(PROFILES[id].rawNutritionPerUnit[key], null);
       else close(value(id, key, 100), expected[index]);
     }
-    assert.match(INGREDIENT_NUTRITION[id].nutritionSource, new RegExp(`食品番号${code}`));
+    assert.match(PROFILES[id].nutritionSource, new RegExp(`食品番号${code}`));
   }
   assert.deepEqual(INGREDIENT_NUTRITION.beef_stew_cut.nutritionPerUnit, INGREDIENT_NUTRITION.beef.nutritionPerUnit);
   assert.deepEqual(INGREDIENT_NUTRITION.yellowtail.nutritionPerUnit, INGREDIENT_NUTRITION.yellowtail_sashimi.nutritionPerUnit);
@@ -324,7 +326,7 @@ test('追加のいくらと酒類は公式値と体積換算を使い、数字�
 });
 
 test('商品用の購入材料は未測定値を残し、商品表示と一般成分表を混同しない',()=>{
-  for(const [id,meta]of Object.entries(INGREDIENT_NUTRITION).filter(([id])=>id.startsWith('perf_')&&!['perf_beer','perf_black_beer','perf_sake','perf_wine_red','perf_wine_white','perf_shochu','perf_whisky','perf_umeshu','perf_chuhai'].includes(id))){
+  for(const [id,meta]of Object.entries(PROFILES).filter(([id])=>id.startsWith('perf_')&&!['perf_beer','perf_black_beer','perf_sake','perf_wine_red','perf_wine_white','perf_shochu','perf_whisky','perf_umeshu','perf_chuhai'].includes(id))){
     assert.deepEqual(Object.values(meta.nutritionPerUnit),[null,null,null,null,null,null],id);
     assert.match(meta.nutritionSource,/公式表示|商品/);
   }

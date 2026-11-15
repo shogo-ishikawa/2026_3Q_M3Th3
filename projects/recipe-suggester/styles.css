@@ -1249,3 +1249,20 @@ body[data-has-undo-notice="true"] main.page-width{padding-bottom:190px}
 .shopping-omissions{margin-bottom:1rem}
 .shopping-omissions .choice-label{min-height:44px}
 @media(max-width:540px){.pantry-browse,.menu-shopping-action{grid-template-columns:minmax(0,1fr)}}
+
+/* 買い物は表示中の機能だけを読み進めます。 */
+.kitchen-heading{margin-bottom:1rem}
+.kitchen-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.4rem;margin-bottom:1rem;padding:.4rem;background:var(--surface,#fff);border:1px solid var(--line,#d9dfd3);border-radius:1rem}
+.kitchen-tabs button{min-height:48px;border-radius:.7rem;padding:.6rem .4rem;white-space:normal;overflow-wrap:anywhere;font-size:.92rem}
+.kitchen-tabs button[aria-selected="true"]{background:#dfe8cf;color:#244e3b;font-weight:700;border-color:#54775e}
+.kitchen-tab-panel{min-width:0}
+.kitchen-tab-panel[hidden]{display:none!important}
+.shopping-source-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:1rem;align-items:start}
+.shopping-range-actions{grid-column:1/-1;display:flex;justify-content:space-between;gap:1rem}
+.shopping-range-actions button{min-height:44px}
+.help-topic{border-top:1px solid var(--line,#d9dfd3);padding:.7rem 0}
+.help-topic summary{min-height:44px;display:flex;align-items:center;font-weight:700;cursor:pointer}
+.help-topic p{max-width:60em;line-height:1.9;margin:.6rem 0 1rem}
+@media(max-width:800px){.kitchen-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.shopping-source-controls{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:380px){.kitchen-tabs button{font-size:.85rem}}
+body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}

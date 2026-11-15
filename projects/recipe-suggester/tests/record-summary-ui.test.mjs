@@ -75,6 +75,18 @@ test('表示だけを丸め、登録する元の栄養・数量・材料の精�
   assert.equal(byClass(api.element,'record-summary-total').textContent,'1品・合計 149 kcal');
   const text=all(api.element).filter(node=>node.tagName==='DD').map(node=>node.textContent);
   assert.deepEqual(text,['5.3 g','2.5 g','27.8 g','2.5 g','0.7 g']);
-  assert.match(byClass(api.element,'record-summary-material-preview').textContent,/バター 5\.125g/);
+  assert.match(byClass(api.element,'record-summary-material-preview').textContent,/バター 約5g/);
+  assert.deepEqual(source,before);
+}));
+
+
+test('少なめの材料は作りやすい目安を示し、保存用の分量は丸めない',()=>withDocument(()=>{
+  const source=entry();source.items[0].quantity=.5625;source.items[0].name='小えびのサラダ';
+  source.items[0].ingredients=[{id:'shrimp',amount:70},{id:'lettuce',amount:60}];
+  const actualData={...data,ingredients:{shrimp:{name:'むきえび',unit:'g'},lettuce:{name:'レタス',unit:'g'}}};
+  const before=structuredClone(source),api=createRecordSummary({getEntry:()=>source,data:actualData});
+  const result=api.refresh();
+  assert.match(byClass(api.element,'record-summary-material-preview').textContent,/むきえび 約40g（数尾・大きさで調整）.*レタス 約35g（1枚前後）/);
+  assert.deepEqual(result.ingredients.map(x=>x.amount),[39.375,33.75]);
   assert.deepEqual(source,before);
 }));

@@ -1,3 +1,4 @@
+import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
 import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
 import {ADDED_311_RECIPES,ADDED_311_INGREDIENTS} from './helpers/meal311-additions.mjs';
 import {WORLD_INGREDIENTS,WORLD_RECIPES} from '../world-foods.js';
@@ -28,7 +29,7 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const near = (actual, expected, message = '') => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const movedIds = ['classic-boiled-egg', 'classic-natto-plain', 'classic-natto-grated-daikon'];
 const newIds = new Set([...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES,...MAPO_RECIPES,...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES,...ADDED_311_RECIPES,...BREAD_RECIPES].map(recipe => recipe.id));
-const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS),...Object.keys(MAPO_INGREDIENTS),...Object.keys(WORLD_INGREDIENTS),...Object.keys(SEAFOOD_INGREDIENTS),...Object.keys(NOODLE_INGREDIENTS),...Object.keys(ADDED_311_INGREDIENTS),...Object.keys(BREAD_INGREDIENTS)]);
+const newIngredientIds = new Set([...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS),...Object.keys(MAPO_INGREDIENTS),...Object.keys(WORLD_INGREDIENTS),...Object.keys(SEAFOOD_INGREDIENTS),...Object.keys(NOODLE_INGREDIENTS),...Object.keys(ADDED_311_INGREDIENTS),...Object.keys(BREAD_INGREDIENTS),...PANTRY_V325_INGREDIENT_IDS]);
 const date = '2026-11-13';
 const recordInput = (recipeId, amount = 1, status = 'planned') => ({recipeId, date, meal: 'dinner', status, amount});
 

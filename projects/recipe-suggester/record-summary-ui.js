@@ -1,4 +1,5 @@
 import {formatNutrient} from './nutrient-format.js';
+import {formatCookingIngredient} from './portion-guide.js';
 /** 保存前に、その量で登録する食事の合計を表示します。保存処理は持ちません。 */
 import {describeRegistration} from './record-summary.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
@@ -10,7 +11,7 @@ const make = (tag, className='', text='') => {
   return element;
 };
 const format = value => Number(value.toFixed(3)).toLocaleString('ja-JP');
-const materialText = part => `${part.name} ${format(part.amount)}${part.unit ?? '（単位未登録）'}`;
+const materialText = (part,data) => formatCookingIngredient(part.id,part.amount,data,{name:part.name,unit:part.unit});
 
 /** data は最新のマイメニューも参照できるよう、オブジェクトか getter を受け付けます。 */
 export function createRecordSummary({getEntry, data}={}) {
@@ -44,7 +45,8 @@ export function createRecordSummary({getEntry, data}={}) {
     try {
       const entry = getEntry();
       if (entry == null) throw Error('未選択');
-      const summary = describeRegistration(entry, typeof data === 'function' ? data() : data);
+      const currentData = typeof data === 'function' ? data() : data;
+      const summary = describeRegistration(entry, currentData);
       context.textContent = `${summary.date} ${summary.mealLabel}・${summary.statusLabel}`;
       items.replaceChildren(...summary.items.map(item => make('li', '', `${item.name} ${format(item.amount)}${item.unit}`)));
       total.textContent = `${summary.items.length}品・合計 ${nutritionText(summary, 'kcal')}`;
@@ -53,10 +55,10 @@ export function createRecordSummary({getEntry, data}={}) {
         pair.append(make('dt', '', NUTRIENT_LABELS[key]), make('dd', '', nutritionText(summary, key)));
         return pair;
       }));
-      materialPreview.textContent = summary.ingredients.slice(0, 3).map(materialText).join(' ／ ');
+      materialPreview.textContent = summary.ingredients.slice(0, 3).map(part=>materialText(part,currentData)).join(' ／ ');
       materialPreview.hidden = !summary.ingredients.length;
       materialHeading.textContent = `材料の合計（${summary.ingredients.length}種類）`;
-      materialList.replaceChildren(...summary.ingredients.map(part => make('li', '', materialText(part))));
+      materialList.replaceChildren(...summary.ingredients.map(part => make('li', '', materialText(part,currentData))));
       materialDetails.hidden = !summary.ingredients.length;
       incomplete.hidden = summary.ingredientsComplete;
       prompt.hidden = true;

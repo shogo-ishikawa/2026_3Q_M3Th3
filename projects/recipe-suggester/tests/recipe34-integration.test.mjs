@@ -1,3 +1,4 @@
+import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
 import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
 import {ADDED_311_RECIPES,ADDED_311_INGREDIENTS} from './helpers/meal311-additions.mjs';
 import {WORLD_INGREDIENTS,WORLD_RECIPES} from '../world-foods.js';
@@ -35,7 +36,7 @@ const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, 
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const additions = [...VARIED_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES,...MAPO_RECIPES,...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES,...ADDED_311_RECIPES,...BREAD_RECIPES];
 const addedIds = new Set(additions.map(recipe => recipe.id));
-const addedIngredients = new Set([...Object.keys(VARIED_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS), ...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS),...Object.keys(MAPO_INGREDIENTS),...Object.keys(WORLD_INGREDIENTS),...Object.keys(SEAFOOD_INGREDIENTS),...Object.keys(NOODLE_INGREDIENTS),...Object.keys(ADDED_311_INGREDIENTS),...Object.keys(BREAD_INGREDIENTS)]);
+const addedIngredients = new Set([...Object.keys(VARIED_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS), ...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS),...Object.keys(MAPO_INGREDIENTS),...Object.keys(WORLD_INGREDIENTS),...Object.keys(SEAFOOD_INGREDIENTS),...Object.keys(NOODLE_INGREDIENTS),...Object.keys(ADDED_311_INGREDIENTS),...Object.keys(BREAD_INGREDIENTS),...PANTRY_V325_INGREDIENT_IDS]);
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const close = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const snapshot = (id, quantity = 1) => ({...itemFromRecipe(describeRecipe(id, data), data, quantity), portion: recipePortion(byId.get(id), data)});

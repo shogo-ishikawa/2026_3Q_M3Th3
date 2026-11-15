@@ -151,7 +151,16 @@
         "shopping-categories.js",
         "shopping-workflow.js",
         "shopping-workflow-ui.js",
-        "shopping-workflow-ui.css"
+        "shopping-workflow-ui.css",
+        "meal-suitability.js",
+        "meal-settings-ui.js",
+        "meal-settings-ui.css",
+        "pantry-catalog.js",
+        "pantry-extra-ingredients.js",
+        "pantry-ui.js",
+        "pantry-ui.css",
+        "portion-guide.js",
+        "shopping-status.js"
       ]
     },
     {

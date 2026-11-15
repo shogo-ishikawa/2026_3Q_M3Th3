@@ -1,5 +1,5 @@
 /** 食事などの変更を端末内のメモリーで取り消します。表示設定は巻き戻しません。 */
-const CONTENT_KEYS = ['entries', 'completedDays', 'customRecipes', 'pantry', 'favourites', 'mealSets', 'batches', 'purchaseSettings', 'shoppingExtras', 'shoppingList', 'shoppingChecks'];
+const CONTENT_KEYS = ['entries', 'completedDays', 'customRecipes', 'pantry', 'favourites', 'mealSets', 'batches', 'purchaseSettings', 'shoppingExtras', 'shoppingList', 'shoppingChecks', 'shoppingCatalog', 'shoppingReceipts'];
 const content = state => Object.fromEntries(CONTENT_KEYS.filter(key => Object.hasOwn(state, key)).map(key => [key, structuredClone(state[key])]));
 
 export function createJournalHistory({limit = 10} = {}) {

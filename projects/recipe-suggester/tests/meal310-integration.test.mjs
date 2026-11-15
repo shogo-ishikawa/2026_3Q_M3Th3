@@ -132,14 +132,15 @@ test('ご飯なしカレーへナンを添え、新しいラーメンは一品�
   const curry = buildCurryRiceSelection({id:'custom-plan-curry', recipeId:'world-mutton-curry', riceGrams:0}, data);
   const naan = builtin('world-naan-plain'), soup = builtin('world-tomyum-kung');
   const side = eligibleRecipes({}, data, {role:'side'})[0];
-  const settings = {...defaultJournal(date).settings, startDate:date, days:1, stapleMode:'fixed', stapleId:naan.id, stapleAmount:2};
+  const settings = {...defaultJournal(date).settings, startDate:date, days:1};
+  settings.mealPreferences.dinner = {...settings.mealPreferences.dinner, staple:'fixed', stapleId:naan.id, stapleAmount:2};
   const withNaan = generateCalendarPlan(settings, {...data, recipes:[curry, naan, side, soup]});
   assert.equal(withNaan.ok, true);
   assert.deepEqual(new Set(activeRecipeIds(withNaan.days[0])), new Set([curry.id, naan.id, side.id, soup.id]));
   assert.equal(withNaan.days[0].quantities[naan.id], 2);
   assert.ok(!curry.ingredients.some(part => part.id === 'rice'));
   for (const recipe of NOODLE_RECIPES.filter(recipe => NOODLE_STYLES.find(model => model.recipeId === recipe.id).soup.length)) {
-    const plan = generateCalendarPlan({...settings, stapleId:recipe.id, stapleAmount:1}, {...data, recipes:[recipe, curry, side, soup]});
+    const plan = generateCalendarPlan({...settings, mealPreferences:{...settings.mealPreferences,dinner:{...settings.mealPreferences.dinner,staple:'fixed',stapleId:recipe.id,stapleAmount:1}}}, {...data, recipes:[recipe, curry, side, soup]});
     assert.equal(plan.ok, true, recipe.id);
     assert.deepEqual(new Set(activeRecipeIds(plan.days[0])), new Set([recipe.id, side.id]), recipe.id);
   }

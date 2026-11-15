@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {defaultState, STORAGE_KEY} from '../storage.js';
+import {defaultMealPreference, normaliseMealPreferences} from '../meal-profiles.js';
 import {itemFromRecipe} from '../nutrition.js';
 import {defaultJournal, validateJournal, parseJournal, readJournal, writeJournal, JOURNAL_KEY} from '../journal.js';
 
@@ -21,7 +22,7 @@ test('new shopping and meal settings start independently and distinguish no list
   assert.deepEqual(first.shoppingExtras, []);
   assert.equal(first.shoppingList, null);
   assert.deepEqual(first.settings.shoppingOmittedIds, []);
-  for (const meal of ['breakfast', 'lunch', 'dinner']) assert.deepEqual(first.settings.mealPreferences[meal], {volume:'normal', mood:'all'});
+  for (const meal of ['breakfast', 'lunch', 'dinner']) assert.deepEqual(first.settings.mealPreferences[meal], defaultMealPreference(meal));
   first.settings.mealPreferences.breakfast.volume = 'light';
   first.settings.shoppingOmittedIds.push('water');
   first.shoppingExtras.push(extra());
@@ -34,9 +35,9 @@ test('new shopping and meal settings start independently and distinguish no list
 
 test('meal preferences, omission settings and prepared shopping source snapshots round trip without recalculation', () => {
   const source = state();
-  source.settings.mealPreferences = {
+  source.settings.mealPreferences = normaliseMealPreferences({
     breakfast:{volume:'light', mood:'時短'}, lunch:{volume:'hearty', mood:'ガッツリ'}, dinner:{volume:'normal', mood:'さっぱり'},
-  };
+  });
   source.settings.shoppingOmittedIds = ['water', 'salt'];
   const saved = item();
   saved.nutrition = {...saved.nutrition, kcal:123.456789, salt:null};
@@ -65,7 +66,7 @@ test('old v3 data gains safe shopping defaults and copies previous global mood i
   assert.deepEqual(loaded.state.shoppingExtras, []);
   assert.equal(loaded.state.shoppingList, null);
   assert.deepEqual(loaded.state.settings.shoppingOmittedIds, []);
-  for (const meal of ['breakfast', 'lunch', 'dinner']) assert.deepEqual(loaded.state.settings.mealPreferences[meal], {volume:'normal', mood:'時短'});
+  for (const meal of ['breakfast', 'lunch', 'dinner']) assert.deepEqual(loaded.state.settings.mealPreferences[meal], {...defaultMealPreference(meal), mood:'時短'});
   assert.deepEqual(source, before);
   assert.deepEqual(storage.writes, []);
 });

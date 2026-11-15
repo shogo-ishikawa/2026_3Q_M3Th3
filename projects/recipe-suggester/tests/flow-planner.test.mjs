@@ -5,7 +5,7 @@ import {itemFromRecipe} from '../nutrition.js';
 
 const unitNutrition = {kcal: 1, protein: 0.1, fat: 0.02, carbs: 0.15, fiber: 0.01, salt: 0.001};
 const ingredient = (name, groups = [], allergens = [], unit = 'g') => ({name, groups, allergens, unit, proteinSources: [], nutritionPerUnit: unitNutrition});
-const food = (id, role, parts, extra = {}) => ({id, name: id, role, genre: '和食', minutes: 10, servings: 1, staple: role === 'staple',
+const food = (id, role, parts, extra = {}) => ({id, name: id, role, mealSuitability: ['breakfast','lunch','dinner'], genre: '和食', minutes: 10, servings: 1, staple: role === 'staple',
   ingredients: parts.map(([id, amount]) => ({id, amount})), steps: ['材料を用意して人数分に盛る。'], tags: [], ...extra});
 const DATA = {allergens: [{id: 'wheat'}], ingredients: {
   vegetable: ingredient('野菜', ['vegetable']), meat: ingredient('肉', ['protein']), fish: ingredient('魚', ['protein']),
@@ -164,7 +164,7 @@ test('お酒は組み込み・手入力の推測分類とも記録できるが�
 
 test('主菜を汁麺へ替えると追加の主食と汁物を外し、戻すと必要な構成を戻す', () => {
   const originalData = {...DATA, recipes: DATA.recipes.filter(recipe => recipe.role !== 'main' || recipe.id === 'western-a')};
-  const original = generateCalendarPlan(settings({meal: 'breakfast'}), originalData);
+  const original = generateCalendarPlan(settings({meal: 'lunch'}), originalData);
   const broth = food('udon-main', 'main', [['flour', 100]], {staple: true, family: 'udon', mealBase: true});
   const data = {...originalData, recipes: [...originalData.recipes, broth]};
   const changed = replaceRecipe(original, {dayIndex: 0, recipeId: 'western-a'}, data);
@@ -172,8 +172,8 @@ test('主菜を汁麺へ替えると追加の主食と汁物を外し、戻す�
   assert.deepEqual(changed.days[0].recipeIds.sort(), ['udon-main', 'side'].sort());
   const restored = replaceRecipe(changed, {dayIndex: 0, recipeId: 'udon-main'}, data);
   assert.equal(restored.ok, true);
-  assert.ok(restored.days[0].recipeIds.includes('bread'));
-  assert.ok(!restored.days[0].recipeIds.includes('soup'), '洋食の朝食は主菜・パン・副菜で構成する');
-  assert.ok(original.days[0].recipeIds.includes('bread'));
+  assert.ok(restored.days[0].recipeIds.some(id => ['bread','plain-rice'].includes(id)));
+  assert.ok(!restored.days[0].recipeIds.includes('soup'), '洋食の昼食には汁物を重ねない');
+  assert.ok(original.days[0].recipeIds.some(id => ['bread','plain-rice'].includes(id)));
   assert.ok(!original.days[0].recipeIds.includes('soup'));
 });

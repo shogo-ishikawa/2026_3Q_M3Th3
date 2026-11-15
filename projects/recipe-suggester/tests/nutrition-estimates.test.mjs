@@ -1,3 +1,4 @@
+import {createPantryExtraIngredients} from '../pantry-extra-ingredients.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
@@ -6,6 +7,7 @@ import {buildCustomDish} from '../dish-customisation.js';
 import {NUTRIENT_KEYS, recipeNutrition, itemFromRecipe, itemNutrition} from '../nutrition.js';
 
 const data = {ingredients: INGREDIENTS, recipes: RECIPES, allergens: ALLERGENS};
+const allProfiles = {...INGREDIENT_NUTRITION,...createPantryExtraIngredients(INGREDIENTS)};
 const close = (actual, expected, label = '') => assert.ok(
   typeof actual === 'number' && Number.isFinite(actual) && Math.abs(actual - expected) < 1e-8,
   `${label}: expected ${expected}, received ${actual}`,
@@ -130,7 +132,7 @@ test('本当に未確認の商品と手入力は不明のまま、過去の記�
 
   const source = recipe('pork-ginger');
   const oldData = {ingredients: Object.fromEntries(Object.entries(INGREDIENTS).map(([id, ingredient]) => [id,
-    {...ingredient, nutritionPerUnit: INGREDIENT_NUTRITION[id].rawNutritionPerUnit}]))};
+    {...ingredient, nutritionPerUnit: allProfiles[id].rawNutritionPerUnit}]))};
   const oldItem = itemFromRecipe(source, oldData), before = JSON.stringify(oldItem);
   assert.equal(itemNutrition(oldItem).fat, null);
   const newItem = itemFromRecipe(source, data);
