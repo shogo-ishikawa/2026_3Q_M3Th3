@@ -66,3 +66,66 @@ test('allergy-excluded fixed choices are identified without silently choosing or
  const errors=[],reject=mountMealSettings({settings:{...settings(),allergens:ALLERGENS.map(a=>a.id),excludedIngredients:Object.keys(INGREDIENTS)},data,onError:value=>errors.push(value)});
  const mode=field(reject,'breakfast','staple');mode.value='fixed';mode.emit('change');assert.equal(errors.length,1);assert.ok(text(reject).includes('条件に合う主食がありません'));
 }));
+
+test('staple amount can stay small while main dishes are hearty without overwriting either choice',()=>withDocument(()=>{
+ const source=settings(),before=structuredClone(source),changes=[];
+ const root=mountMealSettings({settings:source,data,onChange:(meal,patch)=>changes.push({meal,patch})});
+ const volume=field(root,'dinner','volume');volume.value='hearty';volume.emit('change');
+ const stapleVolume=field(root,'dinner','stapleVolume');stapleVolume.value='light';stapleVolume.emit('change');
+ assert.equal(field(root,'dinner','volume').value,'hearty');
+ assert.equal(field(root,'dinner','stapleVolume').value,'light');
+ assert.deepEqual(changes,[{meal:'dinner',patch:{volume:'hearty'}},{meal:'dinner',patch:{stapleVolume:'light'}}]);
+ assert.deepEqual(source,before);
+ const mode=field(root,'dinner','staple');mode.value='none';mode.emit('change');
+ assert.ok(!all(root).some(node=>node.id?.endsWith('-dinner-stapleVolume')));
+ field(root,'dinner','staple').value='fixed';field(root,'dinner','staple').emit('change');
+ assert.ok(field(root,'dinner','stapleAmount'));
+ assert.ok(!all(root).some(node=>node.id?.endsWith('-dinner-stapleVolume')));
+}));
+
+test('side detail controls retain numeric counts and the open disclosure across edits',()=>withDocument(()=>{
+ const changes=[],root=mountMealSettings({settings:settings(),data,onChange:(meal,patch)=>changes.push({meal,patch})});
+ let card=all(root).find(node=>node.tagName==='FIELDSET'&&node.dataset.meal==='breakfast');
+ let details=all(card).find(node=>node.tagName==='DETAILS');assert.equal(details.open,false);
+ details.open=true;details.emit('toggle');
+ const count=field(root,'breakfast','sideCount');count.value='2';count.emit('change');
+ const type=field(root,'breakfast','sideType');type.value='salad';type.emit('change');
+ const soup=field(root,'breakfast','soup');soup.value='include';soup.emit('change');
+ card=all(root).find(node=>node.tagName==='FIELDSET'&&node.dataset.meal==='breakfast');
+ details=all(card).find(node=>node.tagName==='DETAILS');assert.equal(details.open,true);
+ assert.deepEqual(changes,[{meal:'breakfast',patch:{sideCount:2}},{meal:'breakfast',patch:{sideType:'salad'}},{meal:'breakfast',patch:{soup:'include'}}]);
+ const off=field(root,'breakfast','sideCount');off.value='0';off.emit('change');
+ assert.equal(field(root,'breakfast','sideType').disabled,true);
+ assert.equal(field(root,'breakfast','sideType').value,'salad');
+ assert.equal(changes.at(-1).patch.sideCount,0);
+ const auto=field(root,'breakfast','sideCount');auto.value='auto';auto.emit('change');
+ assert.equal(field(root,'breakfast','sideType').disabled,false);
+ assert.equal(changes.at(-1).patch.sideCount,'auto');
+}));
+
+test('a day editor can show one complete meal profile without enabling or changing other days',()=>withDocument(()=>{
+ const source=settings();source.mealPreferences.breakfast.enabled=false;const before=structuredClone(source),changes=[];
+ const root=mountMealSettings({settings:source,data,meals:['breakfast'],allowEnable:false,onChange:(meal,patch)=>changes.push({meal,patch})});
+ assert.equal(all(root).filter(node=>node.tagName==='FIELDSET').length,1);
+ assert.ok(field(root,'breakfast','staple'));assert.ok(field(root,'breakfast','sideCount'));
+ assert.ok(!all(root).some(node=>node.id?.endsWith('-breakfast-enabled')));
+ assert.ok(!all(root).some(node=>node.id?.includes('-dinner-')));
+ const fruit=field(root,'breakfast','fruit');fruit.checked=true;fruit.emit('change');
+ assert.deepEqual(changes,[{meal:'breakfast',patch:{fruit:true}}]);
+ assert.deepEqual(source,before);
+}));
+
+test('invalid day-editor meal lists fail before rendering a misleading profile',()=>withDocument(()=>{
+ for(const meals of [[],['snack'],['breakfast','breakfast'],'breakfast'])assert.throws(()=>mountMealSettings({settings:settings(),data,meals}),/設定/);
+}));
+
+test('fixed menu quantities remain authoritative when an earlier automatic staple volume was small',()=>withDocument(()=>{
+ const source=settings();Object.assign(source.mealPreferences.breakfast,{staple:'fixed',stapleId:'plain-rice',stapleAmount:172.5,stapleVolume:'light'});
+ const changes=[],root=mountMealSettings({settings:source,data,onChange:(meal,patch)=>changes.push({meal,patch})});
+ assert.equal(field(root,'breakfast','stapleAmount').value,'172.5');
+ assert.ok(!all(root).some(node=>node.id?.endsWith('-breakfast-stapleVolume')));
+ const volume=field(root,'breakfast','volume');volume.value='hearty';volume.emit('change');
+ assert.equal(field(root,'breakfast','stapleAmount').value,'172.5');
+ assert.deepEqual(changes,[{meal:'breakfast',patch:{volume:'hearty'}}]);
+ assert.equal(source.mealPreferences.breakfast.stapleAmount,172.5);
+}));

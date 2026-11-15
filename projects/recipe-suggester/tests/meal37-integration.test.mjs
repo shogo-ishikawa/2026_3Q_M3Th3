@@ -1,3 +1,4 @@
+import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
 import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
 import {ADDED_311_RECIPES,ADDED_311_INGREDIENTS} from './helpers/meal311-additions.mjs';
@@ -23,7 +24,7 @@ import {createCatalogEntry} from '../record-actions.js';
 import {NUTRIENT_KEYS, itemNutrition, recipeNutrition, summariseEntries} from '../nutrition.js';
 import {shoppingForEntries} from '../shopping.js';
 
-const breadRecipeIds=new Set(BREAD_RECIPES.map(recipe=>recipe.id));
+const breadRecipeIds=new Set([...BREAD_RECIPES,...BREAKFAST_RECIPES].map(recipe=>recipe.id));
 const v310RecipeIds=new Set([...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES,...ADDED_311_RECIPES].map(recipe=>recipe.id));
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -44,7 +45,7 @@ test('表示の集約とカスタム調理を加えても旧855品と370食材�
   assert.equal(legacy.length, 855);
   assert.equal(hash(legacy.map(originalRecipe)), '21f7782f30165e8fba48cfaffc3b5c7c47c23500e037e32e249cee79e53dad23');
   const newIds = new Set([...Object.keys(DISH_CUSTOM_INGREDIENTS),...PANTRY_V325_INGREDIENT_IDS]);
-  const originals = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIds.has(id)&&!Object.hasOwn(PALETTE_INGREDIENTS,id)&&!Object.hasOwn(MEAT_CHOICE_INGREDIENTS,id)&&!Object.hasOwn(MAPO_INGREDIENTS,id)&&!Object.hasOwn(WORLD_INGREDIENTS,id)&&!Object.hasOwn(SEAFOOD_INGREDIENTS,id)&&!Object.hasOwn(NOODLE_INGREDIENTS,id)&&!Object.hasOwn(ADDED_311_INGREDIENTS,id)&&!Object.hasOwn(BREAD_INGREDIENTS,id)).map(([id,item])=>[id,originalNutrients(item)]));
+  const originals = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIds.has(id)&&!Object.hasOwn(PALETTE_INGREDIENTS,id)&&!Object.hasOwn(MEAT_CHOICE_INGREDIENTS,id)&&!Object.hasOwn(MAPO_INGREDIENTS,id)&&!Object.hasOwn(WORLD_INGREDIENTS,id)&&!Object.hasOwn(SEAFOOD_INGREDIENTS,id)&&!Object.hasOwn(NOODLE_INGREDIENTS,id)&&!Object.hasOwn(ADDED_311_INGREDIENTS,id)&&!Object.hasOwn(BREAD_INGREDIENTS,id)&&!Object.hasOwn(BREAKFAST_INGREDIENTS,id)).map(([id,item])=>[id,originalNutrients(item)]));
   assert.equal(Object.keys(originals).length, 370);
   assert.equal(hash(originals), '6525de4ed92e28ebcff68c94c070ec83dbdf3a9ad73243a63087ac2d641469cd');
   assert.equal(hash(Object.fromEntries(Object.entries(originals).map(([id, value]) => [id,
@@ -166,6 +167,7 @@ test('既存バリエーションを表示だけで集約し、検索・食事�
       assert.deepEqual(new Set(assembled.map(recipe=>recipe.id)),new Set([
         'bread-english-muffin-ham-cheese','bread-english-muffin-egg-cheese','bread-english-muffin-sausage-egg-cheese',
         'bread-english-muffin-bacon-egg-cheese','bread-english-muffin-tuna-cheese',
+        'breakfast-english-muffin-egg','breakfast-english-muffin-ham-cheese',
       ]));
       for(const recipe of assembled){assert.equal(recipeNature(recipe),'home-cooked');assert.equal(recipe.mealBase,true);}
       assert.equal(group.selectedRecipeId,'bread-english-muffin-ham-cheese');
@@ -173,7 +175,7 @@ test('既存バリエーションを表示だけで集約し、検索・食事�
   }
   for(const nature of ['home-cooked','ready-to-eat']){
     const matching=browseDishes(RECIPES,{section:'staple',nature,query:'イングリッシュマフィン'});
-    assert.equal(matching.length,nature==='home-cooked'?5:1);
+    assert.equal(matching.length,nature==='home-cooked'?7:1);
     const grouped=groupMenuRecipes(matching,{allRecipes:RECIPES,query:'イングリッシュマフィン'});
     assert.deepEqual(grouped.flatMap(group=>group.recipes.map(recipe=>recipe.id)),matching.map(recipe=>recipe.id));
     assert.ok(grouped.flatMap(group=>group.recipes).every(recipe=>recipeNature(recipe)===nature));

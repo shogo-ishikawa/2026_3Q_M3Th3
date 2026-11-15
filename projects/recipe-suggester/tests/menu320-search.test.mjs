@@ -75,7 +75,7 @@ const breadCatalogue=()=>[...new Map([...RECIPES,...BREAD_RECIPES].map(recipe=>[
 
 test('パンの新しい種類を既存の見出しへまとめ、標準プリセットから開ける',()=>{
   const recipes=breadCatalogue(),before=JSON.stringify(recipes),groups=groupMenuRecipes(recipes);
-  for(const [groupId,count] of [['hot-sandwich',13],['toast',12],['sandwich',7],['english-muffin',6]]){
+  for(const [groupId,count] of [['hot-sandwich',13],['toast',12],['sandwich',7],['english-muffin',8]]){
     const group=groups.find(row=>row.groupId===groupId);assert.ok(group,groupId);assert.equal(group.variantCount,count,groupId);
   }
   assert.equal(groups.find(row=>row.groupId==='hot-sandwich').selectedRecipeId,'bread-hot-sandwich-ham-cheese');
@@ -96,8 +96,10 @@ test('英マフィンのパンだけと具入りを同じ入口で選んでも�
   assert.deepEqual(ids(ready),['palette-english-muffin']);
   assert.deepEqual(ids(getVariationGroup(plain.id,ready).recipes),['palette-english-muffin']);
   const cooked=browseDishes(recipes,{section:'staple',query:'イングリッシュマフィン',nature:'home-cooked'});
-  assert.equal(cooked.length,5);assert.ok(cooked.every(recipe=>recipe.id!==plain.id));
-  assert.equal(getVariationGroup(assembled.id,cooked).variantCount,5);
+  assert.equal(cooked.length,7);assert.ok(cooked.every(recipe=>recipe.id!==plain.id));
+  const assembledGroup=getVariationGroup(assembled.id,cooked);
+  assert.equal(assembledGroup.variantCount,7);
+  for(const id of ['breakfast-english-muffin-egg','breakfast-english-muffin-ham-cheese'])assert.ok(ids(assembledGroup.recipes).includes(id),id);
   for(const changed of [{...plain,nature:'home-cooked'},{...plain,mealBase:true},{...assembled,nature:'ready-to-eat'},{...assembled,mealBase:false}]){
     assert.equal(getVariationGroup(changed.id,[changed]),null,'IDだけでは違う状態の料理を同じ入口へ入れない');
   }

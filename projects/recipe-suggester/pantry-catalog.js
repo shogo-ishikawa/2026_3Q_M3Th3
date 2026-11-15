@@ -9,7 +9,7 @@ const TABLE = {
     ["beef", "牛肉", "beef beef_stew_cut beef_round_raw beef_short_rib beef_minced beef_tendon_boiled beef_tongue meat_beef_small_intestine_raw meat_beef_rumen_boiled"],
     ["pork", "豚肉", "pork pork_loin dish_pork_belly_sliced pork_belly pork_minced pork_small_intestine_boiled tavern_pork_liver"],
     ["chicken", "鶏肉", "chicken chicken_breast chicken_minced chicken_skin tavern_chicken_gizzard tavern_chicken_heart"],
-    ["processed", "ハム・ソーセージ・加工肉", "bacon ready_sliced_ham palette_wiener palette_prosciutto noodle_chashu palette_chicken_nugget burger_chicken_patty"],
+    ["processed", "ハム・ソーセージ・加工肉", "bacon ready_sliced_ham breakfast_ham breakfast_bacon breakfast_chashu palette_wiener palette_prosciutto noodle_chashu palette_chicken_nugget burger_chicken_patty"],
     ["mixed", "合い挽き・混合", "beef_pork_mince_raw burger_meat_patty"],
     ["other", "羊・鴨・その他の肉", "world_mutton bistro_lamb_loin simmered_duck"],
   ],
@@ -43,7 +43,7 @@ const TABLE = {
   ],
   "grain": [
     ["rice", "米・ご飯・もち", "uncooked_rice rice brown_rice barley cooked_barley dish_mochi"],
-    ["bread", "パン", "bread wholegrain_bread hamburger_bun palette_bagel palette_english_muffin pizza_base"],
+    ["bread", "パン", "bread wholegrain_bread hamburger_bun palette_bagel breakfast_bagel palette_english_muffin breakfast_english_muffin pizza_base"],
     ["noodles", "麺・春雨", "udon soba pasta somen ramen_noodles yakisoba_noodles macaroni mung_vermicelli"],
     ["flour", "粉・パン粉・皮", "flour world_bread_flour world_wholemeal_flour rice_flour starch cornstarch breadcrumbs dumpling_wrappers spring_roll_wrappers soup311_wonton_wrappers simmered_chikuwabu"],
     ["cereal", "オートミール・焼き菓子生地", "oatmeal palette_waffle palette_muffin_base"],

@@ -60,7 +60,7 @@ const HANDHELD_FAMILIES = set('bread burger');
 export function breakfastRole(recipe) {
   const family = recipeFamily(recipe);
   if (family === 'alcohol') return null;
-  if (!AUDITED_RECIPE_IDS.has(recipe.id) && recipe.mealSuitability?.includes('breakfast')) return recipe.role === 'side' ? 'vegetable' : recipe.role;
+  if (!AUDITED_RECIPE_IDS.has(recipe.id) && recipe.mealSuitability?.includes('breakfast')) return recipe.role === 'side' ? 'vegetable' : isCompleteMeal(recipe) ? 'complete' : recipe.role;
   if (BREAKFAST_MAINS.has(recipe.id)) return isCompleteMeal(recipe) ? 'complete' : 'main';
   if (BREAKFAST_BREAD.has(recipe.id) || recipe.id.startsWith('staple-oatmeal-') || (recipe.role === 'staple' && RICE_FAMILIES.has(family))) return isCompleteMeal(recipe) ? 'complete' : 'staple';
   if (BREAKFAST_SIDES.has(recipe.id)) return 'vegetable';

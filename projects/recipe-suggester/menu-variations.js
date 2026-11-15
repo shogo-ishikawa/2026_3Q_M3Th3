@@ -278,6 +278,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('english-muffin', 'イングリッシュマフィン', [
     'palette-english-muffin','bread-english-muffin-ham-cheese','bread-english-muffin-egg-cheese',
     'bread-english-muffin-sausage-egg-cheese','bread-english-muffin-bacon-egg-cheese','bread-english-muffin-tuna-cheese',
+    'breakfast-english-muffin-egg','breakfast-english-muffin-ham-cheese',
   ], {defaultRecipeId:'bread-english-muffin-ham-cheese',
     recipeProfiles:{'palette-english-muffin':{nature:'ready-to-eat',mealBase:false}}}),
 ].map(group => Object.hasOwn(standardRecipeIds, group.id)

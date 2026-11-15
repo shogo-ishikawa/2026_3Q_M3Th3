@@ -1,7 +1,9 @@
 /** 個別の標準レシピに対応する完成イメージだけを返します。分類画像は流用しません。 */
 import {RECIPES} from './data.js';
-import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js?v=3.25.0';
-import {foodComposerDefinition} from './food-composer.js';
+import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js?v=3.26.0';
+import {foodComposerDefinition,defaultFoodSelection,buildFoodSelection} from './food-composer.js';
+import {itemFromRecipe} from './nutrition.js';
+import {recipePortion} from './catalog.js';
 
 const canonicalRecipes=new Map(RECIPES.map(recipe=>[recipe.id,recipe]));
 const own=(value,key)=>Object.hasOwn(value??{},key);
@@ -27,6 +29,65 @@ export function recipeArtwork(recipe,{artwork=RECIPE_ARTWORK}={}){
   const image=artwork[recipe.id];
   if(!record(image)||image.name!==original.name||image.src!==`assets/recipe-art/${recipe.id}.webp`||image.largeSrc!==`assets/recipe-art/${recipe.id}-large.webp`||image.width!==640||image.height!==480)return null;
   return {...image,recipeId:recipe.id};
+}
+
+const sameAmount=(a,b)=>a===b||typeof a==='number'&&typeof b==='number'&&Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=1e-9*Math.max(1,Math.abs(a),Math.abs(b));
+const sameList=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((value,index)=>value===b[index]);
+const sameSet=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.every(value=>typeof value==='string')&&b.every(value=>typeof value==='string')&&sameList([...a].sort(),[...b].sort());
+function sameMaterials(a,b){
+  if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length)return false;
+  const first=[...a].sort((a,b)=>String(a?.id).localeCompare(String(b?.id))),second=[...b].sort((a,b)=>String(a?.id).localeCompare(String(b?.id)));
+  return first.every((part,index)=>record(part)&&part.id===second[index]?.id&&sameAmount(part.amount,second[index]?.amount));
+}
+function snapshotMatchesRecipe(item,base,data){
+  const expected=itemFromRecipe(base,data);
+  for(const key of ['name','role','nature','sourceNote','shoppingKnown','allergensKnown','ingredientsKnown'])if(item[key]!==expected[key])return false;
+  if(!sameMaterials(item.ingredients,expected.ingredients)||!sameList(item.steps,expected.steps))return false;
+  for(const key of ['allergens','groups','proteinSources'])if(!sameSet(item[key],expected[key]))return false;
+  if(!record(item.nutrition)||Object.keys(expected.nutrition).some(key=>!sameAmount(item.nutrition[key],expected.nutrition[key])))return false;
+  if(item.portion!==undefined){
+    const portion=recipePortion(base,data);
+    if(!record(item.portion)||item.portion.unit!==portion.unit||!sameAmount(item.portion.amount,portion.amount))return false;
+  }
+  return true;
+}
+
+/**
+ * 献立・お気に入りの保存内容と標準レシピが一致する場合に限り、完成イメージを表示します。
+ * 食べる量は画像の対応から独立させます。保存した材料・栄養・手順は変更しません。
+ * 登録済みパンの組み合わせも、保存内容全体が同じ標準プリセットに一致する場合だけ対応します。
+ * 名前や分類だけの一致、変更済みレシピ、任意のマイレシピへの画像の流用は行いません。
+ */
+export function snapshotArtworkRecipe(item,data,{artwork=RECIPE_ARTWORK}={}){
+  if(!record(item)||typeof item.recipeId!=='string'||!item.recipeId||typeof item.quantity!=='number'||!Number.isFinite(item.quantity)||item.quantity<=0||!Array.isArray(data?.recipes))return null;
+  if(item.restaurant!==undefined)return null;
+  try{
+    // Composer-generated snapshots do not store an artwork ID. Rebuild only registered
+    // bread presets and compare the full saved content, rather than guessing from ingredients.
+    if(/^custom-food-[A-Za-z0-9_-]+$/.test(item.recipeId)){
+      if(typeof item.name!=='string')return null;
+      for(const kind of breadKinds){
+        const definition=foodComposerDefinition(kind);
+        if(!item.name.startsWith(`${definition.label}（`))continue;
+        for(const recipeId of definition.recipeIds){
+          const config=defaultFoodSelection(kind,{recipeId}),order=new Map(definition.components.map((part,index)=>[part.id,index]));
+          // Direct presets and the controls use different component orders. Both were saved by the app.
+          const controlOrder=[...config.components].sort((a,b)=>order.get(a.id)-order.get(b.id));
+          for(const components of [config.components,controlOrder]){
+            const composed=buildFoodSelection({...config,id:item.recipeId,components},data);
+            if(!snapshotMatchesRecipe(item,composed,data))continue;
+            const pictured=liveBreadArtworkRecipe(composed,definition,{artwork});
+            if(pictured)return pictured;
+          }
+        }
+      }
+      return null;
+    }
+    const matches=data.recipes.filter(recipe=>recipe?.id===item.recipeId);
+    if(matches.length!==1)return null;
+    const base=matches[0];
+    return recipeArtwork(base,{artwork})&&snapshotMatchesRecipe(item,base,data)?structuredClone(base):null;
+  }catch{return null;}
 }
 
 const breadKinds=new Set(['english-muffin','sandwich','hot-sandwich','toast']);

@@ -1266,3 +1266,7 @@ body[data-has-undo-notice="true"] main.page-width{padding-bottom:190px}
 @media(max-width:800px){.kitchen-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.shopping-source-controls{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:380px){.kitchen-tabs button{font-size:.85rem}}
 body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+
+.plan-edit-actions { display:flex;flex-wrap:wrap;gap:10px;margin:12px 18px; }
+.day-card-heading > .button-text { white-space:normal;min-height:44px;min-width:92px;font-size:.8125rem; }
+.plan-edit-actions .compact { min-height:44px;font-size:.875rem; }

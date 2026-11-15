@@ -1,3 +1,4 @@
+import {BREAKFAST_RECIPES,BREAKFAST_INGREDIENTS} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS,withoutPantryV325Ingredients} from './helpers/pantry-v325-additions.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,11 +26,13 @@ const data={recipes:RECIPES,ingredients:INGREDIENTS};
 const visible=recipe=>!['drink','snack'].includes(recipe.role);
 
 test('公開済みv3.20の全1013料理・456食材を全項目と順序まで保持する',()=>{
-  assert.equal(RECIPES.length,1013);assert.equal(Object.keys(INGREDIENTS).length,456+PANTRY_V325_INGREDIENT_IDS.length);
-  const previousIngredients=withoutPantryV325Ingredients(INGREDIENTS);
-  assert.deepEqual(RECIPES.map(recipe=>recipe.id),source.recipeIds);
+  assert.equal(RECIPES.length,1013+BREAKFAST_RECIPES.length);assert.equal(Object.keys(INGREDIENTS).length,456+PANTRY_V325_INGREDIENT_IDS.length+Object.keys(BREAKFAST_INGREDIENTS).length);
+  const addedIds=new Set(BREAKFAST_RECIPES.map(recipe=>recipe.id));
+  const previousRecipes=RECIPES.filter(recipe=>!addedIds.has(recipe.id));
+  const previousIngredients=withoutPantryV325Ingredients(Object.fromEntries(Object.entries(INGREDIENTS).filter(([id])=>!Object.hasOwn(BREAKFAST_INGREDIENTS,id))));
+  assert.deepEqual(previousRecipes.map(recipe=>recipe.id),source.recipeIds);
   assert.deepEqual(Object.keys(previousIngredients),source.ingredientIds);
-  assert.equal(hash(RECIPES),source.recipesHash);assert.equal(hash(previousIngredients),source.ingredientsHash);
+  assert.equal(hash(previousRecipes),source.recipesHash);assert.equal(hash(previousIngredients),source.ingredientsHash);
 });
 
 test('選択式メニューの点検記録が全操作系統を覆い、全104標準料理とピザトーストに絵がある',()=>{
