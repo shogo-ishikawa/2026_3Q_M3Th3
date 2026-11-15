@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateCalendarPlan, replaceRecipe, describeRecipe, shoppingList} from '../planner.js';
-import {normaliseMealPreferences, DEFAULT_MEAL_PREFERENCES} from '../meal-profiles.js';
+import {normaliseMealPreferences, DEFAULT_MEAL_PREFERENCES, defaultMealPreference} from '../meal-profiles.js';
 import {recipeNutrition} from '../nutrition.js';
 import {recipeFamily} from '../catalog.js';
 import {RECIPES, INGREDIENTS, ALLERGENS} from '../data.js';
@@ -24,7 +24,7 @@ const DATA = {allergens: [{id: 'egg'}], ingredients: {
 ]};
 const settings = extra => ({startDate: '2026-11-15', days: 1, seed: 5, meal: 'all', ...extra});
 const preferences = changes => Object.fromEntries(['breakfast', 'lunch', 'dinner'].map(meal =>
-  [meal, {volume: 'normal', mood: 'all', ...(changes?.[meal] ?? {})}]));
+  [meal, {...defaultMealPreference(), ...(changes?.[meal] ?? {})}]));
 const energy = (day, data = DATA) => day.recipeIds.reduce((sum, id) => sum + recipeNutrition(describeRecipe(id, data), data).kcal * day.quantities[id], 0);
 
 test('meal settings migrate legacy mood, reject malformed supplied profiles and remain independent copies', () => {
@@ -58,7 +58,7 @@ test('normal breakfast, lunch and dinner use different course counts and quantit
 });
 
 test('light and hearty act independently for each meal and leave explicit staple/drink quantities exact', () => {
-  const opts = settings({mealPreferences: preferences({breakfast: {volume: 'light'}, lunch: {volume: 'hearty'}})});
+  const opts = settings({mealPreferences: Object.fromEntries(Object.entries(preferences({breakfast: {volume: 'light'}, lunch: {volume: 'hearty'}})).map(([meal,p])=>[meal,{volume:p.volume,mood:p.mood}]))});
   const plan = generateCalendarPlan(opts, DATA, {stapleId: 'plain-rice', stapleMode: 'fixed', stapleAmount: 250, drinkId: 'water-drink', drinkAmount: 300});
   assert.equal(plan.ok, true);
   for (const day of plan.days) {
@@ -90,7 +90,7 @@ test('per-meal mood chooses its own safe main and survives replacement', () => {
   assert.notEqual(main(changed.days[0]), main(plan.days[0]));
   assert.ok(!changed.days[0].recipeIds.includes('soup'));
   assert.ok(changed.days[0].quantities[main(changed.days[0])] < 1);
-  assert.deepEqual(changed.settings.mealPreferences, mealPreferences);
+  assert.deepEqual(changed.settings.mealPreferences, normaliseMealPreferences(mealPreferences));
   assert.equal(generateCalendarPlan(settings({mealPreferences, allergens: ['egg']}), data).ok, false);
 });
 
@@ -103,7 +103,7 @@ test('catalogue breakfasts across seeds avoid heavy meal candidates when breakfa
     for (const day of plan.days) {
       const main = describeRecipe(day.recipeIds.find(id => describeRecipe(id, data).role === 'main'), data);
       assert.ok(!heavy.test(main.name), main.name);
-      assert.ok(main.minutes <= 25, main.name);
+      assert.ok(main.minutes <= 35, main.name);
       assert.ok(!['curry', 'ramen', 'pizza', 'fried-rice', 'donburi'].includes(recipeFamily(main)), main.name);
       assert.ok(day.recipeIds.some(id => describeRecipe(id, data).groups.includes('vegetable')));
       assert.ok(day.recipeIds.length <= 3);

@@ -102,12 +102,12 @@ test('お気に入りと最近の直接登録も、実際の量と材料の合�
   const disclosure=byClass(root,'quick-record-summary');assert.equal(disclosure.tagName,'DETAILS');assert.equal(disclosure.open,false);
   assert.match(byClass(disclosure,'record-summary-material-preview').textContent,/120g/);
   const quantity=byClass(root,'quick-record-amount');quantity.value='75.5';quantity.emit('change');
-  assert.match(byClass(disclosure,'record-summary-material-preview').textContent,/75.5g/);
+  assert.match(byClass(disclosure,'record-summary-material-preview').textContent,/約75g/);
   byClass(root,'quick-record-date').value='2026-11-14';byClass(root,'quick-record-date').emit('change');
   classes(root,'quick-record-meal').find(node=>node.dataset.meal==='lunch').emit('click');
   const status=byClass(root,'quick-record-status');status.value='planned';status.emit('change');
   assert.match(byClass(root,'record-summary-context').textContent,/2026-11-14 昼食・これからの予定/);
-  assert.match(byClass(root,'record-summary-material-preview').textContent,/75.5g/);
+  assert.match(byClass(root,'record-summary-material-preview').textContent,/約75g/);
   const currentQuantity=byClass(root,'quick-record-amount');currentQuantity.value='';currentQuantity.emit('input');
   assert.equal(byClass(root,'record-summary-content').hidden,true);assert.equal(byClass(root,'record-summary-prompt').hidden,false);
   assert.deepEqual(favourite,before);

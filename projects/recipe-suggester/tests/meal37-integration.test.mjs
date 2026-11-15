@@ -1,3 +1,4 @@
+import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
 import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
 import {ADDED_311_RECIPES,ADDED_311_INGREDIENTS} from './helpers/meal311-additions.mjs';
 import {WORLD_INGREDIENTS,WORLD_RECIPES} from '../world-foods.js';
@@ -42,7 +43,7 @@ test('表示の集約とカスタム調理を加えても旧855品と370食材�
   const legacy=RECIPES.filter(recipe=>!PALETTE_RECIPES.some(added=>added.id===recipe.id)&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id)&&!breadRecipeIds.has(recipe.id));
   assert.equal(legacy.length, 855);
   assert.equal(hash(legacy.map(originalRecipe)), '21f7782f30165e8fba48cfaffc3b5c7c47c23500e037e32e249cee79e53dad23');
-  const newIds = new Set(Object.keys(DISH_CUSTOM_INGREDIENTS));
+  const newIds = new Set([...Object.keys(DISH_CUSTOM_INGREDIENTS),...PANTRY_V325_INGREDIENT_IDS]);
   const originals = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIds.has(id)&&!Object.hasOwn(PALETTE_INGREDIENTS,id)&&!Object.hasOwn(MEAT_CHOICE_INGREDIENTS,id)&&!Object.hasOwn(MAPO_INGREDIENTS,id)&&!Object.hasOwn(WORLD_INGREDIENTS,id)&&!Object.hasOwn(SEAFOOD_INGREDIENTS,id)&&!Object.hasOwn(NOODLE_INGREDIENTS,id)&&!Object.hasOwn(ADDED_311_INGREDIENTS,id)&&!Object.hasOwn(BREAD_INGREDIENTS,id)).map(([id,item])=>[id,originalNutrients(item)]));
   assert.equal(Object.keys(originals).length, 370);
   assert.equal(hash(originals), '6525de4ed92e28ebcff68c94c070ec83dbdf3a9ad73243a63087ac2d641469cd');

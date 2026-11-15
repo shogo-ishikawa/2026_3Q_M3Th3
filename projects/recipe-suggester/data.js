@@ -1,4 +1,5 @@
 /** 献立候補の教材用データ。材料・分量・手順は本教材用に記述しています。 */
+import {createPantryExtraIngredients} from './pantry-extra-ingredients.js';
 import { EXTRA_INGREDIENTS, EXPANDED_RECIPES } from './expanded-foods.js';
 import { EVERYDAY_INGREDIENTS, EVERYDAY_RECIPES } from './everyday-foods.js';
 import { CLASSIC_MAIN_INGREDIENTS, CLASSIC_MAIN_RECIPES } from './classics-mains.js';
@@ -33,7 +34,7 @@ import { BISTRO_INGREDIENTS, BISTRO_RECIPES } from './bistro-foods.js';
 import { SOUP311_INGREDIENTS, SOUP311_RECIPES } from './soup311-foods.js';
 import { BREAD_INGREDIENTS, BREAD_RECIPES } from './bread-foods.js';
 
-export const DATA_VERSION = '3.24.0';
+export const DATA_VERSION = '3.25.0';
 
 // 2026年の消費者庁の表示対象。特定原材料9品目と推奨20品目。
 export const ALLERGENS = [
@@ -309,6 +310,8 @@ for (const [id, item] of Object.entries(INGREDIENTS)) {
     nutritionSource:'栄養値は未登録です。',
   });
 }
+
+Object.assign(INGREDIENTS,createPantryExtraIngredients(INGREDIENTS));
 
 const recipe = (id, name, genre, minutes, items, steps, staple = false, tags = []) => ({
   id, name, role: 'main', genre, minutes, servings: 2,

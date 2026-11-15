@@ -122,10 +122,10 @@ test('不正な人数、材料選択、分量や在庫を黙って集計しな�
   assert.throws(() => shoppingMenusFromEntries([],data,{...options,to:'2026-11-14'}));
 });
 
-test('456食材が売り場に近い区分へ入り、分類は栄養や元データを書き換えない', () => {
+test('458食材が売り場に近い区分へ入り、分類は栄養や元データを書き換えない', () => {
   const catalogue = {ingredients:INGREDIENTS};
   const before = structuredClone(INGREDIENTS), valid = new Set(INGREDIENT_GROUPS.map(group => group.id));
-  assert.equal(Object.keys(INGREDIENTS).length, 456);
+  assert.equal(Object.keys(INGREDIENTS).length, 458);
   for (const id of Object.keys(INGREDIENTS)) {
     assert.ok(valid.has(ingredientGroup(id,catalogue)), id);
     assert.notEqual(ingredientGroup(id,catalogue),'other',id);

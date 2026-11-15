@@ -4,7 +4,7 @@ import {describeRecipe, eligibleRecipes, generateCalendarPlan, generatePlan, rep
 
 const nutrients = extra => ({kcal: 200, protein: 10, fat: 5, carbs: 25, fiber: 2, salt: 0.5, ...extra});
 const ingredient = (name, groups = [], allergens = [], extra = {}) => ({name, unit: 'g', groups, allergens, proteinSources: [], nutritionPerUnit: nutrients({kcal: 1, protein: 0.1, fat: 0, carbs: 0.1, fiber: 0.01, salt: 0}), ...extra});
-const food = (id, role, parts = ['vegetable'], extra = {}) => ({id, name: id, role, genre: '和食', minutes: 10, servings: 1,
+const food = (id, role, parts = ['vegetable'], extra = {}) => ({id, name: id, role, mealSuitability: ['breakfast','lunch','dinner'], genre: '和食', minutes: 10, servings: 1,
   ingredients: parts.map(id => ({id, amount: 100})), steps: ['材料を用意します。'], tags: [], staple: role === 'staple', ...extra});
 const manual = (id, role, nutrition, extra = {}) => food(id, role, ['vegetable'], {custom: true,
   manualNutrition: nutrients(nutrition), allergens: [], allergensKnown: true, ingredientsKnown: true, ...extra});

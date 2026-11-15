@@ -158,7 +158,7 @@ test('simple and detailed record views round-trip without changing historical sn
 
 test('old v1/v2/v3 data defaults to detailed view and preserves old source data', () => {
   const legacy1 = defaultState(day), legacy2 = {...defaultJournal(day), version:2};
-  for (const key of ['profile', 'completedDays', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList']) delete legacy2[key];
+  for (const key of ['profile', 'completedDays', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts']) delete legacy2[key];
   for (const key of ['stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'mealPreferences', 'shoppingOmittedIds']) delete legacy2.settings[key];
   const legacy3 = state(); delete legacy3.settings.recordView;
   for (const source of [legacy1, legacy2, legacy3]) {
