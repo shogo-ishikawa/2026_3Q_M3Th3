@@ -1,3 +1,4 @@
+import {BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {createPantryExtraIngredients} from '../pantry-extra-ingredients.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -107,15 +108,20 @@ test('概算値を元の成分表のnullと区別し既知の成分を上書き�
   }
 });
 
-test('材料から計算する全登録料理で6成分の概算が得られる', () => {
+test('従来の全登録料理は6成分を計算でき、追加した製品料理の未掲載食物繊維は不明のまま保持する', () => {
+  const addedIds=new Set(BREAKFAST_RECIPES.map(row=>row.id));
   const calculated = RECIPES.filter(row => row.manualNutrition === undefined);
+  assert.equal(calculated.filter(row=>addedIds.has(row.id)).length,8);
   assert.ok(calculated.length >= 700, 'exercise the full catalogue, not a small selection');
   for (const row of calculated) {
     const values = recipeNutrition(row, data);
-    for (const key of NUTRIENT_KEYS) assert.ok(
+    for (const key of NUTRIENT_KEYS) {
+      if(addedIds.has(row.id)&&key==='fiber'){assert.equal(values[key],null,row.id);continue;}
+      assert.ok(
       typeof values[key] === 'number' && Number.isFinite(values[key]) && values[key] >= 0,
       `${row.id} ${row.name}.${key}: ${values[key]}`,
     );
+    }
   }
 });
 

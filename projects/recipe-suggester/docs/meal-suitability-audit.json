@@ -1011,5 +1011,13 @@
 {"recipeId":"bread-toast-avocado","name":"アボカドトースト","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"staple","category":"staple"},
 {"recipeId":"bread-toast-pizza","name":"ピザトースト","family":"bread","meals":["lunch","dinner"],"breakfastRole":null,"category":"complete-or-staple"},
 {"recipeId":"bread-toast-peanut-butter","name":"ピーナッツバタートースト","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"staple","category":"staple"},
-{"recipeId":"bread-toast-custom","name":"トースト（具材を指定する）","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"staple","category":"staple"}
+{"recipeId":"bread-toast-custom","name":"トースト（具材を指定する）","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"staple","category":"staple"},
+{"recipeId":"breakfast-ham-egg","name":"ハムエッグ","family":"egg-main","meals":["breakfast","lunch","dinner"],"breakfastRole":"main","category":"main"},
+{"recipeId":"breakfast-bacon-egg","name":"ベーコンエッグ","family":"egg-main","meals":["breakfast","lunch","dinner"],"breakfastRole":"main","category":"main"},
+{"recipeId":"breakfast-chashu-egg","name":"チャーシューエッグ","family":"egg-main","meals":["breakfast","lunch","dinner"],"breakfastRole":"main","category":"main"},
+{"recipeId":"breakfast-bagel-plain","name":"プレーンベーグル","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"staple","category":"staple"},
+{"recipeId":"breakfast-bagel-egg-cheese","name":"たまごチーズベーグル","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"complete","category":"complete"},
+{"recipeId":"breakfast-bagel-ham-cheese","name":"ハムチーズベーグル","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"complete","category":"complete"},
+{"recipeId":"breakfast-english-muffin-egg","name":"目玉焼きとチーズのイングリッシュマフィン","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"complete","category":"complete"},
+{"recipeId":"breakfast-english-muffin-ham-cheese","name":"ハムチーズのイングリッシュマフィン","family":"bread","meals":["breakfast","lunch","dinner"],"breakfastRole":"complete","category":"complete"}
 ]}

@@ -6,7 +6,7 @@ export const MEAL_PREFERENCE_IDS = Object.freeze(['breakfast', 'lunch', 'dinner'
 export const MEAL_VOLUME_IDS = Object.freeze(['light', 'normal', 'hearty']);
 export const MEAL_MOOD_IDS = Object.freeze(['all', 'さっぱり', 'ガッツリ', '時短', '定番']);
 export const MEAL_STAPLE_IDS = Object.freeze(['auto', 'rice', 'bread', 'rice-or-bread', 'cereal', 'none', 'rice-meal', 'noodle', 'handheld', 'fixed']);
-export function defaultMealPreference() {return {volume: 'normal', mood: 'all', enabled: true, staple: 'auto', stapleId: 'auto', stapleAmount: null, drinkId: 'none', drinkAmount: null, yogurt: false, fruit: false};}
+export function defaultMealPreference() {return {volume: 'normal', mood: 'all', enabled: true, staple: 'auto', stapleId: 'auto', stapleAmount: null, drinkId: 'none', drinkAmount: null, yogurt: false, fruit: false, stapleVolume: 'auto', sideCount: 'auto', sideType: 'auto', soup: 'auto'};}
 export const DEFAULT_MEAL_PREFERENCES = Object.freeze(Object.fromEntries(MEAL_PREFERENCE_IDS.map(meal => [meal, Object.freeze(defaultMealPreference())])));
 const PROFILE_KEYS = Object.keys(defaultMealPreference());
 const selectedId = value => typeof value === 'string' && value.trim() && value.length <= 120 && !['__proto__', 'constructor', 'prototype'].includes(value);
@@ -30,6 +30,7 @@ export function normaliseMealPreferences(value, legacyMood = 'all', legacySettin
     }
     const result = {...defaults, ...item};
     if (typeof result.enabled !== 'boolean' || typeof result.yogurt !== 'boolean' || typeof result.fruit !== 'boolean' || !MEAL_STAPLE_IDS.includes(result.staple) || !selectedId(result.stapleId) || !selectedId(result.drinkId) || !amount(result.stapleAmount) || !amount(result.drinkAmount)) throw Error('食事ごとの主食・飲み物・追加食品を確認してください。');
+    if (!['auto', ...MEAL_VOLUME_IDS].includes(result.stapleVolume) || !(result.sideCount === 'auto' || Number.isInteger(result.sideCount) && result.sideCount >= 0 && result.sideCount <= 3) || !['auto', 'salad', 'vegetable', 'protein'].includes(result.sideType) || !['auto', 'none', 'include'].includes(result.soup)) throw Error('主食の量・副菜・汁物の設定を確認してください。');
     if (result.staple === 'fixed' && ['auto', 'none'].includes(result.stapleId)) throw Error('固定する主食を選んでください。');
     return [meal, result];
   }));
@@ -67,13 +68,14 @@ export function mainIncludesBroth(recipe) {
 }
 export function mealCourses(settings, main) {
   const profile = mealProfile(settings), meal = settings.meal;
-  if (meal === 'snack') return {side: false, soup: false};
+  if (meal === 'snack') return {side: false, sideCount: 0, soup: false};
+  let automatic;
   if (meal === 'breakfast') {
-    if (profile.staple === 'cereal') return {side: false, soup: false};
-    if (profile.yogurt || profile.fruit) return {side: false, soup: false};
-    if (profile.volume === 'light') return {side: true, soup: false};
-    return profile.staple === 'bread' || main?.genre === '洋食' ? {side: true, soup: false} : {side: false, soup: true};
-  }
-  if (mainIncludesBroth(main)) return {side: true, soup: false};
-  return {side: true, soup: profile.volume === 'hearty' || meal === 'dinner' && profile.volume !== 'light'};
+    if (profile.staple === 'cereal' || profile.yogurt || profile.fruit) automatic = {side: false, soup: false};
+    else if (profile.volume === 'light') automatic = {side: true, soup: false};
+    else automatic = profile.staple === 'bread' || main?.genre === '洋食' ? {side: true, soup: false} : {side: false, soup: true};
+  } else if (mainIncludesBroth(main)) automatic = {side: true, soup: false};
+  else automatic = {side: true, soup: profile.volume === 'hearty' || meal === 'dinner' && profile.volume !== 'light'};
+  const count = profile.sideCount === 'auto' ? (automatic.side || profile.sideType !== 'auto' ? 1 : 0) : profile.sideCount;
+  return {side: count > 0, sideCount: count, soup: profile.soup === 'include' || profile.soup === 'auto' && automatic.soup};
 }

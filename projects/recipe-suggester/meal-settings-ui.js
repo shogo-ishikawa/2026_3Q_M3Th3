@@ -6,6 +6,10 @@ import {configureQuantityInput, readQuantityInput, setQuantityPresets} from './q
 
 const MEALS = [['breakfast', '朝食'], ['lunch', '昼食'], ['dinner', '夕食']];
 const VOLUMES = [['light', '軽め'], ['normal', 'ふつう'], ['hearty', 'しっかり']];
+const STAPLE_VOLUMES = [['auto', 'おかずの量に合わせる'], ['light', '少なめ'], ['normal', 'ふつう'], ['hearty', '多め']];
+const SIDE_COUNTS = [['auto', 'おまかせ'], ['0', '付けない'], ['1', '1品'], ['2', '2品'], ['3', '3品']];
+const SIDE_TYPES = [['auto', 'おまかせ'], ['salad', 'サラダ'], ['vegetable', '野菜の小鉢'], ['protein', '卵・豆腐などの小鉢']];
+const SOUPS = [['auto', 'おまかせ'], ['none', '付けない'], ['include', '付ける']];
 const MOODS = [['all', '指定しない'], ['さっぱり', 'さっぱり'], ['ガッツリ', 'ガッツリ'], ['時短', '時短'], ['定番', '定番']];
 const BREAKFAST_STAPLES = [['auto', 'おまかせ'], ['rice', 'ご飯'], ['bread', 'パン'], ['rice-or-bread', 'ご飯かパン'], ['cereal', 'オートミール（シリアル）'], ['none', '主食なし'], ['fixed', 'メニューと量を指定']];
 const OTHER_STAPLES = [['auto', 'おまかせ'], ['rice', 'ご飯とおかず'], ['rice-meal', '丼・チャーハンなどのご飯もの'], ['noodle', '麺類'], ['handheld', 'ハンバーガー・サンドイッチ'], ['none', '主食なし'], ['fixed', 'メニューと量を指定']];
@@ -17,13 +21,15 @@ const make = (tag, className = '', text = '') => {
 };
 const familyLabel = recipe => CATALOG_CATEGORIES.find(group => group.id === recipeFamily(recipe))?.label ?? 'その他';
 
-export function mountMealSettings({settings = {}, data, onChange = () => {}, onError = () => {}} = {}) {
-  if (!data || typeof onChange !== 'function' || typeof onError !== 'function') throw Error('食事ごとの設定を確認してください。');
+export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal]) => meal), allowEnable = true, onChange = () => {}, onError = () => {}} = {}) {
+  if (!data || typeof onChange !== 'function' || typeof onError !== 'function' || !Array.isArray(meals) || !meals.length || new Set(meals).size !== meals.length || meals.some(meal => !MEALS.some(([id]) => id === meal)) || typeof allowEnable !== 'boolean') throw Error('食事ごとの設定を確認してください。');
   let profiles = normaliseMealPreferences(settings.mealPreferences, settings.preferences?.mood ?? 'all', settings);
   const available = eligibleRecipes(settings, data), allRecipes = data.recipes ?? [];
   const staples = available.filter(recipe => recipe.role === 'staple' || recipe.role === 'main' && recipe.staple);
   const drinks = available.filter(recipe => recipe.role === 'drink');
   const prefix = `meal-settings-${++counter}`, root = make('div', 'meal-settings');
+  const detailsOpen = new Map();
+  if (meals.length === 1) root.className += ' meal-settings-single';
   const error = make('p', 'notice error meal-settings-error'); error.hidden = true; error.setAttribute('role', 'alert');
   const report = cause => {error.textContent = cause.message; error.hidden = false; onError(cause.message);};
   const act = action => event => {try {action(event); error.hidden = true; error.textContent = '';} catch (cause) {report(cause);}};
@@ -72,15 +78,16 @@ export function mountMealSettings({settings = {}, data, onChange = () => {}, onE
   }
   function render() {
     const cards = [];
-    for (const [meal, title] of MEALS) {
+    for (const [meal, title] of MEALS.filter(([id]) => meals.includes(id))) {
       const choice = profiles[meal], card = make('fieldset', 'meal-settings-card'); card.dataset.meal = meal;
-      card.append(make('legend', '', title), toggle(meal, 'enabled', `${title}を提案する`, choice.enabled));
-      if (!choice.enabled) {cards.push(card); continue;}
+      card.append(make('legend', '', title));
+      if (allowEnable) card.append(toggle(meal, 'enabled', `${title}を提案する`, choice.enabled));
+      if (allowEnable && !choice.enabled) {cards.push(card); continue;}
       const pair = make('div', 'meal-settings-pair');
       const volume = select(meal, 'volume', VOLUMES, choice.volume), mood = select(meal, 'mood', MOODS, choice.mood);
       volume.addEventListener('change', act(() => update(meal, {volume: volume.value})));
       mood.addEventListener('change', act(() => update(meal, {mood: mood.value})));
-      pair.append(field('量の目安', volume), field('料理の傾向', mood)); card.append(pair);
+      pair.append(field('おかずの量', volume), field('料理の傾向', mood)); card.append(pair);
       const modes = meal === 'breakfast' ? BREAKFAST_STAPLES : OTHER_STAPLES;
       const choices = modes.some(([id]) => id === choice.staple) ? modes : [...modes, [choice.staple, choice.staple === 'bread' ? 'パン' : choice.staple === 'rice-or-bread' ? 'ご飯かパン' : 'オートミール（シリアル）']];
       const mode = select(meal, 'staple', choices, choice.staple);
@@ -91,7 +98,12 @@ export function mountMealSettings({settings = {}, data, onChange = () => {}, onE
           update(meal, {staple: 'fixed', stapleId: recipe.id, stapleAmount: null});
         } else update(meal, {staple: mode.value, stapleId: 'auto', stapleAmount: null});
       }));
-      card.append(field('主食の選び方', mode));
+      card.append(field('主食の種類', mode));
+      if (!['none', 'fixed'].includes(choice.staple)) {
+        const stapleVolume = select(meal, 'stapleVolume', STAPLE_VOLUMES, choice.stapleVolume);
+        stapleVolume.addEventListener('change', act(() => update(meal, {stapleVolume: stapleVolume.value})));
+        card.append(field('主食の量', stapleVolume));
+      }
       if (choice.staple === 'fixed') {
         const fixed = make('div', 'meal-settings-fixed'), recipe = allRecipes.find(recipe => recipe.id === choice.stapleId);
         fixed.append(field('具体的なメニュー', recipeSelect(meal, 'staple', staples, choice.stapleId)));
@@ -105,7 +117,19 @@ export function mountMealSettings({settings = {}, data, onChange = () => {}, onE
       if (meal === 'breakfast') {
         const extras = make('div', 'meal-settings-extras'); extras.append(toggle(meal, 'yogurt', 'ヨーグルトを付ける', choice.yogurt), toggle(meal, 'fruit', '果物を付ける', choice.fruit)); card.append(extras);
       }
-      cards.push(card);
+      const details = make('details', 'meal-settings-details'); details.open = detailsOpen.get(meal) ?? false;
+      details.addEventListener('toggle', () => detailsOpen.set(meal, details.open));
+      details.append(make('summary', '', '副菜・汁物の詳細設定'));
+      const sidePair = make('div', 'meal-settings-pair');
+      const sideCount = select(meal, 'sideCount', SIDE_COUNTS, String(choice.sideCount));
+      sideCount.addEventListener('change', act(() => update(meal, {sideCount: sideCount.value === 'auto' ? 'auto' : Number(sideCount.value)})));
+      const sideType = select(meal, 'sideType', SIDE_TYPES, choice.sideType); sideType.disabled = choice.sideCount === 0;
+      sideType.addEventListener('change', act(() => update(meal, {sideType: sideType.value})));
+      sidePair.append(field('副菜の数', sideCount), field('1品目の副菜', sideType));
+      const soup = select(meal, 'soup', SOUPS, choice.soup);
+      soup.addEventListener('change', act(() => update(meal, {soup: soup.value})));
+      details.append(sidePair, field('汁物', soup));
+      card.append(details); cards.push(card);
     }
     root.replaceChildren(...cards, error);
   }

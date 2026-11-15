@@ -294,7 +294,7 @@ function mealPreferencesSetting(value, legacyMood = 'all', legacySettings = {}, 
     record(value, meals, '朝昼夕の食事設定');
     if (meals.some(meal => !Object.hasOwn(value, meal))) throw new Error('朝昼夕の食事設定を確認してください。');
     for (const meal of meals) {
-      record(value[meal], ['volume', 'mood', 'enabled', 'staple', 'stapleId', 'stapleAmount', 'drinkId', 'drinkAmount', 'yogurt', 'fruit'], '食事ごとの設定');
+      record(value[meal], ['volume', 'mood', 'enabled', 'staple', 'stapleId', 'stapleAmount', 'drinkId', 'drinkAmount', 'yogurt', 'fruit', 'stapleVolume', 'sideCount', 'sideType', 'soup'], '食事ごとの設定');
       if (!Object.hasOwn(value[meal], 'volume') || !Object.hasOwn(value[meal], 'mood')) throw new Error('食事の量と気分を確認してください。');
     }
   }

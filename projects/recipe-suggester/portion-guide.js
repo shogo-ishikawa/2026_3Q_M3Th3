@@ -19,7 +19,9 @@ const fraction = value => ({.125:'1/8',.25:'1/4',[1/3]:'1/3',.5:'半',[2/3]:'2/3
 export function plannedQuantity(recipe, settings = {}, data) {
   if (!recipe || typeof recipe !== 'object') throw Error('料理の量を確認してください。');
   const meal = settings.meal ?? 'dinner';
-  const volume = settings.mealPreferences?.[meal]?.volume ?? 'normal';
+  const profile = settings.mealPreferences?.[meal] ?? {};
+  const isStaple = recipe.staple === true || ['rice','bread','onigiri','oatmeal'].includes(recipeFamily(recipe));
+  const volume = isStaple && profile.stapleVolume && profile.stapleVolume !== 'auto' ? profile.stapleVolume : profile.volume ?? 'normal';
   if (!['light','normal','hearty'].includes(volume)) throw Error('食事の量を確認してください。');
   const index = ['light','normal','hearty'].indexOf(volume);
   const portion = recipePortion(recipe,data), family = recipeFamily(recipe);
