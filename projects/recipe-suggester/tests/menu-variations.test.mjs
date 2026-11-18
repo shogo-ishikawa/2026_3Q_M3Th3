@@ -8,6 +8,7 @@ import {recipeNutrition, itemNutrition} from '../nutrition.js';
 import {defaultJournal, parseJournal} from '../journal.js';
 import {createCatalogEntry} from '../record-actions.js';
 import {shoppingForEntries} from '../shopping.js';
+import {stockPurchaseId} from '../strained-stock.js';
 import {matchesJapaneseQuery} from '../japanese-search.js';
 import {browseDishes} from '../dish-hierarchy.js';
 
@@ -16,11 +17,11 @@ const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
 const date = '2026-11-13';
 const near = (a,b) => assert.ok(Math.abs(a-b)<1e-8, `${a} != ${b}`);
 
-test('料理を変更せず74の見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
+test('料理を変更せず明示した見出しへ種類をまとめ、全料理を重複なく1回ずつ残す', () => {
   const before = JSON.stringify(RECIPES);
   const groups = groupMenuRecipes(RECIPES);
   assert.ok(groups.length < RECIPES.length - 200, '一覧を整理し、詳細で選べる種類を増やす');
-  assert.equal(groups.filter(group => group.isGroup).length, 74);
+  assert.equal(groups.filter(group => group.isGroup).length, MENU_VARIATION_GROUPS.length);
   assert.ok(groups.filter(group => group.isGroup).reduce((sum,group) => sum+group.variantCount,0) >= 300);
   const ids = groups.flatMap(group => group.recipes.map(recipe => recipe.id));
   assert.equal(new Set(ids).size, RECIPES.length);
@@ -34,26 +35,27 @@ test('料理を変更せず74の見出しへ種類をまとめ、全料理を重
     assert.deepEqual(new Set(group.recipes.map(recipe=>recipe.id)),new Set(definition.recipeIds));
     for (const recipe of group.recipes) {
       const profile=definition.recipeProfiles?.[recipe.id];
-      assert.equal(recipe.role, definition.role);
+      assert.equal(recipe.role, profile?.role??definition.role);
       assert.equal(recipeNature(recipe), profile?.nature??definition.nature);
-      assert.equal(recipe.staple, definition.staple);
+      assert.equal(recipe.staple, profile?.staple??definition.staple);
       assert.equal(recipe.mealBase, profile?.mealBase??definition.mealBase);
     }
   }
   assert.equal(JSON.stringify(RECIPES), before);
 });
 
-test('手作りと購入形態、主食の有無、主菜と主食を分け、寿司の元の量単位を保つ', () => {
+test('提供形態・食事での役割・主食の有無、寿司の元の量単位を保つ', () => {
   const curry = getVariationGroup('daily-curry-beef',RECIPES);
   const retort = getVariationGroup('prepared-retort-beef-curry',RECIPES);
   assert.notEqual(curry.key, retort.key);
   assert.ok(curry.recipes.every(recipe => recipe.nature==='home-cooked'));
   assert.ok(retort.recipes.every(recipe => recipe.nature==='retort'));
-  assert.equal(getVariationGroup('pasta-meat',RECIPES), null, '古いmain-roleパスタをstaple-roleへ混ぜない');
+  assert.equal(getVariationGroup('pasta-meat',RECIPES).groupId, 'pasta');
+  assert.equal(byId.get('pasta-meat').role,'main');
   assert.equal(getVariationGroup('classic-sushi-assorted',RECIPES).groupId,'nigiri');
   assert.equal(recipePortion(byId.get('classic-sushi-assorted'),data).unit,'皿');
   assert.equal(recipePortion(byId.get('classic-sushi-tuna'),data).unit,'貫');
-  assert.equal(getVariationGroup('staple-rice-porridge',RECIPES), null);
+  assert.equal(getVariationGroup('staple-rice-porridge',RECIPES).groupId, 'rice-porridge');
   assert.equal(getVariationGroup('classic-sushi-tuna',RECIPES).groupId,'nigiri');
   assert.equal(getVariationGroup('sushi-hosomaki-kappa',RECIPES).groupId,'hosomaki');
   assert.equal(getVariationGroup('sushi-gunkan-natto',RECIPES).groupId,'gunkan');
@@ -177,9 +179,7 @@ test('実際のメニュー検索でもグループ見出しから定義済み�
   assert.deepEqual(new Set(browseDishes(view,{query:'軍艦巻き'}).map(recipe=>recipe.id)),definedIds('gunkan'));
   assert.deepEqual(new Set(catalogVariants(view,'curry',{query:'レトルトカレーライス'}).map(recipe=>recipe.id)),definedIds('retort-curry'));
   assert.equal(JSON.stringify(RECIPES),before);
-  for(const recipe of MENU_VARIATION_GROUPS.flatMap(group=>group.recipeIds.map(id=>byId.get(id)))){
-    assert.ok(!Object.hasOwn(recipe,'searchAliases'),'既存のグループ見出しを元DBへ書き戻さない');
-  }
+  assert.ok(view.find(recipe=>recipe.id==='kyoto-keiran-udon').searchAliases.includes('うどん'));
 });
 
 test('見出し検索を使っても区分・提供形態・アレルギーで除外した内訳を戻さない', () => {
@@ -202,7 +202,7 @@ test('見出し検索を使っても区分・提供形態・アレルギーで�
 test('追加した見出しは実際の同じ料理の種類へ到達し、別の料理を取り込まない', () => {
   for (const [id, groupId, label, expectedIds] of [
     ['daily-pizza-margherita','pizza','ピザ',['daily-pizza-margherita','daily-pizza-mixed','daily-pizza-teriyaki','daily-pizza-seafood']],
-    ['daily-fried-rice-egg','fried-rice','チャーハン',['daily-fried-rice-egg','daily-fried-rice-gomoku','daily-fried-rice-kimchi','daily-fried-rice-shrimp']],
+    ['daily-fried-rice-egg','fried-rice','チャーハン',['daily-fried-rice-egg','daily-fried-rice-gomoku','daily-fried-rice-kimchi','daily-fried-rice-shrimp','egg-fried-rice']],
     ['daily-ramen-soy','ramen','ラーメン',['daily-ramen-soy','daily-ramen-salt','daily-ramen-miso','daily-ramen-tanmen','noodle-ramen-niboshi','noodle-ramen-miso-butter-corn','noodle-ramen-tonkotsu','noodle-ramen-iekei','noodle-ramen-jiro','noodle-ramen-seabura','noodle-ramen-tantan']],
     ['classic-croquette-potato','croquette','コロッケ',['classic-croquette-potato','classic-croquette-pumpkin','classic-croquette-cream','world-crab-cream-croquette']],
     ['drink-milk','milk','牛乳・豆乳',['drink-milk','drink-soy-milk']],
@@ -252,4 +252,54 @@ test('魚介やアレルギー条件で絞った追加グループは対象外�
   const selected=getVariationGroup('varied-yakitori-thigh-salt',subset);
   assert.deepEqual(selected.recipes.map(recipe=>recipe.id),['varied-yakitori-thigh-salt']);
   function homeSubset(){return RECIPES.filter(recipe=>recipe.id==='varied-yakitori-thigh-salt');}
+});
+
+test('うどんの一般名はかけうどん、個別名はその種類で開き、既存の区分・材料・必要量を使う', () => {
+  const members = getVariationGroup('kyoto-keiran-udon', RECIPES).recipes;
+  assert.equal(members.length, 12);
+  assert.equal(groupMenuRecipes(members, {query:'うどん'})[0].selectedRecipeId, 'daily-udon-plain');
+  for (const [id, query] of [
+    ['kyoto-keiran-udon','けいらんうどん'], ['udon-egg','卵と小松菜の温うどん'], ['udon-pork','焼きうどん'],
+  ]) {
+    const entry = groupMenuRecipes(members, {query})[0];
+    assert.equal(entry.selectedRecipeId, id, query);
+    assert.equal(entry.recipe, byId.get(id));
+    const original = entry.recipe;
+    const portion = recipePortion(original,data);
+    const record = createCatalogEntry({recipeId:id,date,meal:'lunch',status:'planned',amount:portion.amount,note:''},data);
+    const state=defaultJournal(date); state.entries=[record];
+    const [saved]=parseJournal(JSON.stringify(state),data).entries;
+    assert.deepEqual(saved,record);
+    assert.equal(saved.items[0].recipeId,id);
+    const shopping=shoppingForEntries([saved],data,{from:date,to:date,servings:2});
+    for(const part of original.ingredients){
+      const purchaseId = stockPurchaseId(part.id);
+      near(shopping.items.find(item=>item.id===purchaseId).required,part.amount/original.servings*2);
+    }
+  }
+  assert.equal(getVariationGroup('prepared-cup-udon-kitsune',RECIPES).groupId,'cup-udon');
+  assert.equal(groupMenuRecipes([{...byId.get('udon-egg'),role:'staple'}])[0].isGroup,false);
+});
+
+test('旧丼見出しで従来の5種類を探せる。買った料理やマイメニューは同名でも手作りのグループに入らない', () => {
+  const view = RECIPES.map(recipe => ({...recipe,searchAliases:variationSearchAliases(recipe)}));
+  const matches = browseDishes(view,{query:'具だくさんの丼'});
+  assert.deepEqual(new Set(matches.map(recipe=>recipe.id)),new Set(['chicken-rice-bowl','beef-rice-bowl','pork-rice-bowl','tofu-rice-bowl','tofu-natto-rice']));
+  assert.equal(groupMenuRecipes(matches)[0].groupId,'donburi');
+  const purchased = getVariationGroup('convenience-salmon-onigiri',RECIPES);
+  assert.equal(purchased.groupId,'bought-onigiri');
+  assert.ok(purchased.recipes.every(recipe=>recipeNature(recipe)==='ready-to-eat'));
+  assert.equal(getVariationGroup('daily-onigiri-salmon',RECIPES).groupId,'onigiri');
+  assert.equal(groupMenuRecipes([{...byId.get('udon-egg'),custom:true}])[0].isGroup,false);
+});
+
+test('詳細の種類は標準を先頭に定義順で並べ、検索や履歴から開いたレシピを選んでおく', () => {
+  const selected = 'kyoto-keiran-udon';
+  const candidates = [selected, 'udon-pork', 'daily-udon-plain', 'daily-udon-meat'].map(id=>byId.get(id));
+  const detail = getVariationGroup(selected, candidates);
+  assert.deepEqual(detail.recipes.map(recipe=>recipe.id), ['daily-udon-plain','daily-udon-meat',selected,'udon-pork']);
+  assert.equal(detail.selectedRecipeId, selected);
+  assert.deepEqual(groupMenuRecipes(candidates)[0].recipes, candidates);
+  const restricted = candidates.filter(recipe=>recipe.id!=='daily-udon-plain');
+  assert.deepEqual(getVariationGroup(selected, restricted).recipes.map(recipe=>recipe.id), ['daily-udon-meat',selected,'udon-pork']);
 });

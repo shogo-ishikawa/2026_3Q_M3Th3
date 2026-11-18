@@ -98,3 +98,11 @@ test('種類を指定しないトーストは食パンだけから始まり、�
   assert.ok(config.components.some(p=>p.id!=='base'),id);
  }
 });
+
+test('パンの標準レシピを切り替える選択肢も一覧の提供形態やイラストの対象に従う',()=>{
+  const limited=availableFoodPresets('english-muffin',data,{allowedRecipeIds:['palette-english-muffin']});
+  assert.deepEqual(limited.map(preset=>preset.recipeId),['palette-english-muffin']);
+  const pizzaOnly=availableFoodPresets('toast',data,{allowedRecipeIds:['bread-toast-pizza']});
+  assert.deepEqual(pizzaOnly.map(preset=>preset.recipeId),['bread-toast-pizza']);
+  assert.deepEqual(availableFoodPresets('toast',data,{allowedRecipeIds:[]}),[]);
+});
