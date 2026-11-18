@@ -235,6 +235,16 @@ export function quantityFromAmount(recipe, data, amount) {
   return quantity;
 }
 
+/** 「焼き鮭」「塩さば」など、料理名とは語順の違う一般的な呼び方。 */
+export function grilledFishAliases(recipe, family = recipeFamily(recipe)) {
+  if (family !== 'grilled-fish') return [];
+  const grilled = recipe.name.match(/^(.+?)の(塩焼き|開き焼き|焼き物)$/u);
+  if (!grilled) return [];
+  const names = [`焼き${grilled[1]}`, `焼${grilled[1]}`];
+  if (grilled[2] === '塩焼き') names.push(`塩${grilled[1]}`);
+  return names;
+}
+
 function matchesQuery(recipe, query, familyId = recipeFamily(recipe)) {
   if (!query) return true;
   const family = categories.get(familyId);

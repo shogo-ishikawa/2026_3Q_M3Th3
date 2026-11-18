@@ -15,7 +15,7 @@ const field=(name,input)=>{const label=make('label','favourites-field',name);lab
 const select=(id,values,current)=>{const control=make('select');control.id=id;for(const [value,label]of values){const option=make('option','',label);option.value=value;control.append(option);}control.value=current;return control;};
 const button=(label,fn,className='button-secondary')=>{const control=make('button',className,label);control.type='button';control.addEventListener('click',fn);return control;};
 
-export function mountFavourites({favourites=[],entries=[],data,date,meal='dinner',status='eaten',settings={},onAdd=()=>{},onSave=()=>{},onDelete=()=>{},onError=()=>{}}={}){
+export function mountFavourites({favourites=[],entries=[],data,date,meal='dinner',status='eaten',settings={},onAdd=()=>{},onEditItem,onSave=()=>{},onDelete=()=>{},onError=()=>{}}={}){
   if(!Array.isArray(favourites)||!Array.isArray(entries)||!dateIsValid(date)||[onAdd,onSave,onDelete,onError].some(fn=>typeof fn!=='function'))throw Error('お気に入りと記録先を確認してください。');
   const prefix=`favourites-${++count}`,root=make('section','favourites');root.setAttribute('aria-label','お気に入りと最近使った料理');
   root.append(make('h3','','お気に入り・最近使った料理'),make('p','field-note','単品を前回の量で呼び出せます。量を変更して追加でき、栄養と材料は保存した内容を使います。'));
@@ -41,9 +41,13 @@ export function mountFavourites({favourites=[],entries=[],data,date,meal='dinner
     quantity.addEventListener('input',describe);describe();
     for(const warning of mealSetWarnings({items:[item]},settings,data))article.append(make('p','favourites-warning',warning));
     const actions=make('div','favourites-actions');
-    actions.append(button('この量で記録',act(()=>{
-      const entry=createRepeatedMeal({items:[read()],date:targetDate.value,meal:targetMeal.value,status:targetStatus.value,note:''},data);onAdd(entry);
-    }),'button-primary favourites-add'));
+    const destination=()=>({date:targetDate.value,meal:targetMeal.value,status:targetStatus.value});
+    const repeated=()=>createRepeatedMeal({items:[read()],...destination(),note:''},data);
+    actions.append(button('この量で記録',act(()=>onAdd(repeated())),'button-primary favourites-add'));
+    if(onEditItem&&!item.batchId)actions.append(button('材料を編集して記録',act(()=>{
+      const entry=repeated();
+      onEditItem(entry.items[0],destination());
+    }),'button-secondary favourites-edit'));
     if(favourite)actions.append(button('お気に入りから外す',act(()=>onDelete(favourite.id)),'button-text favourites-remove'));
     else{
       const exists=favouriteKeys.has(favouriteKey(item));

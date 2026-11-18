@@ -62,3 +62,16 @@ test('記録先の日付で最近の実食とそのときの量を絞り込み�
   date.value='2026-11-13';date.emit('change');
   assert.equal(byClass(recent,'favourites-amount').value,'210');
 }));
+
+test('お気に入りの材料を編集するときは食べる量と記録先を渡し、まだ記録しない',()=>withDocument(()=>{
+  const favourite=createFavourite(entry(100).items[0],data);
+  const edits=[],added=[];
+  const root=mountFavourites({favourites:[favourite],entries:[],data,date:'2026-11-13',meal:'lunch',
+    onEditItem:(item,context)=>edits.push({item,context}),onAdd:item=>added.push(item)});
+  byClass(root,'favourites-amount').value='235';
+  byClass(root,'favourites-edit').emit('click');
+  assert.equal(edits[0].item.quantity,235/150);
+  assert.deepEqual(edits[0].context,{date:'2026-11-13',meal:'lunch',status:'eaten'});
+  assert.equal(favourite.item.quantity,100/150);
+  assert.equal(added.length,0);
+}));

@@ -5,8 +5,8 @@ import {recentFoods,favouriteKey} from './favourites.js';
 import {createRepeatedMeal,mealSetWarnings} from './meal-sets.js';
 import {itemNutrition} from './nutrition.js';
 import {configureQuantityInput,readQuantityInput,setQuantityPresets} from './quantity-input.js';
-import {matchesJapaneseQuery,japaneseQueryRank} from './japanese-search.js';
-import {groupMenuRecipes,variationSearchAliases} from './menu-variations.js';
+import {mountRecordSearch} from './record-search-ui.js';
+export {quickRecipeChoices} from './record-search-ui.js';
 import {createRecordSummary} from './record-summary-ui.js';
 
 const MEALS=[['breakfast','朝食'],['lunch','昼食'],['dinner','夕食'],['snack','間食']];
@@ -17,25 +17,10 @@ const button=(text,action,className='button-secondary')=>{const node=make('butto
 const rounded=value=>Number(value.toFixed(3)).toLocaleString('ja-JP');
 const field=(text,control)=>{const label=make('label','quick-record-field',text);label.htmlFor=control.id;label.append(control);if(control.type==='number')configureQuantityInput(control);return label;};
 
-/** 既存の読み・別名と種類のまとめ方を使い、具材指定画面への入口を返します。 */
-export function quickRecipeChoices(data,query,{limit=6}={}){
-  if(!Array.isArray(data?.recipes)||typeof query!=='string'||query.length>200||!Number.isInteger(limit)||limit<1||limit>100)throw Error('検索する料理名を確認してください。');
-  if(!query.trim())return [];
-  const candidates=data.recipes.filter(recipe=>matchesJapaneseQuery([
-    recipe.name,...variationSearchAliases(recipe),
-    ...(recipe.ingredients??[]).map(part=>data.ingredients?.[part.id]?.name).filter(Boolean),
-  ],query));
-  candidates.sort((a,b)=>japaneseQueryRank([a.name],query)-japaneseQueryRank([b.name],query));
-  return groupMenuRecipes(candidates,{query}).slice(0,limit).map(group=>({
-    recipeId:group.selectedRecipeId,label:group.label,
-    selectedName:group.recipe.name,variantCount:group.variantCount,
-  }));
-}
-
-export function mountQuickRecord({data,settings={},entries=[],favourites=[],date,meal='dinner',status='eaten',onContextChange=()=>{},onOpenRecipe=()=>{},onAddEntry=()=>{},onOpenItem=()=>{},onError=()=>{}}={}){
+export function mountQuickRecord({data,settings={},entries=[],favourites=[],date,meal='dinner',status='eaten',onContextChange=()=>{},onOpenRecipe=()=>{},onAddEntry=()=>{},onOpenItem=()=>{},onEditItem,searchData=data,searchState,onSearchStateChange,onError=()=>{}}={}){
   if(!dateIsValid(date)||!MEAL_IDS.includes(meal)||!STATUSES.some(([id])=>id===status)||!Array.isArray(entries)||!Array.isArray(favourites)||!Array.isArray(data?.recipes)||[onContextChange,onOpenRecipe,onAddEntry,onOpenItem,onError].some(fn=>typeof fn!=='function'))throw Error('かんたん記録の料理と記録先を確認してください。');
   const prefix=`quick-record-${++serial}`,root=make('section','quick-record panel');root.setAttribute('aria-label','かんたん記録');
-  root.append(make('h3','quick-record-heading','食べたものを手早く記録'),make('p','field-note','日付と食事を選び、いつもの料理を前回の量で追加できます。料理を検索して具材や量を調整することもできます。'));
+  root.append(make('h3','quick-record-heading','食べたものを手早く記録'));
   const error=make('p','quick-record-error');error.hidden=true;error.setAttribute('role','status');error.setAttribute('aria-live','polite');
   const act=fn=>()=>{try{fn();error.hidden=true;error.textContent='';}catch(cause){error.hidden=false;error.textContent=cause.message;onError(cause.message);}};
   const targetDate=make('input','quick-record-date');targetDate.id=`${prefix}-date`;targetDate.type='date';targetDate.min='2000-01-01';targetDate.max='2100-12-31';targetDate.value=date;
@@ -48,12 +33,13 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
   const targetStatus=make('select','quick-record-status');targetStatus.id=`${prefix}-status`;
   for(const [id,label]of STATUSES){const option=make('option','',label);option.value=id;targetStatus.append(option);}targetStatus.value=status;root.append(field('記録の種類',targetStatus));
   const targetNote=make('p','quick-record-destination');targetNote.setAttribute('role','status');root.append(targetNote);
-  const saved=make('div','quick-record-saved'),recent=make('div','quick-record-recent');root.append(saved,recent);
+  const saved=make('div','quick-record-saved'),recent=make('div','quick-record-recent');
   const searchSection=make('section','quick-record-search-section');searchSection.append(make('h4','','料理を探して追加'));
-  const search=make('input','quick-record-search');search.id=`${prefix}-search`;search.type='search';search.maxLength=200;search.placeholder='例：トースト、ご飯、みそ汁';
-  const choices=make('div','quick-record-choices');choices.setAttribute('aria-live','polite');searchSection.append(field('料理名・材料で検索',search),choices);root.append(searchSection);
+  searchSection.append(mountRecordSearch({data:searchData, prefix:prefix+'-picker', initialState:searchState,
+    onStateChange:onSearchStateChange, onSelect:(id,query,ids)=>act(()=>onOpenRecipe(id,context(),query,ids))()}));
+  root.append(searchSection,saved,recent);
   const recorded=make('section','quick-record-recorded');root.append(recorded,error);
-  let savedLimit=3,recentLimit=3,searchLimit=6;
+  let savedLimit=3,recentLimit=3;
   const draftAmounts=new Map();
   function context(){
     if(!dateIsValid(targetDate.value))throw Error('記録する日付を確認してください。');
@@ -89,6 +75,7 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
     quantity.addEventListener('input',remember);quantity.addEventListener('change',remember);refresh();
     for(const warning of mealSetWarnings({items:[item]},settings,data))card.append(make('p','quick-record-warning',warning));
     card.append(disclosure);
+    if(onEditItem && !item.batchId)card.append(button('材料・量を編集して記録',act(()=>onEditItem(structuredClone(read()),context())),'button-secondary quick-record-edit'));
     card.append(button('この量で記録',act(()=>{
       const entry=createRepeatedMeal({items:[read()],...context(),note:''},data);onAddEntry(entry);
     }),'button-primary quick-record-add'));
@@ -111,25 +98,15 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
       if(recents.length>recentLimit)recent.append(button('ほかの最近の料理を見る',act(()=>{recentLimit+=3;renderFoods();}),'button-text quick-record-more-recent'));
     }
   }
-  function renderSearch(){
-    choices.replaceChildren();
-    if(!search.value.trim()){choices.append(make('p','field-note','料理名や材料を入力すると候補を表示します。'));return;}
-    const matches=quickRecipeChoices(data,search.value,{limit:searchLimit});
-    if(!matches.length){choices.append(make('p','field-note','候補が見つかりませんでした。別の表記や短い料理名で試してください。未登録の料理は詳しい記録から入力できます。'));return;}
-    for(const choice of matches){
-      const node=button(choice.label,act(()=>onOpenRecipe(choice.recipeId,context())),'button-secondary quick-record-choice');
-      node.append(make('small','',choice.variantCount>1?`${choice.variantCount}種類・具材や量を確認`:'材料や量を確認'));choices.append(node);
-    }
-    if(matches.length===searchLimit&&searchLimit<96)choices.append(button('候補をもっと見る',act(()=>{searchLimit+=6;renderSearch();}),'button-text quick-record-more-choices'));
-  }
   function renderRecords(){
-    const selected=context(),items=entries.filter(entry=>entry.date===selected.date&&entry.meal===selected.meal&&entry.status===selected.status).flatMap(entry=>entry.items);
+    const selected=context(),items=entries.filter(entry=>entry.date===selected.date&&entry.meal===selected.meal&&entry.status===selected.status).flatMap(entry=>entry.items.map(item=>({item,entryId:entry.id})));
     recorded.replaceChildren(make('h4','',`この食事の記録（${items.length}品）`));
     if(!items.length){recorded.append(make('p','field-note','まだ記録がありません。上の料理から追加してください。'));return;}
     const list=make('ul','quick-record-entry-list');
-    for(const item of items){const row=make('li'),portion=item.portion??{amount:1,unit:'人分'};row.append(button(item.name,act(()=>onOpenItem(structuredClone(item))),'button-text quick-record-item-name'),make('span','quick-record-item-amount',`${rounded(item.quantity*portion.amount)} ${portion.unit}`));list.append(row);}recorded.append(list);
+    for(const {item,entryId} of items){const row=make('li'),portion=item.portion??{amount:1,unit:'人分'};row.append(button(item.name,act(()=>onOpenItem(structuredClone(item))),'button-text quick-record-item-name'),make('span','quick-record-item-amount',`${rounded(item.quantity*portion.amount)} ${portion.unit}`));
+      if(onEditItem && !item.batchId)row.append(button('材料・量を編集',act(()=>onEditItem(structuredClone(item),context(),entryId)),'button-secondary quick-record-edit'));
+      list.append(row);}recorded.append(list);
   }
   targetDate.addEventListener('change',act(changeContext));targetStatus.addEventListener('change',act(changeContext));
-  search.addEventListener('input',act(()=>{searchLimit=6;renderSearch();}));
-  renderContext();renderFoods();renderSearch();renderRecords();return root;
+  renderContext();renderFoods();renderRecords();return root;
 }

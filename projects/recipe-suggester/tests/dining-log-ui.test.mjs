@@ -10,7 +10,7 @@ import {mountDiningLog} from '../dining-log-ui.js';
 const data = {recipes:RECIPES, ingredients:INGREDIENTS, allergens:ALLERGENS};
 const day = '2026-11-17';
 class Element {
-  constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.events = {}; this.value = ''; }
+  constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.events = {}; this.value = ''; this.dataset = {}; }
   append(...nodes) { this.children.push(...nodes); for(const node of nodes)node.owner=this; }
   remove() { this.owner.children=this.owner.children.filter(node=>node!==this); }
   replaceChildren(...nodes) { this.children = nodes; }
@@ -238,4 +238,110 @@ test('過去の料理の別名と店名を消し、別名がない参照料理�
   const [item]=edit.saved[0].items;
   assert.equal(item.diningMatch.storeName,'');
   assert.equal(item.name,'ご飯'); assert.equal(item.diningMatch.actualName,'ご飯');
+});
+
+
+test('外食を区分と条件内の語で探し、検索方法を切り替えても選んだ料理と条件を保つ', () => {
+  const view=render();
+  view.field('mode-guided').fire('click');
+  assert.equal(view.field('mode-guided')['aria-pressed'],'true');
+  view.set('guided-section','staple','change');
+  view.set('guided-query','ごはん');
+  const rice=view.find(el=>el.dataset.recipeId==='plain-rice');
+  assert.ok(rice);
+  rice.fire('click');
+  view.set('guided-section','drink','change');
+  assert.equal(view.find(el=>el.dataset.recipeId==='plain-rice'),undefined);
+  view.field('mode-keyword').fire('click');
+  view.set('search','焼き鮭');
+  view.pick('recipe-classic-grilled-salmon');
+  view.field('mode-guided').fire('click');
+  assert.equal(view.field('guided-section').value,'drink');
+  assert.equal(view.field('guided-query').value,'ごはん');
+  view.submit();
+  assert.deepEqual(view.saved[0].items.map(item=>item.recipeId),['plain-rice','classic-grilled-salmon']);
+});
+
+const withClass = (view, name) => view.find(el => el.className?.split(' ').includes(name));
+function addEgg(view) {
+  const choice=withClass(view,'record-ingredient-choice');
+  choice.value='egg'; choice.fire('change');
+  withClass(view,'record-ingredient-add').fire('click');
+  const apply=withClass(view,'record-ingredient-apply');
+  assert.equal(apply.disabled,false);
+  apply.fire('click');
+}
+
+test('外食のご飯100gに卵1個を加えた量を一度だけ集計し、再編集とキャンセルでも保持する', () => {
+  const view=render();
+  view.set('search','ご飯'); view.pick('recipe-plain-rice');
+  view.set('amount-1','100'); view.set('shop','学生食堂');
+  view.set('name-1','卵ご飯');
+  view.field('edit-1').fire('click');
+  assert.equal(view.field('editor-1').hidden,false);
+  view.submit(); assert.equal(view.saved.length,0);
+  addEgg(view);
+  assert.equal(view.field('editor-1').hidden,true);
+  assert.match(view.field('total').children[1].textContent,/227 kcal/);
+  view.submit();
+  const entry=view.saved[0], [item]=entry.items;
+  assert.equal(item.name,'卵ご飯'); assert.equal(item.diningMatch.storeName,'学生食堂');
+  assert.equal(item.diningMatch.mode,'similar'); assert.equal(item.nutritionBasis,'estimate');
+  assert.ok(item.proteinSources.includes('egg')); assert.ok(item.allergens.includes('egg')); assert.equal(item.allergensKnown,false);
+  assert.ok(Math.abs(item.ingredients.find(part=>part.id==='egg').amount*item.quantity-1)<1e-9);
+  assert.deepEqual(RECIPES.find(r=>r.id==='plain-rice').ingredients,[{id:'rice',amount:300}]);
+  const before=structuredClone(entry), saved=validateJournal({...defaultJournal(day),entries:[entry]},data).entries[0];
+  const edit=render({entries:[saved],initialEntry:saved});
+  edit.field('edit-1').fire('click'); withClass(edit,'record-ingredient-cancel').fire('click');
+  edit.submit();
+  assert.equal(edit.saved[0].items[0].id,item.id);
+  assert.equal(summary(edit.saved).values.kcal,227);
+  assert.deepEqual(entry,before);
+});
+
+test('店の表示値に追加食材を反映しても、全体を公式値とせず不明な食物繊維を維持する', () => {
+  const restaurant=buildRestaurantRecipe({id:'custom-restaurant-egg-test',genericRecipeId:'plain-rice',
+    storeName:'試験食堂',menuName:'炊き込み丼',sizeName:'並',inclusion:'ご飯と具',riceIncluded:true,sidesIncluded:false,
+    basis:'per100g',portionAmount:250,sourceUrl:'https://example.com/food',checkedDate:day,
+    nutrition:{kcal:140,fat:0},allergensKnown:false,allergens:[]},data);
+  const menuData={...data,recipes:[...RECIPES,restaurant]};
+  const view=render({data:menuData});
+  view.set('search','試験食堂'); view.pick('recipe-'+restaurant.id);
+  view.set('amount-1','100'); view.field('edit-1').fire('click'); addEgg(view);
+  view.submit();
+  const item=view.saved[0].items[0];
+  assert.equal(item.diningMatch.referenceBasis,'official');
+  assert.equal(item.diningMatch.mode,'similar'); assert.equal(item.nutritionBasis,'estimate');
+  assert.equal(item.nutrition.fiber,null); assert.equal(item.shoppingKnown,false);
+  assert.equal(summary(view.saved).values.kcal,211);
+  assert.equal(view.field('match-1').disabled,true);
+  const edit=render({data:menuData,entries:view.saved,initialEntry:view.saved[0]});
+  edit.field('edit-1').fire('click');
+  edit.find(el=>el['aria-label']==='卵を外す').fire('click');
+  withClass(edit,'record-ingredient-apply').fire('click');
+  assert.equal(edit.field('match-1').disabled,false);
+  assert.equal(edit.field('match-1').value,'menu');
+  edit.submit();
+  assert.equal(edit.saved[0].items[0].nutritionBasis,'official');
+  assert.equal(summary(edit.saved).values.kcal,140);
+});
+
+test('同じ名前でも食材を変更した外食を履歴から再利用できる', () => {
+  const create=render();
+  create.set('search','ご飯'); create.pick('recipe-plain-rice');
+  create.set('amount-1','100'); create.submit();
+  const regular=create.saved[0];
+  const withEgg=render({entries:[regular]});
+  withEgg.set('search','ご飯'); withEgg.pick('recipe-plain-rice');
+  withEgg.set('amount-1','100'); withEgg.field('edit-1').fire('click'); addEgg(withEgg);
+  withEgg.submit();
+  const changed=withEgg.saved[0];
+  const repeat=render({entries:[regular,changed]});
+  repeat.set('search','ご飯');
+  assert.ok(repeat.choices().some(el=>el['data-choice']==='history-'+regular.items[0].id));
+  repeat.pick('history-'+changed.items[0].id); repeat.submit();
+  const item=repeat.saved[0].items[0];
+  assert.notEqual(item.id,changed.items[0].id);
+  assert.equal(summary(repeat.saved).values.kcal,227);
+  assert.ok(item.proteinSources.includes('egg'));
 });

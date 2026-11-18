@@ -2,6 +2,8 @@
 import {recipePortion} from './catalog.js';
 import {recordPortionPresets} from './portion-guide.js';
 import {createDiningSearch} from './dining-search.js';
+import {mountRecordSearch} from './record-search-ui.js';
+import {mountRecordIngredientEditor} from './record-ingredient-edit-ui.js';
 import {createDiningEntry, createDiningItem, diningMatchMode} from './dining-meal.js';
 import {itemFromRecipe, recipeNutrition, sumNutrition, NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS} from './nutrition.js';
 import {classifyNutritionBasis} from './nutrition-basis.js';
@@ -57,7 +59,21 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
   const form = make('form', '', 'restaurant-menu dining-log');
   // 閉じた手入力欄の編集中の値で食事全体の保存が妨げられないよう、それぞれ確定時に検証します。
   form.noValidate = true;
-  const search = field(form, '食べた料理を検索', make('input'), 'dining-search');
+  const modes = make('div', '', 'record-search-modes');
+  modes.setAttribute('role', 'group');
+  modes.setAttribute('aria-label', '料理の探し方');
+  const byKeyword = button('キーワードで検索', 'button-secondary', () => switchMode('keyword'));
+  const byCategory = button('順に選ぶ', 'button-secondary', () => switchMode('guided'));
+  byKeyword.id = 'dining-mode-keyword';
+  byCategory.id = 'dining-mode-guided';
+  modes.append(byKeyword, byCategory);
+  const keywordBox = make('section', '', 'dining-keyword');
+  const guidedBox = make('section', '', 'dining-guided');
+  const pickedStatus = make('p', '', 'field-note');
+  pickedStatus.setAttribute('role', 'status');
+  pickedStatus.hidden = true;
+  form.append(modes, keywordBox, guidedBox);
+  const search = field(keywordBox, '食べた料理を検索', make('input'), 'dining-search');
   search.type = 'search';
   search.placeholder = '例　唐揚げ、焼き鮭、ご飯';
   search.maxLength = 200;
@@ -72,10 +88,12 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
     replacing = null;
     search.value = '';
     showResults();
-    search.focus?.();
+    focusSearch();
   });
-  found.append(feedback, results, more, cancelReplace);
-  form.append(found);
+  found.append(feedback, results, more);
+  keywordBox.append(found);
+  const manualSlot = make('div');
+  form.append(cancelReplace, manualSlot);
 
   const selectedBox = make('section', '', 'dining-selected');
   selectedBox.append(make('h3', '食べた料理'));
@@ -125,6 +143,29 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
 
   const rows = new Map();
   let rowNumber = 0, limit = 6, replacing = null;
+  let searchMode = 'keyword', guidedPicker;
+
+  function switchMode(mode) {
+    searchMode = mode;
+    keywordBox.hidden = mode !== 'keyword';
+    guidedBox.hidden = mode !== 'guided';
+    byKeyword.setAttribute('aria-pressed', String(mode === 'keyword'));
+    byCategory.setAttribute('aria-pressed', String(mode === 'guided'));
+    if (mode === 'guided' && !guidedPicker) {
+      guidedPicker = mountRecordSearch({data, mode:'guided', guidedOnly:true, prefix:'dining-guided',
+        onSelect:recipeId => {
+          const recipe = data.recipes.find(recipe => recipe.id === recipeId);
+          if (recipe) pickChoice({key:'recipe-' + recipe.id, recipe, name:recipe.name, approximate:false});
+        }});
+      guidedBox.append(guidedPicker, pickedStatus);
+    }
+  }
+  switchMode('keyword');
+
+  function focusSearch() {
+    if (searchMode === 'keyword') search.focus?.();
+    else byCategory.focus?.();
+  }
 
   function reportError(error) {
     problem.textContent = error.message;
@@ -158,6 +199,22 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
     }
   }
 
+  // プレビュー・材料編集・最終保存で、同じ分量と照合元を使います。
+  function snapshotRow(row) {
+    const amount = readQuantityInput(row.amount, {label:row.choice.name + 'の食べた量'});
+    if (row.manual || !row.match) {
+      const item = structuredClone(row.edited ?? row.choice.item);
+      item.quantity = amount / row.portion.amount;
+      if (!row.original && !row.manual) item.id = newId();
+      return item;
+    }
+    const source = row.edited ? {item:row.edited} : row.choice;
+    const item = createDiningItem(source, {amount, mode:row.match.value,
+      actualName:row.actualName.value.trim(), storeName:shop.value.trim() || (shopEdited ? '' : undefined)}, data);
+    if (row.original) item.id = row.original.id;
+    return item;
+  }
+
   function addRow(choice, {original = null, manual = false, replacement = null} = {}) {
     if (rows.size >= 100 && !replacement) throw Error('1回の食事に登録できる料理は100品までです。');
     const index = ++rowNumber;
@@ -179,17 +236,20 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
     const remove = button('外す', 'button-text', () => {
       row.remove();
       rows.delete(index);
+      pickedStatus.hidden = true;
       if (replacing === index) {replacing = null; search.value = '';}
       showResults();
       problem.hidden = true;
       updateTotals();
-      search.focus?.();
+      focusSearch();
     });
     remove.setAttribute('aria-label', (item?.name ?? choice.name) + 'を外す');
     header.append(heading, remove);
     row.append(header);
     const note = make('p', '', 'field-note');
-    const amount = quantity(row, '食べた量（' + portion.unit + '）', 'dining-amount-' + index,
+    const portionControls = make('div');
+    row.append(portionControls);
+    const amount = quantity(portionControls, '食べた量（' + portion.unit + '）', 'dining-amount-' + index,
       numberText(defaultAmount), 0.001, Math.min(100000, portion.amount * 1000), ['g','ml'].includes(portion.unit) ? 10 : 0.5);
     const referenceRecipe = choice.recipe ?? (item?.recipeId ? data.recipes.find(recipe => recipe.id === item.recipeId) : null);
     setQuantityPresets(amount, recordPortionPresets(referenceRecipe, portion));
@@ -213,10 +273,18 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
       if (replacement && actualName.value !== name) match.value = 'similar';
       settings.append(fields);
     }
+    const rowState = {choice, portion, nutrition, amount, match, actualName, original, manual, element:row,
+      edited:null, editing:false};
     const showBasis = () => {
       const part = portion.label || ('基準量 ' + numberText(portion.amount) + portion.unit);
-      const effectiveMode = match && diningMatchMode(choice, match.value, shop.value.trim() || (shopEdited ? '' : undefined));
-      const label = effectiveMode === 'similar' ? '「' + name + '」から概算' : basis.label;
+      const sourceChoice = rowState.edited ? {item:rowState.edited} : choice;
+      const customised = Boolean(sourceChoice.item?.ingredientEdit);
+      if (match) {
+        match.disabled = customised;
+        if (customised) match.value = 'similar';
+      }
+      const effectiveMode = match && diningMatchMode(sourceChoice, match.value, shop.value.trim() || (shopEdited ? '' : undefined));
+      const label = customised ? '食材を変更した概算' : effectiveMode === 'similar' ? '「' + name + '」から概算' : basis.label;
       const otherStore = match?.value === 'menu' && effectiveMode === 'similar';
       note.textContent = label + ' ／ ' + part + (otherStore ? '。店名が異なるため参考値を使います。' : '');
       heading.textContent = actualName?.value.trim() || (canMatch ? name : choice.name);
@@ -229,6 +297,7 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
     if (canMatch) row.append(settings);
     const replace = button('料理を探して置き換える', 'button-text dining-replace', () => {
       replacing = index;
+      switchMode('keyword');
       const dish = actualName?.value.trim() || item?.name || choice.name;
       search.value = dish.split('｜').at(-1);
       limit = 6;
@@ -236,11 +305,77 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
       search.focus?.();
       search.select?.();
     });
-    row.append(replace);
-    rows.set(index, {choice, portion, nutrition, amount, match, actualName, original, manual, element:row, showBasis});
+    const editorBox = make('div', '', 'dining-editor');
+    editorBox.id = 'dining-editor-' + index;
+    editorBox.hidden = true;
+    const actions = make('div', '', 'dining-item-actions');
+    function closeEditor() {
+      editorBox.hidden = true;
+      editorBox.replaceChildren();
+      rowState.editing = false;
+      portionControls.hidden = false;
+      actions.hidden = false;
+      edit.focus?.();
+    }
+    const edit = button('食材を編集', 'button-secondary', () => {
+      try {
+        const current = snapshotRow(rowState);
+        const editor = mountRecordIngredientEditor({item:current, data, onApply:updated => {
+          rowState.edited = updated;
+          if (match && updated.diningMatch) match.value = updated.diningMatch.mode;
+          rowState.nutrition = updated.nutrition;
+          closeEditor();
+          problem.hidden = true;
+          showBasis();
+          updateTotals();
+        }, onCancel:closeEditor});
+        editorBox.replaceChildren(editor);
+        editorBox.hidden = false;
+        rowState.editing = true;
+        portionControls.hidden = true;
+        actions.hidden = true;
+        problem.hidden = true;
+        editorBox.querySelector?.('input,button')?.focus();
+      } catch (error) { reportError(error); }
+    });
+    edit.id = 'dining-edit-' + index;
+    edit.setAttribute('aria-label', (item?.name ?? choice.name) + 'の食材を編集');
+    edit.setAttribute('aria-controls', editorBox.id);
+    actions.append(edit, replace);
+    row.append(actions, editorBox);
+    rowState.showBasis = showBasis;
+    rows.set(index, rowState);
     itemList.append(row);
     amount.addEventListener('input', updateTotals);
     updateTotals();
+  }
+
+  function pickChoice(choice) {
+    try {
+      const old = rows.get(replacing);
+      if (old) {
+        const title = old.actualName?.value.trim() || old.choice.item?.name || old.choice.name;
+        const pieces = title.split('｜');
+        addRow(choice, {original:old.original, replacement:{
+          dishName:pieces.at(-1), amount:Number(old.amount.value), portion:old.portion,
+        }});
+        if (!shop.value && pieces.length > 1) shop.value = pieces.slice(0,-1).join('｜');
+        old.element.remove();
+        rows.delete(replacing);
+        replacing = null;
+        updateTotals();
+      } else addRow(choice);
+      problem.hidden = true;
+      search.value = '';
+      limit = 6;
+      showResults();
+      // 分類の選択位置は保持し、続けて同じ分類の料理も追加できます。
+      if (searchMode === 'keyword') search.focus?.();
+      else {
+        pickedStatus.hidden = false;
+        pickedStatus.textContent = '「' + choice.name + '」を' + (old ? '選び直しました。' : '追加しました。') + '現在' + rows.size + '品';
+      }
+    } catch (error) { reportError(error); }
   }
 
   function showResults() {
@@ -257,28 +392,7 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
     else feedback.textContent = hasQuery ? '料理を選んで一食に追加' : '最近の外食・よく使う料理';
     more.hidden = matches.length <= limit;
     for (const choice of matches.slice(0, limit)) {
-      const pick = button('', 'dining-pick', () => {
-        try {
-          const old = rows.get(replacing);
-          if (old) {
-            const title = old.actualName?.value.trim() || old.choice.item?.name || old.choice.name;
-            const pieces = title.split('｜');
-            addRow(choice, {original:old.original, replacement:{
-              dishName:pieces.at(-1), amount:Number(old.amount.value), portion:old.portion,
-            }});
-            if (!shop.value && pieces.length > 1) shop.value = pieces.slice(0,-1).join('｜');
-            old.element.remove();
-            rows.delete(replacing);
-            replacing = null;
-            updateTotals();
-          } else addRow(choice);
-          problem.hidden = true;
-          search.value = '';
-          limit = 6;
-          showResults();
-          search.focus?.();
-        } catch (error) { reportError(error); }
-      });
+      const pick = button('', 'dining-pick', () => pickChoice(choice));
       pick.setAttribute('data-choice', choice.key);
       pick.append(make('span', choice.name), make('small', choice.approximate ? choice.section + '・近い料理' : choice.section));
       results.append(pick);
@@ -286,7 +400,7 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
   }
   search.addEventListener('input', () => {limit = 6; showResults();});
   search.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.isComposing) {
+    if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) {
       event.preventDefault();
       results.querySelector?.('button')?.focus();
     }
@@ -321,13 +435,13 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
       problem.hidden = true;
       manual.open = false;
       showResults();
-      search.focus?.();
+      focusSearch();
     } catch (error) { manualError.textContent = error.message; manualError.hidden = false; }
   });
   addManual.id = 'dining-manual-add';
   fields.append(make('p', '店が表示している1人前の値を入力できます。空欄の成分は「不明」として扱います。', 'field-note'), grid, manualError, addManual);
   manual.append(fields);
-  found.append(manual);
+  manualSlot.append(manual);
 
   for (const item of initialEntry?.items ?? []) addRow({key:item.id,name:item.name, item}, {original:item});
   updateTotals();
@@ -336,21 +450,13 @@ export function mountDiningLog({data, entries = [], date, meal = 'lunch', initia
     event.preventDefault();
     try {
       if (!rows.size) throw Error('食べた料理を1品以上追加してください。');
+      if ([...rows.values()].some(row => row.editing)) throw Error('編集中の食材を反映するか、編集を取り消してください。');
       if (manual.open && (dish.value.trim() || [...values.values()].some(input => input.value.trim()))) {
         throw Error('入力中の料理は「この料理を追加」で食事に加えてください。');
       }
       const items = [...rows.values()].map(row => {
-        const amount = readQuantityInput(row.amount, {label:row.choice.name + 'の食べた量'});
-        if (row.manual || !row.match) {
-          const item = structuredClone(row.choice.item);
-          item.quantity = amount / row.portion.amount;
-          if (row.manual && shop.value.trim()) item.name = shop.value.trim() + '｜' + item.name;
-          if (!row.original && !row.manual) item.id = newId();
-          return item;
-        }
-        const item = createDiningItem(row.choice, {amount, mode:row.match.value,
-          actualName:row.actualName.value.trim(), storeName:shop.value.trim() || (shopEdited ? '' : undefined)}, data);
-        if (row.original) item.id = row.original.id;
+        const item = snapshotRow(row);
+        if (row.manual && shop.value.trim()) item.name = shop.value.trim() + '｜' + item.name;
         return item;
       });
       const entry = createDiningEntry({date:day.value, meal:slot.value, items}, data);
