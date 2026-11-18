@@ -12,13 +12,13 @@ const data={ingredients:INGREDIENTS,recipes:RECIPES,allergens:ALLERGENS};
 const get=id=>RECIPES.find(recipe=>recipe.id===`breakfast-${id}`);
 const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-9,`${actual} != ${expected}`);
 
-test('朝食の卵3品とパン5品は既存IDと重ならず、朝昼夕の候補として読める',()=>{
+test('朝食の卵3品とパン5品は既存IDと重ならず、朝食・昼食を中心に食事の場面を選べる',()=>{
   assert.equal(BREAKFAST_RECIPES.length,8);assert.equal(Object.keys(BREAKFAST_INGREDIENTS).length,5);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   const available=new Set(eligibleRecipes({},data).map(recipe=>recipe.id));
   for(const recipe of BREAKFAST_RECIPES){
     assert.ok(available.has(recipe.id),recipe.id);assert.doesNotThrow(()=>describeRecipe(recipe.id,data));
-    assert.deepEqual(recipeMealSuitability(recipe).meals,['breakfast','lunch','dinner']);
+    assert.deepEqual(recipeMealSuitability(recipe).meals, recipe.family==='egg-main'?['breakfast','lunch','dinner']:['breakfast','lunch']);
     assert.ok(recipe.ingredients.every(part=>INGREDIENTS[part.id]&&part.amount>0));
     assert.equal(recipe.servings,2);assert.equal(recipe.ingredientsKnown,true);assert.equal(recipe.allergensKnown,true);
   }

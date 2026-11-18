@@ -1,3 +1,4 @@
+import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -30,16 +31,16 @@ const customData=recipe=>({...data,recipes:[...RECIPES,recipe]});
 const entry=(recipe,quantity=1)=>createCatalogEntry({recipeId:recipe.id,date,meal:'dinner',status:'planned',amount:quantity},customData(recipe));
 
 test('v3.10の917料理・429食材の全項目を固定ハッシュで保持する',()=>{
-  const ids=new Set(fixture.recipeIds),originals=RECIPES.filter(r=>ids.has(r.id));
+  const ids=new Set(fixture.recipeIds),originals=pre331Recipes.filter(r=>ids.has(r.id));
   assert.equal(originals.length,917);assert.deepEqual(originals.map(r=>r.id),fixture.recipeIds);
   assert.equal(hash(originals),fixture.recipeHash);
-  const foods=Object.fromEntries(fixture.ingredientIds.map(id=>[id,INGREDIENTS[id]]));
+  const foods=Object.fromEntries(fixture.ingredientIds.map(id=>[id,pre331Ingredients[id]]));
   assert.equal(Object.keys(foods).length,429);assert.equal(hash(foods),fixture.ingredientHash);
 });
 
 test('新モジュールの料理・食材を実際の公開DBへ一度だけ取り込む',()=>{
-  assert.equal(RECIPES.length,917+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,429+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length);
+  assert.equal(RECIPES.length,917+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
+  assert.equal(Object.keys(INGREDIENTS).length,429+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(r=>r.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(r=>r.name)).size,RECIPES.length);
   for(const source of ADDED_311_RECIPES){

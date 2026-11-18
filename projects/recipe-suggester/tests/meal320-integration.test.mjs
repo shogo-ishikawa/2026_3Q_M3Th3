@@ -1,3 +1,4 @@
+import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -14,13 +15,13 @@ const hash=value=>createHash('sha256').update(JSON.stringify(canonical(value))).
 
 test('公開済みv3.19の984料理・452食材の全項目と順序を保持する',()=>{
   assert.equal(fixture.recipeIds.length,984);assert.equal(fixture.ingredientIds.length,452);
-  const ids=new Set(fixture.recipeIds),old=RECIPES.filter(recipe=>ids.has(recipe.id));
+  const ids=new Set(fixture.recipeIds),old=pre331Recipes.filter(recipe=>ids.has(recipe.id));
   assert.deepEqual(old.map(recipe=>recipe.id),fixture.recipeIds);
   assert.equal(hash(old),fixture.recipeHash);
-  const foods=Object.fromEntries(fixture.ingredientIds.map(id=>[id,INGREDIENTS[id]]));
+  const foods=Object.fromEntries(fixture.ingredientIds.map(id=>[id,pre331Ingredients[id]]));
   assert.equal(hash(foods),fixture.ingredientHash);
-  assert.equal(RECIPES.length,984+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,452+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length);
+  assert.equal(RECIPES.length,984+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
+  assert.equal(Object.keys(INGREDIENTS).length,452+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);
 });

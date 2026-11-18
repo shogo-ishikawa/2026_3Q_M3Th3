@@ -1,3 +1,7 @@
+import {STRAINED_STOCK_NUTRITION} from './strained-stock.js';
+import {CONVENIENCE_NUTRITION} from './convenience-staples.js';
+import {FRUIT_NUTRITION} from './fruit-varieties.js';
+import {KYOTO_NUTRITION} from './kyoto-foods.js';
 import {SIMMERED_NUTRITION} from './simmered-foods.js';
 import {CANTEEN_NUTRITION} from './canteen-foods.js';
 import {TAVERN_NUTRITION} from './tavern-foods.js';
@@ -307,7 +311,7 @@ const INGREDIENT_PROFILES = Object.freeze({
   confectionery_kappa_ebisen: ["unknown", 1, "かっぱえびせんの購入品。栄養はメニューの1袋77gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.calbee.co.jp/products/detail/?p=20230410102049"],
   confectionery_sayaendo: ["unknown", 1, "さやえんどう しお味の購入品。栄養はメニューの1袋61gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.calbee.co.jp/products/detail/?p=20230112151500"],
   confectionery_miino: ["unknown", 1, "miino そら豆 しお味の購入品。栄養はメニューの1袋28gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.calbee.co.jp/products/detail/?p=20230420131757"],
-  confectionery_cheeza: ["unknown", 1, "チーザ カマンベールの購入品。栄養はメニューの1袋32gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.glico.com/jp/product/snack_biscuit/cheeza/24661"],
+  confectionery_cheeza: ["unknown", 1, "チーザ カマンベールの購入品。栄養はメニューの1袋32gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.glico.com/jp/product/snack_biscuit_cookie/cheeza/47110/"],
   confectionery_karamucho: ["unknown", 1, "カラムーチョチップス ホットチリ味の購入品。栄養はメニューの1袋55g。大袋の100g表示とは区別を基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://koikeya.co.jp/karamucho/"],
   confectionery_sucorn: ["unknown", 1, "スコーン 絶品焼きとうもろこしの購入品。栄養はメニューの1袋73g。大袋の100g表示とは区別を基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://koikeya.co.jp/sucorn_item/"],
   confectionery_popcorn: ["unknown", 1, "マイクポップコーン バターしょうゆ味の購入品。栄養はメニューの1袋50gを基準に設定し、食材単体の値とは区別します。確認日2026-11-13。https://www.calbee.co.jp/products/detail/?p=20260901155719"],
@@ -326,7 +330,7 @@ const INGREDIENT_PROFILES = Object.freeze({
   dessert_rare_cheesecake: ["unknown", 1, "レアチーズケーキ（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー 北海道産5種のチーズを使ったこだわりレアチーズ。表示の基準：カットケーキ1個。カットケーキ1個当たりの表示値です。重量は未掲載のためグラム数へ換算しません。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-13。出典: https://www.cozycorner.co.jp/product/cutcake/63639.html"],
   dessert_chocolate_mousse_cake: ["unknown", 1, "チョコムースケーキ（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー ガトーショコラ。表示の基準：カットケーキ1個。参照商品はチョコムースとココアスポンジを重ねたタイプです。焼き菓子タイプのガトーショコラとは区別します。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-13。出典: https://www.cozycorner.co.jp/product/cutcake/29850.html"],
   dessert_chocolate_shortcake: ["unknown", 1, "チョコレートショートケーキ（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー ミルクチョコショート。表示の基準：カットケーキ1個。カットケーキ1個当たりの表示値です。重量は未掲載のためグラム数へ換算しません。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-13。出典: https://www.cozycorner.co.jp/product/cutcake/91951.html"],
-  dessert_apple_pie: ["unknown", 1, "アップルパイ（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー アップルパイ。表示の基準：カットケーキ1個。カットケーキ1個当たりの表示値です。重量は未掲載のためグラム数へ換算しません。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-13。出典: https://www.cozycorner.co.jp/product/cutcake/2238.html"],
+  dessert_apple_pie: ["unknown", 1, "アップルパイ（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー ごろっと林檎のアップルパイ。表示の基準：カットケーキ1個。カットケーキ1個当たりの表示値です。重量は未掲載のためグラム数へ換算しません。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-18。出典: https://www.cozycorner.co.jp/product/cutcake/57899.html"],
   dessert_chocolate_mille_crepe: ["unknown", 1, "チョコミルクレープ（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー 紗々ミルクレープ。表示の基準：カットケーキ1個。カットケーキ1個当たりの表示値です。重量は未掲載のためグラム数へ換算しません。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-13。出典: https://www.cozycorner.co.jp/product/cutcake/52754.html"],
   dessert_custard_cream_puff: ["unknown", 1, "カスタードシュークリーム（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー ジャンボシュークリーム（カスタード）。表示の基準：1個。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-13。出典: https://www.cozycorner.co.jp/product/daily/85476.html"],
   dessert_custard_eclair: ["unknown", 1, "カスタードエクレア（市販品）の購入品。栄養はメニューのmanualNutritionで参照商品の1人分として管理し、食材単体の栄養値には転用しません。栄養値の参照商品：銀座コージーコーナー エクレア（カスタード）。表示の基準：1個。食物繊維は未表示です。 参照商品の規格を基準にした記録例です。同じ料理名でも大きさ・原材料・栄養は異なります。実物の表示を優先してください。全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日2026-11-13。出典: https://www.cozycorner.co.jp/product/daily/40284.html"],
@@ -709,5 +713,5 @@ export const INGREDIENT_NUTRITION = Object.freeze(Object.fromEntries(
       rawNutritionSource,
       estimatedNutrients: Object.freeze(estimatedNutrients),
     })];
-  }).concat(Object.entries(PALETTE_NUTRITION),Object.entries(MEAT_CHOICE_NUTRITION),Object.entries(MAPO_NUTRITION),Object.entries(SEAFOOD_NUTRITION),Object.entries(WORLD_NUTRITION),Object.entries(NOODLE_NUTRITION),Object.entries(SIMMERED_NUTRITION),Object.entries(CANTEEN_NUTRITION),Object.entries(TAVERN_NUTRITION),Object.entries(BISTRO_NUTRITION),Object.entries(SOUP311_NUTRITION),Object.entries(BREAD_NUTRITION),Object.entries(BREAKFAST_NUTRITION)),
+  }).concat(Object.entries(PALETTE_NUTRITION),Object.entries(MEAT_CHOICE_NUTRITION),Object.entries(MAPO_NUTRITION),Object.entries(SEAFOOD_NUTRITION),Object.entries(WORLD_NUTRITION),Object.entries(NOODLE_NUTRITION),Object.entries(SIMMERED_NUTRITION),Object.entries(CANTEEN_NUTRITION),Object.entries(TAVERN_NUTRITION),Object.entries(BISTRO_NUTRITION),Object.entries(SOUP311_NUTRITION),Object.entries(BREAD_NUTRITION),Object.entries(KYOTO_NUTRITION),Object.entries(FRUIT_NUTRITION),Object.entries(CONVENIENCE_NUTRITION),Object.entries(STRAINED_STOCK_NUTRITION),Object.entries(BREAKFAST_NUTRITION)),
 ));

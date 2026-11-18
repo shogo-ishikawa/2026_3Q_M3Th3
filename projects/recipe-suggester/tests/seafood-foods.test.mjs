@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
+import {KYOTO_SASHIMI_CHOICES} from '../kyoto-foods.js';
 import {SEAFOOD_INGREDIENTS,SEAFOOD_NUTRITION,SEAFOOD_RECIPES,SEAFOOD_SASHIMI_CHOICES} from '../seafood-foods.js';
 import {FOOD_COMPOSERS,buildFoodSelection,defaultFoodSelection,eligibleFoodSelection,foodComposerFor} from '../food-composer.js';
 import {NUTRIENT_KEYS,itemFromRecipe,itemNutrition,recipeNutrition} from '../nutrition.js';
@@ -21,9 +22,9 @@ const grams=(recipe,id)=>recipe.ingredients.find(part=>part.id===id)?.amount;
 const compose=components=>buildFoodSelection({id:'custom-seafood-audit',kind:'sashimi',components},data);
 const date='2026-11-13';
 
-test('刺身20種類でアジ・ホタテとマダコの既存ID・基準材料を再利用する',()=>{
+test('刺身盛り合わせでアジ・ホタテとマダコの既存ID・基準材料を再利用する',()=>{
   assert.equal(SEAFOOD_RECIPES.length,10);assert.equal(Object.keys(SEAFOOD_INGREDIENTS).length,10);
-  assert.equal(sashimi.components.length,20);assert.equal(new Set(sashimi.components.map(part=>part.recipeId)).size,20);
+  assert.equal(sashimi.components.length,20+KYOTO_SASHIMI_CHOICES.length);assert.equal(new Set(sashimi.components.map(part=>part.recipeId)).size,sashimi.components.length);
   assert.equal(sashimi.components.find(part=>part.id==='octopus').label,'マダコ（ボイル）');
   for(const [choice,recipeId] of [['aji','classic-sashimi-aji'],['scallop','classic-sashimi-scallop'],['octopus','classic-sashimi-octopus']]){
     assert.equal(sashimi.components.filter(part=>part.recipeId===recipeId).length,1);

@@ -1,6 +1,7 @@
 /** 栄養値の求め方を表示する分類。正確さや安全性の採点ではありません。 */
 import {TAKEAWAY_RECIPES} from './takeaway-foods.js';
 import {CONFECTIONERY_RECIPES} from './confectionery-foods.js';
+import {CONVENIENCE_RECIPES} from './convenience-staples.js';
 import {DESSERT_RECIPES} from './dessert-foods.js';
 import {PERFORMANCE_RECIPES} from './performance-foods.js';
 import {ACCOMPANIMENT_RECIPES} from './accompaniment-foods.js';
@@ -64,7 +65,7 @@ function profileFingerprint(recipe){
 // 公式表示の転記を持つ実際の登録だけを参照します。IDの接頭辞、URLや
 // 「公式」という文言だけでは表示値の根拠として認定しません。
 const officialProfiles=new Map();
-for(const recipe of [...TAKEAWAY_RECIPES,...CONFECTIONERY_RECIPES,...DESSERT_RECIPES,
+for(const recipe of [...TAKEAWAY_RECIPES,...CONVENIENCE_RECIPES,...CONFECTIONERY_RECIPES,...DESSERT_RECIPES,
   ...ACCOMPANIMENT_RECIPES.filter(recipe=>recipe.manualNutrition!==undefined),
   ...PERFORMANCE_RECIPES.filter(recipe=>recipe.manualNutrition!==undefined)]){
   officialProfiles.set(recipe.id,{fingerprint:profileFingerprint(recipe),kind:/^performance-(?:soy|whey)_powder-milk$/.test(recipe.id)?'mixed':'official'});
@@ -92,7 +93,10 @@ export function deriveRecipeBasis(recipe,data){
   if(recipe.manualNutrition!==undefined&&!nutritionValues(recipe.manualNutrition))return 'unknown';
   if(restaurantLabel(recipe))return 'official';
   const known=officialProfiles.get(recipe.id);
-  if(recipe.custom!==true&&known&&known.fingerprint!==null&&profileFingerprint(recipe)===known.fingerprint)return known.kind;
+  if(recipe.custom!==true&&known&&known.fingerprint!==null&&profileFingerprint(recipe)===known.fingerprint){
+    // A product page can confirm the pack size without publishing any nutrient values.
+    return KEYS.some(key=>nonnegative(recipe.manualNutrition?.[key])) ? known.kind : 'unknown';
+  }
   if(recipe.manualNutrition===undefined)return ingredientValues(recipe,data)?'ingredients':'unknown';
   if(matchesIngredients(recipe,data))return 'ingredients';
   // 未分類の自作・手入力を、URLや材料の存在だけから公式値へ昇格させません。
@@ -109,6 +113,10 @@ export function classifyNutritionBasis(value,data,{snapshot=own(value,'nutrition
   if(kind==='official'&&record(value?.restaurant))description='利用者が登録した公式資料の表示値を基準にしています。資料をアプリが自動照合した値ではありません。提供量・対象範囲・出典を確認してください。';
   if(kind==='ingredients'&&record(value)&&value.manualNutrition!==undefined)description='登録材料の代表値と使用量の合計に対応する概算です。表示した料理の量・材料の状態を確認してください。';
   let label=DETAILS[kind].label;
+  if(kind==='unknown'&&unknownKeys.length===KEYS.length&&(!snapshot||own(value,'nutritionBasis'))){
+    label='栄養値未登録';
+    description='栄養成分の数値は登録されていません。商品の包装に表示があれば、その値を使って記録できます。';
+  }
   if(snapshot&&value?.diningMatch?.mode==='similar'&&kind==='estimate'){
     label='似た料理から概算';
     description=`「${value.diningMatch.referenceName}」の栄養を食べた量に合わせた目安です。`;

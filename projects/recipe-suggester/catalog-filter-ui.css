@@ -1,3 +1,4 @@
+.recipe-card .occasion-label { display:block; color:var(--teal,#35624e); line-height:1.6; }
 .catalog-filter-panel { margin:16px 0 0; padding:16px; border:1px solid var(--line,#dddfd5); border-radius:12px; background:var(--paper,#fffefb); min-width:0; }
 .catalog-filter-panel[hidden] { display:none; }
 .catalog-filter-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }

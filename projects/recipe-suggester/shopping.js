@@ -1,4 +1,5 @@
 /** Aggregate the selected plans once before subtracting household stock. */
+import {stockPurchaseId} from './strained-stock.js';
 import {dateIsValid, shoppingServingsFor} from './journal.js';
 
 export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={}) {
@@ -24,15 +25,21 @@ export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={
       // 過去のスナップショットはDBから削除された材料も保持します。
       // 分かる材料は集計し、不明な部分を買い物不要と扱わずに知らせます。
       if(!Object.hasOwn(data.ingredients,part.id)){missing=true;continue;}
-      const info=data.ingredients[part.id];
-      if(!items.has(part.id))items.set(part.id,{id:part.id,name:info.name,unit:info.unit,required:0,stock:0,buy:0});
-      items.get(part.id).required+=part.amount*item.quantity*menuServings;
+      const id=stockPurchaseId(part.id), info=data.ingredients[id];
+      if(!items.has(id))items.set(id,{id,name:info.name,unit:info.unit,required:0,stock:0,buy:0});
+      items.get(id).required+=part.amount*item.quantity*menuServings;
     }
     if(missing)missingMenus.push({name:item.name,entryId:entry.id});
     }
   }
   const stock=new Map();
-  for(const p of pantry){if(!Object.hasOwn(data.ingredients,p.id)||!amount(p.amount)||stock.has(p.id))throw Error('手持ち食材の量を確認してください。');stock.set(p.id,p.amount);}
+  const seenStock=new Set();
+  for(const p of pantry){
+    if(!Object.hasOwn(data.ingredients,p.id)||!amount(p.amount)||seenStock.has(p.id))throw Error('手持ち食材の量を確認してください。');
+    seenStock.add(p.id);
+    const id=stockPurchaseId(p.id);
+    stock.set(id,(stock.get(id)??0)+p.amount);
+  }
   for(const item of items.values()){item.stock=stock.get(item.id)??0;item.buy=Math.max(0,item.required-item.stock);}
   return {items:[...items.values()].sort((a,b)=>a.name.localeCompare(b.name,'ja')),missingMenus,entryCount:selected.length};
 }

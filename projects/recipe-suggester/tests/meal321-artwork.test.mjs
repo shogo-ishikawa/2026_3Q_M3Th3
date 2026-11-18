@@ -1,3 +1,4 @@
+import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_RECIPES,BREAKFAST_INGREDIENTS} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS,withoutPantryV325Ingredients} from './helpers/pantry-v325-additions.mjs';
@@ -26,20 +27,27 @@ const hash=value=>digest(JSON.stringify(canonical(value)));
 const data={recipes:RECIPES,ingredients:INGREDIENTS};
 const visible=recipe=>!['drink','snack'].includes(recipe.role);
 
+test('v3.30の全1045料理・463食材を意図しただしと市販品の改訂以外は維持する', () => {
+  assert.equal(pre331Recipes.length, 1045);
+  assert.equal(Object.keys(pre331Ingredients).length, 463);
+  assert.equal(digest(JSON.stringify(pre331Recipes)), '68e922177de75e3483a5f98ec7a86ac3eec465a005063d1c94630cc8ae52b397');
+  assert.equal(digest(JSON.stringify(pre331Ingredients)), '45ece7cd02bbf57d85c5967555b9c4ec5b39f7d420ab32f895af47d277a160af');
+});
+
 test('v3.27の全1021料理と463食材の全項目と順序を保持する', () => {
   const eveningIds = new Set(EVENING_RECIPES.map(recipe => recipe.id));
-  const previousRecipes = RECIPES.filter(recipe => !eveningIds.has(recipe.id));
+  const previousRecipes = pre331Recipes.filter(recipe => !eveningIds.has(recipe.id));
   assert.equal(previousRecipes.length, 1021);
-  assert.equal(Object.keys(INGREDIENTS).length, 463);
+  assert.equal(Object.keys(pre331Ingredients).length, 463);
   assert.equal(digest(JSON.stringify(previousRecipes)), 'e1d46533267d5c0095305657176907d5eae0682bfdb1cff0cb4a1829c3b3d870');
-  assert.equal(digest(JSON.stringify(INGREDIENTS)), '45ece7cd02bbf57d85c5967555b9c4ec5b39f7d420ab32f895af47d277a160af');
+  assert.equal(digest(JSON.stringify(pre331Ingredients)), '45ece7cd02bbf57d85c5967555b9c4ec5b39f7d420ab32f895af47d277a160af');
 });
 
 test('公開済みv3.20の全1013料理・456食材を全項目と順序まで保持する',()=>{
-  assert.equal(RECIPES.length,1013+BREAKFAST_RECIPES.length+EVENING_RECIPES.length);assert.equal(Object.keys(INGREDIENTS).length,456+PANTRY_V325_INGREDIENT_IDS.length+Object.keys(BREAKFAST_INGREDIENTS).length);
+  assert.equal(RECIPES.length,1013+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);assert.equal(Object.keys(INGREDIENTS).length,456+PANTRY_V325_INGREDIENT_IDS.length+Object.keys(BREAKFAST_INGREDIENTS).length + added331IngredientIds.size);
   const addedIds=new Set([...BREAKFAST_RECIPES,...EVENING_RECIPES].map(recipe=>recipe.id));
-  const previousRecipes=RECIPES.filter(recipe=>!addedIds.has(recipe.id));
-  const previousIngredients=withoutPantryV325Ingredients(Object.fromEntries(Object.entries(INGREDIENTS).filter(([id])=>!Object.hasOwn(BREAKFAST_INGREDIENTS,id))));
+  const previousRecipes=pre331Recipes.filter(recipe=>!addedIds.has(recipe.id));
+  const previousIngredients=withoutPantryV325Ingredients(Object.fromEntries(Object.entries(pre331Ingredients).filter(([id])=>!Object.hasOwn(BREAKFAST_INGREDIENTS,id))));
   assert.deepEqual(previousRecipes.map(recipe=>recipe.id),source.recipeIds);
   assert.deepEqual(Object.keys(previousIngredients),source.ingredientIds);
   assert.equal(hash(previousRecipes),source.recipesHash);assert.equal(hash(previousIngredients),source.ingredientsHash);

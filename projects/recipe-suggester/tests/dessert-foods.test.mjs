@@ -45,7 +45,7 @@ test('店舗名と参照商品名は出典に残し、料理の表示名は一�
     for(const label of [r.name,r.variantLabel,r.portion.label,data.ingredients[r.ingredients[0].id].name])assert.doesNotMatch(label,stores,r.id);
     assert.match(r.sourceNote,stores,r.id);assert.match(r.sourceNote,/参照商品：/);assert.match(r.sourceNote,/表示の基準：/);
     assert.match(r.sourceNote,/同じ料理名でも大きさ・原材料・栄養は異なります/);
-    assert.match(r.sourceNote,/2026-11-13/);assert.match(r.sourceNote,/https:\/\//);assert.ok(r.sourceNote.length<=2000,r.id);
+    assert.ok(r.sourceNote.includes(r.id==='dessert-apple-pie'?'2026-11-18':'2026-11-13'));assert.match(r.sourceNote,/https:\/\//);assert.ok(r.sourceNote.length<=2000,r.id);
     assert.deepEqual(Object.keys(r.manualNutrition),NUTRIENT_KEYS);
   }
 });

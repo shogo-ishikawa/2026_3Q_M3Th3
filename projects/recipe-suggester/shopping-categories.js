@@ -13,7 +13,7 @@ export const INGREDIENT_GROUPS = Object.freeze([
 export const COMMON_PANTRY_IDS = Object.freeze([
   'water', 'oil', 'olive_oil', 'sesame_oil', 'salt', 'sugar', 'soy_sauce',
   'miso', 'vinegar', 'mirin', 'sake', 'black_pepper', 'mayonnaise',
-  'bread_ketchup', 'worcestershire_sauce', 'soup311_consomme',
+  'kyoto_usukuchi', 'bread_ketchup', 'worcestershire_sauce', 'soup311_consomme',
 ]);
 
 const ids = value => new Set(value.split(' '));
@@ -32,6 +32,9 @@ export function ingredientGroup(id, data) {
   const ingredient = data?.ingredients?.[id];
   if (!ingredient) return 'other';
   if (id === 'water') return 'water';
+  if (['kyoto_kombu_dashi','kyoto_usukuchi','stock_kombu_strained','stock_bonito_strained'].includes(id)) return 'seasoning';
+  if (id === 'kyoto_namafu') return 'grain';
+  if (id.startsWith('convenience_')) return 'prepared';
   if (OILS.has(id)) return 'oil';
   if (DRINKS.has(id)) return 'drink';
   if (id.startsWith('confectionery_') || id.startsWith('dessert_') ||

@@ -1,3 +1,4 @@
+import {pre331Recipes, pre331Ingredients} from './helpers/meal331-contract.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -36,12 +37,12 @@ function roundTrip(recipe, recorded, {save = true} = {}) {
 
 test('v3.8で公開済みの883レシピと396食材を保持し、重量換算の追加だけを許す', () => {
   const oldRecipes = new Set(contract.recipeIds);
-  const recipes = RECIPES.filter(recipe => oldRecipes.has(recipe.id));
+  const recipes = pre331Recipes.filter(recipe => oldRecipes.has(recipe.id));
   assert.deepEqual(recipes.map(recipe => recipe.id), contract.recipeIds);
   assert.equal(hash(recipes), contract.recipeHash, '元料理の分量・栄養・手順を置換しない');
   const ingredients = Object.fromEntries(contract.ingredientIds.map(id => {
-    assert.ok(Object.hasOwn(INGREDIENTS, id), `元食材を保持: ${id}`);
-    return [id, Object.fromEntries(Object.entries(INGREDIENTS[id]).filter(([key]) => key !== 'gramsPerUnit'))];
+    assert.ok(Object.hasOwn(pre331Ingredients, id), `元食材を保持: ${id}`);
+    return [id, Object.fromEntries(Object.entries(pre331Ingredients[id]).filter(([key]) => key !== 'gramsPerUnit'))];
   }));
   assert.equal(hash(ingredients), contract.ingredientHash, '新しい重量換算で既存の成分値を変えない');
 });

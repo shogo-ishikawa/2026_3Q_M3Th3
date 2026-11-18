@@ -1,3 +1,4 @@
+import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -87,18 +88,18 @@ const recipeCore=recipe=>{
 };
 
 test('旧784品は名称・間食分類と3品の副菜への移動以外の量・材料・栄養・確認状況を保つ',()=>{
-  const original=RECIPES.filter(recipe=>!newRecipePrefixes.some(prefix=>recipe.id.startsWith(prefix))&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id)&&!laterRecipeIds.has(recipe.id));
+  const original=pre331Recipes.filter(recipe=>!newRecipePrefixes.some(prefix=>recipe.id.startsWith(prefix))&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id)&&!laterRecipeIds.has(recipe.id));
   assert.equal(original.length,784);
   assert.equal(hash(original.map(recipeCore)),'bd9bedc6bcef769141bb69ed7fece27de47f513ec9707246961019c515a060de');
   const portions=original.map(recipe=>{const p=recipePortion(recipe,data);return{id:recipe.id,amount:p.amount,unit:p.unit};});
   assert.equal(hash(portions),'e040b0df1e816e804480fc58319d7cbe9738b25719482f5518c090ecf724c916');
   const ingredients=Object.fromEntries(legacyIngredientIds.map(id=>{
     assert.ok(INGREDIENTS[id],id);
-    const{name,note,...rest}=originalNutrients(INGREDIENTS[id]);return[id,rest];
+    const{name,note,...rest}=originalNutrients(pre331Ingredients[id]);return[id,rest];
   }));
   assert.equal(Object.keys(ingredients).length,303);
   assert.equal(hash(ingredients),'50950b4afa3d853957a845a0d4b68542c09b86498e027f408597e69bf318fa2f');
-  const profiles=Object.fromEntries(legacyIngredientIds.map(id=>[id,{nutritionPerUnit:INGREDIENTS[id].rawNutritionPerUnit,nutritionSource:INGREDIENTS[id].rawNutritionSource}]));
+  const profiles=Object.fromEntries(legacyIngredientIds.map(id=>[id,{nutritionPerUnit:pre331Ingredients[id].rawNutritionPerUnit,nutritionSource:pre331Ingredients[id].rawNutritionSource}]));
   assert.equal(hash(profiles),'2a7c214bd54f7d9d3943735d03fdab4d01833111670a97c7f2a3c30bd980aafa');
 });
 
@@ -141,8 +142,8 @@ test('追加63品を実際の公開DBへ統合し、未確認の購入品だけ�
   const products=[...CONFECTIONERY_RECIPES,...DESSERT_RECIPES];
   const additions=[...products,...COMFORT_RECIPES];
   assert.equal(additions.length,63);
-  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length);
-  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length+Object.keys(MAPO_INGREDIENTS).length+Object.keys(WORLD_INGREDIENTS).length+Object.keys(SEAFOOD_INGREDIENTS).length+Object.keys(NOODLE_INGREDIENTS).length+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length);
+  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
+  assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length+Object.keys(MAPO_INGREDIENTS).length+Object.keys(WORLD_INGREDIENTS).length+Object.keys(SEAFOOD_INGREDIENTS).length+Object.keys(NOODLE_INGREDIENTS).length+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);
   for(const recipe of additions)assert.ok(RECIPES.some(integrated=>integrated.id===recipe.id),recipe.id);

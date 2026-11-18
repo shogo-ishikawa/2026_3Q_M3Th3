@@ -1,3 +1,4 @@
+import {stockPurchaseId} from './strained-stock.js';
 /** 材料を具・煮汁に分けた家庭料理だけ、残した汁を栄養から除きます。 */
 import {NUTRIENT_KEYS, recipeConfirmation, recipeNutrition} from './nutrition.js';
 import {recipePortion} from './catalog.js';
@@ -15,6 +16,7 @@ export const SOUP_INTAKE_STAGES = Object.freeze([
 // 全量入る材料です。その他は具に残します。第4列は皮・肉だねと汁の配分です。
 // 新しい食材を「調味料らしい名前」だけで煮汁に分類する処理は行いません。
 const AUDITED_PARTITIONS = [
+  ['kyoto-yudofu','silken_tofu kyoto_kombu_dashi soy_sauce scallion_garnish ginger','kyoto_kombu_dashi'], // しょうゆと薬味を別添え
   ['evening-main-tuna-negi-nabe', 'tuna negi enoki soup311_awase_dashi soy_sauce mirin sake', 'soup311_awase_dashi soy_sauce mirin sake'], // まぐろと長ねぎのねぎま鍋
   ['chicken-tofu-pot', 'chicken tofu chinese_cabbage shimeji negi kombu water sake salt', 'kombu water sake salt'], // 鶏肉と豆腐の塩鍋
   ['soup-001', 'tofu wakame miso water kombu scallion_garnish', 'miso water kombu'], // 豆腐とわかめのみそ汁
@@ -156,7 +158,10 @@ export function soupIntakeFor(recipe,data){
       if(!trustedPotAuFeu(recipe,data))return null;
       definition={id:'composed-pot-au-feu',homogeneous:false,ingredientFractions:Object.fromEntries(recipe.ingredients.map(part=>[part.id,POT_AU_FEU_BROTH.has(part.id)?1:0]))};
     }
-    if(!definition||new Set(recipe.ingredients.map(part=>part.id)).size!==recipe.ingredients.length||recipe.ingredients.some(part=>!Object.hasOwn(definition.ingredientFractions,part.id)))return null;
+    if(!definition||new Set(recipe.ingredients.map(part=>stockPurchaseId(part.id))).size!==recipe.ingredients.length||
+      recipe.ingredients.some(part=>!Object.hasOwn(definition.ingredientFractions,stockPurchaseId(part.id))))return null;
+    const fractions=Object.fromEntries(recipe.ingredients.map(part=>[part.id,definition.ingredientFractions[stockPurchaseId(part.id)]]));
+    definition={...definition,ingredientFractions:fractions};
     // 数量・材料参照・確認状況もここで検証し、不明なデータに操作UIを出しません。
     recipeConfirmation(recipe);
     materialNutrition(recipe,data);

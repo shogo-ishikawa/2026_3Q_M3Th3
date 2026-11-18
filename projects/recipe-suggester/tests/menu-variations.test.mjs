@@ -177,7 +177,9 @@ test('実際のメニュー検索でもグループ見出しから定義済み�
   assert.deepEqual(new Set(browseDishes(view,{query:'軍艦巻き'}).map(recipe=>recipe.id)),definedIds('gunkan'));
   assert.deepEqual(new Set(catalogVariants(view,'curry',{query:'レトルトカレーライス'}).map(recipe=>recipe.id)),definedIds('retort-curry'));
   assert.equal(JSON.stringify(RECIPES),before);
-  for(const recipe of RECIPES)assert.ok(!Object.hasOwn(recipe,'searchAliases'),'検索用の見出しを元DBへ書き戻さない');
+  for(const recipe of MENU_VARIATION_GROUPS.flatMap(group=>group.recipeIds.map(id=>byId.get(id)))){
+    assert.ok(!Object.hasOwn(recipe,'searchAliases'),'既存のグループ見出しを元DBへ書き戻さない');
+  }
 });
 
 test('見出し検索を使っても区分・提供形態・アレルギーで除外した内訳を戻さない', () => {

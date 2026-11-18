@@ -1,3 +1,4 @@
+import {CONVENIENCE_INGREDIENTS,CONVENIENCE_RECIPES} from '../convenience-staples.js';
 import {originalNutrients} from './helpers/original-nutrients.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,9 +36,11 @@ const ingredientId=id=>id.startsWith('performance-')?'perf_'+id.slice(12):'takea
 const changedIngredients=new Set([...changedIds].map(ingredientId));
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-test('店舗名は一覧・食材名・小分類・基準量の表示から外し、料理の種類を残す',()=>{
-  for(const r of RECIPES)assert.doesNotMatch([r.name,r.variantLabel,r.portion?.label].join(' '),store,r.id);
-  for(const[id,ingredient]of Object.entries(INGREDIENTS))assert.doesNotMatch(ingredient.name,store,id);
+test('一般料理は店名を付けず、公式表示で登録したコンビニ商品は販売元を区別できる',()=>{
+  const products=new Set(CONVENIENCE_RECIPES.map(recipe=>recipe.id));
+  for(const recipe of CONVENIENCE_RECIPES)assert.match(recipe.name,store,recipe.id);
+  for(const r of RECIPES.filter(recipe=>!products.has(recipe.id)))assert.doesNotMatch([r.name,r.variantLabel,r.portion?.label].join(' '),store,r.id);
+  for(const[id,ingredient]of Object.entries(INGREDIENTS).filter(([id])=>!Object.hasOwn(CONVENIENCE_INGREDIENTS,id)))assert.doesNotMatch(ingredient.name,store,id);
   for(const[id,[name]]of Object.entries(labels))assert.equal(RECIPES.find(r=>r.id===id)?.name,name,id);
 });
 

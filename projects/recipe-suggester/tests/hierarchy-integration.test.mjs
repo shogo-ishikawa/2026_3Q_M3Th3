@@ -1,3 +1,5 @@
+import {applyStrainedStock} from '../strained-stock.js';
+import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -49,8 +51,8 @@ const snapshot = (recipe, quantity = 1) => ({...itemFromRecipe(describeRecipe(re
 const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 1e-8, `${label}: ${actual} != ${expected}`);
 
 test('既存580品は手順と表示文言・間食分類の整理と3品の副菜への移動以外の材料・量・栄養・一意性を保つ', () => {
-  const originalRecipes = RECIPES.filter(recipe => !addedIds.has(recipe.id)).map(originalRecipe);
-  const originalIngredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !addedIngredientIds.has(id)).map(([id,item]) => [id,originalNutrients(item)]));
+  const originalRecipes = pre331Recipes.filter(recipe => !addedIds.has(recipe.id)).map(originalRecipe);
+  const originalIngredients = Object.fromEntries(Object.entries(pre331Ingredients).filter(([id]) => !addedIngredientIds.has(id)).map(([id,item]) => [id,originalNutrients(item)]));
   assert.equal(originalRecipes.length, 580);
   assert.equal(Object.keys(originalIngredients).length, 235);
   // 寿司・飲料の8品は下で意図を検査します。572品・235食材の基準件数は維持します。
@@ -79,15 +81,15 @@ test('既存580品は手順と表示文言・間食分類の整理と3品の副�
   assert.match(byId.get('classic-sushi-assorted').portion.label, /8貫/);
   assert.equal(byId.get('classic-sushi-assorted').ingredients.find(part => part.id === 'rice').amount, 360);
   for (const id of ['drink-milk-cocoa', 'drink-soy-cocoa', 'drink-yogurt']) assert.equal(byId.get(id).family, 'other-drink', id);
-  assert.equal(RECIPES.length, 580 + additions.length);
+  assert.equal(RECIPES.length, 580 + additions.length + added331Recipes.length);
   assert.equal(incoming.length, 87);
-  assert.equal(Object.keys(INGREDIENTS).length, 235 + addedIngredientIds.size);
+  assert.equal(Object.keys(INGREDIENTS).length, 235 + addedIngredientIds.size + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(recipe => recipe.id)).size, RECIPES.length);
   for (const source of incoming) {
     const integrated = byId.get(source.id);
     assert.ok(integrated, source.id);
     for (const key of ['role', 'family', 'servings', 'portion', 'ingredients', 'displayCategory', 'displayMethod', 'displaySecondaryCategories']) {
-      assert.deepEqual(integrated[key], source[key], `${source.id}/${key}`);
+      assert.deepEqual(integrated[key], applyStrainedStock(source)[key], `${source.id}/${key}`);
     }
   }
   const sections = ['main', 'side', 'staple', 'soup', 'drink', 'snack'];
@@ -100,7 +102,7 @@ test('既存580品は手順と表示文言・間食分類の整理と3品の副�
   assert.equal(shown.length, RECIPES.length);
   assert.equal(new Set(shown.map(recipe => recipe.id)).size, RECIPES.length);
   const canonicalRoles = new Map(CATALOG_CATEGORIES.map(category => [category.id, category.role]));
-  const oldStaples = RECIPES.filter(recipe => !addedIds.has(recipe.id) && recipe.role === 'main' && canonicalRoles.get(recipe.family) === 'staple');
+  const oldStaples = pre331Recipes.filter(recipe => !addedIds.has(recipe.id) && recipe.role === 'main' && canonicalRoles.get(recipe.family) === 'staple');
   assert.equal(oldStaples.length, 30);
   const mainIds = new Set(browseDishes(RECIPES, {section: 'main'}).map(recipe => recipe.id));
   const stapleIds = new Set(browseDishes(RECIPES, {section: 'staple'}).map(recipe => recipe.id));
