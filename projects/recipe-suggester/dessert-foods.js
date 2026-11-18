@@ -32,7 +32,7 @@ const PRODUCTS=[
   {...cake('chocolate-mousse-cake','チョコムースケーキ（市販品）','ガトーショコラ','29850',[448,6.6,31.6,34.1,null,.2],['almond','soy']),
     note:'参照商品はチョコムースとココアスポンジを重ねたタイプです。焼き菓子タイプのガトーショコラとは区別します。食物繊維は未表示です。'},
   cake('chocolate-shortcake','チョコレートショートケーキ（市販品）','ミルクチョコショート','91951',[371,5,26.9,27.8,null,.2],['soy']),
-  cake('apple-pie','アップルパイ（市販品）','アップルパイ','2238',[344,2.9,10.9,59.1,null,.3],['orange','apple','gelatin']),
+  {...cake('apple-pie','アップルパイ（市販品）','ごろっと林檎のアップルパイ','57899',[347,2.9,10.9,59.5,null,.3],['orange','apple','gelatin']),checkedDate:'2026-11-18'},
   cake('chocolate-mille-crepe','チョコミルクレープ（市販品）','紗々ミルクレープ','52754',[509,6.3,36.9,38.3,null,.3],['soy','gelatin']),
   {slug:'custard-cream-puff',name:'カスタードシュークリーム（市販品）',family:'dessert',
     reference:'銀座コージーコーナー ジャンボシュークリーム（カスタード）',basis:'1個',
@@ -93,7 +93,7 @@ export const DESSERT_INGREDIENTS=Object.fromEntries(PRODUCTS.map(product=>[
   ingredientId(product),{
     name:`${product.name}（購入品）`,unit:product.purchaseUnit??'個',allergens:product.allergens,
     groups:[],proteinSources:[],
-    note:`購入する完成品の数量です。${referenceNote(product)}${NOTICE}確認日${CHECKED}。${product.source}`,
+    note:`購入する完成品の数量です。${referenceNote(product)}${NOTICE}確認日${product.checkedDate??CHECKED}。${product.source}`,
   },
 ]));
 
@@ -106,5 +106,5 @@ export const DESSERT_RECIPES=PRODUCTS.map(product=>({
   allergensKnown:false,ingredientsKnown:false,shoppingKnown:true,
   tags:['時短'],steps:[],
   manualNutrition:Object.fromEntries(KEYS.map((key,index)=>[key,product.nutrients[index]])),
-  sourceNote:`${referenceNote(product)}${product.note} ${NOTICE}全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日${CHECKED}。出典: ${product.source}${product.allergenSource?` アレルギー情報: ${product.allergenSource}`:''}`,
+  sourceNote:`${referenceNote(product)}${product.note} ${NOTICE}全原材料を登録したDBではないため、アレルギー確認済みや自動提案の候補とは扱いません。確認日${product.checkedDate??CHECKED}。出典: ${product.source}${product.allergenSource?` アレルギー情報: ${product.allergenSource}`:''}`,
 }));

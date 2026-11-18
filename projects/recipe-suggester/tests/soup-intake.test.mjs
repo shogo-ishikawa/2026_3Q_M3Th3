@@ -14,7 +14,7 @@ const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-8,`${actual
 const compare=(actual,expected)=>{for(const key of NUTRIENT_KEYS)expected[key]===null?assert.equal(actual[key],null):near(actual[key],expected[key]);};
 
 test('監査済みの汁物・鍋料理は全量摂取で従来値と完全に一致し、1人分へ正規化する',()=>{
-  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,98);
+  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,99);
   for(const base of supported){
     const generated=buildSoupIntake({baseRecipe:base},data);
     assert.deepEqual(recipeNutrition(generated,data),recipeNutrition(base,data),base.id);
@@ -28,7 +28,7 @@ test('監査済みの汁物・鍋料理は全量摂取で従来値と完全に�
 
 test('みそ汁で汁だけを残すとみそ・だしの栄養だけ減り、具の栄養は全量残る',()=>{
   const base=recipe('soup-001'),none=buildSoupIntake({baseRecipe:base,brothRatio:0},data),half=buildSoupIntake({baseRecipe:base,brothRatio:.5},data),definition=soupIntakeFor(base,data);
-  compare(none.manualNutrition,recipeNutrition({...base,ingredients:base.ingredients.filter(part=>!['miso','water','kombu'].includes(part.id))},data));
+  compare(none.manualNutrition,recipeNutrition({...base,ingredients:base.ingredients.filter(part=>!['miso','water','stock_kombu_strained'].includes(part.id))},data));
   compare(none.manualNutrition,definition.solidNutrition);
   for(const key of NUTRIENT_KEYS)near(half.manualNutrition[key],definition.solidNutrition[key]+definition.brothNutrition[key]*.5);
   assert.ok(none.manualNutrition.salt<recipeNutrition(base,data).salt);

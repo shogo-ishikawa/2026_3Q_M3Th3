@@ -1,4 +1,5 @@
 /** 料理ごとに買う材料を選び、合算した後で家の在庫を一度だけ差し引きます。 */
+import {stockPurchaseId} from './strained-stock.js';
 import {dateIsValid, shoppingServingsFor} from './journal.js';
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
 
@@ -94,11 +95,11 @@ export function removeShoppingIngredient(prepared, ingredientId, menuIds, receip
   const purchasedMenus = new Set(receipts.flatMap(receipt => receipt.allocations.map(part => part.menuId)));
   const remaining = [];
   for (const menu of prepared ?? []) {
-    if (!pendingMenus.has(menu.id) || !menu.ingredientIds.includes(ingredientId)) {
+    if (!pendingMenus.has(menu.id) || !menu.ingredientIds.some(id => stockPurchaseId(id) === ingredientId)) {
       remaining.push(menu);
       continue;
     }
-    const ingredientIds = menu.ingredientIds.filter(id => id !== ingredientId);
+    const ingredientIds = menu.ingredientIds.filter(id => stockPurchaseId(id) !== ingredientId);
     if (ingredientIds.length || purchasedMenus.has(menu.id)) remaining.push({...menu, ingredientIds});
   }
   return remaining.length ? remaining : null;
@@ -109,13 +110,15 @@ export function buildShoppingChecklist(selections, data, {pantry = [], omittedId
   checkData(data);
   if (!Array.isArray(selections) || !Array.isArray(pantry) || !Array.isArray(omittedIds) ||
       omittedIds.some(id => typeof id !== 'string')) throw Error('買い物の選択内容を確認してください。');
-  const omitted = new Set(omittedIds), items = new Map(), missingMenus = [], seen = new Set();
-  const stock = new Map();
+  const omitted = new Set(omittedIds.map(stockPurchaseId)), items = new Map(), missingMenus = [], seen = new Set();
+  const stock = new Map(), pantryIds = new Set();
   for (const part of pantry) {
-    if (!Object.hasOwn(data.ingredients, part.id) || !nonnegative(part.amount) || stock.has(part.id)) {
+    if (!Object.hasOwn(data.ingredients, part.id) || !nonnegative(part.amount) || pantryIds.has(part.id)) {
       throw Error('手持ちの食材の量を確認してください。');
     }
-    stock.set(part.id, part.amount);
+    pantryIds.add(part.id);
+    const id = stockPurchaseId(part.id);
+    stock.set(id, (stock.get(id) ?? 0) + part.amount);
   }
   for (const menu of selections) {
     if (!menu || !validId(menu.id) || seen.has(menu.id) || !validServings(menu.servings) || !Array.isArray(menu.ingredientIds) ||
@@ -143,7 +146,8 @@ export function buildShoppingChecklist(selections, data, {pantry = [], omittedId
       }
       const needed = part.amount * item.quantity * menu.servings;
       if (!positive(needed)) throw Error('買い物の必要量が大きすぎます。');
-      sourceAmounts.set(part.id, (sourceAmounts.get(part.id) ?? 0) + needed);
+      const id = stockPurchaseId(part.id);
+      sourceAmounts.set(id, (sourceAmounts.get(id) ?? 0) + needed);
     }
     for (const [id, needed] of sourceAmounts) {
       const ingredient = data.ingredients[id];

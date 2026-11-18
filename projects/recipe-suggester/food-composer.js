@@ -3,6 +3,7 @@ import {recipePortion} from './catalog.js';
 import {NUTRIENT_KEYS, itemFromRecipe, recipeConfirmation, recipeNutrition} from './nutrition.js';
 import {eligibleRecipes} from './planner.js';
 import {SEAFOOD_SASHIMI_CHOICES} from './seafood-foods.js';
+import {KYOTO_SASHIMI_CHOICES} from './kyoto-foods.js';
 import {BREAD_PRESETS, BREAD_COMPONENT_INGREDIENTS, BREAD_BASE_INGREDIENTS} from './bread-foods.js';
 
 const freeze = value => {
@@ -183,14 +184,14 @@ const breadRecipeIds=kind=>breadPresets(kind).map(part=>part.recipeId);
 const sashimi = [['tuna','まぐろ赤身',15,2],['tuna-mediumfat','まぐろ中トロ',15,2],['salmon','サーモン',15,2],['yellowtail','ぶり',15,2],['seabream','たい',15,2],['bonito','かつお',15,2],['aji','あじ',10,3],['squid','いか',5,6],['octopus','マダコ（ボイル）',5,6],['scallop','ほたて',10,3]]
   .map(([id,label,gramsPerUnit,defaultAmount])=>choice(id,label,`classic-sashimi-${id}`,'刺身','切れ',defaultAmount,
     {gramsPerUnit,note:`切り分けた可食部1切れを約${gramsPerUnit}gとする目安です。厚さや実物の重量に合わせて変更できます。`}))
-  .concat(SEAFOOD_SASHIMI_CHOICES.map(({id,label,recipeId,unit,defaultAmount,gramsPerUnit,note})=>
+  .concat([...SEAFOOD_SASHIMI_CHOICES,...KYOTO_SASHIMI_CHOICES].map(({id,label,recipeId,unit,defaultAmount,gramsPerUnit,note})=>
     choice(id,label,recipeId,'刺身',unit,defaultAmount,{gramsPerUnit,note})));
 
 const COMPOSER_DESCRIPTIONS = {
   oden:'大根・練り物・ロールキャベツなど21種と飲む汁を選ぶ',
   'pot-au-feu':'肉・野菜・きのこと煮汁の量を自由に選ぶ',
   sushi:'握り11種・軍艦・巻き寿司を一皿に',
-  sashimi:'魚介20種を切れ数・尾数で選び、重さへ換算する',
+  sashimi:'刺身やネギトロの種類と量を選ぶ',
   yakitori:'部位、塩・たれ、本数を選ぶ',
   tempura:'具材の種類と個数、天つゆの量を選ぶ',
   cheese:'8種類を個数で選び、1個の重さも調整',
@@ -221,7 +222,7 @@ export const FOOD_COMPOSERS = freeze([
     defaults:[['tuna',2],['salmon',2],['shrimp',1],['egg',1]],intro:`握り・軍艦は貫数、細巻き・太巻きは切れ数で選べます。細巻きは1本6切れ、太巻きは1本8切れの目安です。${countNote}`,
     instructions:['食べる寿司の種類と数を選ぶ。魚は刺身用を使用し、えびや玉子など加熱する具は中まで火を通してから冷ます。']},
   {kind:'sashimi',label:'刺身の盛り合わせ',recipeIds:[...sashimi.map(part=>part.recipeId),'classic-sashimi-assorted'],role:'main',family:'sashimi',nature:'ready-to-eat',genre:'和食',minutes:10,components:sashimi,
-    defaults:[['tuna',2],['salmon',2],['seabream',2]],intro:'種類ごとの切れ数・えびの尾数を選ぶと、可食部のg数へ換算します。1切れ・1尾の重さも変更できます。しょうゆは換算した魚介の重量に応じた目安量を含みます。買い物リストはgで集計します。しめさばは酢締め済み、マダコはボイル、ミズダコは生の別項目です。',
+    defaults:[['tuna',2],['salmon',2],['seabream',2]],intro:'刺身は切れ数、えびは尾数、ネギトロととろたくは盛り数で選べます。魚介の重さは実物に合わせて調整できます。しょうゆは換算した魚介の重量に応じた目安量を含みます。買い物リストはgで集計します。しめさばは酢締め済み、マダコはボイル、ミズダコは生の別項目です。',
     instructions:['生で食べる魚介は刺身用として販売されたものを使い、清潔な器具で盛り付ける。マダコはボイル済み、しめさばは酢締め済みを使い、食べるまで冷蔵する。']},
   {kind:'yakitori',label:'焼き鳥',recipeIds:yakitori.map(part=>part.recipeId),role:'main',family:'meat-main',genre:'和食',minutes:25,components:yakitori,
     defaults:[['thigh-salt',1],['thigh-tare',1],['tsukune',1]],intro:`部位と塩・たれを選び、それぞれ食べる本数を指定します。手作りと購入品は別の配合・表示値で計算します。${countNote}`,

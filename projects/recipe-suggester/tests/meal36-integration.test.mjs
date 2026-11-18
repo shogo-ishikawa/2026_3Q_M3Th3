@@ -1,3 +1,4 @@
+import {pre331Recipes, pre331Ingredients, added331Recipes} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -38,7 +39,7 @@ const recordInput = (recipeId, amount = 1, status = 'planned') => ({recipeId, da
 // 固定値は変更前の v3.5.0（e6eb306）の独立 worktree 847品・363食材から計算。
 // 分類変更した3品だけ role/family を除き、残る844品では分類も含めてすべて照合します。
 test('旧847品と363食材は、指定3品の主菜から副菜への移動以外の全内容を保持する', () => {
-  const originals = RECIPES.filter(recipe => !newIds.has(recipe.id)).map(originalRecipe);
+  const originals = pre331Recipes.filter(recipe => !newIds.has(recipe.id)).map(originalRecipe);
   assert.equal(originals.length, 847);
   const projected = originals.map(recipe => {
     if (!movedIds.includes(recipe.id)) return recipe;
@@ -50,7 +51,7 @@ test('旧847品と363食材は、指定3品の主菜から副菜への移動以�
     return rest;
   });
   assert.equal(hash(projected), '9109f818df0caebd831eb24565efcb68edc1831479a2777217ccc8995c60361b');
-  const ingredients = Object.fromEntries(Object.entries(INGREDIENTS).filter(([id]) => !newIngredientIds.has(id)).map(([id,item])=>[id,originalNutrients(item)]));
+  const ingredients = Object.fromEntries(Object.entries(pre331Ingredients).filter(([id]) => !newIngredientIds.has(id)).map(([id,item])=>[id,originalNutrients(item)]));
   assert.equal(Object.keys(ingredients).length, 363);
   assert.equal(hash(ingredients), '19f36fa2fef787890372a301497c7b6efec60f8ab430c25b6d50f0cf606b89bf');
   const profiles = Object.fromEntries(Object.entries(ingredients).map(([id, ingredient]) => [id,
@@ -86,7 +87,7 @@ test('以前に主菜として記録した納豆とゆで卵は、分類を更�
 
 test('ご飯のお供8品を単品の副菜として記録し、生卵と牛丼のご飯を二重計上しない', () => {
   assert.equal(ACCOMPANIMENT_RECIPES.length, 8);
-  assert.equal(RECIPES.length, 855+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length);
+  assert.equal(RECIPES.length, 855+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
   for (const source of ACCOMPANIMENT_RECIPES) {
     const recipe = RECIPES.find(candidate => candidate.id === source.id);
     assert.ok(recipe, source.id);

@@ -63,7 +63,8 @@ test('追加購入材料58種は栄養を不明に保ち、完成品の公式表
     assert.deepEqual(INGREDIENT_NUTRITION[id].nutritionPerUnit,unknown,id);
     assert.match(INGREDIENT_NUTRITION[id].nutritionSource,/対応する栄養値は未登録/);
     assert.match(INGREDIENT_NUTRITION[id].nutritionSource,/https:\/\//);
-    assert.match(INGREDIENT_NUTRITION[id].nutritionSource,/2026-11-13/);
+    const verified = id === 'dessert_apple_pie' ? '2026-11-18' : '2026-11-13';
+    assert.ok(INGREDIENT_NUTRITION[id].nutritionSource.includes(verified),id);
     const recipe=recipes.find(r=>r.ingredients.some(part=>part.id===id));
     assert.ok(recipe,id);assert.ok(recipe.manualNutrition,id);
     assert.deepEqual(recipeNutrition(recipe,data),recipe.manualNutrition,id);

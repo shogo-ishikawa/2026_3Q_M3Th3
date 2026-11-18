@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
 import {TAKEAWAY_RECIPES} from '../takeaway-foods.js';
 import {CONFECTIONERY_RECIPES} from '../confectionery-foods.js';
+import {CONVENIENCE_RECIPES} from '../convenience-staples.js';
 import {DESSERT_RECIPES} from '../dessert-foods.js';
 import {PERFORMANCE_RECIPES} from '../performance-foods.js';
 import {ACCOMPANIMENT_RECIPES} from '../accompaniment-foods.js';
 import {PREPARED_RECIPES} from '../prepared-foods.js';
 import {classifyNutritionBasis,deriveRecipeBasis,NUTRITION_BASIS_KINDS,validateNutritionBasis} from '../nutrition-basis.js';
-import {itemFromRecipe,recipeNutrition} from '../nutrition.js';
+import {itemFromRecipe,itemNutrition,recipeNutrition} from '../nutrition.js';
+import {createCatalogItem} from '../record-actions.js';
+import {editRecordIngredients,recordIngredientDraft} from '../record-ingredient-edit.js';
 import {defaultJournal,validateJournal} from '../journal.js';
 import {buildRestaurantRecipe} from '../restaurant-menu.js';
 
@@ -41,9 +44,15 @@ test('材料を計算する料理と材料の合算を保存した自作料理�
 });
 
 test('実際の表示値を持つ登録プロフィールだけを公式表示例とする',()=>{
-  for(const recipe of [...TAKEAWAY_RECIPES,...CONFECTIONERY_RECIPES,...DESSERT_RECIPES,...ACCOMPANIMENT_RECIPES.filter(recipe=>recipe.manualNutrition!==undefined)]){
-    assert.equal(deriveRecipeBasis(recipe,data),'official',recipe.id);
+  for(const recipe of [...TAKEAWAY_RECIPES,...CONVENIENCE_RECIPES,...CONFECTIONERY_RECIPES,...DESSERT_RECIPES,...ACCOMPANIMENT_RECIPES.filter(recipe=>recipe.manualNutrition!==undefined)]){
+    const hasValues=Object.values(recipe.manualNutrition).some(value=>value!==null);
+    assert.equal(deriveRecipeBasis(recipe,data),hasValues?'official':'unknown',recipe.id);
   }
+  const dumplings=TAKEAWAY_RECIPES.find(recipe=>recipe.id==='takeaway-frozen-suigyoza');
+  const missing=classifyNutritionBasis(dumplings,data);
+  assert.equal(missing.label,'栄養値未登録');
+  assert.equal(missing.unknownKeys.length,6);
+  assert.equal(classifyNutritionBasis(itemFromRecipe(dumplings,data),data).label,missing.label);
   const badge=classifyNutritionBasis(candy,data);
   assert.equal(badge.label,'公式表示値（参考）');
   assert.match(badge.description,/参照商品・店舗/);
@@ -121,4 +130,24 @@ test('全レシピを分類しても材料や栄養の元データを変更し�
   const before=JSON.stringify(data);
   for(const recipe of RECIPES){const kind=deriveRecipeBasis(recipe,data);assert.ok(NUTRITION_BASIS_KINDS.includes(kind),recipe.id);assert.equal(classifyNutritionBasis(recipe,data).kind,kind,recipe.id);}
   assert.equal(JSON.stringify(data),before);
+});
+
+
+test('コンビニ商品の半量を記録し、追加した卵の分だけ栄養を加え、未掲載の成分を保つ',()=>{
+  for(const recipe of CONVENIENCE_RECIPES){
+    const half=createCatalogItem(recipe.id,recipe.portion.amount / 2,data);
+    assert.equal(half.nutritionBasis,'official',recipe.id);
+    assert.equal(half.sourceNote,recipe.sourceNote);
+    const initial=recipe.manualNutrition;
+    const draft=recordIngredientDraft(half,data);
+    assert.equal(draft.editableBase,false);
+    const withEgg=editRecordIngredients(half,{...draft,additions:[{id:'egg',amount:1}]},data);
+    assert.equal(withEgg.nutritionBasis,'mixed');
+    const logged=itemNutrition(withEgg);
+    for(const [key,value] of Object.entries(initial)){
+      if(value===null)assert.equal(logged[key],null);
+      else assert.ok(Math.abs(logged[key]-(value/2+INGREDIENTS.egg.nutritionPerUnit[key]))<1e-7,recipe.id+' '+key);
+    }
+    assert.notEqual(deriveRecipeBasis({...recipe,manualNutrition:{...initial,kcal:initial.kcal+1}},data),'official');
+  }
 });

@@ -104,7 +104,7 @@ if not candidates:
 
 
 def dataset():
-    script = "import {ALLERGENS,INGREDIENTS,RECIPES} from './data.js'; console.log(JSON.stringify({allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES}));"
+    script = "import {ALLERGENS,INGREDIENTS,RECIPES} from './data.js'; import {mealOccasionsFor} from './meal-occasions.js'; console.log(JSON.stringify({allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES.map(recipe=>({...recipe,mealOccasions:mealOccasionsFor(recipe)}))}));"
     result = subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT,
                             capture_output=True, text=True, check=True)
     return json.loads(result.stdout)
@@ -123,6 +123,8 @@ def build():
         ("code", 'today = date.today()\nhistory = [\n    {"date": str(today - timedelta(days=1)), "recipeIds": [],\n     "groups": ["staple", "protein"], "proteinSources": ["meat"]},\n]\n\nrecipe_by_id = {r["id"]: r for r in RECIPES}\ngroup_counts = Counter()\nprotein_counts = Counter()\nrecipe_counts = Counter()\nfor meal in history:\n    recorded = date.fromisoformat(meal["date"])\n    if not today - timedelta(days=7) <= recorded < today:\n        continue\n    groups = set(meal.get("groups", []))\n    proteins = set(meal.get("proteinSources", []))\n    for recipe_id in meal.get("recipeIds", []):\n        if recipe_id not in recipe_by_id:\n            raise ValueError(f"登録されていない料理IDです：{recipe_id}")\n        _, recipe_groups, recipe_proteins = recipe_features(recipe_by_id[recipe_id])\n        groups.update(recipe_groups)\n        proteins.update(recipe_proteins)\n        recipe_counts[recipe_id] += 1\n    group_counts.update(groups)\n    protein_counts.update(proteins)\nprint("記録に含まれる食品群：", dict(group_counts))\nprint("主菜の食材の種類：", dict(protein_counts))\n'),
         ("markdown", "## 候補を並べ替えてレシピを読む\n\n最近食べた同じ料理を下位にし、記録に少ない主菜の種類や野菜を含む料理を上位にする簡単な例です。重みを変えると何が起こるでしょうか。除外判定を通った候補だけを並べ替える順序は保ってください。"),
         ("code", 'def priority(recipe):\n    _, groups, proteins = recipe_features(recipe)\n    score = -5 * recipe_counts[recipe["id"]]\n    if "vegetable" in groups:\n        score += 2 / (1 + group_counts["vegetable"])\n    for source in proteins:\n        score += 1 / (1 + protein_counts[source])\n    return score\n\n\nranked = sorted(candidates, key=priority, reverse=True)\nfor recipe in ranked[:3]:\n    print("\\n", recipe["name"], f"（{servings}人分）")\n    for item in recipe["ingredients"]:\n        ingredient = INGREDIENTS[item["id"]]\n        amount = item["amount"] * servings / recipe["servings"]\n        print(f"  {ingredient[\"name\"]}：{amount:g}{ingredient[\"unit\"]}")\n    for number, step in enumerate(recipe["steps"], 1):\n        print(f"  {number}. {step}")\n'),
+        ("markdown", "## 食事の場面で料理を探す\n\n各料理の `mealOccasions` は、その料理を食べる場面のリストです。1品が朝食と間食の両方に入ることもあります。下の `occasion` と `keyword` を変えて検索してみましょう。"),
+        ("code", 'occasion = "間食"\nkeyword = "みかん"\nfor recipe in RECIPES:\n    if occasion in recipe["mealOccasions"] and keyword in recipe["name"]:\n        print(recipe["name"], "・".join(recipe["mealOccasions"]))\n'),
         ("markdown", "## ここから発展させる\n\n候補の並び方を変える、直近3日と7日で比べる、主菜・副菜・汁物を組み合わせるなど、1つずつ変更して同じ条件で比較しましょう。レシピを増やす場合は材料・調味料とアレルゲンの情報を一緒に追加します。"),
     ]
     cells = []

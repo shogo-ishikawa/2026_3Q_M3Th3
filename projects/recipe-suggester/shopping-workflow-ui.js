@@ -1,3 +1,4 @@
+import {stockPurchaseId} from './strained-stock.js';
 /** 買うもの・献立・購入済みを別々の画面に表示します。 */
 import {pendingShopping, shoppingMenuStatuses, visibleReceipts} from './shopping-status.js';
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
@@ -77,7 +78,7 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
   function renderReview() {
     const review = make('section', 'shopping-review'); review.setAttribute('aria-label', '買い物に使う献立');
     const toolbar = make('div', 'shopping-selection-actions'), status = make('p', 'shopping-selection-status'); status.setAttribute('role', 'status');
-    const cards = make('div', 'shopping-menu-cards'), chosen = clone(selection), omitted = new Set(omittedIds);
+    const cards = make('div', 'shopping-menu-cards'), chosen = clone(selection), omitted = new Set(omittedIds.map(stockPurchaseId));
     const totals = pendingShopping(allMenus, data, ledgerOptions);
     const statuses = new Map(shoppingMenuStatuses(allMenus, data, ledgerOptions).map(item => [item.menuId, item]));
     const pendingByMenu = new Map();
@@ -86,7 +87,7 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
       pendingByMenu.get(source.menuId).set(ingredient.id, source);
     }
     const canBuy = menu => !menu.item.batchId && !menu.item.restaurant && !menu.item.diningMatch && (menu.item.ingredientsKnown === true || menu.item.shoppingKnown === true);
-    const materialIds = menu => canBuy(menu) ? unique((menu.item.ingredients ?? []).filter(part => data.ingredients[part.id] && !omitted.has(part.id) && (pendingByMenu.get(menu.id)?.get(part.id)?.buy ?? 0) > 0).map(part => part.id)) : [];
+    const materialIds = menu => canBuy(menu) ? unique((menu.item.ingredients ?? []).filter(part => data.ingredients[part.id] && !omitted.has(stockPurchaseId(part.id)) && (pendingByMenu.get(menu.id)?.get(stockPurchaseId(part.id))?.buy ?? 0) > 0).map(part => part.id)) : [];
     const available = new Map(menus.map(menu => [menu.id, materialIds(menu)]));
     const selectedFor = menu => new Set(Object.hasOwn(chosen, menu.id) ? chosen[menu.id] : available.get(menu.id));
     const selectedIds = menu => available.get(menu.id).filter(id => selectedFor(menu).has(id));
@@ -140,10 +141,10 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
           const details = make('details', 'shopping-menu-ingredients'); details.append(make('summary', '', `食材 ${parts.size}種類`));
           const ingredients = make('div', 'shopping-menu-materials');
           for (const [id, required] of parts) {
-            const ingredient = data.ingredients[id], source = pendingByMenu.get(menu.id)?.get(id), label = make('label', 'shopping-material-choice'), input = make('input'); input.type = 'checkbox';
+            const ingredient = data.ingredients[id], source = pendingByMenu.get(menu.id)?.get(stockPurchaseId(id)), label = make('label', 'shopping-material-choice'), input = make('input'); input.type = 'checkbox';
             inputs.set(id, input); input.checked = selected.has(id) && ids.includes(id); input.disabled = !ids.includes(id); input.setAttribute('aria-label', `${menu.item.name}の${ingredient.name}を買う`);
             const description = make('span'), notes = [];
-            if (omitted.has(id)) notes.push('常備品として除外');
+            if (omitted.has(stockPurchaseId(id))) notes.push('常備品として除外');
             else if (!canBuy(menu)) notes.push('材料未確認');
             else if ((source?.buy ?? 0) === 0) notes.push((source?.purchased ?? 0) > 0 ? '購入済み' : '手持ちで足ります');
             else {

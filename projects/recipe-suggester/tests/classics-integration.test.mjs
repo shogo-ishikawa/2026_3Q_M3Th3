@@ -1,4 +1,6 @@
 import {PALETTE_RECIPES} from '../palette-foods.js';
+import {applyStrainedStock} from '../strained-stock.js';
+import {CONVENIENCE_RECIPES} from '../convenience-staples.js';
 import test from 'node:test';
 import {BREAD_RECIPES} from '../bread-foods.js';
 import assert from 'node:assert/strict';
@@ -46,7 +48,7 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
   for (const source of [...CLASSIC_MAIN_RECIPES, ...CLASSIC_SIDE_RECIPES, ...PREPARED_RECIPES, ...PERFORMANCE_RECIPES, ...SUSHI_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES]) {
     const integrated = byId.get(source.id);
     assert.ok(integrated, source.id);
-    assert.deepEqual(integrated.ingredients, source.ingredients, source.id);
+    assert.deepEqual(integrated.ingredients, applyStrainedStock(source).ingredients, source.id);
     if(integrated.nature==='home-cooked')assert.ok(integrated.steps.length>=3,source.id);
     else assert.deepEqual(integrated.steps,[],source.id);
     for (const key of ['family', 'nature', 'sourceNote', 'shoppingKnown', 'allergensKnown', 'ingredientsKnown']) {
@@ -61,7 +63,7 @@ test('統合DBへ全追加モジュールを取り込み、公開用の分類を
 
 test('統合後も未確認商品を記録用に残し、自動献立と差し替えには入れない', () => {
   const unconfirmed = new Set(RECIPES.filter(recipe => describeRecipe(recipe.id, data).allergensKnown === false).map(recipe => recipe.id));
-  assert.deepEqual(unconfirmed, new Set([...unconfirmedIds,...BREAD_RECIPES.filter(recipe=>recipe.allergensKnown===false).map(recipe=>recipe.id)]));
+  assert.deepEqual(unconfirmed, new Set([...unconfirmedIds,...[...BREAD_RECIPES, ...CONVENIENCE_RECIPES].filter(recipe=>recipe.allergensKnown===false).map(recipe=>recipe.id)]));
   const safe = new Set(eligibleRecipes({}, data).map(recipe => recipe.id));
   assert.equal(safe.size, RECIPES.filter(recipe => !unconfirmed.has(recipe.id) && recipe.family !== 'alcohol').length);
   const plan = generateCalendarPlan(settings, data);

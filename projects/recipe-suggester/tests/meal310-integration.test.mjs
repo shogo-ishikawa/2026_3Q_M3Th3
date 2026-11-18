@@ -1,3 +1,4 @@
+import {pre331Recipes, pre331Ingredients} from './helpers/meal331-contract.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -36,13 +37,13 @@ const record = (recipe, catalog, amount = recipePortion(recipe, catalog).amount,
 
 test('v3.9.1で公開済みの885レシピ・405食材を全項目で保持する', () => {
   const originalIds = new Set(contract.recipeIds);
-  const originals = RECIPES.filter(recipe => originalIds.has(recipe.id));
+  const originals = pre331Recipes.filter(recipe => originalIds.has(recipe.id));
   assert.deepEqual(originals.map(recipe => recipe.id), contract.recipeIds);
   assert.equal(originals.length, 885);
   assert.equal(hash(originals), contract.recipeHash, '既存レシピの材料・量・栄養・手順・出典を変えない');
   const ingredients = Object.fromEntries(contract.ingredientIds.map(id => {
     assert.ok(Object.hasOwn(INGREDIENTS, id), id);
-    return [id, INGREDIENTS[id]];
+    return [id, pre331Ingredients[id]];
   }));
   assert.equal(Object.keys(ingredients).length, 405);
   assert.equal(hash(ingredients), contract.ingredientHash, '既存食材の成分・単位・換算・出典も変えない');

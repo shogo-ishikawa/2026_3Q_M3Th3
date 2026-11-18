@@ -1,3 +1,4 @@
+import {stockPurchaseId} from './strained-stock.js';
 /** 購入量を料理ごとに割り当て、別の日の買い物へ二重計上しません。 */
 import {buildShoppingChecklist} from './shopping-workflow.js';
 
@@ -133,11 +134,11 @@ const LABELS = {purchased: '購入済み', partial: '一部購入済み', unpurc
 export function shoppingMenuStatuses(menus, data, {pantry = [], omittedIds = [], receipts = []} = {}) {
   if (!Array.isArray(menus)) throw Error('献立リストを確認してください。');
   const selections = menus.map(allIngredients), result = pendingShopping(selections, data, {pantry, omittedIds, receipts});
-  const missing = new Set(result.missingMenus.map(menu => menu.menuId)), omitted = new Set(omittedIds);
+  const missing = new Set(result.missingMenus.map(menu => menu.menuId)), omitted = new Set(omittedIds.map(stockPurchaseId));
   return menus.map(menu => {
     const totals = {totalIngredients: 0, purchasedIngredients: 0, stockIngredients: 0, omittedIngredients: 0,
       unselectedIngredients: 0, remainingIngredients: 0};
-    const ids = [...new Set(menu.item.ingredients.map(part => part.id))];
+    const ids = [...new Set(menu.item.ingredients.map(part => stockPurchaseId(part.id)))];
     let purchased = 0, stock = 0;
     for (const id of ids) {
       totals.totalIngredients++;
@@ -150,7 +151,7 @@ export function shoppingMenuStatuses(menus, data, {pantry = [], omittedIds = [],
       else totals.remainingIngredients++;
     }
     // ingredientIdsは「今回買うもの」の指定です。未選択でも全材料を用意したとは扱いません。
-    if (Array.isArray(menu.ingredientIds)) totals.unselectedIngredients = ids.filter(id => !omitted.has(id) && !menu.ingredientIds.includes(id)).length;
+    if (Array.isArray(menu.ingredientIds)) totals.unselectedIngredients = ids.filter(id => !omitted.has(id) && !menu.ingredientIds.some(material => stockPurchaseId(material) === id)).length;
     const unknown = missing.has(menu.id) || ids.some(id => !Object.hasOwn(data.ingredients, id));
     let status;
     if (unknown) status = 'unknown';

@@ -1,5 +1,6 @@
 /** ジャンル → 食材の種類 → 具体的な食材。栄養やアレルギーの分類とは分けます。 */
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
+import {FRUIT_INGREDIENTS} from './fruit-varieties.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
 
 // 各種類の順序と、その中の食材IDの並びをそのまま選択欄に使います。
@@ -24,7 +25,7 @@ const TABLE = {
   ],
   "fish": [
     ["fish", "加熱用の魚", "salmon mackerel cod horse_mackerel sardine tuna yellowtail flounder saury"],
-    ["sashimi", "刺身", "tuna_lean_sashimi tuna_mediumfat_sashimi salmon_sashimi yellowtail_sashimi seabream_sashimi bonito_sashimi horse_mackerel_sashimi seafood_inada seafood_hirame seafood_shimesaba seafood_iwashi seafood_sanma seafood_hiramasa"],
+    ["sashimi", "刺身", "tuna_lean_sashimi tuna_mediumfat_sashimi salmon_sashimi yellowtail_sashimi seabream_sashimi bonito_sashimi horse_mackerel_sashimi seafood_inada seafood_hirame seafood_shimesaba seafood_iwashi seafood_sanma seafood_hiramasa kyoto_kanpachi kyoto_suzuki"],
     ["shrimp", "えび・かに", "shrimp crab seafood_amaebi seafood_akaebi"],
     ["squid", "いか・たこ", "squid octopus squid_sashimi seafood_mizudako"],
     ["shellfish", "貝", "scallop clam scallop_sashimi seafood_tsubu simmered_oyster bistro_mussel_raw bistro_escargot_canned"],
@@ -45,16 +46,16 @@ const TABLE = {
     ["rice", "米・ご飯・もち", "uncooked_rice rice brown_rice barley cooked_barley dish_mochi"],
     ["bread", "パン", "bread wholegrain_bread hamburger_bun palette_bagel breakfast_bagel palette_english_muffin breakfast_english_muffin pizza_base"],
     ["noodles", "麺・春雨", "udon soba pasta somen ramen_noodles yakisoba_noodles macaroni mung_vermicelli"],
-    ["flour", "粉・パン粉・皮", "flour world_bread_flour world_wholemeal_flour rice_flour starch cornstarch breadcrumbs dumpling_wrappers spring_roll_wrappers soup311_wonton_wrappers simmered_chikuwabu"],
+    ["flour", "粉・パン粉・皮", "flour world_bread_flour world_wholemeal_flour rice_flour starch cornstarch breadcrumbs dumpling_wrappers spring_roll_wrappers soup311_wonton_wrappers simmered_chikuwabu kyoto_namafu"],
     ["cereal", "オートミール・焼き菓子生地", "oatmeal palette_waffle palette_muffin_base"],
   ],
   "fruit": [
-    ["fresh", "生の果物", "apple banana orange kiwi strawberry grape peach blueberry avocado lemon_slice"],
+    ["fresh", "生の果物", `apple banana orange kiwi strawberry grape peach blueberry avocado lemon_slice ${Object.keys(FRUIT_INGREDIENTS).join(' ')}`],
     ["dried", "ドライフルーツ", "raisin"],
   ],
   "seasoning": [
-    ["basic", "基本調味料", "salt sugar soy_sauce miso vinegar mirin sake black_pepper"],
-    ["stock", "だし・スープの素", "kombu bonito dried_sardine soup311_awase_dashi soup311_consomme noodle_chinese_stock noodle_niboshi_stock noodle_tonkotsu_concentrate"],
+    ["basic", "基本調味料", "salt sugar soy_sauce kyoto_usukuchi miso vinegar mirin sake black_pepper"],
+    ["stock", "だし・スープの素", "kombu bonito dried_sardine soup311_awase_dashi kyoto_kombu_dashi stock_kombu_strained stock_bonito_strained soup311_consomme noodle_chinese_stock noodle_niboshi_stock noodle_tonkotsu_concentrate"],
     ["sauce", "ソース・たれ・ペースト", "mayonnaise bread_ketchup worcestershire_sauce oyster_sauce fish_sauce tomato_paste mapo_doubanjiang mapo_tianmianjiang mapo_douchi world_tomyum_paste simmered_yuzu_kosho"],
     ["spice", "香辛料・乾燥ハーブ", "curry_powder paprika_powder chilli dried_basil turmeric cumin mapo_huajiao world_garam_masala"],
     ["sweet", "ジャム・甘味料・製菓", "palette_honey palette_maple_syrup bread_strawberry_jam bread_marmalade bread_peanut_butter palette_baking_powder"],
@@ -80,12 +81,15 @@ const TABLE = {
     ["water", "水", "water"],
   ],
   "prepared": [
+    ["sweet-bread", "菓子パン", "convenience_anpan convenience_cream_pan convenience_melon_pan convenience_strawberry_coppe convenience_milk_france convenience_apple_danish convenience_chocolate_croissant convenience_chocolate_chip_bread"],
+    ["convenience-meal", "コンビニのおにぎり・弁当・麺", "convenience_salmon_onigiri convenience_tuna_mayo_onigiri convenience_nori_bento convenience_napolitan convenience_zaru_soba"],
+    ["counter-food", "ホットスナック・中華まん", "convenience_famichiki convenience_karaage_kun convenience_l_chiki convenience_pork_bun convenience_pizza_bun convenience_corn_dog"],
     ["noodles", "即席麺", "cup_ramen_soy_dry cup_ramen_salt_dry cup_ramen_nonfried_dry cup_udon_dry cup_soba_dry cup_yakisoba_dry bag_fried_noodles_dry bag_nonfried_noodles_dry"],
     ["rice", "レトルトの具", "retort_beef_curry retort_pork_curry retort_chicken_curry retort_oyakodon_topping retort_mapo_topping retort_vegetable_curry_model retort_keema_curry_model retort_gyudon_model retort_chukadon_model"],
-    ["bread", "バーガー・サンドイッチ", "prepared_item_burger_plain prepared_item_burger_cheese prepared_item_burger_teriyaki prepared_item_burger_chicken prepared_item_burger_fish prepared_item_burger_double prepared_item_sandwich_egg prepared_item_sandwich_ham prepared_item_sandwich_tuna prepared_item_sandwich_vegetable"],
+    ["bread", "バーガー・サンドイッチ", "prepared_item_burger_plain prepared_item_burger_cheese prepared_item_burger_teriyaki prepared_item_burger_chicken prepared_item_burger_fish prepared_item_burger_double prepared_item_sandwich_egg prepared_item_sandwich_ham prepared_item_sandwich_tuna prepared_item_sandwich_vegetable convenience_egg_sandwich"],
     ["soup", "即席スープ", "takeaway_harusame_wonton takeaway_harusame_egg takeaway_harusame_tantan takeaway_harusame_wakame_vegetable takeaway_harusame_wakame_gomtang takeaway_knorr_corn takeaway_knorr_potage takeaway_knorr_mushroom takeaway_knorr_spinach takeaway_knorr_pumpkin takeaway_knorr_tomato"],
     ["protein", "サラダチキン・プロテイン粉", "perf_chicken_plain perf_chicken_herb perf_chicken_smoke perf_soy_powder perf_whey_powder"],
-    ["deli", "惣菜・持ち帰り料理", "steamed_pork_bun takeaway_yakitori_momo_tare takeaway_yakitori_momo_salt takeaway_yakitori_negima_tare takeaway_yakitori_tsukune_tare takeaway_yakitori_kawa_tare takeaway_yakitori_sunagimo_salt takeaway_eel_kabayaki takeaway_unaju takeaway_shumai takeaway_frozen_suigyoza takeaway_spring_roll takeaway_tempura_shrimp takeaway_tempura_squid takeaway_tempura_maitake takeaway_beef_karubi"],
+    ["deli", "惣菜・持ち帰り料理", "steamed_pork_bun takeaway_yakitori_momo_tare takeaway_yakitori_momo_salt takeaway_yakitori_negima_tare takeaway_yakitori_tsukune_tare takeaway_yakitori_kawa_tare takeaway_yakitori_sunagimo_salt takeaway_eel_kabayaki takeaway_unaju takeaway_shumai takeaway_frozen_suigyoza takeaway_spring_roll takeaway_tempura_shrimp takeaway_tempura_squid takeaway_tempura_maitake takeaway_beef_karubi convenience_vegetable_salad convenience_salted_egg convenience_salad_chicken_bar"],
   ],
   "snack": [
     ["chocolate", "チョコレート", "chocolate confectionery_pocky confectionery_milk_chocolate confectionery_black_chocolate confectionery_cacao72 confectionery_almond_chocolate confectionery_kinoko confectionery_dars confectionery_chocoball"],
