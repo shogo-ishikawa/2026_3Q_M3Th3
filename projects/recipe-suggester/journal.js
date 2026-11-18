@@ -26,7 +26,7 @@ export const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000, shoppingExtras: 200, shoppingList: 500, shoppingCatalog: 500, shoppingReceipts: 2000};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'startTab', 'mealPreferences', 'shoppingOmittedIds'];
 const TEXT_SIZE_IDS = ['standard', 'large', 'larger', 'largest'];
-const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis'];
+const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis', 'diningMatch'];
 const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant', 'nutritionBasis'];
 const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。復旧方法を選ぶまで設定や記録の変更は保存できません。復旧画面から元のデータを書き出すか、バックアップを読み込んでください。復旧後はアレルギーと除外食材も確認してください。';
 const unknownNutrition = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
@@ -234,6 +234,20 @@ function customRecipe(source, context) {
     proteinSources: unique([...ids(source.proteinSources, new Set(PROTEIN_IDS), '主な食材'), ...metadata.proteinSources]), custom: true, ...extra};
 }
 
+function diningMatch(item) {
+  const source = item.diningMatch;
+  record(source, ['mode', 'referenceName', 'actualName', 'storeName', 'referenceBasis'], '外食の照合情報');
+  if (!['menu', 'similar'].includes(source.mode)) throw Error('外食で選んだ料理との対応を確認してください。');
+  if (item.shoppingKnown === true || item.batchId !== undefined || item.name !== source.actualName) throw Error('外食記録の料理名と材料を確認してください。');
+  if (source.mode === 'similar') {
+    if (item.allergensKnown === true || item.ingredientsKnown === true || !['estimate','unknown'].includes(item.nutritionBasis)) throw Error('似た料理を使った外食の原材料と栄養の根拠を確認してください。');
+  } else if (item.nutritionBasis !== source.referenceBasis) throw Error('外食の栄養表示の根拠を確認してください。');
+  return {mode: source.mode, actualName: text(source.actualName, 200, '食べた料理の名前'),
+    referenceName: text(source.referenceName, 200, '栄養の参考にした料理名'),
+    storeName: text(source.storeName, 80, '外食の店名', true),
+    referenceBasis: validateNutritionBasis(source.referenceBasis)};
+}
+
 function snapshot(source, context, itemIds) {
   record(source, ITEM_KEYS, '食事の内容');
   const id = identifier(source.id, '食事の内容の識別子');
@@ -249,6 +263,7 @@ function snapshot(source, context, itemIds) {
     ingredientsKnown: bool(source.ingredientsKnown, false, '材料の確認状況'), steps: steps(source.steps), role: source.role,
     ...(source.portion === undefined ? {} : {portion: portion(source.portion)}),
     ...(source.batchId === undefined ? {} : {batchId: identifier(source.batchId, '作り置きの識別子')}),
+    ...(source.diningMatch === undefined ? {} : {diningMatch: diningMatch(source)}),
     ...(source.restaurant === undefined ? {} : {restaurant: validateRestaurantMetadata(source.restaurant, context.data, {historical: true})}), ...sourceMetadata(source)};
 }
 

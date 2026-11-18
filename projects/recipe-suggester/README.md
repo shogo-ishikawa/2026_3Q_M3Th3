@@ -1,8 +1,12 @@
 # Meal Palette（ミールパレット）
 
-対応版：v3.28.0 ／ 更新日：2026年11月18日
+対応版：v3.29.0 ／ 更新日：2026年11月18日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
+
+v3.29.0では外で食べた料理も献立と同じ台帳から探せます。「記録」→「外食を料理から記録」で主菜、ご飯、小鉢などを選び、食べた量を一食分にまとめます。店の料理に近いレシピを使った場合は参考にした料理名が記録に残ります。
+
+昼食を記録して「食事記録から夕食を考える」を開くと、その日に食べた料理と栄養を参考にした夕食案を確認できます。すでに作った数日分の献立にも、その日の夕食だけを反映できます。
 
 v3.28.0では晩酌にも使える主菜12品と副菜12品を追加しました。全品に材料と作り方があります。「メニュー」で晩酌のおかずに絞ると既存の料理も一緒に探せます。料理ごとの出典と献立に採用する理由は[主菜](docs/evening-mains.md)と[副菜](docs/evening-sides.md)にまとめました。
 
@@ -113,7 +117,7 @@ v3.9.1までに、刺身の切れ数やチーズの個数からの重量換算�
 
 v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.28.0.zip)
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v3.29.0.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
@@ -309,10 +313,10 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `app.js`・`tabs.js`・`index.html`・`styles.css` | 操作、タブの切り替え、表示 |
 | `storage.js` | 旧版のAPIと互換処理 |
 
-ZIPは`v3.28.0/`に展開します。Macでは次の場所に置けます。
+ZIPは`v3.29.0/`に展開します。Macでは次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.28.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v3.29.0
 ```
 
 展開したフォルダーで`python3 tools/serve.py`を実行し、表示されたURLを開きます。`npm test`で確認できます。背景は[設計と開発](docs/design.md)、実際の確認範囲は[検証記録](docs/validation.md)をご覧ください。

@@ -1,6 +1,6 @@
 import {recipeNutrition, recipeConfirmation} from './nutrition.js';
 import {quantityFromAmount, isCompleteMeal, recipeFamily} from './catalog.js';
-import {normaliseMealPreferences, mealProfile, mealAppropriateCandidates, mealRecipeScore, mealQuantityMultiplier, mealCourses, mainIncludesBroth, resolveMealSettings} from './meal-profiles.js';
+import {MEAL_SHARES, normaliseMealPreferences, mealProfile, mealAppropriateCandidates, mealRecipeScore, mealQuantityMultiplier, mealCourses, mainIncludesBroth, resolveMealSettings} from './meal-profiles.js';
 import {breakfastRole, matchesStaplePreference, isBanshakuDish, canSuggestAtMeal} from './meal-suitability.js';
 import {plannedQuantity} from './portion-guide.js';
 import {dishClassification} from './dish-hierarchy.js';
@@ -14,6 +14,7 @@ export const MOODS = ['all', 'さっぱり', 'ガッツリ', '時短', '定番']
 const DEFAULT_RATIOS = {和食: 40, 洋食: 30, 中華: 20, エスニック: 10, その他: 0};
 const ROLES = ['main', 'side', 'soup', 'staple', 'drink', 'snack'];
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+const MEAL_LABELS = {breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食'};
 const SOURCE_LABELS = {meat: '肉', fish: '魚', egg: '卵', soy: '大豆'};
 const ROLE_LABELS = {main: '主菜', side: '副菜', soup: '汁物', staple: '主食', drink: '飲み物', snack: '間食'};
 const NUTRIENTS = ['kcal', 'protein', 'fat', 'carbs', 'fiber', 'salt'];
@@ -567,7 +568,6 @@ function calendarEvidence(entries, date, meal, data, completedDays) {
   const meals = new Map();
   const values = Object.fromEntries(NUTRIENTS.map(key => [key, null]));
   const knownCounts = emptyCounts(NUTRIENTS);
-  const knownDates = Object.fromEntries(NUTRIENTS.map(key => [key, new Set()]));
   const completed = completedDays === undefined ? null : new Set(completedDays);
   // 完了を明示した空の日も、飲食量0の日として平均の分母へ含めます。
   // 未完了の空の日はここに作らず、0と推測しません。
@@ -575,6 +575,8 @@ function calendarEvidence(entries, date, meal, data, completedDays) {
     .map(key => [key, {count: 0, values: emptyCounts(NUTRIENTS), known: emptyCounts(NUTRIENTS)}]));
   const todayValues = Object.fromEntries(NUTRIENTS.map(key => [key, null]));
   const todayKnownCounts = emptyCounts(NUTRIENTS);
+  const recordedMeals = new Set();
+  const diningMeals = new Set();
   let itemCount = 0;
   let todayItemCount = 0;
   for (const entry of filtered) {
@@ -598,10 +600,18 @@ function calendarEvidence(entries, date, meal, data, completedDays) {
       itemCount++;
       if (!daily.has(entry.date)) daily.set(entry.date, {count: 0, values: emptyCounts(NUTRIENTS), known: emptyCounts(NUTRIENTS)});
       const day = daily.get(entry.date); day.count++;
-      if (entry.date === date) todayItemCount++;
+      if (entry.date === date) {
+        todayItemCount++;
+        recordedMeals.add(entry.meal);
+        const isDining = item.diningMatch || item.restaurant || entry.note === '外食';
+        if (isDining && (item.recipeId || item.restaurant?.genericRecipeId ||
+            NUTRIENTS.some(key => Number.isFinite(item.nutrition?.[key])))) diningMeals.add(entry.meal);
+      }
       (item.groups ?? []).filter(group => FOOD_GROUPS.includes(group)).forEach(group => tags.groups.add(group));
       (item.proteinSources ?? []).filter(source => PROTEIN_SOURCES.includes(source)).forEach(source => tags.sources.add(source));
       if (typeof item.recipeId === 'string') tags.recipes.add(item.recipeId);
+      // 店舗の料理と登録時に紐づけた一般料理は、献立の重複を調べるときにも照合する。
+      if (typeof item.restaurant?.genericRecipeId === 'string') tags.recipes.add(item.restaurant.genericRecipeId);
       for (const key of NUTRIENTS) {
         const amount = item.nutrition?.[key];
         if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) continue;
@@ -609,7 +619,6 @@ function calendarEvidence(entries, date, meal, data, completedDays) {
         day.values[key] += total; day.known[key]++;
         values[key] = (values[key] ?? 0) + total;
         knownCounts[key]++;
-        knownDates[key].add(entry.date);
         if (entry.date === date) {
           todayValues[key] = (todayValues[key] ?? 0) + total;
           todayKnownCounts[key]++;
@@ -628,9 +637,9 @@ function calendarEvidence(entries, date, meal, data, completedDays) {
     if (entry.groups.size || entry.sources.size || entry.recipes.size) taggedMealCount++;
   }
   const completePriorDays = [...daily.entries()].filter(([key]) => key < date && completed?.has(key));
+  const daysForAverage = completed ? completePriorDays : [...daily.entries()].filter(([day]) => day < date);
   const dailyMeans = Object.fromEntries(NUTRIENTS.map(key => {
-    if (!completed) return [key, knownDates[key].size ? values[key] / knownDates[key].size : null];
-    const knownDays = completePriorDays.filter(([, day]) => day.known[key] === day.count);
+    const knownDays = daysForAverage.filter(([, day]) => day.known[key] === day.count);
     return [key, knownDays.length ? knownDays.reduce((sum, [, day]) => sum + day.values[key], 0) / knownDays.length : null];
   }));
   const basis = {from, untilDate: date, beforeMeal: meal, entryCount: filtered.length, itemCount,
@@ -638,6 +647,8 @@ function calendarEvidence(entries, date, meal, data, completedDays) {
     complete: Object.fromEntries(NUTRIENTS.map(key => [key, itemCount > 0 && knownCounts[key] === itemCount])),
     dailyMeans, usesCompletedDays: completed !== null, completedDayCount: completePriorDays.length,
     today: {values: todayValues, knownCounts: todayKnownCounts,
+      meals: MEALS.filter(id => recordedMeals.has(id)), diningMeals: MEALS.filter(id => diningMeals.has(id)),
+      share: [...recordedMeals].reduce((sum, id) => sum + MEAL_SHARES[id], 0),
       complete: Object.fromEntries(NUTRIENTS.map(key => [key, todayItemCount > 0 && todayKnownCounts[key] === todayItemCount]))}};
   return {basis, history: {groups, proteinSources, recipeCounts, taggedMealCount,
     hasHistory: meals.size > 0, hasTaggedData: taggedMealCount > 0, mealCount: meals.size,
@@ -653,6 +664,12 @@ function comparisonTargets(targets) {
   return Object.fromEntries(NUTRIENTS.filter(key => finitePositive(targets[key]) || key === 'salt' && targets[key] === 0).map(key => [key, targets[key]]));
 }
 
+// 登録された食事の配分だけを比べる。未登録の朝食などを0として扱わない。
+function sameDayShortfall(today, key, target) {
+  if (!target || !today.complete[key] || !today.share) return 0;
+  return Math.max(0, 1 - today.values[key] / (target * today.share));
+}
+
 function calendarNutrientScore(recipe, basis, targets, selected, data, meal, settings) {
   const nutrition = recipeNutrition(recipe, data);
   const profile = mealProfile(settings, meal), share = profile.share * profile.scale;
@@ -665,11 +682,16 @@ function calendarNutrientScore(recipe, basis, targets, selected, data, meal, set
   }
   for (const key of ['kcal', 'salt', 'protein', 'fiber']) {
     const target = targets[key];
-    if (target === undefined || (basis.dailyMeans[key] === null && (!['kcal', 'salt'].includes(key) || basis.today.values[key] === null))) continue;
+    if (target === undefined) continue;
+    const limit = key === 'kcal' || key === 'salt';
+    // 当日の既知分だけで一日分の比較値に届いていれば、過去の平均で追加の加点をしない。
+    if (!limit && basis.today.values[key] !== null && basis.today.values[key] >= target) continue;
+    const todayGap = limit ? 0 : sameDayShortfall(basis.today, key, target);
+    if (basis.dailyMeans[key] === null && (limit ? basis.today.values[key] === null : !todayGap)) continue;
     const amount = nutrition[key];
     // 不明な栄養量を0とみなして「少ない料理」として優先しません。
     if (amount === null || amount === undefined) { score -= 20; continue; }
-    if (key === 'kcal' || key === 'salt') {
+    if (limit) {
       const selectedValues = selected.map(item => recipeNutrition(item, data)[key]);
       const already = (basis.today.values[key] ?? 0) + selectedValues.filter(value => value !== null && value !== undefined).reduce((sum, value) => sum + value, 0);
       const available = Math.max(0, target - already);
@@ -678,7 +700,8 @@ function calendarNutrientScore(recipe, basis, targets, selected, data, meal, set
       const previousExcess = target === 0 ? ((basis.dailyMeans[key] ?? 0) > 0 ? 1 : 0) : Math.max(0, (basis.dailyMeans[key] ?? 0) / target - 1);
       score -= 16 * Math.min(1, excess + Math.min(previousExcess, 1) * amount / (denominator * share));
     } else {
-      const difference = Math.max(0, 1 - basis.dailyMeans[key] / target);
+      const pastGap = basis.dailyMeans[key] === null ? 0 : 1 - basis.dailyMeans[key] / target;
+      const difference = Math.max(todayGap, pastGap, 0);
       score += 14 * difference * Math.min(1, amount / (target * share));
     }
   }
@@ -710,10 +733,21 @@ function calendarNotes(selected, evidence, settings, targets, targetGenre, meal,
   } else {
     notes.reasons.push(`${basis.from}からこの食事の直前までに「食べた」と記録した${basis.entryCount}件を比較しました。予定の食事は摂取量に含めていません。`);
     if (basis.usesCompletedDays) notes.reasons.push(`過去の栄養の平均は、飲食の記録を完了した${basis.completedDayCount}日だけを対象にします。栄養が不明な日はその成分の平均から除きます。`);
-    const lower = ['kcal', 'salt'].filter(key => targets[key] !== undefined && basis.dailyMeans[key] !== null &&
-      (basis.dailyMeans[key] > targets[key] || (basis.today.values[key] ?? 0) >= targets[key]));
+    if (basis.today.diningMeals.length) {
+      const slots = basis.today.diningMeals.map(id => MEAL_LABELS[id]).join('・');
+      notes.reasons.push(`当日の${slots}に登録した外食を含めて比較しています。`);
+    }
+    const lower = ['kcal', 'salt'].filter(key => targets[key] !== undefined &&
+      ((basis.dailyMeans[key] !== null && basis.dailyMeans[key] > targets[key]) ||
+       (basis.today.values[key] !== null && basis.today.values[key] > targets[key])));
+    const sameDayHigher = ['protein', 'fiber'].filter(key =>
+      sameDayShortfall(basis.today, key, targets[key]) > 0 && selected.some(recipe => recipeNutrition(recipe, data)[key] > 0));
+    if (sameDayHigher.length) {
+      const slots = basis.today.meals.map(id => MEAL_LABELS[id]).join('・');
+      notes.reasons.push(`当日の${slots}で記録した${sameDayHigher.map(key => nutrientLabels[key]).join('・')}がその食事の配分目安より少なめなので、補いやすい料理を優先しました。`);
+    }
     const higher = ['protein', 'fiber'].filter(key => targets[key] && basis.dailyMeans[key] !== null &&
-      basis.dailyMeans[key] < targets[key] && selected.some(recipe => (recipeNutrition(recipe, data)[key] ?? 0) > 0));
+      basis.dailyMeans[key] < targets[key] && (basis.today.values[key] ?? 0) < targets[key] && selected.some(recipe => (recipeNutrition(recipe, data)[key] ?? 0) > 0));
     if (lower.length) notes.reasons.push(`登録された${lower.map(key => nutrientLabels[key]).join('・')}が比較値を上回るため、量が分かる候補の中で控えめな組合せを優先しました。`);
     if (higher.length) notes.reasons.push(`記録された範囲で${higher.map(key => nutrientLabels[key]).join('・')}の1日平均が比較値より少ないため、これらを含む候補を優先しました。`);
     if (basis.itemCount > 0 && NUTRIENTS.some(key => !basis.complete[key])) notes.warnings.push('記録の一部に未登録の栄養量があります。比較は分かる範囲の参考値です。');

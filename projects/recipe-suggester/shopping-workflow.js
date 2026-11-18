@@ -128,7 +128,7 @@ export function buildShoppingChecklist(selections, data, {pantry = [], omittedId
     const possible = new Set(item.ingredients.map(part => part.id));
     if (menu.ingredientIds.some(id => !possible.has(id))) throw Error('料理に含まれない食材が選ばれています。');
     // 作り置きの取り分けと外食は、原材料を改めて買いません。
-    if (item.batchId || item.restaurant) continue;
+    if (item.batchId || item.restaurant || item.diningMatch) continue;
     const selected = new Set(menu.ingredientIds);
     let missing = !item.ingredients.length || !item.ingredientsKnown;
     // 材料未確認の料理は、買う商品と量を別途確認できた場合に限って集計します。

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createCatalogEntry} from '../record-actions.js';
 import {describeRecipe, eligibleRecipes, generateCalendarPlan, generatePlan, replaceRecipe, shoppingList, toggleDish} from '../planner.js';
 
 const nutrients = extra => ({kcal: 200, protein: 10, fat: 5, carbs: 25, fiber: 2, salt: 0.5, ...extra});
@@ -238,4 +239,72 @@ test('earlier same-day energy and salt still affect ranking when no full day has
     entries: [entry('2026-11-10', 'breakfast', 'eaten', snapshot({kcal: 2200, salt: 7}))]});
   assert.ok(plan.days[0].recipeIds.includes('main-light'));
   assert.equal(plan.days[0].nutritionBasis.dailyMeans.kcal, null);
+});
+
+
+test('外食の昼食を半分食べたときはその量で夕食を比較し、未入力分や予定を不足と扱わない', () => {
+  const data = {...DATA, recipes: [...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    manual('main-low', 'main', {protein: 2, fiber: 0}), manual('main-high', 'main', {protein: 20, fiber: 8}),
+    manual('lunch-plate', 'main', {protein: 24, fiber: 8}, {mealSuitability: ['lunch'], portion: {amount: 1, unit: '皿'}})]};
+  const dinner = entries => generateCalendarPlan(settings(), data, {entries, completedDays: [], stapleId: 'none',
+    targets: {protein: 60, fiber: 20}}).days[0];
+  const lunch = amount => createCatalogEntry({recipeId:'lunch-plate', amount, date:'2026-11-10', meal:'lunch', status:'eaten', note:'外食'}, data);
+  const half = lunch(0.5), unchanged = structuredClone(half);
+  const less = dinner([half]), whole = dinner([lunch(1)]);
+  assert.equal(less.mainId, 'main-high');
+  assert.equal(whole.mainId, 'main-low');
+  assert.equal(dinner([half, lunch(0.5)]).mainId, whole.mainId);
+  assert.deepEqual(less.nutritionBasis.today.meals, ['lunch']);
+  assert.equal(less.nutritionBasis.today.values.protein, 12);
+  assert.equal(less.nutritionBasis.today.values.fiber, 4);
+  assert.equal(less.nutritionBasis.dailyMeans.protein, null);
+  assert.match(less.reasons.join(''), /昼食に登録した外食/);
+  assert.match(less.reasons.join(''), /昼食で記録したたんぱく質・食物繊維/);
+  assert.ok(!whole.reasons.some(reason => reason.includes('配分目安より')));
+  const past = {...lunch(0.5), date:'2026-11-09'};
+  const plenty = generateCalendarPlan(settings(), data, {entries: [past, lunch(3)], completedDays: ['2026-11-09'],
+    stapleId: 'none', targets: {protein: 60, fiber: 20}}).days[0];
+  assert.equal(plenty.mainId, 'main-low');
+  assert.ok(!plenty.reasons.some(reason => reason.includes('1日平均が比較値より少ない')));
+  const missing = lunch(0.5);
+  missing.items[0].nutrition.protein = null;
+  missing.items[0].nutrition.fiber = null;
+  const partial = dinner([half, missing]);
+  assert.equal(partial.mainId, 'main-low');
+  assert.equal(partial.nutritionBasis.today.values.protein, 12);
+  assert.equal(partial.nutritionBasis.today.complete.protein, false);
+  assert.ok(!partial.reasons.some(reason => reason.includes('配分目安より')));
+  const planned = dinner([{...half, status:'planned'}, {...half, date:'2026-11-11'}, {...half, meal:'dinner'}]);
+  assert.equal(planned.mainId, 'main-low');
+  assert.equal(planned.nutritionBasis.entryCount, 0);
+  assert.deepEqual(half, unchanged);
+});
+
+test('店の一般料理への紐づけは献立の重複だけに使い、表示値のない栄養を補わない', () => {
+  const data = {...DATA, recipes: DATA.recipes.filter(recipe => recipe.id !== 'pasta-main')};
+  const day = entries => generateCalendarPlan(settings(), data, {entries, completedDays: [], meal:'dinner', stapleId:'none'}).days[0];
+  const first = day([]).mainId;
+  const restaurant = snapshot({kcal:450, protein:null, fiber:null}, {recipeId:'custom-restaurant-test',
+    restaurant:{genericRecipeId:first}, groups:[], proteinSources:[]});
+  const after = day([entry('2026-11-10', 'lunch', 'eaten', restaurant)]);
+  assert.notEqual(after.mainId, first);
+  assert.equal(after.nutritionBasis.today.values.kcal, 450);
+  assert.equal(after.nutritionBasis.today.values.protein, null);
+  assert.equal(after.nutritionBasis.today.values.fiber, null);
+  assert.match(after.reasons.join(''), /当日の昼食に登録した外食/);
+});
+
+
+test('外食の料理と別レシピでも同じたんぱく源が続くときは選択順に反映する', () => {
+  const data = {...DATA, recipes: [...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    manual('main-low', 'main', {}, {proteinSources:['fish']}),
+    manual('main-high', 'main', {}, {proteinSources:['soy']}),
+    manual('fish-lunch', 'snack', {}, {proteinSources:['fish']})]};
+  const day = entries => generateCalendarPlan(settings(), data, {entries, completedDays: [], stapleId:'none'}).days[0];
+  const lunch = createCatalogEntry({recipeId:'fish-lunch',amount:1,date:'2026-11-10',meal:'lunch',status:'eaten',note:'外食'},data);
+  assert.equal(day([]).mainId, 'main-low');
+  const result = day([lunch]);
+  assert.equal(result.mainId, 'main-high');
+  assert.match(result.reasons.join(''), /登場回数が少なかった大豆/);
+  assert.equal(day([{...lunch, status:'planned'}]).mainId, 'main-low');
 });

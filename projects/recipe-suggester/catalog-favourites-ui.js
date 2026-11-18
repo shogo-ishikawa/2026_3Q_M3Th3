@@ -58,7 +58,9 @@ export function mountCatalogFavourites({favourites=[],data,settings={},viewState
     shopping.setAttribute('aria-label',`${favourite.name}を買い物に追加`);
     const remove=action('お気に入りから外す',act(()=>onDelete(favourite.id)),'button-text catalog-favourite-remove');
     remove.setAttribute('aria-label',`${favourite.name}をお気に入りから外す`);
-    actions.append(details,shopping,remove);
+    actions.append(details);
+    if(!item.diningMatch&&!item.restaurant&&!item.batchId)actions.append(shopping);
+    actions.append(remove);
     article.append(actions);return article;
   }
   function render(){
