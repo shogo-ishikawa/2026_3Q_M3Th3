@@ -13,6 +13,20 @@ const make=(tag,className='',text='')=>{
   return element;
 };
 
+/** 同じ見出しに個別のレシピもあるとき、その料理と具材選択を切り替えます。 */
+export function foodRecipeSwitch(definition,group,onSelect){
+  const alternatives=group?.recipes.filter(recipe=>!definition.recipeIds.includes(recipe.id))??[];
+  if(!alternatives.length)return null;
+  const label=make('label','detail-variation-label','レシピを選ぶ'),select=make('select','food-recipe-switch');
+  select.id='food-recipe-switch';label.htmlFor=select.id;
+  const current=make('option','','具材を選んで作る');current.value='';select.append(current);
+  for(const recipe of alternatives){
+    const option=make('option','',recipe.name);option.value=recipe.id;select.append(option);
+  }
+  select.addEventListener('change',()=>{if(alternatives.some(recipe=>recipe.id===select.value))onSelect(select.value);});
+  label.append(select);return label;
+}
+
 /** formを作らないため、カレンダー登録のformと入れ子になりません。 */
 export function mountFoodComposer({kind,data,initial,onChange=()=>{},onSelectionChange=()=>{},onError=()=>{},allowedRecipeIds}={}){
   if(typeof onChange!=='function'||typeof onSelectionChange!=='function'||typeof onError!=='function')throw Error('選択画面の表示処理を確認してください。');

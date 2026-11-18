@@ -1194,8 +1194,7 @@ html[data-text-size]:not([data-text-size="standard"]) .nutrition-controls > .inl
   html[data-text-size]:not([data-text-size="standard"]) .app-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
   html[data-text-size]:not([data-text-size="standard"]) .field-pair,
   html[data-text-size]:not([data-text-size="standard"]) .quantity-action,
-  html[data-text-size]:not([data-text-size="standard"]) .menu-picker,
-  html[data-text-size]:not([data-text-size="standard"]) .plan-staple-controls { grid-template-columns:minmax(0,1fr); }
+  html[data-text-size]:not([data-text-size="standard"]) .menu-picker { grid-template-columns:minmax(0,1fr); }
   html[data-text-size]:not([data-text-size="standard"]) .dish-component,
   html[data-text-size]:not([data-text-size="standard"]) .salad-component,
   html[data-text-size]:not([data-text-size="standard"]) .food-composer-option { grid-template-columns:minmax(0,1fr); }
@@ -1270,3 +1269,50 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
 .plan-edit-actions { display:flex;flex-wrap:wrap;gap:10px;margin:12px 18px; }
 .day-card-heading > .button-text { white-space:normal;min-height:44px;min-width:92px;font-size:.8125rem; }
 .plan-edit-actions .compact { min-height:44px;font-size:.875rem; }
+
+/* Use the space inside the card. A desktop two-column layout can also leave a narrow card. */
+.day-card { container: meal-card / inline-size; }
+@container meal-card (max-width: 26rem) {
+  .day-card-heading { flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+  .dish-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0 .7rem;
+    padding-block: .6rem;
+  }
+  .dish-row > .choice-label { grid-row: 1 / span 2; align-self: start; min-height: 44px; }
+  .dish-row > .recipe-name { min-height: 44px; text-align: left; }
+  .dish-row > .dish-amount { grid-column: 2; max-width: none; text-align: left; font-size: .75rem; }
+  .plan-staple-controls form { grid-template-columns: minmax(0, 1fr); }
+}
+
+.add-food { container: record-picker / inline-size; }
+@container record-picker (max-width: 22rem) {
+  .quantity-action { grid-template-columns: minmax(0, 1fr); }
+}
+
+#plan-day-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .5rem .75rem;
+  margin-bottom: 1rem;
+}
+#plan-visible-day-field { flex: 1 1 12rem; }
+#plan-day-navigation button { min-height: 44px; }
+
+@media (max-width: 760px) {
+  .close-dialog { flex-basis: 44px; width: 44px; height: 44px; }
+  .calendar-controls .icon-button, .calendar-controls .compact { min-width: 44px; min-height: 44px; }
+  .calendar-toolbar { flex-wrap: wrap; gap: 6px 12px; }
+  .role-filters button { min-height: 44px; }
+}
+@media (max-width: 480px) {
+  html[data-text-size]:not([data-text-size="standard"]) .kitchen-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-text-size]:not([data-text-size="standard"]) .kitchen-tabs button {
+    padding: .35em .2em;
+    line-height: 1.4;
+  }
+  html[data-text-size]:not([data-text-size="standard"]) .nutrition-controls { flex-wrap: wrap; }
+}

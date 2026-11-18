@@ -1,7 +1,7 @@
 .shopping-workflow { display:grid; gap:1rem; min-width:0; }
 .shopping-review { display:grid; gap:.7rem; min-width:0; }
 .shopping-selection-actions,.shopping-menu-actions { display:flex; flex-wrap:wrap; gap:.4rem; }
-.shopping-selection-actions button,.shopping-prepare,.shopping-remove-extra,.shopping-open-menu,.shopping-undo-purchase { min-height:44px; }
+.shopping-selection-actions button,.shopping-prepare,.shopping-remove-extra,.shopping-open-menu,.shopping-undo-purchase,.shopping-remove-ingredient { min-height:44px; }
 .shopping-selection-status { margin:0; font-size:.85rem; color:var(--muted,#687266); }
 .shopping-menu-cards { display:grid; gap:.75rem; }
 .shopping-menu-card { border:1px solid var(--line,#d8dfcf); border-radius:.8rem; padding:.85rem; min-width:0; }

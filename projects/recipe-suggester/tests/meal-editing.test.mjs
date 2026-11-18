@@ -135,3 +135,38 @@ test('diversity never discards the only centre that matches a requested genre or
   const moodUpdated=regeneratePlanMeal(moodPlan,{dayIndex:0,genre:'all',mealPreference:{mood:'さっぱり'}},moodData);
   assert.equal(moodUpdated.days[0].mainId,'chicken-teriyaki');
 });
+
+test('regenerating one supper prefers dishes still unused elsewhere in the same plan', () => {
+  const template = RECIPES.find(recipe => recipe.id === 'chicken-teriyaki');
+  const limited = {...data, recipes: ['a', 'b', 'c'].map(id => ({...template, id}))};
+  const plan = generateCalendarPlan(settings({meal:'dinner', mealPreferences:profiles({dinner:{staple:'none', sideCount:0, soup:'none'}})}), limited);
+  const initialMains = plan.days.map(day => day.mainId);
+  assert.equal(new Set(initialMains).size, 2);
+  for (const seed of [1, 2, 8, 16]) {
+    const edited = regeneratePlanMeal(plan, {dayIndex:0, seed}, limited);
+    assert.ok(!initialMains.includes(edited.days[0].mainId));
+    assert.deepEqual(edited.days[1], plan.days[1]);
+  }
+});
+
+test('complete bread meals report the actual genre and recognise the centre dish mood', () => {
+  const template = RECIPES.find(recipe => recipe.id === 'breakfast-english-muffin-egg');
+  const limited = {...data, recipes: [{...template, tags:['定番']}]};
+  const options = settings({days:1, meal:'breakfast', mealPreferences:profiles({breakfast:{staple:'fixed', stapleId:template.id, mood:'定番', sideCount:0, soup:'none'}})});
+  for (const genre of ['和食', template.genre]) {
+    const plan = generateCalendarPlan({...options, preferences:{genreMode:'single', genre}}, limited);
+    const day = plan.days[0];
+    assert.deepEqual(day.recipeIds, [template.id]);
+    assert.equal(day.warnings.some(message => message.includes('希望ジャンル以外')), genre !== template.genre);
+    assert.ok(!day.warnings.some(message => message.includes('気分')));
+  }
+});
+
+test('turning off every meal returns one actionable explanation', () => {
+  const mealPreferences = profiles(Object.fromEntries(['breakfast', 'lunch', 'dinner'].map(meal => [meal, {enabled:false}])));
+  const plan = generateCalendarPlan(settings({mealPreferences}), data);
+  assert.equal(plan.ok, false);
+  assert.deepEqual(plan.missingRoles, []);
+  assert.equal(plan.warnings.length, 1);
+  assert.match(plan.warnings[0], /提案する食事が選ばれていません/);
+});

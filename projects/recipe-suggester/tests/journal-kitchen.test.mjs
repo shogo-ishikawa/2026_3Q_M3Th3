@@ -89,3 +89,15 @@ test('purchase allocation tolerance allows harmless sum roundoff but rejects exc
  source.shoppingReceipts[0].allocations[1].amount=.201;assert.throws(()=>validateJournal(source,data));
  assert.equal(defaultMealPreference('breakfast').drinkId,'none');
 });
+
+test('確定した買い物に取り込み元を保存し、以前の形式でも読み込める', () => {
+  const stateWithList = state();
+  const planned = {...catalog(), ingredientIds: ['rice']};
+  const historical = {id: 'old-menu', item: food(), servings: 1, ingredientIds: ['rice']};
+  stateWithList.shoppingList = [planned, historical];
+  const loaded = parseJournal(JSON.stringify(stateWithList), data);
+  assert.deepEqual(loaded.shoppingList, stateWithList.shoppingList);
+  for (const invalid of [{date: '2026-02-30'}, {origin: 'unknown'}, {meal: 'midnight'}]) {
+    assert.throws(() => validateJournal({...loaded, shoppingList: [{...planned, ...invalid}]}, data));
+  }
+});

@@ -44,3 +44,21 @@ test('不正な数量で記録せず、作り置きを最近の単品へ混ぜ�
   for(const value of ['','0','-1','0x10','1e2','1000001']){qty.value=value;byClass(root,'favourites-add').emit('click');}
   qty.value='';qty.validity={badInput:true};byClass(root,'favourites-add').emit('click');assert.equal(added.length,0);assert.equal(errors.length,7);assert.equal(byClass(root,'favourites-error').hidden,false);
 }));
+
+test('記録先の日付で最近の実食とそのときの量を絞り込み、お気に入りの入力を保つ',()=>withDocument(()=>{
+  const favourite=createFavourite(entry(100).items[0],data);
+  const root=mountFavourites({favourites:[favourite],entries:[entry(110,'2026-11-10'),entry(210,'2026-11-12'),entry(310,'2026-11-13','planned')],data,date:'2026-11-13'});
+  const recent=byClass(root,'favourites-recent'),saved=byClass(root,'favourites-saved');
+  const amount=byClass(saved,'favourites-amount');amount.value='175';
+  assert.equal(byClass(recent,'favourites-amount').value,'210');
+  const date=field(root,'date');date.value='2026-11-11';date.emit('change');
+  assert.equal(byClass(recent,'favourites-amount').value,'110');
+  assert.equal(byClass(saved,'favourites-amount'),amount);
+  assert.equal(amount.value,'175');
+  date.value='';date.emit('change');
+  assert.equal(all(recent).some(node=>node.className==='favourites-card'),false);
+  date.value='2026-11-09';date.emit('change');
+  assert.equal(all(recent).some(node=>node.className==='favourites-card'),false);
+  date.value='2026-11-13';date.emit('change');
+  assert.equal(byClass(recent,'favourites-amount').value,'210');
+}));

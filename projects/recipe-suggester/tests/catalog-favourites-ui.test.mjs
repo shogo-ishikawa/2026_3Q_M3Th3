@@ -65,3 +65,25 @@ test('保存したジャンルを元メニューより優先し、元メニュ�
   assert.equal(favouriteGenre(favourite.item,data,favourite.genre),'洋食');assert.equal(favouriteGenre({...favourite.item,recipeId:'plain-rice'},data,favourite.genre),'洋食');
   const root=mountCatalogFavourites({favourites:[favourite],data});assert.equal(genreButton(root,'洋食').textContent,'洋食 1件');assert.equal(genreButton(root,'未分類').textContent,'未分類 0件');genreButton(root,'洋食').emit('click');assert.equal(byClass(root,'catalog-favourite-card').length,1);
 }));
+
+test('登録した材料をかなで検索でき、削除後にも同じジャンルと検索語を保つ',()=>withDocument(()=>{
+  const eggs=saved('breakfast-ham-egg',1),rice=saved(),viewState={};
+  const root=mountCatalogFavourites({favourites:[rice,eggs],data,viewState});
+  const genre=genreButton(root,eggs.genre);
+  genre.emit('click');
+  assert.equal(genreButton(root,eggs.genre),genre,'キーボードで押したジャンルボタンを置き換えない');
+  const search=byClass(root,'catalog-favourites-search')[0];
+  search.value='たまご';search.emit('input');
+  assert.equal(byClass(root,'catalog-favourite-open')[0].textContent,eggs.name);
+  const updated=mountCatalogFavourites({favourites:[rice],data,viewState});
+  assert.equal(byClass(updated,'catalog-favourites-search')[0].value,'たまご');
+  assert.equal(genreButton(updated,eggs.genre).attributes['aria-pressed'],'true');
+  assert.equal(byClass(updated,'catalog-favourite-card').length,0);
+  const reset=byClass(updated,'catalog-favourites-clear')[0],updatedSearch=byClass(updated,'catalog-favourites-search')[0];
+  let focused=false;updatedSearch.focus=()=>{focused=true;};
+  reset.emit('click');
+  assert.ok(focused);assert.equal(updatedSearch.value,'');
+  assert.equal(genreButton(updated,'all').attributes['aria-pressed'],'true');
+  assert.equal(genreButton(updated,eggs.genre).hidden,true);
+  assert.equal(byClass(updated,'catalog-favourite-open')[0].textContent,rice.name);
+}));
