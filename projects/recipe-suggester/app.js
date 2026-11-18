@@ -55,8 +55,8 @@ import {nutritionBasisBadge} from './nutrition-basis-ui.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.31.0';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=3.31.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.31.1';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=3.31.1';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -1435,13 +1435,12 @@ for(const input of document.querySelectorAll('input[name="text-size"]'))input.ad
 for(const id of ['genre-mode','single-genre'])bind(id,'change',()=>commit(next=>{next.settings.preferences.genreMode=$('genre-mode').value;next.settings.preferences.genre=$('genre-mode').value==='single'?$('single-genre').value:'all';}));
 bind('ratio-equal','click',()=>commit(next=>next.settings.preferences.genreRatios=Object.fromEntries(GENRES.map(g=>[g,20]))));bind('ratio-japanese','click',()=>commit(next=>next.settings.preferences.genreRatios={和食:50,洋食:20,中華:20,エスニック:10,その他:0}));
 bind('ingredient-search','input',()=>renderIngredientSearch(false));bind('preferred-search','input',()=>renderIngredientSearch(true));
-function generateMeals(meal='all'){
+function generateMeals(){
   if(recovery)throw Error('献立を作る前に保存データを復旧してください。');
   if(shiftDate(state.settings.startDate,state.settings.days-1)>'2100-12-31')throw Error('献立の期間は2100年内で指定してください。');
   undoReset=null;renderReset();
-  const settings={...state.settings,meal,seed:Math.floor(Math.random()*2147483647)};
-  if(meal==='dinner')settings.mealPreferences={...settings.mealPreferences,dinner:{...settings.mealPreferences.dinner,enabled:true}};
-  const next=generateCalendarPlan(settings,data(),{entries:state.entries,targets:state.targets,meal,pantry:state.pantry,completedDays:state.completedDays});
+  const settings={...state.settings,meal:'all',seed:Math.floor(Math.random()*2147483647)};
+  const next=generateCalendarPlan(settings,data(),{entries:state.entries,targets:state.targets,meal:settings.meal,pantry:state.pantry,completedDays:state.completedDays});
   if(next.ok){
     syncDraftShoppingCatalog(next,new Map());
     shoppingSelection={};
@@ -1452,13 +1451,10 @@ function generateMeals(meal='all'){
   plan=next;visiblePlanDate='';renderPlan();renderShopping();
   $('plan-result-title').focus();
   $('plan-result-title').scrollIntoView({block:'start'});
-  tell(plan.ok?(meal==='dinner'?'夕食の献立を作成しました。':'献立を作成しました。'):'献立の条件を確認してください。',!plan.ok);
+  tell(plan.ok?'献立を作成しました。':'献立の条件を確認してください。',!plan.ok);
 }
 bind('plan-form','submit',event=>{event.preventDefault();generateMeals();});
 bind('dinner-from-record','click',openDinnerFromRecord);
-bind('make-dinners','click',()=>generateMeals('dinner'));
-bind('browse-family-dinners','click',()=>openFamilyDinners());
-bind('browse-recipes','click',()=>{activateTab('catalog');$('recipe-search').focus();});
 bind('open-drink-log','click',()=>openDrinkLog());
 selectOptions($('recipe-occasion'),[['all','すべての場面'],...MEAL_OCCASIONS.map(label=>[label,label])],'all');
 bind('recipe-occasion','change',()=>{recipeLimit=12;renderCatalog();});
