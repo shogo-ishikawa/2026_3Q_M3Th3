@@ -38,7 +38,10 @@ def verify(context, url, server):
     expect(sample.locator("#sample-session")).to_be_visible()
     expect(sample.locator("#panel-nutrition")).to_be_visible()
     sample.locator("#tab-kitchen").click()
-    sample.locator(".shopping-check-row input[type=checkbox]").first.check()
+    sample_rows = sample.locator(".shopping-check-row")
+    remaining = sample_rows.count()
+    sample_rows.first.locator("input[type=checkbox]").click()
+    expect(sample_rows).to_have_count(remaining - 1)
     assert sample.evaluate("localStorage.getItem('kondate-note-v3')") == original
     sample.close()
 
@@ -84,7 +87,7 @@ def verify(context, url, server):
     expect(page.locator("#panel-kitchen")).to_be_visible()
     expect(page.locator(".shopping-check-row")).to_have_count(quantity)
     assert page.locator("#shopping-copy-text").input_value() == exported
-    page.locator(f'.shopping-check-row[data-ingredient-id="{item}"] input[type=checkbox]').check()
+    page.locator(f'.shopping-check-row[data-ingredient-id="{item}"] input[type=checkbox]').click()
     page.locator("#kitchen-tab-purchased").click()
     page.locator(".shopping-stock-receipt").first.click()
     page.reload()
