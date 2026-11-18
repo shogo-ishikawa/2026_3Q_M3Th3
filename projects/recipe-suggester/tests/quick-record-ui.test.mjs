@@ -179,3 +179,17 @@ test('焼き鮭の別名は料理全体と魚介の焼き物に共通し、選�
   change(byClass(root,'record-search-category'),'meat');change(byClass(root,'record-search-method'),'grill');
   assert.equal(classes(root,'record-search-choice').length,0);
 }));
+
+test('同じ日の予定から選んだ食事だけを調理モードへ渡し、食べた記録や外食の予定は対象から外す',()=>withDocument(()=>{
+  const first=entry(120,'2026-11-13','planned'), second=entry(150,'2026-11-13','planned');
+  first.items[0].name='小盛りご飯';
+  const dining={...entry(75,'2026-11-13','planned'),note:'外食'};
+  const opened=[];
+  const root=mounted({status:'planned',entries:[first,second,dining,entry(200,'2026-11-13')],onCookEntry:source=>opened.push(source)});
+  const cookButtons=()=>all(root).filter(n=>n.tagName==='BUTTON'&&n.textContent.startsWith('調理モード'));
+  assert.equal(cookButtons().length,2);
+  cookButtons()[1].emit('click');
+  assert.deepEqual(opened,[second]);
+  const status=byClass(root,'quick-record-status');status.value='eaten';status.emit('change');
+  assert.equal(cookButtons().length,0);
+}));

@@ -17,7 +17,7 @@ const button=(text,action,className='button-secondary')=>{const node=make('butto
 const rounded=value=>Number(value.toFixed(3)).toLocaleString('ja-JP');
 const field=(text,control)=>{const label=make('label','quick-record-field',text);label.htmlFor=control.id;label.append(control);if(control.type==='number')configureQuantityInput(control);return label;};
 
-export function mountQuickRecord({data,settings={},entries=[],favourites=[],date,meal='dinner',status='eaten',onContextChange=()=>{},onOpenRecipe=()=>{},onAddEntry=()=>{},onOpenItem=()=>{},onEditItem,searchData=data,searchState,onSearchStateChange,onError=()=>{}}={}){
+export function mountQuickRecord({data,settings={},entries=[],favourites=[],date,meal='dinner',status='eaten',onContextChange=()=>{},onOpenRecipe=()=>{},onAddEntry=()=>{},onOpenItem=()=>{},onEditItem,onCookEntry,searchData=data,searchState,onSearchStateChange,onError=()=>{}}={}){
   if(!dateIsValid(date)||!MEAL_IDS.includes(meal)||!STATUSES.some(([id])=>id===status)||!Array.isArray(entries)||!Array.isArray(favourites)||!Array.isArray(data?.recipes)||[onContextChange,onOpenRecipe,onAddEntry,onOpenItem,onError].some(fn=>typeof fn!=='function'))throw Error('かんたん記録の料理と記録先を確認してください。');
   const prefix=`quick-record-${++serial}`,root=make('section','quick-record panel');root.setAttribute('aria-label','かんたん記録');
   root.append(make('h3','quick-record-heading','食べたものを手早く記録'));
@@ -99,13 +99,21 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
     }
   }
   function renderRecords(){
-    const selected=context(),items=entries.filter(entry=>entry.date===selected.date&&entry.meal===selected.meal&&entry.status===selected.status).flatMap(entry=>entry.items.map(item=>({item,entryId:entry.id})));
+    const selected=context(),matching=entries.filter(entry=>entry.date===selected.date&&entry.meal===selected.meal&&entry.status===selected.status);
+    const items=matching.flatMap(entry=>entry.items.map(item=>({item,entryId:entry.id})));
     recorded.replaceChildren(make('h4','',`この食事の記録（${items.length}品）`));
     if(!items.length){recorded.append(make('p','field-note','まだ記録がありません。上の料理から追加してください。'));return;}
     const list=make('ul','quick-record-entry-list');
     for(const {item,entryId} of items){const row=make('li'),portion=item.portion??{amount:1,unit:'人分'};row.append(button(item.name,act(()=>onOpenItem(structuredClone(item))),'button-text quick-record-item-name'),make('span','quick-record-item-amount',`${rounded(item.quantity*portion.amount)} ${portion.unit}`));
       if(onEditItem && !item.batchId)row.append(button('材料・量を編集',act(()=>onEditItem(structuredClone(item),context(),entryId)),'button-secondary quick-record-edit'));
       list.append(row);}recorded.append(list);
+    if(selected.status==='planned' && onCookEntry){
+      const plans=matching.filter(entry=>entry.note!=='外食' && entry.items.some(item=>!item.diningMatch));
+      for(const entry of plans){
+        const title=plans.length===1?'調理モード':'調理モード：'+entry.items[0].name+ (entry.items.length>1?' ほか':'');
+        recorded.append(button(title,act(()=>onCookEntry(entry)),'button-secondary compact'));
+      }
+    }
   }
   targetDate.addEventListener('change',act(changeContext));targetStatus.addEventListener('change',act(changeContext));
   renderContext();renderFoods();renderRecords();return root;

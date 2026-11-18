@@ -54,6 +54,10 @@ jobs:
         run: npm test --prefix projects/recipe-suggester
       - name: Check meal planner Python notebook
         run: python -m unittest discover -s projects/recipe-suggester/tests -p 'test_*.py' -v
+      - name: Check Meal Palette offline shopping in Chrome
+        run: |
+          python -m pip install "playwright>=1.50,<2"
+          python projects/recipe-suggester/tests/browser/offline.py
       - name: Package meal planner
         run: python projects/recipe-suggester/tools/build_release.py
       - name: Prepare FaceGate web models and runtime

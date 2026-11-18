@@ -4,7 +4,7 @@ import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {STORAGE_KEY, defaultState} from '../storage.js';
 import {itemFromRecipe} from '../nutrition.js';
 import {JOURNAL_KEY, PREVIOUS_JOURNAL_KEY, JOURNAL_BACKUP_KEY, JOURNAL_EXPORT_KEY,
-  defaultJournal, parseJournal, readJournal, writeJournal, replaceJournal,
+  defaultJournal, parseJournal, readJournal, journalSourceChanged, writeJournal, replaceJournal,
   readJournalBackup, readJournalBackups, markJournalExport, readJournalExportTime} from '../journal.js';
 
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
@@ -178,4 +178,47 @@ test('unsupported record view settings are rejected before storage changes', () 
     assert.throws(() => writeJournal(storage, source, data), /記録の表示方法/);
     assert.deepEqual(storage.writes, []);
   }
+});
+
+
+test('開いたままの別画面が古い在庫を上書きせず、再読み込み後は最新の在庫に追記できる', () => {
+  const storage = memoryStorage();
+  const first = readJournal(storage, data, day), second = readJournal(storage, data, day);
+  first.state.pantry = [{id: 'rice', amount: 200}];
+  assert.equal(writeJournal(storage, first.state, data, first), true);
+  assert.equal(journalSourceChanged(storage, first), false);
+  assert.equal(journalSourceChanged(storage, second), true);
+  assert.equal(writeJournal(storage, second.state, data, second), false);
+  assert.equal(replaceJournal(storage, second.state, data, second), false);
+  assert.deepEqual(storage.writes, [JOURNAL_KEY]);
+  const fresh = readJournal(storage, data, day);
+  fresh.state.pantry[0].amount -= 50;
+  assert.equal(writeJournal(storage, fresh.state, data, fresh), true);
+  assert.equal(readJournal(storage, data, day).state.pantry[0].amount, 150);
+  assert.equal(journalSourceChanged(storage, first), true);
+  storage.memory.delete(JOURNAL_KEY);
+  assert.equal(journalSourceChanged(storage, fresh), true);
+  assert.equal(writeJournal(storage, fresh.state, data, fresh), false);
+});
+
+test('旧版・復旧・書き出し日時・容量不足を保存内容の更新と区別する', () => {
+  const storage = memoryStorage([[STORAGE_KEY, '{broken original']]);
+  const old = readJournal(storage, data, day), other = readJournal(storage, data, day);
+  markJournalExport(storage);
+  assert.equal(journalSourceChanged(storage, old), false);
+  assert.equal(replaceJournal(storage, state(), data, other), true);
+  assert.equal(journalSourceChanged(storage, other), false);
+  assert.equal(replaceJournal(storage, old.state, data, old), false);
+  assert.equal(readJournalBackups(storage).length, 1);
+
+  storage.blocked.add(JOURNAL_KEY);
+  const original = other.source;
+  other.state.pantry = [{id: 'rice', amount: 10}];
+  assert.equal(writeJournal(storage, other.state, data, other), false);
+  assert.deepEqual(other.source, original);
+  assert.equal(journalSourceChanged(storage, other), false);
+  storage.blocked.clear();
+  assert.equal(writeJournal(storage, other.state, data, other), true);
+  assert.equal(journalSourceChanged(storage, other), false);
+  assert.equal(readJournal(storage, data, day).state.pantry[0].amount, 10);
 });

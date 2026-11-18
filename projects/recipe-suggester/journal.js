@@ -398,7 +398,7 @@ function shoppingCatalog(value, data) {
 function shoppingReceipts(value) {
   const seen = new Set();
   return list(value === undefined ? [] : value, LIMITS.shoppingReceipts, '買い物の購入履歴').map(source => {
-    record(source, ['id', 'ingredientId', 'amount', 'purchasedAt', 'allocations', 'legacy'], '買い物の購入履歴');
+    record(source, ['id', 'ingredientId', 'amount', 'purchasedAt', 'allocations', 'legacy', 'stocked'], '買い物の購入履歴');
     const id = identifier(source.id, '購入履歴の識別子');
     if (seen.has(id)) throw new Error('購入履歴の識別子が重複しています。');
     seen.add(id);
@@ -418,7 +418,7 @@ function shoppingReceipts(value) {
     if (!allocations.length) throw new Error('購入した量を使う料理を確認してください。');
     const allocated = allocations.reduce((sum, part) => sum + part.amount, 0);
     if (allocated > amount + Math.max(1, amount, allocated) * 1e-9) throw new Error('料理ごとの購入量が購入した量を超えています。');
-    return {id, ingredientId, amount, purchasedAt, allocations, ...(source.legacy === undefined ? {} : {legacy: bool(source.legacy, false, '旧版の購入チェック')})};
+    return {id, ingredientId, amount, purchasedAt, allocations, ...(source.stocked === undefined ? {} : {stocked: bool(source.stocked, false, '手持ちへの追加状態')}), ...(source.legacy === undefined ? {} : {legacy: bool(source.legacy, false, '旧版の購入チェック')})};
   });
 }
 
@@ -444,7 +444,7 @@ function validateV3(value, data) {
   const entryIds = new Set();
   const itemIds = new Set();
   const entries = list(value.entries, LIMITS.entries, '食事の記録').map(source => {
-    record(source, ['id', 'date', 'meal', 'status', 'note', 'items', 'shoppingServings'], '食事の記録');
+    record(source, ['id', 'date', 'meal', 'status', 'note', 'items', 'shoppingServings', 'pantryUse'], '食事の記録');
     const id = identifier(source.id, '食事の記録の識別子');
     if (entryIds.has(id) || !dateIsValid(source.date) || !MEAL_IDS.includes(source.meal) || !['planned', 'eaten'].includes(source.status)) throw new Error('食事の記録の日付・食事区分・状態・識別子を確認してください。');
     entryIds.add(id);
@@ -452,7 +452,18 @@ function validateV3(value, data) {
     const note = text(source.note ?? '', 2000, '食事のメモ', true);
     if (!items.length && !note.trim()) throw new Error('料理かメモを登録してください。');
     const shoppingServings = shoppingServingsFor(source);
-    return {id, date: source.date, meal: source.meal, status: source.status, note, items, ...(shoppingServings ? {shoppingServings} : {})};
+    let pantryUse;
+    if (source.pantryUse !== undefined) {
+      const seen = new Set();
+      pantryUse = list(source.pantryUse, LIMITS.pantry, '使用した手持ちの食材').map(part => {
+        record(part, ['id', 'amount'], '使用した手持ちの食材');
+        if (!context.ingredientIds.has(part.id) || seen.has(part.id)) throw Error('使用した手持ちの食材を確認してください。');
+        seen.add(part.id);
+        return {id:part.id, amount:number(part.amount, '使用した手持ちの量')};
+      });
+      if (!pantryUse.length || source.status !== 'eaten') throw Error('手持ちの使用量は食べた記録に保存してください。');
+    }
+    return {id, date: source.date, meal: source.meal, status: source.status, note, items, ...(pantryUse ? {pantryUse} : {}), ...(shoppingServings ? {shoppingServings} : {})};
   });
   const pantryIds = new Set();
   const pantry = list(value.pantry, LIMITS.pantry, '手持ちの食材').map(part => {
@@ -570,24 +581,41 @@ export function readJournal(storage, data, today = dateKey()) {
   let source;
   try {
     source = storedJournal(storage);
-    if (!source) return {state: defaultJournal(today), message: '', recovery: null};
+    if (!source) return {state: defaultJournal(today), message: '', recovery: null, source};
     const state = parseJournal(source.raw, data);
     const message = source.key === JOURNAL_KEY ? '' : source.key === PREVIOUS_JOURNAL_KEY
       ? '献立ノートの記録と設定を引き継ぎました。プロフィールは未選択のままです。'
       : '以前の記録をカレンダー形式に引き継ぎました。栄養成分が分からない料理は「未入力」として残しています。';
-    return {state, message, recovery: null};
+    return {state, message, recovery: null, source};
   } catch {
-    return {state: defaultJournal(today), message: INVALID_MESSAGE, recovery: source ?? null};
+    return {state: defaultJournal(today), message: INVALID_MESSAGE, recovery: source ?? null, source};
   }
 }
 
+// Compare the stored bytes, including the original key for pre-migration journals.
+function sameJournalSource(before, current) {
+  return before?.key === current?.key && before?.raw === current?.raw;
+}
+
+export function journalSourceChanged(storage, session) {
+  try { return !sameJournalSource(session.source, storedJournal(storage)); }
+  catch { return false; } // Storage access errors keep the in-memory editing/export path available.
+}
+
+function storeJournal(storage, clean, session) {
+  const raw = JSON.stringify(clean);
+  storage.setItem(JOURNAL_KEY, raw);
+  if (session) session.source = {key: JOURNAL_KEY, raw};
+}
+
 /** Ordinary saves cannot replace an unreadable current or legacy source. */
-export function writeJournal(storage, state, data) {
+export function writeJournal(storage, state, data, session) {
   const clean = validateJournal(state, data);
   try {
     const source = storedJournal(storage);
+    if (session && !sameJournalSource(session.source, source)) return false;
     if (source) parseJournal(source.raw, data);
-    storage.setItem(JOURNAL_KEY, JSON.stringify(clean));
+    storeJournal(storage, clean, session);
     return true;
   } catch { return false; }
 }
@@ -610,10 +638,11 @@ function rawBackups(storage) {
 }
 
 /** Explicit import/restart: archive the original before writing the new journal. */
-export function replaceJournal(storage, state, data) {
+export function replaceJournal(storage, state, data, session) {
   const clean = validateJournal(state, data);
   try {
     const source = storedJournal(storage);
+    if (session && !sameJournalSource(session.source, source)) return false;
     if (source) {
       const backups = rawBackups(storage);
       const previous = backups.find(backup => backup.key === source.key && backup.raw === source.raw);
@@ -623,7 +652,7 @@ export function replaceJournal(storage, state, data) {
       // Retain all distinct originals. A quota failure leaves the current source untouched.
       storage.setItem(JOURNAL_BACKUP_KEY, JSON.stringify(history));
     }
-    storage.setItem(JOURNAL_KEY, JSON.stringify(clean));
+    storeJournal(storage, clean, session);
     return true;
   } catch { return false; }
 }

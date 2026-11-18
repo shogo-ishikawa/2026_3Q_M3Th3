@@ -37,27 +37,49 @@ function mergeCatalog(...collections) {
 function purchaseText(item, purchaseSettings, data) {
   const purchase = derivePurchase(item, purchaseSettings, data);
   const quantity = purchase.packCount === null ? formatPurchaseAmount(purchase.amount, purchase.unit) : `${purchase.packCount}${purchase.packUnit}`;
-  return {purchase, quantity, text: `${purchase.name} ${quantity}`};
+  // 包装サイズは設定した値を使う。購入量の目安と同じ丸めを使うと別の包装に見える。
+  const packLabel = purchase.packCount === null ? '' : `1${purchase.packUnit} ${purchase.packSize.toLocaleString('ja-JP', {maximumSignificantDigits: 15})}${purchase.unit}`;
+  return {purchase, quantity, packLabel};
 }
 
 /** コピー対象も購入履歴を差し引いた「これから買う分」だけです。 */
 export function shoppingChecklistText(prepared, data, {pantry = [], omittedIds = [], receipts = [], purchaseSettings = [], catalog} = {}) {
   if (prepared === null || prepared === undefined) return '';
   const result = pendingShopping(prepared, data, {pantry, omittedIds, receipts, catalog});
-  const needed = result.items.filter(item => item.buy > 0), lines = ['買い物リスト'];
+  const needed = result.items.filter(item => item.buy > 0);
+  if (!needed.length && !result.missingMenus.length) return '';
+  const lines = ['買い物リスト'];
   for (const [id, items] of grouped(needed, data)) {
     lines.push(`【${groupLabel(id)}】`);
-    for (const item of items) lines.push(`□ ${purchaseText(item, purchaseSettings, data).text}`);
+    for (const item of items) {
+      const {purchase, quantity, packLabel} = purchaseText(item, purchaseSettings, data);
+      lines.push(`□ ${purchase.name} ${quantity}${packLabel ? `（${packLabel}）` : ''}`);
+    }
   }
-  if (!needed.length) lines.push(result.missingMenus.length ? '未確認の材料があります。' : '買うものは揃っています。');
+  if (!needed.length) lines.push('未確認の材料があります。');
   if (result.missingMenus.length) lines.push(`材料未確認：${unique(result.missingMenus.map(menu => menu.name)).join('、')}`);
   return lines.join('\n');
+}
+
+export async function copyShoppingChecklist(field, fallback) {
+  if (!field.value) return '';
+  try {
+    await navigator.clipboard.writeText(field.value);
+    fallback.hidden = true;
+    return '未購入リストをコピーしました。';
+  } catch {
+    if (!field.value) return '';
+    fallback.hidden = false;
+    field.focus();
+    field.select();
+    return '選択した買い物リストを手動でコピーしてください。';
+  }
 }
 
 /** 選択は献立IDごとの食材ID。[]は明示的な全解除です。 */
 export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog = menus, data, pantry = [], omittedIds = [], prepared = null,
   receipts = [], purchaseSettings = [], selection = {}, now,
-  onSelectionChange = () => {}, onPrepare = () => {}, onPurchase = () => {}, onUndoPurchase = () => {},
+  onSelectionChange = () => {}, onPrepare = () => {}, onPurchase = () => {}, onUndoPurchase = () => {}, onStockReceipt, canStockReceipt = () => true,
   onPurchaseSettings = () => {}, onRemoveIngredient, onRemoveExtra, onOpenMenu, onError = () => {}} = {}) {
   if (!['review', 'checklist', 'purchased'].includes(view)) throw Error('買い物の表示先を確認してください。');
   const root = make('div', `shopping-workflow shopping-view-${view}`);
@@ -180,9 +202,9 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
       for (const item of items) {
         const row = make('article', 'shopping-check-row'); row.dataset.ingredientId = item.id;
         const check = make('input'); check.type = 'checkbox'; check.checked = false; check.setAttribute('aria-label', `${item.name}を購入済みにする`);
-        const {purchase, quantity} = purchaseText(item, purchaseSettings, data), label = make('label', 'shopping-check-label'), text = make('span', 'shopping-check-description');
+        const {purchase, quantity, packLabel} = purchaseText(item, purchaseSettings, data), label = make('label', 'shopping-check-label'), text = make('span', 'shopping-check-description');
         text.append(make('strong', '', purchase.name), make('span', 'shopping-check-quantity', quantity));
-        if (purchase.packCount !== null) text.append(make('small', '', `1${purchase.packUnit} ${formatPurchaseAmount(purchase.packSize, purchase.unit)}`));
+        if (packLabel) text.append(make('small', '', packLabel));
         label.append(check, text); row.append(label);
         const sources = make('details', 'shopping-ingredient-sources'); sources.append(make('summary', '', `使う献立 ${item.sources.length}品`));
         const list = make('ul');
@@ -235,6 +257,14 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
         sources.append(make('li', '', `${menu?.label ? `${menu.label} · ` : ''}${menu?.item.name ?? '過去の献立'}${ingredient ? ` ${materialAmount(receipt.ingredientId, allocation.amount, data)}` : ''}`));
       }
       details.append(sources); row.append(details);
+      if (receipt.stocked) row.append(make('p', 'field-note', '手持ちに追加済み'));
+      else if (ingredient && onStockReceipt && canStockReceipt(receipt)) {
+        const quantity = materialAmount(receipt.ingredientId, receipt.amount, data);
+        row.append(control(`手持ちに追加（${foodName} ${quantity}）`, 'button-secondary shopping-stock-receipt',
+          () => onStockReceipt(receipt.id)));
+      } else if (ingredient && onStockReceipt) {
+        row.append(make('p', 'field-note', '食べた料理への割り当てを含みます。余った分は「手持ち食材」から入力できます。'));
+      }
       row.append(control('購入チェックを戻す', 'button-secondary shopping-undo-purchase', () => {
         if (onUndoPurchase(receipt.id) === false) return;
         row.hidden = true;

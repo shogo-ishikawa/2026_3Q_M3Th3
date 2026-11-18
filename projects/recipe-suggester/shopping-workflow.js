@@ -56,10 +56,26 @@ function orderedMenus(...collections) {
     meals.indexOf(a.meal) - meals.indexOf(b.meal) || a.id.localeCompare(b.id));
 }
 
+/** 食事や料理を削除した後に、調理済みの古い買い物が再び現れるのを防ぐ。 */
+export function discardRemovedCookedMenus(before, next) {
+  const cooked = before.entries.filter(entry => entry.pantryUse);
+  if (!cooked.length) return;
+  const removed = new Set(cooked.flatMap(entry => entry.items.map(item => item.id)));
+  for (const entry of next.entries) for (const item of entry.items) removed.delete(item.id);
+  if (!removed.size) return;
+  const keep = menu => !menu.id.startsWith('[') || !removed.has(menu.item.id);
+  if (next.shoppingList) next.shoppingList = next.shoppingList.filter(keep);
+  next.shoppingCatalog = next.shoppingCatalog.filter(keep);
+}
+
 /** 候補の絞り込みと、確定した買い物の在庫計算を別々に行います。 */
 export function shoppingMenuContext(state, data, {source, from, to}) {
   if (!dateIsValid(from) || !dateIsValid(to) || from > to) throw Error('買い物の期間を確認してください。');
-  const prepared = state.shoppingList ?? [], draft = state.shoppingCatalog;
+  // 調理して手持ちを減らした料理を、残りの献立の在庫割り当てに含めない。
+  const usedItems = new Set(state.entries.filter(entry => entry.pantryUse).flatMap(entry => entry.items.map(item => item.id)));
+  const outstanding = menu => !menu.id.startsWith('[') || !usedItems.has(menu.item.id);
+  const activeList = state.shoppingList?.filter(outstanding) ?? null;
+  const prepared = activeList ?? [], draft = state.shoppingCatalog.filter(outstanding);
   const extras = state.shoppingExtras.map(menu => ({...menu, origin: 'menu', label: 'メニューから追加', extra: true}));
   const knownId = new Map();
   for (const menu of [...draft, ...prepared]) if (menu.id.startsWith('[')) knownId.set(menu.item.id, menu.id);
@@ -86,7 +102,7 @@ export function shoppingMenuContext(state, data, {source, from, to}) {
   const reviewCatalog = orderedMenus(catalog, source === 'draft' ? draft : [], source === 'calendar' ? calendar : []);
   const dated = source === 'draft' ? draft : calendar;
   const menus = source === 'menu' ? extras : orderedMenus(dated.filter(menu => !menu.date || (menu.date >= from && menu.date <= to)));
-  return {menus, catalog, reviewCatalog};
+  return {menus, catalog, reviewCatalog, prepared:activeList};
 }
 
 /** 今回のチェックリストから外します。購入済みの献立は履歴を照合できるように残します。 */

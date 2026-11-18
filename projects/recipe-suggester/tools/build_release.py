@@ -8,6 +8,7 @@ FILES = (
     "README.md", "VERSION", "package.json", "CLAUDE_CODE_PROMPT.md",
     "index.html", "styles.css", "app.js", "storage.js", "planner.js", "data.js",
     "recipe_suggester.ipynb", "meal_planner.ipynb",
+    "launch-screen.js", "pantry-transfer.js", "onboarding.js", "cooking-view.js", "pwa-ui.js", "service-worker.js", "manifest.webmanifest",
     "classics-mains.js", "classics-sides.js", "prepared-foods.js", "catalog-metadata.js", "dish-hierarchy.js", "record-actions.js", "sushi-foods.js", "performance-foods.js", "cooking-instructions.js", "japanese-search.js", "varied-recipes.js", "comfort-foods.js", "confectionery-foods.js", "dessert-foods.js", "accompaniment-foods.js", "salad-builder.js", "salad-builder-ui.js", "salad-builder.css", "dish-customisation.js", "dish-customisation-ui.js", "dish-customisation.css", "menu-variations.js", "takeaway-foods.js", "familiar-mains.js", "familiar-sides.js",
     "palette-foods.js", "food-composer.js", "food-composer-ui.js", "food-composer.css",
     "meat-choice-foods.js", "meat-choices.js", "meat-choices-ui.js",

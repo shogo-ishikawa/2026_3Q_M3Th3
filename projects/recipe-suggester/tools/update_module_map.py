@@ -3,6 +3,8 @@ import json
 import re
 from pathlib import Path
 
+from update_offline_shell import update as update_offline_shell
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -19,6 +21,7 @@ def update():
     else:
         source = source.replace('</head>', block + '\n</head>', 1)
     page.write_text(source)
+    update_offline_shell()
 
 
 if __name__ == "__main__":

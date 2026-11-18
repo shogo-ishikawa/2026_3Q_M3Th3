@@ -57,7 +57,7 @@ export function createMealSet(input,data){
   safe(input);record(input,['name','note','entries'],'定番セット');
   if(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>100)throw Error('保存する食事の記録を選んでください。');
   const items=input.entries.flatMap(entry=>{
-    record(entry,['id','date','meal','status','note','items','shoppingServings'],'保存元の記録');
+    record(entry,['id','date','meal','status','note','items','shoppingServings','pantryUse'],'保存元の記録');
     if(!dateIsValid(entry.date)||!MEAL_IDS.includes(entry.meal)||!STATUSES.includes(entry.status)||!Array.isArray(entry.items))throw Error('保存元の食事の記録を確認してください。');
     return entry.items;
   });
