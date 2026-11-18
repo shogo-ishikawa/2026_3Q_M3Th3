@@ -25,6 +25,8 @@ def verify(context, url, server):
     context.on("weberror", lambda error: errors.append(str(error.error)))
     page.on("dialog", lambda dialog: dialog.accept())
     page.goto(url)
+    expect(page.locator("#launch-screen")).to_be_hidden()
+    assert page.locator("#launch-screen img").get_attribute("src") is None
     page.locator("#first-setup").click()
     page.locator("#setup-omit-common").check()
     page.locator("#quick-setup-form button[type=submit]").click()
@@ -83,7 +85,22 @@ def verify(context, url, server):
     server.server_close()
     context.set_offline(True)
     page = context.new_page()
+    # iOSのホーム画面が伝えるフラグを与え、起動用の絵も通信なしで表示できるか確かめる。
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'standalone', {value: true});
+        document.addEventListener('load', event => {
+          if (event.target.matches?.('#launch-screen img')) {
+            const bounds = event.target.getBoundingClientRect();
+            window.seenSplash = [event.target.naturalWidth, event.target.naturalHeight,
+              getComputedStyle(event.target).objectFit, !event.target.parentElement.hidden,
+              bounds.width <= innerWidth + 1 && bounds.height <= innerHeight + 1];
+          }
+        }, true);
+    """)
     page.goto(url + "#shopping")
+    page.wait_for_function("window.seenSplash")
+    assert page.evaluate("window.seenSplash") == [1143, 2048, "contain", True, True]
+    expect(page.locator("#launch-screen")).to_be_hidden()
     expect(page.locator("#panel-kitchen")).to_be_visible()
     expect(page.locator(".shopping-check-row")).to_have_count(quantity)
     assert page.locator("#shopping-copy-text").input_value() == exported

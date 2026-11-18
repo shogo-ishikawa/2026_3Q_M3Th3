@@ -21,7 +21,8 @@ class OfflineShellTests(unittest.TestCase):
         generated = (ROOT / 'assets/pwa-shell.js').read_text()
         files = json.loads(re.search(r'const SHELL_FILES = (\{.*\});', generated, re.S)[1])
         paths = {urlsplit(url).path for url in files}
-        self.assertTrue({'index.html', 'manifest.webmanifest', 'app.js', 'pwa-ui.js'} <= paths)
+        self.assertTrue({'index.html', 'manifest.webmanifest', 'app.js', 'pwa-ui.js',
+                         'launch-screen.js', 'assets/brand/meal-palette-splash.jpg'} <= paths)
         self.assertFalse(any(path.startswith(('assets/recipe-art/', 'dist/', 'docs/')) for path in paths))
         self.assertLess(sum((ROOT / path).stat().st_size for path in paths), 6 * 1024 * 1024)
 
@@ -32,6 +33,13 @@ class OfflineShellTests(unittest.TestCase):
         self.assertEqual(manifest['display'], 'standalone')
         icons = {(icon['purpose'], icon['sizes']): icon['src'] for icon in manifest['icons']}
         self.assertTrue({('any', '192x192'), ('any', '512x512'), ('maskable', '512x512')} <= icons.keys())
+        html = (ROOT / 'index.html').read_text()
+        for size in (32, 48):
+            filename = f'assets/icons/favicon-{size}.png'
+            self.assertIn(f'rel="icon" href="{filename}" sizes="{size}x{size}"', html)
+            icons[('favicon', f'{size}x{size}')] = filename
+        icons[('apple', '180x180')] = 'assets/icons/apple-touch-icon.png'
         for (_, size), filename in icons.items():
+            self.assertEqual((ROOT / filename).read_bytes()[25], 2, 'Icons must be opaque RGB PNGs')
             self.assertEqual(struct.unpack('>II', (ROOT / filename).read_bytes()[16:24]),
                              tuple(map(int, size.split('x'))))

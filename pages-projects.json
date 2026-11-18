@@ -179,6 +179,7 @@
         "pantry-ui.css",
         "portion-guide.js",
         "shopping-status.js",
+        "launch-screen.js",
         "pantry-transfer.js",
         "onboarding.js",
         "cooking-view.js",

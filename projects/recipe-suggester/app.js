@@ -1639,3 +1639,4 @@ setupWelcome({demo, storage, initialError: loaded.message, data: builtin, getSta
   onSave: draft => commit(next => applyQuickSetup(next, draft, builtin), {message: 'かんたん設定を反映しました。'})});
 if (demo) bind('sample-reset','click',()=>{if(confirm('お試し中の変更を消して最初のサンプルに戻しますか？'))location.reload();});
 renderAll();if(loaded.message)tell(loaded.message,/読み込めません|元の保存データ/.test(loaded.message));
+document.dispatchEvent(new Event('meal-palette-ready'));

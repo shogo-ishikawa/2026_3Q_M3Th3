@@ -52,7 +52,7 @@ svg { display: block; }
 .app-layout { display: grid; grid-template-columns: 208px minmax(0, 1fr); min-height: 100dvh; }
 .app-sidebar { position: sticky; top: 0; display: flex; flex-direction: column; height: 100dvh; min-width: 0; padding: 31px 19px 24px; background: var(--sidebar); color: #f6f5ed; }
 .brand { display: flex; gap: 12px; align-items: center; color: #fff; font-size: 1.4375rem; font-weight: 750; line-height: 1.02; letter-spacing: -.7px; text-decoration: none; padding: 0 6px; }
-.brand > img { width: 48px; height: 48px; padding: 5px; border-radius: 12px; background: #f4f5e8; flex: 0 0 auto; }
+.brand > img { width: 48px; height: 48px; border-radius: 12px; flex: 0 0 auto; }
 .brand-second { display: block; }
 .brand-dot { color: var(--lime); }
 .sidebar-caption { margin: 17px 6px 34px; color: var(--sidebar-muted); font-size: 0.6875rem; letter-spacing: .03em; }
@@ -447,7 +447,7 @@ dialog::backdrop { background: #1e2b24a8; backdrop-filter: blur(3px); }
   .app-layout { display: block; }
   .app-sidebar { z-index: 20; position: sticky; height: auto; display: block; padding: 14px 18px 0; }
   .brand { display: inline-flex; padding: 0; gap: 9px; font-size: 1.125rem; line-height: 1; }
-  .brand > img { width: 36px; height: 36px; border-radius: 8px; padding: 4px; }
+  .brand > img { width: 36px; height: 36px; border-radius: 8px; }
   .brand-second { display: inline; margin-left: 5px; }
   .sidebar-caption { display: inline-block; margin: 0 0 0 13px; font-size: 0.625rem; vertical-align: middle; color: #91a9b6; }
   .app-tabs { display: flex; max-width: 100%; overflow-x: auto; gap: 2px; margin-top: 14px; padding-bottom: 6px; scrollbar-width: thin; scrollbar-color: #415c66 transparent; }
@@ -686,7 +686,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .app-layout { grid-template-columns:224px minmax(0,1fr); }
 .app-sidebar { padding:36px 20px 26px; border-right:1px solid #415140; background:var(--sidebar); }
 .brand { gap:12px; padding:0 5px; font-family:Georgia,"Times New Roman",serif; font-size:1.8125rem; font-weight:500; letter-spacing:-1.2px; line-height:.98; }
-.brand > img { width:45px; height:45px; padding:6px; border-radius:14px; box-shadow:0 3px 13px #0c1d1114; }
+.brand > img { width:45px; height:45px; border-radius:14px; box-shadow:0 3px 13px #0c1d1114; }
 .brand-dot { color:#d9d6a1; }
 .sidebar-caption { margin:19px 6px 38px; color:#bdc7b6; font-size:0.6875rem; letter-spacing:.06em; }
 .app-tabs { gap:8px; }
@@ -952,7 +952,7 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
   .app-layout { display:block; }
   .app-sidebar { position:sticky; top:0; padding:15px 20px 0; border-right:0; border-bottom:1px solid #4c6045; background:#25392e; }
   .brand { gap:9px; font-size:1.5rem; line-height:1; }
-  .brand > img { width:35px; height:35px; padding:5px; border-radius:10px; }
+  .brand > img { width:35px; height:35px; border-radius:10px; }
   .sidebar-caption { margin:0 0 0 15px; font-size:0.6875rem; color:#bdcbb4; }
   .app-tabs { gap:5px; margin-top:15px; padding-bottom:10px; }
   .app-tab { gap:7px; min-height:44px; padding:10px 12px; border-radius:8px; font-size:0.75rem; }
@@ -1377,3 +1377,19 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
 .welcome-dialog .field-note { display: block; }
 .welcome-profile > label { flex: 1 1 7rem; }
 .welcome-strip[hidden], .welcome-actions[hidden], .welcome-dialog [hidden] { display: none; }
+
+#launch-screen:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  background: linear-gradient(155deg, #13382a, #071413 60%, #143238);
+}
+#launch-screen img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
