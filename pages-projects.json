@@ -178,7 +178,13 @@
         "pantry-ui.js",
         "pantry-ui.css",
         "portion-guide.js",
-        "shopping-status.js"
+        "shopping-status.js",
+        "pantry-transfer.js",
+        "onboarding.js",
+        "cooking-view.js",
+        "pwa-ui.js",
+        "service-worker.js",
+        "manifest.webmanifest"
       ]
     },
     {

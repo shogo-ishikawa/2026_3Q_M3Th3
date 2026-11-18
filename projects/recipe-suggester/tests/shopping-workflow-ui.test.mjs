@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mountShoppingWorkflow, shoppingChecklistText} from '../shopping-workflow-ui.js';
+import {mountShoppingWorkflow, shoppingChecklistText, copyShoppingChecklist} from '../shopping-workflow-ui.js';
 import {createShoppingReceipt} from '../shopping-status.js';
 
 class Element {
@@ -191,4 +191,50 @@ test('今回だけ外す操作は用途の折りたたみにあり、未購入�
   const rejected = mountShoppingWorkflow({...options, onRemoveIngredient: () => false});
   one(rejected, 'shopping-remove-ingredient').emit('click');
   assert.equal(one(rejected, 'shopping-check-row').hidden, false);
+}));
+
+test('コピーには未購入の包装数と設定どおりの1包装の量を載せる', () => {
+  const source = prepared(), bought = receipt(source, 'salt');
+  const purchaseSettings = [{id: 'carrot', mode: 'weight', yieldFactor: .9, purchaseName: 'にんじん（皮付き）', packSize: 80.5, packUnit: '袋'}];
+  const options = {omittedIds: ['water'], receipts: [bought], purchaseSettings};
+  const copied = shoppingChecklistText(source, data, options);
+  assert.match(copied, /□ にんじん（皮付き） 2袋（1袋 80\.5g）/);
+  assert.doesNotMatch(copied, /塩|水/);
+  assert.equal(shoppingChecklistText(source, data, {...options, receipts: [bought, receipt(source, 'carrot')]}), '');
+});
+
+test('クリップボードにアクセスできない端末では手動で全文を選べ、成功時は欄を閉じる', async t => {
+  const field = {value: '買い物リスト\n□ にんじん 1袋', focus: t.mock.fn(), select: t.mock.fn()};
+  const fallback = {hidden: true};
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  t.after(() => {
+    if (descriptor) Object.defineProperty(globalThis, 'navigator', descriptor);
+    else delete globalThis.navigator;
+  });
+  const writeText = t.mock.fn(async () => {throw Error('denied');});
+  for (const clipboard of [undefined, {writeText}]) {
+    Object.defineProperty(globalThis, 'navigator', {configurable: true, value: {clipboard}});
+    assert.match(await copyShoppingChecklist(field, fallback), /手動でコピー/);
+    assert.equal(fallback.hidden, false);
+  }
+  assert.equal(field.select.mock.callCount(), 2);
+  assert.equal(field.focus.mock.callCount(), 2);
+  writeText.mock.mockImplementation(async () => {});
+  assert.match(await copyShoppingChecklist(field, fallback), /コピーしました/);
+  assert.equal(fallback.hidden, true);
+  assert.deepEqual(writeText.mock.calls.at(-1).arguments, [field.value]);
+  field.value = '';
+  assert.equal(await copyShoppingChecklist(field, fallback), '');
+  assert.equal(writeText.mock.callCount(), 2);
+});
+
+test('購入済みの食材は材料の単位で手持ちへ転記し、転記済みや食べた料理では重ねて転記しない',()=>withDocument(()=>{
+  const saved=[], purchase=receipt(), props={view:'purchased',catalog:menus(),data,receipts:[purchase],now,onStockReceipt:id=>saved.push(id)};
+  const transfer=one(mountShoppingWorkflow(props),'shopping-stock-receipt');
+  assert.match(transfer.textContent,/手持ちに追加.*にんじん/);
+  transfer.emit('click');assert.deepEqual(saved,[purchase.id]);
+  assert.equal(byClass(mountShoppingWorkflow({...props,receipts:[{...purchase,stocked:true}]}),'shopping-stock-receipt').length,0);
+  const cooked=mountShoppingWorkflow({...props,canStockReceipt:()=>false});
+  assert.equal(byClass(cooked,'shopping-stock-receipt').length,0);
+  assert.match(text(cooked),/余った分は/);
 }));

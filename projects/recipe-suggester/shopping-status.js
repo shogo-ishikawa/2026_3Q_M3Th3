@@ -41,8 +41,9 @@ function checkedReceipts(receipts = []) {
 }
 
 function receiptCoverage(receipts) {
-  const coverage = new Map();
+  const unstocked = new Map(), stocked = new Map();
   for (const receipt of checkedReceipts(receipts)) {
+    const coverage = receipt.stocked ? stocked : unstocked;
     if (!coverage.has(receipt.ingredientId)) coverage.set(receipt.ingredientId, new Map());
     const ingredient = coverage.get(receipt.ingredientId);
     for (const allocation of receipt.allocations) {
@@ -51,7 +52,7 @@ function receiptCoverage(receipts) {
       ingredient.set(allocation.menuId, amount);
     }
   }
-  return coverage;
+  return {unstocked, stocked};
 }
 
 const allIngredients = menu => ({...menu, ingredientIds: [...new Set(menu.item.ingredients.map(part => part.id))]});
@@ -71,8 +72,16 @@ function allocationScope(prepared, catalog) {
 
 function allocateRow(row, coverage) {
   let stockLeft = row.stock;
-  const sources = row.sources.map(source => {
-    const purchased = Math.min(source.amount, coverage.get(row.id)?.get(source.menuId) ?? 0);
+  // 転記済みの購入分も手持ちの総量に含まれる。指定した料理へ先に確保し、
+  // 残りの在庫だけをほかの料理に配る。
+  const reserved = row.sources.map(source => {
+    const direct = Math.min(source.amount, coverage.unstocked.get(row.id)?.get(source.menuId) ?? 0);
+    const fromStock = Math.min(remaining(source.amount, direct), stockLeft, coverage.stocked.get(row.id)?.get(source.menuId) ?? 0);
+    stockLeft = remaining(stockLeft, fromStock);
+    return direct + fromStock;
+  });
+  const sources = row.sources.map((source, index) => {
+    const purchased = reserved[index];
     const afterPurchase = remaining(source.amount, purchased);
     const stock = Math.min(afterPurchase, stockLeft);
     stockLeft = remaining(stockLeft, stock);

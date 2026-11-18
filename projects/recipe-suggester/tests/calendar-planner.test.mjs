@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCatalogEntry} from '../record-actions.js';
-import {describeRecipe, eligibleRecipes, generateCalendarPlan, generatePlan, replaceRecipe, shoppingList, toggleDish} from '../planner.js';
+import {addPlanDish, describeRecipe, eligibleRecipes, generateCalendarPlan, generatePlan, replaceRecipe, shoppingList, toggleDish} from '../planner.js';
 
 const nutrients = extra => ({kcal: 200, protein: 10, fat: 5, carbs: 25, fiber: 2, salt: 0.5, ...extra});
 const ingredient = (name, groups = [], allergens = [], extra = {}) => ({name, unit: 'g', groups, allergens, proteinSources: [], nutritionPerUnit: nutrients({kcal: 1, protein: 0.1, fat: 0, carbs: 0.1, fiber: 0.01, salt: 0}), ...extra});
@@ -111,6 +111,42 @@ test('nutrition-aware ranking rewards known protein and fibre rather than unknow
   const noKnown = generateCalendarPlan(settings(), data, {...options, entries: [entry('2026-11-10', 'breakfast', 'eaten', snapshot({protein: null, fiber: null}))]});
   assert.equal(noKnown.days[0].nutritionBasis.dailyMeans.protein, null);
   assert.ok(!noKnown.days[0].reasons.some(text => /1日平均が比較値より少ない/.test(text)));
+});
+
+test('dish reasons capture actual scoring, stay with the proposal and skip fixed or manually added dishes', () => {
+  const data = {...DATA, recipes: [...DATA.recipes.filter(recipe => recipe.role !== 'main'),
+    manual('main-high', 'main', {protein: 30}, {ingredients: [{id: 'bean', amount: 80}]}),
+    manual('main-low', 'main', {protein: 1})]};
+  const options = {stapleId: 'rice', drinkId: 'milk-drink',
+    pantry: [{id: 'bean', amount: 0.5}, {id: 'milk', amount: 200}],
+    targets: {protein: 60}, entries: [entry('2026-11-10', 'breakfast', 'eaten', snapshot({protein: 2}))]};
+  const plan = generateCalendarPlan(settings(), data, options), day = plan.days[0];
+  assert.equal(day.mainId, 'main-high');
+  assert.deepEqual(day.dishReasons[day.mainId], ['手持ちに大豆あり', 'たんぱく質を補う候補']);
+  assert.equal(day.dishReasons['milk-drink'], undefined);
+  assert.equal(day.dishReasons.rice, undefined);
+  options.pantry[0].amount = 0;
+  options.entries[0].items[0].nutrition.protein = null;
+  assert.deepEqual(day.dishReasons[day.mainId], ['手持ちに大豆あり', 'たんぱく質を補う候補']);
+  const regenerated = generateCalendarPlan(settings(), data, options);
+  const reasons = Object.values(regenerated.days[0].dishReasons).flat();
+  assert.ok(!reasons.some(label => /手持ち|たんぱく質を補う/.test(label)));
+  assert.equal(addPlanDish(plan, {dayIndex: 0, recipeId: 'main-low'}, data).days[0].dishReasons['main-low'], undefined);
+  const swapped = replaceRecipe(plan, {dayIndex: 0, recipeId: 'main-high'}, data);
+  assert.equal(swapped.days[0].dishReasons['main-high'], undefined);
+});
+
+test('repetition badges require an alternative that the actual recent-eaten filter removed', () => {
+  const entries = [entry('2026-11-09', 'dinner', 'eaten', snapshot({}, {recipeId: 'main-a'}))];
+  const options = {entries, stapleId: 'rice'};
+  const day = generateCalendarPlan(settings(), DATA, options).days[0];
+  assert.equal(day.mainId, 'main-b');
+  assert.ok(day.dishReasons['main-b'].includes('直近7日の実食記録との重複を回避'));
+  for (const record of [{...entries[0], status: 'planned'}, {...entries[0], date: '2026-11-11'},
+    {...entries[0], date: '2026-11-03'}, {...entries[0], items: [snapshot({})]}]) {
+    const next = generateCalendarPlan(settings(), DATA, {...options, entries: [record]}).days[0];
+    assert.ok(!Object.values(next.dishReasons).flat().some(label => label.includes('実食記録')));
+  }
 });
 
 test('recorded excess energy and salt prefer known lower amounts; zero salt comparison is valid', () => {
