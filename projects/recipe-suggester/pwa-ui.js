@@ -1,15 +1,53 @@
 /** 個人の記録には触れず、ホーム画面への追加とオフライン準備の状態を案内します。 */
 const state = document.getElementById('offline-state');
-const installButton = document.getElementById('install-meal-palette');
-const instructions = document.getElementById('home-install-help');
+const installButtons = document.querySelectorAll('[data-install-app]');
+const guide = document.getElementById('install-guide');
 const standalone = window.matchMedia('(display-mode: standalone)');
 let installOffer;
+let installedThisVisit = false;
+let promptPending = false;
+let guideOpener;
 
 function updateInstallGuide() {
-  const installed = standalone.matches || navigator.standalone === true;
-  installButton.hidden = installed || !installOffer;
-  instructions.hidden = installed;
+  const installed = installedThisVisit || standalone.matches || navigator.standalone === true;
+  for (const button of installButtons) {
+    button.hidden = installed;
+    button.disabled = promptPending;
+  }
   document.getElementById('home-installed').hidden = !installed;
+  if (installed && guide.open) guide.close();
+}
+
+function showInstallGuide(button) {
+  const ua = navigator.userAgent;
+  const isAppleMobile = /iPhone|iPad|iPod/i.test(ua) ||
+    (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+  document.getElementById('install-ios-guide').hidden = /Android/i.test(ua);
+  document.getElementById('install-android-guide').hidden = isAppleMobile;
+  guideOpener = button;
+  guide.showModal();
+}
+
+async function installApp(event) {
+  const button = event.currentTarget;
+  if (!installOffer) {
+    showInstallGuide(button);
+    return;
+  }
+
+  const offer = installOffer;
+  installOffer = null;
+  promptPending = true;
+  updateInstallGuide();
+  try {
+    await offer.prompt();
+    await offer.userChoice;
+  } catch {
+    if (!button.hidden) showInstallGuide(button);
+  } finally {
+    promptPending = false;
+    updateInstallGuide();
+  }
 }
 
 window.addEventListener('beforeinstallprompt', event => {
@@ -19,22 +57,14 @@ window.addEventListener('beforeinstallprompt', event => {
 });
 window.addEventListener('appinstalled', () => {
   installOffer = null;
-  installButton.hidden = true;
-  instructions.hidden = true;
-  document.getElementById('home-installed').hidden = false;
+  installedThisVisit = true;
+  updateInstallGuide();
 });
 standalone.addEventListener('change', updateInstallGuide);
-installButton.addEventListener('click', async () => {
-  if (!installOffer) return;
-  const offer = installOffer;
-  installOffer = null;
-  updateInstallGuide();
-  try {
-    await offer.prompt();
-    await offer.userChoice;
-  } catch {
-    // ブラウザーのメニューからも追加できます。
-  }
+for (const button of installButtons) button.addEventListener('click', installApp);
+document.getElementById('close-install-guide').addEventListener('click', () => guide.close());
+guide.addEventListener('close', () => {
+  if (guideOpener && !guideOpener.hidden) guideOpener.focus();
 });
 updateInstallGuide();
 

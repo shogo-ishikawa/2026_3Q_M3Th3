@@ -1,10 +1,10 @@
 # Meal Palette（ミールパレット）
 
-対応版：v4.0.0 ／ 更新日：2026年11月19日
+対応版：v4.0.1 ／ 更新日：2026年11月19日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
 
-v4.0.0ではスマートフォンのホーム画面から起動できます。オンラインで一度準備すると、電波の届かない店内でも買い物リストを開き、購入済みを付けて手持ちに移せます。
+「スマホにアプリをインストール」からMeal Paletteをホーム画面に追加できます。ホーム画面から開くと食事や買い物の機能に直接アクセスできます。学生作品や講義資料へのリンクは通常のWeb版で参照できます。オンラインで一度準備すると、電波の届かない店内でも買い物リストを開き、購入済みを付けて手持ちに移せます。
 
 **[Meal Palette を開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)**　[1週間のサンプルを試す](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/?demo=week#nutrition)　[ホーム画面への追加と使い方](docs/manual.md#ホーム画面に追加する)
 
@@ -133,7 +133,7 @@ v3.9.1までに、刺身の切れ数やチーズの個数からの重量換算�
 
 v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v4.0.0.zip)
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v4.0.1.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
@@ -329,10 +329,10 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `app.js`・`tabs.js`・`index.html`・`styles.css` | 操作、タブの切り替え、表示 |
 | `storage.js` | 旧版のAPIと互換処理 |
 
-ZIPは`v4.0.0/`に展開します。Macでは次の場所に置けます。
+ZIPは`v4.0.1/`に展開します。Macでは次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v4.0.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v4.0.1
 ```
 
 展開したフォルダーで`python3 tools/serve.py`を実行し、表示されたURLを開きます。`npm test`で確認できます。ソースを変更した後は `python3 tools/update_module_map.py` を実行し、ブラウザーのモジュール対応表とオフライン保存対象を同じ版にそろえてください。HTTPSで授業リポジトリに反映するスクリプトは `tools/sync_project.sh` です。背景は[設計と開発](docs/design.md)、実際の確認範囲は[検証記録](docs/validation.md)をご覧ください。

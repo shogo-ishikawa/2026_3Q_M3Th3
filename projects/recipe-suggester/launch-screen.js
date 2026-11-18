@@ -1,7 +1,18 @@
-/* ホーム画面から開いた最初のページだけに、起動用の絵を表示します。 */
+/* ブラウザーとホーム画面の表示を、本文が描画される前に切り替えます。 */
 (() => {
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if (!standalone) return;
+  const mode = window.matchMedia('(display-mode: standalone)');
+  function syncDisplayMode() {
+    const standalone = mode.matches || navigator.standalone === true;
+    document.documentElement.toggleAttribute('data-standalone', standalone);
+    for (const link of document.querySelectorAll('[data-sample-link]')) {
+      link.target = standalone ? '_self' : '_blank';
+    }
+  }
+  syncDisplayMode();
+  document.addEventListener('DOMContentLoaded', syncDisplayMode, {once: true});
+  mode.addEventListener('change', syncDisplayMode);
+
+  if (!document.documentElement.hasAttribute('data-standalone')) return;
   const previous = performance.getEntriesByType('navigation')[0];
   if (previous && previous.type !== 'navigate') return;
 

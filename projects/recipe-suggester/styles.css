@@ -24,6 +24,10 @@
 html { min-width: 300px; }
 body { margin: 0; background: var(--canvas); color: var(--ink); font-size: 0.875rem; line-height: 1.65; }
 [hidden] { display: none !important; }
+html[data-standalone] [data-browser-only] { display: none !important; }
+@media (display-mode: standalone) {
+  [data-browser-only] { display: none !important; }
+}
 a { color: var(--teal); text-underline-offset: 3px; }
 button, input, select, textarea { font: inherit; }
 button, a, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
@@ -1377,6 +1381,21 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
 .welcome-dialog .field-note { display: block; }
 .welcome-profile > label { flex: 1 1 7rem; }
 .welcome-strip[hidden], .welcome-actions[hidden], .welcome-dialog [hidden] { display: none; }
+
+.install-entry {
+  min-height: 44px;
+  margin-bottom: 1rem;
+}
+.install-entry svg { flex: none; }
+.install-guide .dialog-header { align-items: center; margin-bottom: 1rem; padding-bottom: .8rem; }
+.install-guide h2 { margin: 0; font-size: 1.2rem; }
+.install-guide h3 { margin-bottom: .4rem; }
+.install-guide ol { margin: 0; padding-left: 1.5em; }
+.install-guide li + li { margin-top: .4rem; }
+.install-guide section + section { margin-top: 1rem; }
+@media print {
+  .install-entry { display: none; }
+}
 
 #launch-screen:not([hidden]) {
   position: fixed;
