@@ -1,0 +1,166 @@
+// 材料表は2人分。amount の単位は共通食材台帳の g、ml、個を使う。
+function main({slug, name, family, category, method, secondary = [], minutes, moods = [], meals = ['lunch', 'dinner'],
+  items, steps, source, note = ''}) {
+  return {
+    id: `evening-main-${slug}`, name, role: 'main', genre: '和食', servings: 2, minutes,
+    staple: false, mealBase: false, nature: 'home-cooked', family,
+    portion: {amount: 1, unit: '皿'}, displayCategory: category, displayMethod: method,
+    displaySecondaryCategories: secondary, tags: ['晩酌', ...moods, ...(minutes <= 20 ? ['時短'] : [])],
+    mealSuitability: meals,
+    allergensKnown: true, ingredientsKnown: true, shoppingKnown: true,
+    ingredients: items.map(([id, amount]) => ({id, amount})), steps,
+    sourceNote: `料理の構成を参考にした家庭用の配合です。材料は2人分です。${note} 参考資料 ${source}`,
+  };
+}
+
+export const EVENING_MAINS = [
+  main({
+    slug: 'aji-sanga', name: 'あじのさんが焼き', family: 'grilled-fish',
+    category: 'fish', method: 'grill', minutes: 25,
+    items: [['horse_mackerel', 220], ['negi', 30], ['shiso', 3], ['ginger', 6], ['miso', 12], ['oil', 6]],
+    steps: [
+      '長ねぎと青じそは細かく刻み、しょうがはすりおろす。',
+      'あじは皮と小骨を取り、水分を拭き取る。粗く刻んでから包丁で細かくたたく。',
+      'あじに薬味とみそを合わせ、粘りが出るまで包丁でたたき混ぜる。ひと口大の平たい小判形にまとめる。',
+      'フライパンに油を広げて中火で片面を焼く。裏返してふたをし、弱めの火で中心まで火を通す。',
+    ],
+    source: 'https://www.pref.chiba.lg.jp/suisan/sakana/sakana-variety/aji-sanngayaki.html',
+  }),
+  main({
+    slug: 'iwashi-kabayaki', moods: ['定番'], name: 'いわしの蒲焼き', family: 'grilled-fish',
+    category: 'fish', method: 'grill', minutes: 20,
+    items: [['sardine', 220], ['flour', 12], ['oil', 8], ['soy_sauce', 12], ['mirin', 15], ['sake', 15], ['sugar', 4]],
+    steps: [
+      '開いたいわしの小骨を取り、水気をよく拭く。両面に薄力粉を薄くつけ、余分な粉を落とす。',
+      'しょうゆ、本みりん、清酒、砂糖を小さな器に合わせ、砂糖を溶かしておく。',
+      'フライパンに油を熱していわしを皮側から焼く。焼き色がついたら身を崩さないように返し、中まで火を通す。',
+      '火を弱めて合わせたたれを加える。フライパンを傾けながらたれをすくい、身にかけて照りを出す。',
+    ],
+    source: 'https://www.kikkoman.co.jp/homecook/search/recipe/00002118/',
+  }),
+  main({
+    slug: 'ika-poppo', name: 'いかのぽっぽ焼きと焼きねぎ', family: 'fish-main',
+    category: 'fish', method: 'grill', secondary: ['vegetable'], minutes: 25,
+    items: [['squid', 220], ['negi', 100], ['ginger', 6], ['soy_sauce', 14], ['mirin', 15], ['sake', 15], ['oil', 6]],
+    steps: [
+      '下処理済みのいかは水気を拭く。胴を開いて皮側に浅く切れ目を入れ、足は食べやすく分ける。',
+      'すりおろしたしょうが、しょうゆ、本みりん、清酒を混ぜる。いかに半量を絡めて冷蔵庫で10分ほど置く。残りは仕上げ用に取っておく。',
+      '長ねぎをぶつ切りにする。フライパンに油を熱してねぎを転がしながら焼き、焼き色がついたら皿へ移す。',
+      '漬け汁を切ったいかを両面から焼く。仕上げ用のたれとねぎを加え、たれを煮立てて全体に絡める。火が通ったいかを食べやすく切って盛る。',
+    ],
+    note: '栄養は調味料を全量使った場合の概算です。',
+    source: 'https://www.kikkoman.co.jp/homecook/search/recipe/00002554/',
+  }),
+  main({
+    slug: 'tuna-negi-nabe', moods: ['さっぱり'], name: 'まぐろと長ねぎのねぎま鍋', family: 'fish-main',
+    category: 'fish', method: 'hotpot', secondary: ['vegetable', 'mushroom'], minutes: 25, meals: ['dinner'],
+    items: [['tuna', 220], ['negi', 160], ['enoki', 80], ['soup311_awase_dashi', 400], ['soy_sauce', 18], ['mirin', 18], ['sake', 20]],
+    steps: [
+      '長ねぎは厚めのぶつ切りにする。えのきは根元を落として小分けにし、加熱用のまぐろは食べやすい厚さのそぎ切りにする。',
+      'フライパンでねぎの切り口を焼き付ける。焦げ目がついたら鍋に移し、えのきを加える。',
+      '合わせだし、しょうゆ、本みりん、清酒を鍋に入れる。ふたをして中火にかけ、ねぎがやわらかくなるまで煮る。',
+      'まぐろを重ならないように加えて火を弱める。身の中心まで火が通ったら、ねぎとえのきと一緒に取り分ける。',
+    ],
+    note: '栄養は鍋つゆを全量含む概算です。',
+    source: 'https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/search_menu/menu/34_26_tokyo.html',
+  }),
+  main({
+    slug: 'katsuo-tatsuta', name: 'かつおの竜田揚げ焼き', family: 'karaage',
+    category: 'fish', method: 'fried', minutes: 25,
+    items: [['bonito_sashimi', 220], ['ginger', 6], ['soy_sauce', 12], ['sake', 10], ['starch', 20], ['oil', 20], ['lemon', 6]],
+    steps: [
+      'かつおは厚さがそろうようにひと口大に切る。すりおろしたしょうが、しょうゆ、清酒を合わせて絡め、冷蔵庫で10分ほど置く。',
+      '漬け汁を切り、かつおの表面を軽く押さえて水気を取る。焼く直前に片栗粉をまんべんなくまぶす。',
+      '小さめのフライパンに油を熱し、かつおを間隔をあけて並べる。衣が固まったら返し、側面も焼いて中心まで火を通す。',
+      '網に上げて油を切る。衣がしんなりしないようにレモン汁は別の小皿に添える。',
+    ],
+    note: '栄養は記載の油と調味料を全量含む概算です。',
+    source: 'https://park.ajinomoto.co.jp/recipe/card/704464/',
+  }),
+  main({
+    slug: 'tonpei', moods: ['ガッツリ'], name: '豚肉とキャベツのとん平焼き', family: 'egg-main',
+    category: 'egg', method: 'grill', secondary: ['meat', 'vegetable'], minutes: 20,
+    items: [['egg', 3], ['dish_pork_belly_sliced', 100], ['cabbage', 140], ['oil', 6], ['worcestershire_sauce', 12], ['mayonnaise', 8], ['bonito', 2]],
+    steps: [
+      'キャベツは短めの千切りにし、卵はよく溶く。豚ばら肉を食べやすく切る。',
+      '油の半量で豚肉をほぐしながら炒める。キャベツを加えて肉の中心まで火を通し、野菜の水分を飛ばして皿に取る。',
+      'フライパンを拭いて残りの油を広げ、卵を流す。底が固まってきたら炒めた具を中央に寄せ、卵の両端を折り込む。',
+      'ふたをして弱火で卵に火を通す。皿へ移し、ウスターソースとマヨネーズをかけてかつお節を散らす。',
+    ],
+    source: 'https://www.otafuku.co.jp/recipe/detail/1422.html',
+  }),
+  main({
+    slug: 'keichan', moods: ['ガッツリ'], name: '鶏ちゃん（鶏肉とキャベツのみそ炒め）', family: 'meat-main',
+    category: 'meat', method: 'stir-fry', secondary: ['vegetable'], minutes: 30,
+    items: [['chicken', 240], ['cabbage', 200], ['carrot', 40], ['garlic', 5], ['miso', 18], ['soy_sauce', 6], ['sake', 15], ['oil', 6]],
+    steps: [
+      'にんにくをすりおろし、みそ、しょうゆ、清酒を合わせる。鶏肉は厚みがそろうように小さめのひと口大に切る。',
+      '鶏肉にみそだれをもみ込み、冷蔵庫で10分ほど置く。その間にキャベツをざく切りにし、にんじんを薄い短冊にする。',
+      '油を引いたフライパンに鶏肉を並べて弱めの中火で焼く。裏返してにんじんを加え、ふたをして蒸し焼きにする。',
+      'キャベツを加え、底から返しながら炒める。鶏肉の中心まで十分に火を通し、野菜にたれが絡んだら盛る。',
+    ],
+    source: 'https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/search_menu/menu/38_2_gifu.html',
+  }),
+  main({
+    slug: 'chicken-jibuni', name: '鶏肉ときのこの治部煮', family: 'meat-main',
+    category: 'meat', method: 'simmer', secondary: ['vegetable', 'mushroom'], minutes: 30,
+    items: [['chicken', 220], ['shiitake', 60], ['komatsuna', 80], ['carrot', 50], ['flour', 12], ['soup311_awase_dashi', 260], ['soy_sauce', 15], ['mirin', 18], ['sugar', 4]],
+    steps: [
+      'しいたけは軸の根元だけを除き、かさも軸も薄切りにする。にんじんは薄い半月切り、小松菜は食べやすい長さに切る。',
+      '鶏肉を薄いそぎ切りにして薄力粉をまぶす。粉をつけてから肉を一枚ずつ広げておく。',
+      '鍋に合わせだし、しょうゆ、本みりん、砂糖を入れる。にんじんとしいたけを煮て、にんじんがやわらかくなったら鶏肉を加える。',
+      '静かに煮て肉の中心までしっかり火を通す。小松菜の茎、葉の順に加えてさっと煮て、とろみのついた煮汁と一緒に盛る。',
+    ],
+    note: '家庭で手に入る鶏肉、きのこ、青菜で作る配合です。',
+    source: 'https://www.alic.go.jp/koho/kikaku03_000203.html',
+  }),
+  main({
+    slug: 'goya-chanpuru', moods: ['定番'], name: 'ゴーヤーチャンプルー', family: 'bean-main',
+    category: 'bean', method: 'stir-fry', secondary: ['meat', 'vegetable', 'egg'], minutes: 25,
+    items: [['tofu', 200], ['bitter_melon', 160], ['dish_pork_belly_sliced', 80], ['egg', 1], ['oil', 6], ['salt', 1.5], ['bonito', 2]],
+    steps: [
+      '木綿豆腐を布巾や紙で包んで軽く水を切る。ゴーヤーは縦に割り、種とわたを取り除いて薄い半月切りにする。',
+      'フライパンに油を熱し、大きめにちぎった豆腐を並べる。両面に焼き色がついたら一度取り出す。',
+      '食べやすく切った豚肉をほぐしながら炒める。ゴーヤーと塩を加え、豚肉の中心まで火が通るように炒める。',
+      '豆腐を戻して溶き卵を流す。卵が固まってきたら大きく返し、かつお節を混ぜて火を止める。',
+    ],
+    source: 'https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/search_menu/menu/47_11_okinawa.html',
+  }),
+  main({
+    slug: 'beef-yanagawa', name: '牛肉とごぼうの柳川風', family: 'meat-main',
+    category: 'meat', method: 'simmer', secondary: ['egg', 'vegetable'], minutes: 25,
+    items: [['beef', 160], ['burdock', 80], ['negi', 50], ['egg', 2], ['soup311_awase_dashi', 160], ['soy_sauce', 15], ['mirin', 15]],
+    steps: [
+      'ごぼうは表面をこすり洗いして細いささがきにする。水にさっとさらしてざるに上げ、長ねぎは斜め薄切りにする。',
+      '浅い鍋に合わせだし、しょうゆ、本みりんを入れ、ごぼうを加えてやわらかくなるまで煮る。',
+      '食べやすく切った牛肉を広げて煮汁に入れる。長ねぎを散らして煮て、肉に火が通ったら弱火にする。',
+      '溶き卵を外側から中心へ回し入れ、ふたをする。卵が固まったら煮汁ごとすくい、形を保って器に盛る。',
+    ],
+    source: 'https://www.kikkoman.co.jp/homecook/search/recipe/00003022/',
+  }),
+  main({
+    slug: 'egg-pouches', name: '油揚げの卵巾着煮', family: 'egg-main',
+    category: 'egg', method: 'simmer', secondary: ['bean', 'vegetable'], minutes: 25,
+    items: [['aburaage', 35], ['egg', 2], ['komatsuna', 80], ['soup311_awase_dashi', 230], ['soy_sauce', 12], ['mirin', 15], ['sugar', 3]],
+    steps: [
+      '大きめの油揚げを半分に切って袋に開く。熱湯をかけて油を切り、冷めたらそっと水気を押さえる。',
+      '卵は一つずつ小さな器に割り、油揚げ一袋に一つずつ静かに入れる。口をたたんでつまようじで留める。',
+      '小鍋に合わせだし、しょうゆ、本みりん、砂糖を煮立てて弱火にする。巾着を並べて落としぶたをし、途中で返して黄身が固まるまで静かに煮る。',
+      '巾着を取り出し、食べやすく切った小松菜を同じ煮汁で煮る。つまようじをすべて抜いて巾着と小松菜を盛る。',
+    ],
+    source: 'https://park.ajinomoto.co.jp/recipe/card/708342/',
+  }),
+  main({
+    slug: 'pork-onion-kushikatsu', moods: ['ガッツリ'], name: '豚肉と玉ねぎの小串かつ', family: 'cutlet',
+    category: 'meat', method: 'fried', secondary: ['vegetable'], minutes: 30, meals: [],
+    items: [['pork_loin', 120], ['onion', 80], ['flour', 15], ['water', 20], ['breadcrumbs', 25], ['oil', 30], ['worcestershire_sauce', 10]],
+    steps: [
+      '豚ロースを厚さ約1cmのひと口大に切る。玉ねぎは層を残したまま、肉と同じくらいの大きさに切る。',
+      '短い竹串に豚肉と玉ねぎを交互に刺す。火が通りやすいよう、肉と肉をきつく詰め合わせない。',
+      '薄力粉と水を混ぜて衣を作る。串の具を衣にくぐらせ、パン粉を押さえてまんべんなくつける。',
+      '小さめのフライパンに油を熱して串を並べる。面を返しながら弱めの中火で揚げ焼きにし、豚肉の中心まで十分に火を通す。油を切り、ソースを添える。',
+    ],
+    note: '小串を取り分ける分量です。栄養には記載の油を全量含みます。',
+    source: 'https://park.ajinomoto.co.jp/recipe/card/010630/',
+  }),
+];

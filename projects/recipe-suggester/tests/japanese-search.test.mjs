@@ -34,6 +34,19 @@ test('定番料理の漢字・かな・慣用表記が双方向に一致する',
   }
 });
 
+test('晩酌料理を地元の読み、慣用表記、濁る複合語で探せる', () => {
+  for (const [id,query] of [
+    ['evening-main-keichan', 'けいちゃん'], ['evening-main-chicken-jibuni', 'じぶに'],
+    ['evening-main-tonpei', 'とんぺいやき'], ['evening-main-beef-yanagawa', 'やながわふう'],
+    ['evening-main-egg-pouches', 'たまごきんちゃくに'], ['evening-main-pork-onion-kushikatsu', 'こぐしかつ'],
+    ['evening-main-pork-onion-kushikatsu', 'くしかつ'], ['evening-main-goya-chanpuru', 'ゴーヤチャンプルー'],
+    ['evening-side-tuna-peppers', 'むげんぴーまん'], ['evening-side-grilled-negi', 'なんばんづけ'],
+    ['evening-side-shiitake-konjac', 'ぴりからに'],
+  ]) {
+    assert.ok(browseDishes(named,{query}).some(item=>item.id===id),query);
+  }
+});
+
 test('別の料理を同一視せず、離れたフィールドをつないで架空の料理名を作らない', () => {
   assert.ok(!matchesJapaneseQuery('焼き餃子','水餃子'));
   assert.ok(!matchesJapaneseQuery('水餃子','やきぎょうざ'));

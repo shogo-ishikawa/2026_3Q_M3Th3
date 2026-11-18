@@ -159,11 +159,12 @@ test('simple and detailed record views round-trip without changing historical sn
 test('old v1/v2/v3 data defaults to detailed view and preserves old source data', () => {
   const legacy1 = defaultState(day), legacy2 = {...defaultJournal(day), version:2};
   for (const key of ['profile', 'completedDays', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts']) delete legacy2[key];
-  for (const key of ['stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'mealPreferences', 'shoppingOmittedIds']) delete legacy2.settings[key];
-  const legacy3 = state(); delete legacy3.settings.recordView;
+  for (const key of ['stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'startTab', 'mealPreferences', 'shoppingOmittedIds']) delete legacy2.settings[key];
+  const legacy3 = state(); delete legacy3.settings.recordView; delete legacy3.settings.startTab;
   for (const source of [legacy1, legacy2, legacy3]) {
     const raw = JSON.stringify(source), migrated = parseJournal(raw, data);
     assert.equal(migrated.settings.recordView, 'detailed');
+    assert.equal(migrated.settings.startTab, 'planner');
     assert.equal(migrated.version, 3);
     if (source.version === 3) assert.deepEqual(migrated.entries, source.entries);
     assert.equal(JSON.stringify(source), raw);

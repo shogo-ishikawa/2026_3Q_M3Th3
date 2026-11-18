@@ -146,3 +146,16 @@ test('changing one meal keeps unrelated controls and unfinished quantities in pl
   assert.equal(field(root, 'breakfast', 'stapleAmount'), quantity);
   assert.equal(quantity.value, '');
 }));
+
+test('the evening dish preference is available in dinner settings and the editor for a single dinner', () => withDocument(() => {
+  for (const display of [{}, {meals: ['dinner'], allowEnable: false}]) {
+    const changes = [];
+    const root = mountMealSettings({settings: settings(), data, ...display, onChange: (meal, patch) => changes.push({meal, patch})});
+    const control = field(root, 'dinner', 'banshaku');
+    assert.deepEqual(all(root).filter(node => node.id?.endsWith('-banshaku')), [control]);
+    assert.equal(control.checked, false);
+    control.checked = true;
+    control.emit('change');
+    assert.deepEqual(changes, [{meal: 'dinner', patch: {banshaku: true}}]);
+  }
+}));

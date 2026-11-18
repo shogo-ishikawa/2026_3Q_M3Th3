@@ -57,9 +57,32 @@ const NOODLE_FAMILIES = set('pasta udon soba somen yakisoba ramen');
 const RICE_MEAL_FAMILIES = set('rice onigiri donburi fried-rice curry omelette-rice sushi');
 const HANDHELD_FAMILIES = set('bread burger');
 
+// 既存の居酒屋料理と、家庭で取り分けやすい焼き物・小鉢。
+const EVENING_DISHES = set(`
+tavern-liver-chive tavern-spicy-pork-kimchi-vegetables tavern-pork-chive tavern-pork-wood-ear-egg
+tavern-motsu-miso-stir-fry tavern-chive-omelette tavern-negi-chashu tavern-chive-kimchi-tofu
+tavern-fluffy-yam-pan tavern-grilled-chicken-mayo-salad tavern-chicken-mentaiko-mayo
+tavern-tare-chicken-katsu-egg tavern-gizzard-heart-ponzu tavern-negi-kombu
+chicken-meatball classic-dashimaki classic-grilled-shishamo classic-side-hiyayakko
+classic-side-okra-tofu classic-side-chilled-tomato familiar-side-yam-tanzaku familiar-side-ume-cucumber
+snack-edamame classic-side-edamame-ginger classic-side-smashed-cucumber classic-side-potato-salad
+familiar-side-agedashi-tofu comfort-motsu-stew classic-grilled-hokke
+classic-karaage-thigh classic-karaage-breast classic-karaage-salt daily-snack-oven-karaage
+familiar-yakitori-negima varied-yakitori-thigh-salt varied-yakitori-thigh-tare varied-yakitori-breast-salt
+varied-yakitori-skin varied-yakitori-tsukune varied-yakitori-tsukune-cheese varied-yakitori-ume-shiso
+takeaway-yakitori-momo-tare takeaway-yakitori-momo-salt takeaway-yakitori-negima-tare
+takeaway-yakitori-kawa-tare takeaway-yakitori-sunagimo-salt
+`);
+
+export function isBanshakuDish(recipe) {
+  if (!['main', 'side'].includes(recipe.role)) return false;
+  if (recipe.family === 'sashimi' && !recipe.staple) return true;
+  return Boolean(recipe.tags?.includes('晩酌') || EVENING_DISHES.has(recipe.id)) && recipeFamily(recipe) !== 'alcohol';
+}
+
 export function breakfastRole(recipe) {
   const family = recipeFamily(recipe);
-  if (family === 'alcohol') return null;
+  if (family === 'alcohol' || isBanshakuDish(recipe) && Array.isArray(recipe.mealSuitability) && !recipe.mealSuitability.includes('breakfast')) return null;
   if (!AUDITED_RECIPE_IDS.has(recipe.id) && recipe.mealSuitability?.includes('breakfast')) return recipe.role === 'side' ? 'vegetable' : isCompleteMeal(recipe) ? 'complete' : recipe.role;
   if (BREAKFAST_MAINS.has(recipe.id)) return isCompleteMeal(recipe) ? 'complete' : 'main';
   if (BREAKFAST_BREAD.has(recipe.id) || recipe.id.startsWith('staple-oatmeal-') || (recipe.role === 'staple' && RICE_FAMILIES.has(family))) return isCompleteMeal(recipe) ? 'complete' : 'staple';
@@ -85,6 +108,11 @@ export function breakfastRole(recipe) {
 export function recipeMealSuitability(recipe) {
   const family = recipeFamily(recipe), morning = breakfastRole(recipe);
   if (family === 'alcohol') return {meals: [], breakfastRole: null, category: 'record-only', reason: '酒類は食事の自動提案に使わない'};
+  if (isBanshakuDish(recipe) && Array.isArray(recipe.mealSuitability)) {
+    const meals = recipe.mealSuitability;
+    return {meals, breakfastRole: morning, category: meals.length ? recipe.role : 'banshaku-only',
+      reason: meals.length ? '家庭のおかずとしても選べる料理' : '夕食で晩酌向けのおかずを希望したときに提案する'};
+  }
   if (recipe.role === 'snack') return {meals: morning ? ['breakfast', 'snack'] : ['snack'], breakfastRole: morning, category: morning ?? 'snack', reason: morning ? '朝に追加できる果物・乳製品' : '間食として扱う'};
   const meals = ['lunch', 'dinner'];
   if (morning) meals.unshift('breakfast');
@@ -92,8 +120,13 @@ export function recipeMealSuitability(recipe) {
     reason: morning ? '朝食用の確認済み分類' : '昼・夕の候補。朝は自動で選ばない'};
 }
 
-export function mealCandidateRecipes(recipes, meal) {
-  return recipes.filter(recipe => recipeMealSuitability(recipe).meals.includes(meal));
+export function canSuggestAtMeal(recipe, meal, profile = {}) {
+  return recipeMealSuitability(recipe).meals.includes(meal)
+    || (meal === 'dinner' && profile.banshaku === true && isBanshakuDish(recipe));
+}
+
+export function mealCandidateRecipes(recipes, meal, profile) {
+  return recipes.filter(recipe => canSuggestAtMeal(recipe, meal, profile));
 }
 
 export function matchesStaplePreference(recipe, mode) {

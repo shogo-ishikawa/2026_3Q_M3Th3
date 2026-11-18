@@ -1,5 +1,5 @@
 /** Aggregate the selected plans once before subtracting household stock. */
-import {dateIsValid} from './journal.js';
+import {dateIsValid, shoppingServingsFor} from './journal.js';
 
 export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={}) {
   if(!Array.isArray(entries)||!Array.isArray(pantry)||!Number.isInteger(servings)||servings<1||servings>8)throw Error('買い物の人数と入力を確認してください。');
@@ -8,6 +8,7 @@ export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={
   const amount=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
   for(const entry of selected){
     if(!Array.isArray(entry.items))throw Error('予定のメニューの形式を確認してください。');
+    const menuServings=shoppingServingsFor(entry,servings);
     // メモだけの予定を「材料なし＝買い物不要」と解釈しません。
     if(!entry.items.length){missingMenus.push({name:entry.note?.trim().slice(0,200)||'メニュー未入力の予定',entryId:entry.id});continue;}
     for(const item of entry.items){
@@ -25,7 +26,7 @@ export function shoppingForEntries(entries,data,{from,to,servings=2,pantry=[]}={
       if(!Object.hasOwn(data.ingredients,part.id)){missing=true;continue;}
       const info=data.ingredients[part.id];
       if(!items.has(part.id))items.set(part.id,{id:part.id,name:info.name,unit:info.unit,required:0,stock:0,buy:0});
-      items.get(part.id).required+=part.amount*item.quantity*servings;
+      items.get(part.id).required+=part.amount*item.quantity*menuServings;
     }
     if(missing)missingMenus.push({name:item.name,entryId:entry.id});
     }

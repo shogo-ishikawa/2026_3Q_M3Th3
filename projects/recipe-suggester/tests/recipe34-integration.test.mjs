@@ -1,3 +1,4 @@
+import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
 import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
@@ -35,7 +36,7 @@ const reclassifiedSides = new Set(['classic-boiled-egg', 'classic-natto-plain', 
 // 別の料理のrole変更や、3品の材料・量・栄養変更を許容する投影ではありません。
 const historicalRole = recipe => reclassifiedSides.has(recipe.id) ? {...recipe, role: 'main'} : recipe;
 const byId = new Map(RECIPES.map(recipe => [recipe.id, recipe]));
-const additions = [...VARIED_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES,...MAPO_RECIPES,...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES,...ADDED_311_RECIPES,...BREAD_RECIPES,...BREAKFAST_RECIPES];
+const additions = [...VARIED_RECIPES, ...TAKEAWAY_RECIPES, ...COMFORT_RECIPES, ...CONFECTIONERY_RECIPES, ...DESSERT_RECIPES, ...ACCOMPANIMENT_RECIPES,...PALETTE_RECIPES,...MAPO_RECIPES,...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES,...ADDED_311_RECIPES,...BREAD_RECIPES,...BREAKFAST_RECIPES,...EVENING_RECIPES];
 const addedIds = new Set(additions.map(recipe => recipe.id));
 const addedIngredients = new Set([...Object.keys(VARIED_INGREDIENTS), ...Object.keys(TAKEAWAY_INGREDIENTS), ...Object.keys(COMFORT_INGREDIENTS), ...Object.keys(CONFECTIONERY_INGREDIENTS), ...Object.keys(DESSERT_INGREDIENTS), ...Object.keys(ACCOMPANIMENT_INGREDIENTS), ...Object.keys(SALAD_INGREDIENTS), ...Object.keys(DISH_CUSTOM_INGREDIENTS),...Object.keys(PALETTE_INGREDIENTS),...Object.keys(MEAT_CHOICE_INGREDIENTS),...Object.keys(MAPO_INGREDIENTS),...Object.keys(WORLD_INGREDIENTS),...Object.keys(SEAFOOD_INGREDIENTS),...Object.keys(NOODLE_INGREDIENTS),...Object.keys(ADDED_311_INGREDIENTS),...Object.keys(BREAD_INGREDIENTS),...Object.keys(BREAKFAST_INGREDIENTS),...PANTRY_V325_INGREDIENT_IDS]);
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');

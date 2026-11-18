@@ -1,5 +1,5 @@
 /** 定番の食事は、保存時点の料理・量・栄養を保持します。DBの更新で書き換えません。 */
-import {validateFrozenItems, dateIsValid, MEAL_IDS} from './journal.js';
+import {validateFrozenItems, dateIsValid, MEAL_IDS, shoppingServingsFor} from './journal.js';
 
 export const MAX_MEAL_SETS=100;
 const MAX_ITEMS=100;
@@ -42,11 +42,12 @@ export function validateMealSets(raw,data){
   if(!Array.isArray(raw)||raw.length>MAX_MEAL_SETS)throw Error(`定番セットは${MAX_MEAL_SETS}件以下にしてください。`);
   if(!raw.length)return [];
   const seen=new Set(),headers=raw.map(set=>{
-    record(set,['id','name','note','items'],'定番セット');
+    record(set,['id','name','note','items','kind'],'定番セット');
+    if(own(set,'kind')&&set.kind!=='family-dinner')throw Error('定番セットの種類を確認してください。');
     const id=identifier(set.id);
     if(seen.has(id))throw Error('定番セットの識別子が重複しています。');seen.add(id);
     if(!Array.isArray(set.items)||!set.items.length||set.items.length>MAX_ITEMS)throw Error('定番セットには1品以上100品以下を登録してください。');
-    return {id,name:text(set.name,200,'定番セットの名前'),note:text(set.note??'',2000,'定番セットのメモ',true),items:set.items};
+    return {id,name:text(set.name,200,'定番セットの名前'),note:text(set.note??'',2000,'定番セットのメモ',true),items:set.items,...(set.kind?{kind:set.kind}:{})};
   });
   return headers.map(set=>({...set,items:checkedItems(set.items,data)}));
 }
@@ -56,12 +57,28 @@ export function createMealSet(input,data){
   safe(input);record(input,['name','note','entries'],'定番セット');
   if(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>100)throw Error('保存する食事の記録を選んでください。');
   const items=input.entries.flatMap(entry=>{
-    record(entry,['id','date','meal','status','note','items'],'保存元の記録');
+    record(entry,['id','date','meal','status','note','items','shoppingServings'],'保存元の記録');
     if(!dateIsValid(entry.date)||!MEAL_IDS.includes(entry.meal)||!STATUSES.includes(entry.status)||!Array.isArray(entry.items))throw Error('保存元の食事の記録を確認してください。');
     return entry.items;
   });
-  if(!items.length||items.length>MAX_ITEMS)throw Error('定番セットには1品以上100品以下を登録してください。');
-  return validateMealSets([{id:uid('meal-set'),name:input.name,note:input.note??'',items:items.map(item=>({...item,id:uid('set-item')}))}],data)[0];
+  return newSet({name:input.name,note:input.note??''},items,data);
+}
+
+function newSet(header,items,data){
+  if(!Array.isArray(items)||!items.length||items.length>MAX_ITEMS)throw Error('定番セットには1品以上100品以下を登録してください。');
+  return validateMealSets([{id:uid('meal-set'),...header,items:items.map(item=>({...item,id:uid('set-item')}))}],data)[0];
+}
+
+export function createFamilyDinner(name,items,data){
+  safe(items);
+  return newSet({name,note:'',kind:'family-dinner'},items,data);
+}
+
+/** 保存した1人分の料理を夕食予定にコピーし、家族の人数は買い物だけに使います。 */
+export function planFamilyDinner(set,date,shoppingServings,data){
+  if(set.kind!=='family-dinner')throw Error('家族の夕飯を選んでください。');
+  shoppingServingsFor({shoppingServings});
+  return {...createRepeatedMeal({items:set.items,date,meal:'dinner',status:'planned',note:set.name},data),shoppingServings};
 }
 
 /** コピーは新しいentry/item IDを発行し、倍率だけを掛けます。材料・栄養の基準値は固定です。 */

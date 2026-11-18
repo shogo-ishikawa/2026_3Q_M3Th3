@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setupTabs} from '../tabs.js';
 
-function navigation(initialHash, run) {
+function navigation(initialHash, run, startTab=()=>'planner') {
   const location = {hash: initialHash};
   const windowEvents = {};
   const documentEvents = {};
@@ -38,7 +38,7 @@ function navigation(initialHash, run) {
   };
   for (const [key, value] of Object.entries(globals)) {before[key] = globalThis[key];globalThis[key] = value;}
   try {
-    setupTabs({onKitchenRoute: tab => kitchen.push(tab)});
+    setupTabs({onKitchenRoute: tab => kitchen.push(tab),startTab});
     const changeHash = hash => {location.hash = hash;windowEvents.hashchange();};
     function clickLink(hash, other = {}) {
       let prevented = false;
@@ -94,4 +94,19 @@ test('layout changes update tab orientation and arrow keys retain the active foc
     assert.deepEqual(buttons.filter(control => control.tabIndex === 0), [buttons.at(-1)]);
     assert.equal(location.hash, '#settings');
   });
+});
+
+
+test('a preferred start screen works with no hash and explicit shared links take precedence', () => {
+  navigation('', ({document, changeHash}) => {
+    assert.equal(document.body.dataset.activeTab,'catalog');
+    changeHash('#calendar');
+    assert.equal(document.body.dataset.activeTab,'record');
+    changeHash('');
+    assert.equal(document.body.dataset.activeTab,'catalog');
+  }, ()=>'catalog');
+  navigation('#pantry', ({document,kitchen}) => {
+    assert.equal(document.body.dataset.activeTab,'kitchen');
+    assert.deepEqual(kitchen,['pantry']);
+  }, ()=>'catalog');
 });

@@ -61,7 +61,7 @@ test('the expanded collection consists of distinct complete dishes', () => {
 });
 
 test('the calendar catalogue adds meaningful staples, drinks and snacks', () => {
-  assert.equal(DATA_VERSION,'3.25.0');
+  assert.equal(DATA_VERSION,'3.28.0');
   assert.ok(EXPANDED_RECIPES.length >= 100);
   assert.ok(RECIPES.length >= 305);
   assert.ok(EXPANDED_RECIPES.filter(item => item.role === 'staple').length >= 20);
@@ -181,8 +181,10 @@ test('instructions use proportions instead of absolute ingredient quantities', (
 
 test('the original mood choices are available on mains and have consistent meanings', () => {
   const moodTags = new Set(['さっぱり','ガッツリ','時短','定番']);
+  const recipeTags = new Set([...moodTags, '晩酌']);
   for (const recipe of RECIPES) {
-    assert.ok(recipe.tags.every(tag => moodTags.has(tag)),recipe.id);
+    assert.ok(recipe.tags.every(tag => recipeTags.has(tag)),recipe.id);
+    if (recipe.tags.includes('晩酌')) assert.ok(['main', 'side'].includes(recipe.role), recipe.id);
     assert.equal(new Set(recipe.tags).size,recipe.tags.length,recipe.id);
     if (recipe.role === 'staple') assert.deepEqual(recipe.tags,[],recipe.id);
     else assert.equal(recipe.tags.includes('時短'),recipe.minutes <= 20,recipe.id);

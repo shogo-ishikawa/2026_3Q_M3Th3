@@ -99,6 +99,7 @@ export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal
       volume.addEventListener('change', act(() => update(meal, {volume: volume.value})));
       mood.addEventListener('change', act(() => update(meal, {mood: mood.value})));
       pair.append(field('おかずの量', volume), field('料理の傾向', mood)); card.append(pair);
+      if (meal === 'dinner') card.append(toggle(meal, 'banshaku', '晩酌向けのおかずを優先する', choice.banshaku));
       const modes = meal === 'breakfast' ? BREAKFAST_STAPLES : OTHER_STAPLES;
       const choices = modes.some(([id]) => id === choice.staple) ? modes : [...modes, [choice.staple, choice.staple === 'bread' ? 'パン' : choice.staple === 'rice-or-bread' ? 'ご飯かパン' : 'オートミール（シリアル）']];
       const mode = select(meal, 'staple', choices, choice.staple);

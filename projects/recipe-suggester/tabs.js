@@ -2,7 +2,7 @@
 const ROUTES={calendar:'record',record:'record',nutrition:'nutrition',planner:'planner',shopping:'kitchen',pantry:'kitchen',kitchen:'kitchen',recipes:'catalog',catalog:'catalog',settings:'settings'};
 const HASHES={record:'calendar',nutrition:'nutrition',planner:'planner',kitchen:'shopping',catalog:'recipes',settings:'settings'};
 
-export function setupTabs({onKitchenRoute=()=>{}}={}){
+export function setupTabs({onKitchenRoute=()=>{},startTab=()=>'planner'}={}){
   const buttons=[...document.querySelectorAll('[role="tab"][data-tab]')];
   const tablist=buttons[0].closest('[role="tablist"]');
   const compactLayout=window.matchMedia('(max-width:760px)');
@@ -45,8 +45,8 @@ export function setupTabs({onKitchenRoute=()=>{}}={}){
     }
     followRoute(hash);
   });
-  window.addEventListener('hashchange',()=>followRoute(location.hash.slice(1)||'planner'));
+  window.addEventListener('hashchange',()=>followRoute(location.hash.slice(1)||startTab()));
   const initial=location.hash.slice(1);
-  followRoute(Object.hasOwn(ROUTES,initial)?initial:'planner');
+  followRoute(Object.hasOwn(ROUTES,initial)?initial:startTab());
   return activate;
 }

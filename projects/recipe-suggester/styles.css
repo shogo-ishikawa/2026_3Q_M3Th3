@@ -1316,3 +1316,14 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
   }
   html[data-text-size]:not([data-text-size="standard"]) .nutrition-controls { flex-wrap: wrap; }
 }
+
+.meal-shortcuts { display:flex; flex-wrap:wrap; gap:.6rem; margin:.75rem 0 1.25rem; }
+.meal-shortcuts button, .evening-filter { min-height:44px; }
+.start-page-choice { display:grid; gap:.4rem; max-width:22rem; margin-bottom:1.2rem; }
+@media (max-width:600px) {
+  .meal-shortcuts { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(12rem,100%),1fr)); }
+  .meal-shortcuts button { width:100%; white-space:normal; }
+}
+
+.recipe-sources { margin:.5rem 0; }
+.recipe-sources .source-note { overflow-wrap:anywhere; }

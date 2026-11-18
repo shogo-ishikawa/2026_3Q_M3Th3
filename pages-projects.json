@@ -147,6 +147,7 @@
         "catalog-favourites-ui.js",
         "catalog-favourites-ui.css",
         "breakfast-recipes.js",
+        "evening-mains.js", "evening-sides.js", "family-dinners-ui.js", "dining-log-ui.js",
         "meal-plan-editor-ui.js",
         "meal-plan-editor-ui.css",
         "meal-profiles.js",

@@ -14,7 +14,7 @@ const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-8,`${actual
 const compare=(actual,expected)=>{for(const key of NUTRIENT_KEYS)expected[key]===null?assert.equal(actual[key],null):near(actual[key],expected[key]);};
 
 test('監査済みの汁物・鍋料理は全量摂取で従来値と完全に一致し、1人分へ正規化する',()=>{
-  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,97);
+  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,98);
   for(const base of supported){
     const generated=buildSoupIntake({baseRecipe:base},data);
     assert.deepEqual(recipeNutrition(generated,data),recipeNutrition(base,data),base.id);
@@ -41,6 +41,8 @@ test('鍋の付けだれ・つくねの調味料・ワンタンの皮と肉だ�
   }
   assert.equal(soupIntakeFor(recipe('familiar-chanko-nabe'),data).ingredientFractions.starch,0);
   assert.equal(soupIntakeFor(recipe('simmered-chicken-salt-lemon-nabe'),data).ingredientFractions.starch,0);
+  const negima = soupIntakeFor(recipe('evening-main-tuna-negi-nabe'),data);
+  assert.deepEqual(negima.ingredientFractions,{tuna:0,negi:0,enoki:0,soup311_awase_dashi:1,soy_sauce:1,mirin:1,sake:1});
   const wonton=soupIntakeFor(recipe('soup311-wonton-pork'),data);
   assert.equal(wonton.ingredientFractions.soy_sauce,.5);assert.equal(wonton.ingredientFractions.sesame_oil,.5);assert.equal(wonton.ingredientFractions.salt,0);
   const handmade=soupIntakeFor(recipe('soup-038'),data);

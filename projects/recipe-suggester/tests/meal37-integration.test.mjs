@@ -1,3 +1,4 @@
+import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
 import {BREAD_RECIPES,BREAD_INGREDIENTS} from '../bread-foods.js';
@@ -24,7 +25,7 @@ import {createCatalogEntry} from '../record-actions.js';
 import {NUTRIENT_KEYS, itemNutrition, recipeNutrition, summariseEntries} from '../nutrition.js';
 import {shoppingForEntries} from '../shopping.js';
 
-const breadRecipeIds=new Set([...BREAD_RECIPES,...BREAKFAST_RECIPES].map(recipe=>recipe.id));
+const laterRecipeIds=new Set([...BREAD_RECIPES,...BREAKFAST_RECIPES,...EVENING_RECIPES].map(recipe=>recipe.id));
 const v310RecipeIds=new Set([...WORLD_RECIPES,...SEAFOOD_RECIPES,...NOODLE_RECIPES,...ADDED_311_RECIPES].map(recipe=>recipe.id));
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -41,7 +42,7 @@ const independentNutrition = ingredients => Object.fromEntries(NUTRIENT_KEYS.map
 // 固定値はv3.6.0の独立した旧版worktreeと /tmp/meal37-baseline.json（855品・370食材）から計算。
 // 画面のグループ化と具材選択は、旧レシピの材料・量・栄養・手順・ID・出典を書き換えません。
 test('表示の集約とカスタム調理を加えても旧855品と370食材の全内容を維持する', () => {
-  const legacy=RECIPES.filter(recipe=>!PALETTE_RECIPES.some(added=>added.id===recipe.id)&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id)&&!breadRecipeIds.has(recipe.id));
+  const legacy=RECIPES.filter(recipe=>!PALETTE_RECIPES.some(added=>added.id===recipe.id)&&!MAPO_RECIPES.some(added=>added.id===recipe.id)&&!v310RecipeIds.has(recipe.id)&&!laterRecipeIds.has(recipe.id));
   assert.equal(legacy.length, 855);
   assert.equal(hash(legacy.map(originalRecipe)), '21f7782f30165e8fba48cfaffc3b5c7c47c23500e037e32e249cee79e53dad23');
   const newIds = new Set([...Object.keys(DISH_CUSTOM_INGREDIENTS),...PANTRY_V325_INGREDIENT_IDS]);
