@@ -141,7 +141,7 @@ export function shoppingMenuStatuses(menus, data, {pantry = [], omittedIds = [],
     let purchased = 0, stock = 0;
     for (const id of ids) {
       totals.totalIngredients++;
-      if (omitted.has(id) || menu.item.batchId || menu.item.restaurant) { totals.omittedIngredients++; continue; }
+      if (omitted.has(id) || menu.item.batchId || menu.item.restaurant || menu.item.diningMatch) { totals.omittedIngredients++; continue; }
       const row = result.items.find(item => item.id === id), source = row?.sources.find(source => source.menuId === menu.id);
       if (!source) continue;
       purchased += source.purchased; stock += source.stock;

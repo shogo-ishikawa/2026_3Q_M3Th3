@@ -15,6 +15,22 @@ const close = (a,b) => Math.abs(a-b) <= Math.max(1,Math.abs(a),Math.abs(b))*1e-1
 const clean = value => Number(value.toPrecision(12));
 const fraction = value => ({.125:'1/8',.25:'1/4',[1/3]:'1/3',.5:'半',[2/3]:'2/3',.75:'3/4'})[value] ?? format(value);
 
+/** 料理を記録するときに、メニュー画面と外食画面で共通に使う分量候補。 */
+export function recordPortionPresets(recipe, portion) {
+  if (!portion || !positive(portion.amount)) return [];
+  const {amount, unit} = portion;
+  if (unit === 'g' && recipe?.role === 'staple' && recipeFamily(recipe) === 'rice') {
+    return [100, 150, 200].map(value => ({label:value + 'g', value}));
+  }
+  if (!['皿','人分','個','枚','貫','切れ','杯','本'].includes(unit)) return [];
+  const label = value => value.toLocaleString('ja-JP', {maximumFractionDigits:1}) + unit;
+  return [
+    {label:'半分（' + label(amount / 2) + '）', value:amount / 2},
+    {label:label(amount), value:amount},
+    {label:label(amount * 2), value:amount * 2},
+  ];
+}
+
 /** 自動提案だけに使う倍率。固定量を使う呼び出し元は、この関数より先に固定量を適用します。 */
 export function plannedQuantity(recipe, settings = {}, data) {
   if (!recipe || typeof recipe !== 'object') throw Error('料理の量を確認してください。');

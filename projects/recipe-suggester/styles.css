@@ -1327,3 +1327,8 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
 
 .recipe-sources { margin:.5rem 0; }
 .recipe-sources .source-note { overflow-wrap:anywhere; }
+
+#dinner-from-record { margin:0 0 1rem; max-width:100%; min-height:44px; white-space:normal; }
+.dining-origin { margin:.15rem 0 .7rem; color:var(--ink); font-size:.875rem; overflow-wrap:anywhere; }
+.dinner-preview-actions { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:1rem; }
+.dinner-preview-actions button { max-width:100%; min-height:44px; white-space:normal; }

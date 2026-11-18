@@ -85,7 +85,7 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
       if (!pendingByMenu.has(source.menuId)) pendingByMenu.set(source.menuId, new Map());
       pendingByMenu.get(source.menuId).set(ingredient.id, source);
     }
-    const canBuy = menu => !menu.item.batchId && !menu.item.restaurant && (menu.item.ingredientsKnown === true || menu.item.shoppingKnown === true);
+    const canBuy = menu => !menu.item.batchId && !menu.item.restaurant && !menu.item.diningMatch && (menu.item.ingredientsKnown === true || menu.item.shoppingKnown === true);
     const materialIds = menu => canBuy(menu) ? unique((menu.item.ingredients ?? []).filter(part => data.ingredients[part.id] && !omitted.has(part.id) && (pendingByMenu.get(menu.id)?.get(part.id)?.buy ?? 0) > 0).map(part => part.id)) : [];
     const available = new Map(menus.map(menu => [menu.id, materialIds(menu)]));
     const selectedFor = menu => new Set(Object.hasOwn(chosen, menu.id) ? chosen[menu.id] : available.get(menu.id));
@@ -122,7 +122,7 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
         if (typeof onOpenMenu === 'function') actions.append(control('レシピを見る', 'button-text shopping-open-menu', () => onOpenMenu(clone(menu))));
         if (menu.extra && typeof onRemoveExtra === 'function') actions.append(control('候補から外す', 'button-text shopping-remove-extra', () => onRemoveExtra(menu.id)));
         if (actions.children.length) card.append(actions);
-        if (menu.item.batchId || menu.item.restaurant) { card.append(make('p', 'shopping-menu-note', menu.item.batchId ? '作り置き済み' : '外食のため買い物なし')); cards.append(card); continue; }
+        if (menu.item.batchId || menu.item.restaurant || menu.item.diningMatch) { card.append(make('p', 'shopping-menu-note', menu.item.batchId ? '作り置き済み' : '外食のため買い物なし')); cards.append(card); continue; }
         const ids = available.get(menu.id), selected = selectedFor(menu), inputs = new Map(), menuToggle = make('label', 'shopping-menu-toggle'), menuCheck = make('input'); menuCheck.type = 'checkbox';
         const updateMenuCheck = () => { menuCheck.checked = ids.length > 0 && ids.every(id => selectedFor(menu).has(id)); menuCheck.indeterminate = ids.some(id => selectedFor(menu).has(id)) && !menuCheck.checked; };
         const refresh = () => {

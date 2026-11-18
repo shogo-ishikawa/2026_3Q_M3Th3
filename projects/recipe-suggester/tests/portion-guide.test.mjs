@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {RECIPES,INGREDIENTS,ALLERGENS} from '../data.js';
 import {recipePortion} from '../catalog.js';
 import {itemFromRecipe} from '../nutrition.js';
-import {plannedQuantity,planPortionLabel,portionLabel,formatCookingIngredient,cookingIngredientGuide,formatPurchaseAmount} from '../portion-guide.js';
+import {recordPortionPresets,plannedQuantity,planPortionLabel,portionLabel,formatCookingIngredient,cookingIngredientGuide,formatPurchaseAmount} from '../portion-guide.js';
 const data={recipes:RECIPES,ingredients:INGREDIENTS,allergens:ALLERGENS};
 const settings=volume=>({meal:'breakfast',mealPreferences:{breakfast:{volume,mood:'all'}}});
 const recipe=id=>RECIPES.find(r=>r.id===id);
@@ -71,4 +71,14 @@ test('all catalogue materials have a finite display fallback without altering in
     assert.ok(text.length>0);assert.doesNotMatch(text,/NaN|Infinity|undefined/);
   }
   assert.equal(JSON.stringify(data.ingredients),before);
+});
+
+
+test('食事の記録に使うご飯の分量は100・150・200gで、皿や履歴は保存した単位を使う',()=>{
+  const rice=recipe('plain-rice');
+  assert.deepEqual(recordPortionPresets(rice, recipePortion(rice,data)), [
+    {label:'100g',value:100},{label:'150g',value:150},{label:'200g',value:200},
+  ]);
+  assert.deepEqual(recordPortionPresets(null, {amount:2,unit:'個'}).map(p=>p.value),[1,2,4]);
+  assert.deepEqual(recordPortionPresets(null, {amount:150,unit:'g'}),[]);
 });

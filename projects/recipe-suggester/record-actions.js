@@ -81,15 +81,20 @@ export function createCatalogEntry(input, data) {
     throw new Error('カレンダーへ登録する内容を確認してください。');
   }
   const {recipeId, date, meal, status, amount, note = ''} = input;
+  if (!dateIsValid(date)) throw new Error('記録する日付は2000年から2100年までで指定してください。');
+  if (!MEAL_IDS.includes(meal) || !statuses.has(status)) throw new Error('食事区分と記録の種類を選んでください。');
+  if (typeof note !== 'string' || note.length > 2000) throw new Error('食事のメモは2000文字以内で入力してください。');
+  return {id: newId(), date, meal, status, note, items: [createCatalogItem(recipeId, amount, data)]};
+}
+
+/** 献立と外食のどちらからも、同じ料理・同じ分量には同じ栄養を記録します。 */
+export function createCatalogItem(recipeId, amount, data) {
   if (typeof recipeId !== 'string' || !recipeId.trim() || recipeId.length > 120 || ['__proto__', 'constructor', 'prototype'].includes(recipeId)) {
     throw new Error('記録するメニューを選んでください。');
   }
-  if (!dateIsValid(date)) throw new Error('記録する日付は2000年から2100年までで指定してください。');
-  if (!MEAL_IDS.includes(meal) || !statuses.has(status)) throw new Error('食事区分と記録の種類を選んでください。');
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount > 100000) {
     throw new Error('記録する量は0より大きい数値で100000以下にしてください。');
   }
-  if (typeof note !== 'string' || note.length > 2000) throw new Error('食事のメモは2000文字以内で入力してください。');
   const recipe = describeRecipe(recipeId, data);
   if (!recipe) throw new Error('このメニューは見つかりませんでした。');
   const portion = recipePortion(recipe, data);
@@ -97,5 +102,5 @@ export function createCatalogEntry(input, data) {
   if (quantity > 1000) throw new Error('記録する量は基準量の1000倍以下にしてください。');
   const item = itemFromRecipe(recipe, data, quantity);
   item.portion = {...portion};
-  return {id: newId(), date, meal, status, note, items: [item]};
+  return item;
 }

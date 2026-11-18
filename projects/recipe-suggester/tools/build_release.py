@@ -19,7 +19,7 @@ FILES = (
     "quantity-input.js", "quantity-input.css",
     "catalog-favourites-ui.js", "catalog-favourites-ui.css", "meal-profiles.js", "nutrient-format.js", "shopping-categories.js", "shopping-workflow.js", "shopping-workflow-ui.js", "shopping-workflow-ui.css",
     "breakfast-recipes.js",
-        "evening-mains.js", "evening-sides.js", "family-dinners-ui.js", "dining-log-ui.js", "meal-plan-editor-ui.js", "meal-plan-editor-ui.css", "meal-suitability.js", "meal-settings-ui.js", "meal-settings-ui.css", "pantry-catalog.js", "pantry-extra-ingredients.js", "pantry-ui.js", "pantry-ui.css", "portion-guide.js", "shopping-status.js",
+        "evening-mains.js", "evening-sides.js", "family-dinners-ui.js", "dining-log-ui.js", "dining-search.js", "dining-meal.js", "recorded-dinner.js", "meal-plan-editor-ui.js", "meal-plan-editor-ui.css", "meal-suitability.js", "meal-settings-ui.js", "meal-settings-ui.css", "pantry-catalog.js", "pantry-extra-ingredients.js", "pantry-ui.js", "pantry-ui.css", "portion-guide.js", "shopping-status.js",
     "journal-history.js", "quick-record-ui.js", "quick-record-ui.css", "record-summary.js", "record-summary-ui.js", "record-summary-ui.css", "catalog-filter-ui.js", "catalog-filter-ui.css",
     "recipe-illustration.js", "recipe-illustration-ui.js",
     "recipe-artwork-manifest.js",

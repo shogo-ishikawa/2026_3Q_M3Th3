@@ -2,6 +2,7 @@ import {recipeFamily} from './catalog.js';
 import {dishClassification} from './dish-hierarchy.js';
 import {mealCandidateRecipes, breakfastRole} from './meal-suitability.js';
 
+export const MEAL_SHARES = Object.freeze({breakfast: 0.25, lunch: 0.35, dinner: 0.4, snack: 0.1});
 export const MEAL_PREFERENCE_IDS = Object.freeze(['breakfast', 'lunch', 'dinner']);
 export const MEAL_VOLUME_IDS = Object.freeze(['light', 'normal', 'hearty']);
 export const MEAL_MOOD_IDS = Object.freeze(['all', 'さっぱり', 'ガッツリ', '時短', '定番']);
@@ -38,10 +39,10 @@ export function normaliseMealPreferences(value, legacyMood = 'all', legacySettin
 }
 
 export function mealProfile(settings, meal = settings.meal) {
-  if (meal === 'snack') return {...defaultMealPreference(), mood: settings.preferences?.mood ?? 'all', share: 0.1, scale: 1};
+  if (meal === 'snack') return {...defaultMealPreference(), mood: settings.preferences?.mood ?? 'all', share: MEAL_SHARES.snack, scale: 1};
   const preferences = normaliseMealPreferences(settings.mealPreferences, settings.preferences?.mood ?? 'all', settings);
   const chosen = preferences[meal];if (!chosen) throw Error('朝食・昼食・夕食の設定を確認してください。');
-  return {...chosen, share: {breakfast: 0.25, lunch: 0.35, dinner: 0.4}[meal], scale: {light: 0.5, normal: 1, hearty: 1.5}[chosen.volume]};
+  return {...chosen, share: MEAL_SHARES[meal], scale: {light: 0.5, normal: 1, hearty: 1.5}[chosen.volume]};
 }
 
 export function resolveMealSettings(settings, meal) {
