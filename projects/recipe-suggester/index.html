@@ -4,61 +4,65 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Meal Paletteは食事と栄養のノート。種類とメニューを選んで記録し、栄養の振り返りから献立と買い物へつなげます。">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-RoFZeuFJKU7mXgCrWeqMq2z+M1SUoscceGWODEG1BWk='; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FCGASMqiRAny+GNvc66zOpkavO0zIejQueyI0lbUfqQ='; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="theme-color" content="#25352f">
 <title>Meal Palette｜食事と栄養のノート</title>
 <link rel="icon" href="assets/icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/icons/favicon-48.png" sizes="48x48" type="image/png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=4.0.0">
-  <link rel="stylesheet" href="salad-builder.css?v=4.0.0">
-  <link rel="stylesheet" href="dish-customisation.css?v=4.0.0">
-  <link rel="stylesheet" href="food-composer.css?v=4.0.0">
-  <link rel="stylesheet" href="noodle-composer.css?v=4.0.0">
-  <link rel="stylesheet" href="recipe-arrangement.css?v=4.0.0">
-  <link rel="stylesheet" href="meal-sets-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="purchase-conversion-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="batch-cooking-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="restaurant-menu-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="favourites-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="text-log-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="nutrition-basis-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="soup-intake-ui.css?v=4.0.0">
-  <link rel="stylesheet" href="quantity-input.css?v=4.0.0">
-<link rel="stylesheet" href="pantry-ui.css?v=4.0.0">
-<link rel="stylesheet" href="meal-settings-ui.css?v=4.0.0">
-<link rel="stylesheet" href="meal-plan-editor-ui.css?v=4.0.0">
-<link rel="stylesheet" href="shopping-workflow-ui.css?v=4.0.0">
-<link rel="stylesheet" href="catalog-favourites-ui.css?v=4.0.0">
-<link rel="stylesheet" href="quick-record-ui.css?v=4.0.0">
-<link rel="stylesheet" href="record-search-ui.css?v=4.0.0">
-<link rel="stylesheet" href="record-ingredient-edit-ui.css?v=4.0.0">
-<link rel="stylesheet" href="record-summary-ui.css?v=4.0.0">
-<link rel="stylesheet" href="catalog-filter-ui.css?v=4.0.0">
-<script type="importmap" id="app-module-map">{"imports":{"./accompaniment-foods.js":"./accompaniment-foods.js?v=4.0.0","./app.js":"./app.js?v=4.0.0","./batch-cooking-ui.js":"./batch-cooking-ui.js?v=4.0.0","./batch-cooking.js":"./batch-cooking.js?v=4.0.0","./bistro-foods.js":"./bistro-foods.js?v=4.0.0","./bread-foods.js":"./bread-foods.js?v=4.0.0","./breakfast-recipes.js":"./breakfast-recipes.js?v=4.0.0","./canteen-foods.js":"./canteen-foods.js?v=4.0.0","./catalog-favourites-ui.js":"./catalog-favourites-ui.js?v=4.0.0","./catalog-filter-ui.js":"./catalog-filter-ui.js?v=4.0.0","./catalog-metadata.js":"./catalog-metadata.js?v=4.0.0","./catalog.js":"./catalog.js?v=4.0.0","./classics-mains.js":"./classics-mains.js?v=4.0.0","./classics-sides.js":"./classics-sides.js?v=4.0.0","./comfort-foods.js":"./comfort-foods.js?v=4.0.0","./confectionery-foods.js":"./confectionery-foods.js?v=4.0.0","./convenience-staples.js":"./convenience-staples.js?v=4.0.0","./cooking-instructions.js":"./cooking-instructions.js?v=4.0.0","./cooking-view.js":"./cooking-view.js?v=4.0.0","./curry-rice-ui.js":"./curry-rice-ui.js?v=4.0.0","./curry-rice.js":"./curry-rice.js?v=4.0.0","./data.js":"./data.js?v=4.0.0","./dessert-foods.js":"./dessert-foods.js?v=4.0.0","./dietary-reference.js":"./dietary-reference.js?v=4.0.0","./dining-log-ui.js":"./dining-log-ui.js?v=4.0.0","./dining-meal.js":"./dining-meal.js?v=4.0.0","./dining-search.js":"./dining-search.js?v=4.0.0","./dish-customisation-ui.js":"./dish-customisation-ui.js?v=4.0.0","./dish-customisation.js":"./dish-customisation.js?v=4.0.0","./dish-hierarchy.js":"./dish-hierarchy.js?v=4.0.0","./evening-mains.js":"./evening-mains.js?v=4.0.0","./evening-sides.js":"./evening-sides.js?v=4.0.0","./everyday-foods.js":"./everyday-foods.js?v=4.0.0","./expanded-foods.js":"./expanded-foods.js?v=4.0.0","./familiar-mains.js":"./familiar-mains.js?v=4.0.0","./familiar-sides.js":"./familiar-sides.js?v=4.0.0","./family-dinners-ui.js":"./family-dinners-ui.js?v=4.0.0","./favourites-ui.js":"./favourites-ui.js?v=4.0.0","./favourites.js":"./favourites.js?v=4.0.0","./food-composer-ui.js":"./food-composer-ui.js?v=4.0.0","./food-composer.js":"./food-composer.js?v=4.0.0","./fruit-varieties.js":"./fruit-varieties.js?v=4.0.0","./ingredient-nutrients.js":"./ingredient-nutrients.js?v=4.0.0","./intake.js":"./intake.js?v=4.0.0","./japanese-search.js":"./japanese-search.js?v=4.0.0","./journal-history.js":"./journal-history.js?v=4.0.0","./journal.js":"./journal.js?v=4.0.0","./kyoto-foods.js":"./kyoto-foods.js?v=4.0.0","./launch-screen.js":"./launch-screen.js?v=4.0.0","./mapo-foods.js":"./mapo-foods.js?v=4.0.0","./mapo-nutrition.js":"./mapo-nutrition.js?v=4.0.0","./meal-occasions.js":"./meal-occasions.js?v=4.0.0","./meal-overlap.js":"./meal-overlap.js?v=4.0.0","./meal-plan-editor-ui.js":"./meal-plan-editor-ui.js?v=4.0.0","./meal-profiles.js":"./meal-profiles.js?v=4.0.0","./meal-sets-ui.js":"./meal-sets-ui.js?v=4.0.0","./meal-sets.js":"./meal-sets.js?v=4.0.0","./meal-settings-ui.js":"./meal-settings-ui.js?v=4.0.0","./meal-suitability.js":"./meal-suitability.js?v=4.0.0","./meat-choice-foods.js":"./meat-choice-foods.js?v=4.0.0","./meat-choices-ui.js":"./meat-choices-ui.js?v=4.0.0","./meat-choices.js":"./meat-choices.js?v=4.0.0","./menu-variations.js":"./menu-variations.js?v=4.0.0","./noodle-composer-ui.js":"./noodle-composer-ui.js?v=4.0.0","./noodle-composer.js":"./noodle-composer.js?v=4.0.0","./noodle-foods.js":"./noodle-foods.js?v=4.0.0","./nutrient-format.js":"./nutrient-format.js?v=4.0.0","./nutrition-basis-ui.js":"./nutrition-basis-ui.js?v=4.0.0","./nutrition-basis.js":"./nutrition-basis.js?v=4.0.0","./nutrition.js":"./nutrition.js?v=4.0.0","./onboarding.js":"./onboarding.js?v=4.0.0","./palette-foods.js":"./palette-foods.js?v=4.0.0","./pantry-catalog.js":"./pantry-catalog.js?v=4.0.0","./pantry-extra-ingredients.js":"./pantry-extra-ingredients.js?v=4.0.0","./pantry-transfer.js":"./pantry-transfer.js?v=4.0.0","./pantry-ui.js":"./pantry-ui.js?v=4.0.0","./performance-foods.js":"./performance-foods.js?v=4.0.0","./planner.js":"./planner.js?v=4.0.0","./portion-guide.js":"./portion-guide.js?v=4.0.0","./prepared-foods.js":"./prepared-foods.js?v=4.0.0","./purchase-conversion-ui.js":"./purchase-conversion-ui.js?v=4.0.0","./purchase-conversion.js":"./purchase-conversion.js?v=4.0.0","./pwa-ui.js":"./pwa-ui.js?v=4.0.0","./quantity-input.js":"./quantity-input.js?v=4.0.0","./quick-record-ui.js":"./quick-record-ui.js?v=4.0.0","./recipe-arrangement-ui.js":"./recipe-arrangement-ui.js?v=4.0.0","./recipe-arrangement.js":"./recipe-arrangement.js?v=4.0.0","./recipe-artwork-manifest.js":"./recipe-artwork-manifest.js?v=4.0.0","./recipe-illustration-ui.js":"./recipe-illustration-ui.js?v=4.0.0","./recipe-illustration.js":"./recipe-illustration.js?v=4.0.0","./record-actions.js":"./record-actions.js?v=4.0.0","./record-ingredient-edit-ui.js":"./record-ingredient-edit-ui.js?v=4.0.0","./record-ingredient-edit.js":"./record-ingredient-edit.js?v=4.0.0","./record-search-ui.js":"./record-search-ui.js?v=4.0.0","./record-summary-ui.js":"./record-summary-ui.js?v=4.0.0","./record-summary.js":"./record-summary.js?v=4.0.0","./recorded-dinner.js":"./recorded-dinner.js?v=4.0.0","./restaurant-menu-ui.js":"./restaurant-menu-ui.js?v=4.0.0","./restaurant-menu.js":"./restaurant-menu.js?v=4.0.0","./salad-builder-ui.js":"./salad-builder-ui.js?v=4.0.0","./salad-builder.js":"./salad-builder.js?v=4.0.0","./seafood-foods.js":"./seafood-foods.js?v=4.0.0","./service-worker.js":"./service-worker.js?v=4.0.0","./shopping-categories.js":"./shopping-categories.js?v=4.0.0","./shopping-status.js":"./shopping-status.js?v=4.0.0","./shopping-workflow-ui.js":"./shopping-workflow-ui.js?v=4.0.0","./shopping-workflow.js":"./shopping-workflow.js?v=4.0.0","./shopping.js":"./shopping.js?v=4.0.0","./simmered-foods.js":"./simmered-foods.js?v=4.0.0","./soup-intake-ui.js":"./soup-intake-ui.js?v=4.0.0","./soup-intake.js":"./soup-intake.js?v=4.0.0","./soup311-foods.js":"./soup311-foods.js?v=4.0.0","./storage.js":"./storage.js?v=4.0.0","./strained-stock.js":"./strained-stock.js?v=4.0.0","./sushi-foods.js":"./sushi-foods.js?v=4.0.0","./tabs.js":"./tabs.js?v=4.0.0","./takeaway-foods.js":"./takeaway-foods.js?v=4.0.0","./tavern-foods.js":"./tavern-foods.js?v=4.0.0","./text-log-configurator-ui.js":"./text-log-configurator-ui.js?v=4.0.0","./text-log-ui.js":"./text-log-ui.js?v=4.0.0","./text-log.js":"./text-log.js?v=4.0.0","./varied-recipes.js":"./varied-recipes.js?v=4.0.0","./world-foods.js":"./world-foods.js?v=4.0.0"}}</script>
+<link rel="stylesheet" href="styles.css?v=4.0.1">
+  <link rel="stylesheet" href="salad-builder.css?v=4.0.1">
+  <link rel="stylesheet" href="dish-customisation.css?v=4.0.1">
+  <link rel="stylesheet" href="food-composer.css?v=4.0.1">
+  <link rel="stylesheet" href="noodle-composer.css?v=4.0.1">
+  <link rel="stylesheet" href="recipe-arrangement.css?v=4.0.1">
+  <link rel="stylesheet" href="meal-sets-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="purchase-conversion-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="batch-cooking-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="restaurant-menu-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="favourites-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="text-log-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="nutrition-basis-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="soup-intake-ui.css?v=4.0.1">
+  <link rel="stylesheet" href="quantity-input.css?v=4.0.1">
+<link rel="stylesheet" href="pantry-ui.css?v=4.0.1">
+<link rel="stylesheet" href="meal-settings-ui.css?v=4.0.1">
+<link rel="stylesheet" href="meal-plan-editor-ui.css?v=4.0.1">
+<link rel="stylesheet" href="shopping-workflow-ui.css?v=4.0.1">
+<link rel="stylesheet" href="catalog-favourites-ui.css?v=4.0.1">
+<link rel="stylesheet" href="quick-record-ui.css?v=4.0.1">
+<link rel="stylesheet" href="record-search-ui.css?v=4.0.1">
+<link rel="stylesheet" href="record-ingredient-edit-ui.css?v=4.0.1">
+<link rel="stylesheet" href="record-summary-ui.css?v=4.0.1">
+<link rel="stylesheet" href="catalog-filter-ui.css?v=4.0.1">
+<script type="importmap" id="app-module-map">{"imports":{"./accompaniment-foods.js":"./accompaniment-foods.js?v=4.0.1","./app.js":"./app.js?v=4.0.1","./batch-cooking-ui.js":"./batch-cooking-ui.js?v=4.0.1","./batch-cooking.js":"./batch-cooking.js?v=4.0.1","./bistro-foods.js":"./bistro-foods.js?v=4.0.1","./bread-foods.js":"./bread-foods.js?v=4.0.1","./breakfast-recipes.js":"./breakfast-recipes.js?v=4.0.1","./canteen-foods.js":"./canteen-foods.js?v=4.0.1","./catalog-favourites-ui.js":"./catalog-favourites-ui.js?v=4.0.1","./catalog-filter-ui.js":"./catalog-filter-ui.js?v=4.0.1","./catalog-metadata.js":"./catalog-metadata.js?v=4.0.1","./catalog.js":"./catalog.js?v=4.0.1","./classics-mains.js":"./classics-mains.js?v=4.0.1","./classics-sides.js":"./classics-sides.js?v=4.0.1","./comfort-foods.js":"./comfort-foods.js?v=4.0.1","./confectionery-foods.js":"./confectionery-foods.js?v=4.0.1","./convenience-staples.js":"./convenience-staples.js?v=4.0.1","./cooking-instructions.js":"./cooking-instructions.js?v=4.0.1","./cooking-view.js":"./cooking-view.js?v=4.0.1","./curry-rice-ui.js":"./curry-rice-ui.js?v=4.0.1","./curry-rice.js":"./curry-rice.js?v=4.0.1","./data.js":"./data.js?v=4.0.1","./dessert-foods.js":"./dessert-foods.js?v=4.0.1","./dietary-reference.js":"./dietary-reference.js?v=4.0.1","./dining-log-ui.js":"./dining-log-ui.js?v=4.0.1","./dining-meal.js":"./dining-meal.js?v=4.0.1","./dining-search.js":"./dining-search.js?v=4.0.1","./dish-customisation-ui.js":"./dish-customisation-ui.js?v=4.0.1","./dish-customisation.js":"./dish-customisation.js?v=4.0.1","./dish-hierarchy.js":"./dish-hierarchy.js?v=4.0.1","./evening-mains.js":"./evening-mains.js?v=4.0.1","./evening-sides.js":"./evening-sides.js?v=4.0.1","./everyday-foods.js":"./everyday-foods.js?v=4.0.1","./expanded-foods.js":"./expanded-foods.js?v=4.0.1","./familiar-mains.js":"./familiar-mains.js?v=4.0.1","./familiar-sides.js":"./familiar-sides.js?v=4.0.1","./family-dinners-ui.js":"./family-dinners-ui.js?v=4.0.1","./favourites-ui.js":"./favourites-ui.js?v=4.0.1","./favourites.js":"./favourites.js?v=4.0.1","./food-composer-ui.js":"./food-composer-ui.js?v=4.0.1","./food-composer.js":"./food-composer.js?v=4.0.1","./fruit-varieties.js":"./fruit-varieties.js?v=4.0.1","./ingredient-nutrients.js":"./ingredient-nutrients.js?v=4.0.1","./intake.js":"./intake.js?v=4.0.1","./japanese-search.js":"./japanese-search.js?v=4.0.1","./journal-history.js":"./journal-history.js?v=4.0.1","./journal.js":"./journal.js?v=4.0.1","./kyoto-foods.js":"./kyoto-foods.js?v=4.0.1","./launch-screen.js":"./launch-screen.js?v=4.0.1","./mapo-foods.js":"./mapo-foods.js?v=4.0.1","./mapo-nutrition.js":"./mapo-nutrition.js?v=4.0.1","./meal-occasions.js":"./meal-occasions.js?v=4.0.1","./meal-overlap.js":"./meal-overlap.js?v=4.0.1","./meal-plan-editor-ui.js":"./meal-plan-editor-ui.js?v=4.0.1","./meal-profiles.js":"./meal-profiles.js?v=4.0.1","./meal-sets-ui.js":"./meal-sets-ui.js?v=4.0.1","./meal-sets.js":"./meal-sets.js?v=4.0.1","./meal-settings-ui.js":"./meal-settings-ui.js?v=4.0.1","./meal-suitability.js":"./meal-suitability.js?v=4.0.1","./meat-choice-foods.js":"./meat-choice-foods.js?v=4.0.1","./meat-choices-ui.js":"./meat-choices-ui.js?v=4.0.1","./meat-choices.js":"./meat-choices.js?v=4.0.1","./menu-variations.js":"./menu-variations.js?v=4.0.1","./noodle-composer-ui.js":"./noodle-composer-ui.js?v=4.0.1","./noodle-composer.js":"./noodle-composer.js?v=4.0.1","./noodle-foods.js":"./noodle-foods.js?v=4.0.1","./nutrient-format.js":"./nutrient-format.js?v=4.0.1","./nutrition-basis-ui.js":"./nutrition-basis-ui.js?v=4.0.1","./nutrition-basis.js":"./nutrition-basis.js?v=4.0.1","./nutrition.js":"./nutrition.js?v=4.0.1","./onboarding.js":"./onboarding.js?v=4.0.1","./palette-foods.js":"./palette-foods.js?v=4.0.1","./pantry-catalog.js":"./pantry-catalog.js?v=4.0.1","./pantry-extra-ingredients.js":"./pantry-extra-ingredients.js?v=4.0.1","./pantry-transfer.js":"./pantry-transfer.js?v=4.0.1","./pantry-ui.js":"./pantry-ui.js?v=4.0.1","./performance-foods.js":"./performance-foods.js?v=4.0.1","./planner.js":"./planner.js?v=4.0.1","./portion-guide.js":"./portion-guide.js?v=4.0.1","./prepared-foods.js":"./prepared-foods.js?v=4.0.1","./purchase-conversion-ui.js":"./purchase-conversion-ui.js?v=4.0.1","./purchase-conversion.js":"./purchase-conversion.js?v=4.0.1","./pwa-ui.js":"./pwa-ui.js?v=4.0.1","./quantity-input.js":"./quantity-input.js?v=4.0.1","./quick-record-ui.js":"./quick-record-ui.js?v=4.0.1","./recipe-arrangement-ui.js":"./recipe-arrangement-ui.js?v=4.0.1","./recipe-arrangement.js":"./recipe-arrangement.js?v=4.0.1","./recipe-artwork-manifest.js":"./recipe-artwork-manifest.js?v=4.0.1","./recipe-illustration-ui.js":"./recipe-illustration-ui.js?v=4.0.1","./recipe-illustration.js":"./recipe-illustration.js?v=4.0.1","./record-actions.js":"./record-actions.js?v=4.0.1","./record-ingredient-edit-ui.js":"./record-ingredient-edit-ui.js?v=4.0.1","./record-ingredient-edit.js":"./record-ingredient-edit.js?v=4.0.1","./record-search-ui.js":"./record-search-ui.js?v=4.0.1","./record-summary-ui.js":"./record-summary-ui.js?v=4.0.1","./record-summary.js":"./record-summary.js?v=4.0.1","./recorded-dinner.js":"./recorded-dinner.js?v=4.0.1","./restaurant-menu-ui.js":"./restaurant-menu-ui.js?v=4.0.1","./restaurant-menu.js":"./restaurant-menu.js?v=4.0.1","./salad-builder-ui.js":"./salad-builder-ui.js?v=4.0.1","./salad-builder.js":"./salad-builder.js?v=4.0.1","./seafood-foods.js":"./seafood-foods.js?v=4.0.1","./service-worker.js":"./service-worker.js?v=4.0.1","./shopping-categories.js":"./shopping-categories.js?v=4.0.1","./shopping-status.js":"./shopping-status.js?v=4.0.1","./shopping-workflow-ui.js":"./shopping-workflow-ui.js?v=4.0.1","./shopping-workflow.js":"./shopping-workflow.js?v=4.0.1","./shopping.js":"./shopping.js?v=4.0.1","./simmered-foods.js":"./simmered-foods.js?v=4.0.1","./soup-intake-ui.js":"./soup-intake-ui.js?v=4.0.1","./soup-intake.js":"./soup-intake.js?v=4.0.1","./soup311-foods.js":"./soup311-foods.js?v=4.0.1","./storage.js":"./storage.js?v=4.0.1","./strained-stock.js":"./strained-stock.js?v=4.0.1","./sushi-foods.js":"./sushi-foods.js?v=4.0.1","./tabs.js":"./tabs.js?v=4.0.1","./takeaway-foods.js":"./takeaway-foods.js?v=4.0.1","./tavern-foods.js":"./tavern-foods.js?v=4.0.1","./text-log-configurator-ui.js":"./text-log-configurator-ui.js?v=4.0.1","./text-log-ui.js":"./text-log-ui.js?v=4.0.1","./text-log.js":"./text-log.js?v=4.0.1","./varied-recipes.js":"./varied-recipes.js?v=4.0.1","./world-foods.js":"./world-foods.js?v=4.0.1"}}</script>
 </head>
 <body>
 <div id="launch-screen" aria-hidden="true" hidden><img width="1143" height="2048" alt="" data-src="assets/brand/meal-palette-splash.jpg"></div>
-<script src="launch-screen.js?v=4.0.0"></script>
+<script src="launch-screen.js?v=4.0.1"></script>
 <a class="skip-link" href="#main">本文へ移動</a><div class="app-layout">
 <aside class="app-sidebar"><a class="brand" href="./" aria-label="Meal Palette ホーム"><img src="assets/icons/icon-192.png" alt="" width="48" height="48"><span>Meal<span class="brand-second">Palette<span class="brand-dot">.</span></span></span></a><p class="sidebar-caption">食事と栄養のノート</p>
 <nav class="app-tabs" role="tablist" aria-label="アプリの機能" aria-orientation="vertical"><button id="tab-planner" class="app-tab" type="button" role="tab" aria-controls="panel-planner" aria-selected="true" tabindex="0" data-tab="planner"><svg viewbox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="12" r="7"></circle><path d="M2 3v7m3-7v7M2 7h3m-1.5 3v11M22 3v18"></path></svg><span>献立</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-record" class="app-tab" type="button" role="tab" aria-controls="panel-record" aria-selected="false" tabindex="-1" data-tab="record"><svg viewbox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M7 3v4m10-4v4M3 10h18M7 14h2m4 0h2m-8 4h2"></path></svg><span>記録</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-nutrition" class="app-tab" type="button" role="tab" aria-controls="panel-nutrition" aria-selected="false" tabindex="-1" data-tab="nutrition"><svg viewbox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h17M8 16v-4m5 4V7m5 9v-6"></path></svg><span>栄養</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-catalog" class="app-tab" type="button" role="tab" aria-controls="panel-catalog" aria-selected="false" tabindex="-1" data-tab="catalog"><svg viewbox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg><span>メニュー</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-kitchen" class="app-tab" type="button" role="tab" aria-controls="panel-kitchen" aria-selected="false" tabindex="-1" data-tab="kitchen"><svg viewbox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l2 14H3L5 7Z"></path><path d="M8 8V6a4 4 0 0 1 8 0v2"></path></svg><span>買い物</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-settings" class="app-tab" type="button" role="tab" aria-controls="panel-settings" aria-selected="false" tabindex="-1" data-tab="settings"><svg viewbox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="m9 3 .5 2.2-2 .9L5.5 5 3 9l1.8 1.5v2.3L3 14l2.5 4 2-.7 2 .9L10 21h4l.5-2.8 2-.9 2 .7 2.5-4-1.8-1.2v-2.3L21 9l-2.5-4-2 1.1-2-.9L14 3H9Z"></path></svg><span>設定</span><span class="tab-arrow" aria-hidden="true">↗</span></button></nav><div class="sidebar-bottom">
 <span class="small-label">YOUR MENU LIBRARY</span><p><strong id="catalog-count">—</strong><span>件のメニュー</span></p><small id="catalog-variant-count"></small>
-<span class="local-note"><i aria-hidden="true"></i>この端末に保存</span><a href="../../" class="gallery-back">作品ギャラリー <span aria-hidden="true">↗</span></a>
+<span class="local-note"><i aria-hidden="true"></i>この端末に保存</span><a href="../../" class="gallery-back" data-browser-only>作品ギャラリー <span aria-hidden="true">↗</span></a>
 </div></aside><div class="app-workspace">
 <header class="workspace-header"><div>
 <p class="eyebrow">MAKE ROOM FOR GOOD FOOD</p>
 <h1 id="hero-title">食事と栄養をひとつの場所に。</h1>
 </div>
-<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v4.0.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
+<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v4.0.1</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
+<button id="install-meal-palette-header" class="button-secondary install-entry" data-install-app data-browser-only type="button" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><path d="M12 3v11m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
+  スマホにアプリをインストール
+</button>
 <section id="journal-changed" class="panel" role="alert" hidden>
 <p>別の画面で保存データが更新されました。最新の記録で続けるには、この画面を再読み込みしてください。入力途中の内容は消えます。</p>
 <button id="reload-journal" type="button" class="button-primary">最新の記録を読み込む</button>
 </section>
 <section id="first-visit" class="welcome-strip" aria-labelledby="first-visit-title" hidden>
 <div><h2 id="first-visit-title">はじめての方へ</h2><p>常備品や避けたい食材を選ぶと、最初の献立から使えます。</p></div>
-<div class="welcome-actions"><button id="first-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="?demo=week#nutrition" target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only">（別画面）</span></a><button id="dismiss-first-visit" class="button-text" type="button">閉じる</button></div>
+<div class="welcome-actions"><button id="first-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="?demo=week#nutrition" data-sample-link target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only" data-browser-only>（別画面）</span></a><button id="dismiss-first-visit" class="button-text" type="button">閉じる</button></div>
 </section>
 <section id="sample-session" class="welcome-strip" aria-labelledby="sample-title" hidden><div><h2 id="sample-title">1週間のお試し</h2><p>架空の食事記録・明日の予定・買い物リストを操作できます。変更はこの画面だけに反映されます。</p></div>
 <div class="welcome-actions"><a class="button-secondary" href="./">お試しを終了</a><button id="sample-reset" class="button-text" type="button">サンプルを最初に戻す</button></div></section>
@@ -340,7 +344,7 @@
 </div>
 <p class="section-caption">プロフィールとデータの管理</p>
 </div>
-<div class="welcome-actions" id="setup-actions"><button id="settings-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="?demo=week#nutrition" target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only">（別画面）</span></a></div>
+<div class="welcome-actions" id="setup-actions"><button id="settings-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="?demo=week#nutrition" data-sample-link target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only" data-browser-only>（別画面）</span></a></div>
 <button id="open-app-help" class="button-text" type="button">使い方を見る</button>
 <section class="panel appearance-settings" aria-labelledby="appearance-settings-title">
 <div class="panel-heading"><h3 id="appearance-settings-title">表示の設定</h3></div>
@@ -361,11 +365,10 @@
 </section>
 <section class="panel appearance-settings" aria-labelledby="home-install-title">
 <div class="panel-heading"><h3 id="home-install-title">ホーム画面で使う</h3></div>
-<p class="section-copy" id="home-install-help">iPhone・iPadはSafariの共有メニューから「ホーム画面に追加」を選びます。Androidではブラウザーのメニューから「アプリをインストール」または「ホーム画面に追加」を選べます。</p>
-<p id="home-installed" hidden>ホーム画面アプリとして使えます。</p>
-<button class="button-secondary" id="install-meal-palette" type="button" hidden>Meal Palette をインストール</button>
+<button class="button-secondary" id="install-meal-palette" data-install-app data-browser-only type="button" hidden>スマホにアプリをインストール</button>
+<p id="home-installed" role="status" hidden>ホーム画面アプリとして使えます。</p>
 <p id="offline-state" class="field-note" role="status">オフラインの準備状況を確認しています…</p>
-<p class="field-note">準備が完了すると、電波の届かないお店でも買い物リストを開いてチェックできます。料理のイラストや外部の教材を開くときは通信が必要です。</p>
+<p class="field-note">準備が完了すると、電波の届かないお店でも買い物リストを開いてチェックできます。料理のイラストの読み込みには通信を使います。</p>
 <p class="field-note">ホーム画面で以前の記録が表示されない場合は、元のブラウザーの設定で「データを書き出す」を選び、ホーム画面のアプリで読み込んでください。</p>
 </section>
 <div class="settings-grid">
@@ -422,21 +425,41 @@
 </div>
 </div></section>
 
-    <details class="about-section"><summary>献立の選び方とこの教材について</summary><div class="about-copy">
+    <details class="about-section"><summary>献立の選び方と栄養の計算</summary><div class="about-copy">
 <h3>記録を参考にする仕組み</h3>
 <p>はじめにアレルギーと避ける食材の条件を確認します。そのうえで、直近の食べた記録から料理や主な食材の重複を減らし、分かっている栄養や手持ちの食材も参考にして候補を選びます。未来の予定を「食べた量」として数えることはありません。</p>
 <h3>栄養の数字について</h3>
 <p>収録レシピの栄養は、肉の種類・部位や食材・調味料の代表値と使用量から求めた概算です。微量や未登録の成分は食品ごとに見積もり、料理の詳細で根拠を確認できます。商品表示が未確認のものや手入力の空欄は不明のまま扱います。過去の記録は登録時の値を保ちます。</p>
+<div data-browser-only>
 <h3>学生のアイデアから広がる教材</h3>
 <p>学生作品<a href="https://cish25155-prog.github.io/SmartChef/">「AI献立スマートシェフ」</a>のアイデアをもとに、公開教材として機能を追加しました。カレンダーや栄養の集計、手持ち食材の数量管理はブラウザー版の拡張機能です。</p>
 <p><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/meal_planner.ipynb">Pythonで献立の選び方を学ぶColab教材</a>では、条件の確認やレシピの組み合わせを試せます。ブラウザー版の全機能を移植したものではありません。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/recipe_suggester.ipynb">初期のColab教材</a>も残しています。</p>
 <p class="about-links"><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/manual.md">使い方</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/sources.md">データと出典</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/recipe-suggester">コードを見る</a></p>
-</div></details>
-  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v4.0.0</small></span><div class="footer-links">
-<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v4.0.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
+</div></div></details>
+  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v4.0.1</small></span><div class="footer-links" data-browser-only>
+<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v4.0.1.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
 </div></footer>
 </div>
 </div>
+<dialog id="install-guide" class="welcome-dialog install-guide" data-browser-only aria-labelledby="install-guide-title">
+  <div class="dialog-header"><h2 id="install-guide-title">Meal Palette をホーム画面に追加</h2>
+    <button id="close-install-guide" class="close-dialog" type="button" aria-label="閉じる" autofocus>×</button>
+  </div>
+  <section id="install-ios-guide"><h3>iPhone・iPad</h3>
+    <ol>
+      <li>Safariでこのページを開き、「共有」をタップします。</li>
+      <li>「ホーム画面に追加」を選びます。</li>
+      <li>「ウェブアプリとして開く」が表示されたらオンにして、「追加」をタップします。</li>
+    </ol>
+  </section>
+  <section id="install-android-guide"><h3>Android</h3>
+    <ol>
+      <li>Chromeでこのページを開き、右上のメニュー（⋮）をタップします。</li>
+      <li>「アプリをインストール」またはホーム画面に追加する項目を選びます。</li>
+      <li>「インストール」をタップします。</li>
+    </ol>
+  </section>
+</dialog>
 <dialog id="recipe-dialog" aria-labelledby="dialog-title"><div class="dialog-header">
 <div>
 <p id="dialog-meta" class="eyebrow"></p>
@@ -451,8 +474,8 @@
   <div id="record-ingredient-content"></div>
 </dialog>
   <noscript>このアプリにはJavaScriptが必要です。ブラウザーでJavaScriptを有効にしてください。</noscript>
-<script type="module" src="pwa-ui.js?v=4.0.0"></script>
-<script type="module" src="app.js?v=4.0.0"></script>
+<script type="module" src="pwa-ui.js?v=4.0.1"></script>
+<script type="module" src="app.js?v=4.0.1"></script>
 <dialog id="quick-setup" class="welcome-dialog" aria-labelledby="quick-setup-title">
 <h2 id="quick-setup-title">かんたん設定</h2>
 <form id="quick-setup-form">

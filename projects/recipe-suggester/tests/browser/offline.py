@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 
 from playwright.sync_api import expect, sync_playwright
+from home_install import check_app_only, verify_android_app, verify_app_settings, verify_browser_install
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -35,8 +36,12 @@ def verify(context, url, server):
     # 講義用サンプルを編集しても通常画面の保存データは同じ。
     original = page.evaluate("localStorage.getItem('kondate-note-v3')")
     assert original and json.loads(original)["settings"]["shoppingOmittedIds"]
-    sample = context.new_page()
-    sample.goto(url + "?demo=week#nutrition")
+    page.locator("#tab-settings").click()
+    sample_link = page.locator("#setup-actions [data-sample-link]")
+    expect(sample_link).to_have_attribute("target", "_blank")
+    with context.expect_page() as new_page:
+        sample_link.click()
+    sample = new_page.value
     expect(sample.locator("#sample-session")).to_be_visible()
     expect(sample.locator("#panel-nutrition")).to_be_visible()
     sample.locator("#tab-kitchen").click()
@@ -47,6 +52,7 @@ def verify(context, url, server):
     assert sample.evaluate("localStorage.getItem('kondate-note-v3')") == original
     sample.close()
 
+    page.locator("#tab-planner").click()
     page.locator("#plan-days").select_option("1")
     page.locator("#servings").select_option("3")
     page.locator("#plan-form button[type=submit]").click()
@@ -84,6 +90,7 @@ def verify(context, url, server):
     server.shutdown()
     server.server_close()
     context.set_offline(True)
+    verify_android_app(context, url)
     page = context.new_page()
     # iOSのホーム画面が伝えるフラグを与え、起動用の絵も通信なしで表示できるか確かめる。
     page.add_init_script("""
@@ -102,6 +109,7 @@ def verify(context, url, server):
     assert page.evaluate("window.seenSplash") == [1143, 2048, "contain", True, True]
     expect(page.locator("#launch-screen")).to_be_hidden()
     expect(page.locator("#panel-kitchen")).to_be_visible()
+    check_app_only(page)
     expect(page.locator(".shopping-check-row")).to_have_count(quantity)
     assert page.locator("#shopping-copy-text").input_value() == exported
     page.locator(f'.shopping-check-row[data-ingredient-id="{item}"] input[type=checkbox]').click()
@@ -114,6 +122,7 @@ def verify(context, url, server):
     receipt = next(r for r in state["shoppingReceipts"] if r["ingredientId"] == item)
     assert receipt["stocked"]
     assert any(p["id"] == item and p["amount"] == receipt["amount"] for p in state["pantry"])
+    verify_app_settings(page)
     assert not errors, errors
 
 
@@ -129,6 +138,8 @@ if __name__ == "__main__":
             with sync_playwright() as runner:
                 chrome = shutil.which("google-chrome") or shutil.which("chromium")
                 with runner.chromium.launch(executable_path=chrome, args=["--no-sandbox"]) as browser:
+                    url = f"http://127.0.0.1:{server.server_port}/course/projects/recipe-suggester/"
+                    verify_browser_install(browser, runner.devices, url)
                     context = browser.new_context(viewport={"width": 390, "height": 844}, locale="ja-JP")
-                    verify(context, f"http://127.0.0.1:{server.server_port}/course/projects/recipe-suggester/", server)
-    print("ホーム画面用設定・初回設定・デモ分離・調理・オフライン再起動・購入と在庫保存を確認しました。")
+                    verify(context, url, server)
+    print("スマホの追加案内・講義リンクの切り替え・デモ分離・調理・オフライン再起動・購入と在庫保存を確認しました。")
