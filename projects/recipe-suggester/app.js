@@ -55,8 +55,9 @@ import {nutritionBasisBadge} from './nutrition-basis-ui.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.31.1';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=3.31.1';
+import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.32.0';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=3.32.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -209,7 +210,7 @@ function renderSettings(){
     for(const card of document.querySelectorAll('.has-recipe-art'))card.classList.remove('has-recipe-art');
   }
   for(const [id,value]of Object.entries({'start-date':s.startDate,'plan-days':s.days,servings:s.servings,'genre-mode':p.genreMode,'single-genre':p.genre==='all'?'和食':p.genre}))$(id).value=value;
-  $('meal-settings').replaceChildren(mountMealSettings({settings:s,data:data(),onChange:(meal,patch)=>{const saved=commit(next=>{Object.assign(next.settings.mealPreferences[meal],patch);},{render:false});if(saved){renderPlan();renderShopping();}return saved;},onError:message=>tell(message,true)}));
+  $('meal-settings').replaceChildren(mountMealSettings({settings:s,data:data(),selectionHost:$('meal-selection'),onChange:(meal,patch)=>{const saved=commit(next=>{Object.assign(next.settings.mealPreferences[meal],patch);},{render:false});if(saved){renderPlan();renderShopping();}return saved;},onError:message=>tell(message,true)}));
   $('required-allergens').replaceChildren();$('other-allergens').replaceChildren();
   for(const a of ALLERGENS)(a.category==='required'?$('required-allergens'):$('other-allergens')).append(check(a.id,a.label,s.allergens.includes(a.id),yes=>commit(next=>{next.settings.allergens=yes?[...next.settings.allergens,a.id]:next.settings.allergens.filter(id=>id!==a.id);},{message:'避ける食材を更新しました。'})));
   $('allergen-count').textContent=`${s.allergens.length}件`;
@@ -1479,6 +1480,7 @@ bind('open-app-help','click',()=>{activateTab('kitchen');setKitchenTab('help',{f
 for(const [id,direction]of [['shopping-prev-range',-1],['shopping-next-range',1]])bind(id,'click',()=>{$('shopping-from').value=safeShift($('shopping-from').value,Number($('shopping-days').value)*direction);renderShopping();});
 for(const id of ['shopping-from','shopping-days','shopping-source'])bind(id,'change',renderShopping);
 bind('copy-shopping','click',async()=>{if(!shoppingText)return;try{await navigator.clipboard.writeText(shoppingText);tell('買い物リストをコピーしました。');}catch{const textarea=node('textarea');textarea.value=shoppingText;textarea.readOnly=true;$('shopping-list').prepend(textarea);textarea.select();tell('コピーできない場合は、表示されたテキストを選んでコピーしてください。');}});
+$('recipe-illustration-count').textContent=String(Object.keys(RECIPE_ARTWORK).length);
 bind('role-filters','click',event=>{const b=event.target.closest('button[data-role]');if(!b)return;roleFilter=b.dataset.role;$('recipe-food-category').value='all';$('recipe-method').value='all';$('recipe-family').value='all';recipeLimit=12;renderCatalog();});bind('recipe-search','input',()=>{recipeLimit=12;renderCatalog();});bind('recipe-illustrated-only','change',()=>{recipeLimit=12;renderCatalog();});bind('more-recipes','click',()=>{recipeLimit+=24;renderCatalog();});
 bind('close-dialog','click',()=>$('recipe-dialog').close());bind('recipe-dialog','click',event=>{if(event.target===$('recipe-dialog')){const r=$('recipe-dialog').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('recipe-dialog').close();}});
 bind('export-records','click',()=>{

@@ -5,7 +5,7 @@ import {defaultJournal} from '../journal.js';
 import {mountMealSettings} from '../meal-settings-ui.js';
 
 class Element {
- constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';this.className='';this.dataset={};this.style={};}
+ constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';this.className='';this.dataset={};this.style={};if(tag==='details')this.open=false;}
  append(...children){this.children.push(...children);}
  replaceChildren(...children){this.children=[...children];}
  setAttribute(key,value){this.attributes[key]=value;}
@@ -17,6 +17,8 @@ class Element {
 const all=root=>[root,...root.children.flatMap(all)];
 const field=(root,meal,key)=>{const value=all(root).find(node=>node.id?.endsWith(`-${meal}-${key}`));assert.ok(value,`${meal}/${key}`);return value;};
 const options=select=>all(select).filter(node=>node.tagName==='OPTION');
+const cardFor=(root,meal)=>all(root).find(node=>node.tagName==='FIELDSET'&&node.dataset.meal===meal);
+const disclosure=(card,title)=>all(card).find(node=>node.tagName==='DETAILS'&&node.children[0].textContent===title);
 const text=root=>[root.textContent,...root.children.map(text)].join(' ');
 const withDocument=fn=>{const before=globalThis.document;globalThis.document={createElement:tag=>new Element(tag)};try{return fn();}finally{if(before===undefined)delete globalThis.document;else globalThis.document=before;}};
 const data={allergens:ALLERGENS,ingredients:INGREDIENTS,recipes:RECIPES};
@@ -57,6 +59,53 @@ test('skipping one meal leaves the other settings available and a rejected chang
  assert.deepEqual(changes.at(-1),{meal:'lunch',patch:{enabled:false}});
 }));
 
+test('the separate selector keeps all checkboxes in order while only selected meals have settings',()=>withDocument(()=>{
+ const source=settings(),host=new Element('div');
+ source.mealPreferences.lunch.enabled=false;
+ source.mealPreferences.lunch.staple='noodle';
+ let accept=true;
+ const root=mountMealSettings({settings:source,data,selectionHost:host,onChange:()=>accept});
+ const labels=all(host).filter(node=>node.tagName==='LABEL');
+ assert.deepEqual(labels.map(label=>label.children[1].textContent),['朝食','昼食','夕食']);
+ for(const meal of ['breakfast','lunch','dinner']){
+   const input=field(host,meal,'enabled');
+   assert.equal(input.getAttribute('aria-controls'),cardFor(root,meal).id);
+   assert.equal(cardFor(root,meal).hidden,!input.checked);
+ }
+ const lunch=field(host,'lunch','enabled'),dinner=field(root,'dinner','volume');
+ assert.deepEqual(cardFor(root,'lunch').children,[]);
+ lunch.checked=true;lunch.emit('change');
+ assert.equal(field(host,'lunch','enabled'),lunch);
+ assert.equal(cardFor(root,'lunch').hidden,false);
+ assert.equal(field(root,'lunch','staple').value,'noodle');
+ assert.equal(field(root,'dinner','volume'),dinner);
+ accept=false;lunch.checked=false;lunch.emit('change');
+ assert.equal(lunch.checked,true);assert.equal(cardFor(root,'lunch').hidden,false);
+ accept=true;
+ for(const label of labels){const input=label.children[0];input.checked=false;input.emit('change');}
+ assert.ok(['breakfast','lunch','dinner'].every(meal=>cardFor(root,meal).hidden&&!cardFor(root,meal).children.length));
+ assert.equal(all(host).filter(node=>node.type==='checkbox').length,3);
+}));
+
+test('staples and breakfast drinks open independently and keep the selected quantity control in their own panel',()=>withDocument(()=>{
+ const root=mountMealSettings({settings:settings(),data}),card=cardFor(root,'breakfast');
+ const staple=disclosure(card,'主食の設定'),drink=disclosure(card,'飲み物の設定');
+ assert.equal(staple.open,false);assert.equal(drink.open,false);
+ assert.equal(disclosure(cardFor(root,'dinner'),'主食の設定').open,false);
+ assert.equal(disclosure(cardFor(root,'lunch'),'飲み物の設定'),undefined);
+ assert.ok(field(staple,'breakfast','stapleVolume'));
+ staple.open=true;
+ const mode=field(staple,'breakfast','staple');mode.value='fixed';mode.emit('change');
+ assert.equal(disclosure(card,'主食の設定').open,true);
+ assert.ok(field(staple,'breakfast','stapleId'));assert.ok(field(staple,'breakfast','stapleAmount'));
+ assert.equal(disclosure(card,'飲み物の設定').open,false);
+ staple.open=false;drink.open=true;
+ const coffee=field(drink,'breakfast','drinkId');coffee.value='drink-coffee';coffee.emit('change');
+ assert.ok(field(drink,'breakfast','drinkAmount'));
+ assert.equal(disclosure(card,'飲み物の設定').open,true);
+ assert.equal(disclosure(card,'主食の設定').open,false);
+}));
+
 test('allergy-excluded fixed choices are identified without silently choosing or clearing another recipe',()=>withDocument(()=>{
  const source=settings();source.allergens=['milk'];source.mealPreferences.breakfast.drinkId='drink-milk';source.mealPreferences.breakfast.drinkAmount=200;
  const root=mountMealSettings({settings:source,data}),drink=field(root,'breakfast','drinkId');
@@ -85,14 +134,13 @@ test('staple amount can stay small while main dishes are hearty without overwrit
 
 test('side detail controls retain numeric counts and the open disclosure across edits',()=>withDocument(()=>{
  const changes=[],root=mountMealSettings({settings:settings(),data,onChange:(meal,patch)=>changes.push({meal,patch})});
- let card=all(root).find(node=>node.tagName==='FIELDSET'&&node.dataset.meal==='breakfast');
- let details=all(card).find(node=>node.tagName==='DETAILS');assert.equal(details.open,false);
+ const card=cardFor(root,'breakfast');
+ let details=disclosure(card,'副菜・汁物の詳細設定');assert.equal(details.open,false);
  details.open=true;details.emit('toggle');
  const count=field(root,'breakfast','sideCount');count.value='2';count.emit('change');
  const type=field(root,'breakfast','sideType');type.value='salad';type.emit('change');
  const soup=field(root,'breakfast','soup');soup.value='include';soup.emit('change');
- card=all(root).find(node=>node.tagName==='FIELDSET'&&node.dataset.meal==='breakfast');
- details=all(card).find(node=>node.tagName==='DETAILS');assert.equal(details.open,true);
+ details=disclosure(card,'副菜・汁物の詳細設定');assert.equal(details.open,true);
  assert.deepEqual(changes,[{meal:'breakfast',patch:{sideCount:2}},{meal:'breakfast',patch:{sideType:'salad'}},{meal:'breakfast',patch:{soup:'include'}}]);
  const off=field(root,'breakfast','sideCount');off.value='0';off.emit('change');
  assert.equal(field(root,'breakfast','sideType').disabled,true);
