@@ -162,3 +162,33 @@ test('コピーする一覧も購入済みを除き、材料不明を短く注�
   assert.match(shoppingChecklistText(unknown, data), /未確認の材料[\s\S]*材料未確認：材料不明の食事/);
   assert.equal(shoppingChecklistText(null, data), '');
 });
+
+test('献立単位の一括選択で開いている材料とフォーカス先のチェックを作り直さない', () => withDocument(() => {
+  const candidates = menus(); candidates[0].date = '2026-11-15'; candidates[0].meal = 'dinner'; candidates[0].origin = 'plan';
+  const saved = [];
+  const root = mountShoppingWorkflow({view: 'review', data, menus: candidates, onPrepare: menus => saved.push(menus)});
+  const toggle = labelled(root, '肉じゃがの残りの材料をまとめて選ぶ');
+  const materials = one(root, 'shopping-menu-ingredients'); materials.open = true;
+  toggle.checked = false; toggle.emit('change');
+  assert.equal(labelled(root, '肉じゃがの残りの材料をまとめて選ぶ'), toggle);
+  assert.equal(labelled(root, '肉じゃがのにんじんを買う').checked, false);
+  one(root, 'shopping-select-all').emit('click');
+  assert.equal(one(root, 'shopping-menu-ingredients'), materials); assert.equal(materials.open, true);
+  assert.equal(labelled(root, '肉じゃがのにんじんを買う').checked, true);
+  one(root, 'shopping-prepare').emit('click');
+  assert.equal(saved[0][0].date, '2026-11-15'); assert.equal(saved[0][0].label, '2026-11-15 夕食');
+  assert.equal(saved[0][0].origin, 'plan'); assert.equal('extra' in saved[0][1], false);
+}));
+
+test('今回だけ外す操作は用途の折りたたみにあり、未購入分のある献立だけを渡す', () => withDocument(() => {
+  const list = prepared(), bought = receipt([list[0]], 'carrot'), removed = [];
+  const options = {view: 'checklist', data, prepared: list, receipts: [bought], omittedIds: ['water', 'salt']};
+  const root = mountShoppingWorkflow({...options, onRemoveIngredient: (...args) => removed.push(args)});
+  const details = one(root, 'shopping-ingredient-sources'), remove = one(details, 'shopping-remove-ingredient');
+  remove.emit('click');
+  assert.deepEqual(removed, [['carrot', ['b']]]);
+  assert.equal(one(root, 'shopping-check-row').hidden, true);
+  const rejected = mountShoppingWorkflow({...options, onRemoveIngredient: () => false});
+  one(rejected, 'shopping-remove-ingredient').emit('click');
+  assert.equal(one(rejected, 'shopping-check-row').hidden, false);
+}));

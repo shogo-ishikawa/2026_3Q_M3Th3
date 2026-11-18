@@ -21,6 +21,8 @@ export const MEAL_IDS = ['breakfast', 'lunch', 'dinner', 'snack'];
 export const ROLE_IDS = ['main', 'side', 'soup', 'staple', 'drink', 'snack'];
 export const DEFAULT_TARGETS = Object.freeze({kcal: 2000, protein: 60, fat: 65, carbs: 280, fiber: 20, salt: 6.5});
 const MAX_BYTES = 2 * 1024 * 1024;
+// 旧版が書き出した整形済みJSONは改行と字下げの分だけ大きくなります。
+export const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000, shoppingExtras: 200, shoppingList: 500, shoppingCatalog: 500, shoppingReceipts: 2000};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'mealPreferences', 'shoppingOmittedIds'];
 const TEXT_SIZE_IDS = ['standard', 'large', 'larger', 'largest'];
@@ -307,12 +309,23 @@ function mealPreferencesSetting(value, legacyMood = 'all', legacySettings = {}, 
   return clean;
 }
 
+function shoppingMenuDetails(source) {
+  if (source.date !== undefined && !dateIsValid(source.date)) throw new Error('買い物の献立の日付を確認してください。');
+  if (source.meal !== undefined && !MEAL_IDS.includes(source.meal)) throw new Error('買い物の献立の食事区分を確認してください。');
+  if (source.origin !== undefined && !['plan', 'calendar', 'menu'].includes(source.origin)) throw new Error('買い物の献立の出所を確認してください。');
+  return {
+    ...(source.label === undefined ? {} : {label: text(source.label, 300, '買い物の献立の表示名', true)}),
+    ...(source.date === undefined ? {} : {date: source.date}), ...(source.meal === undefined ? {} : {meal: source.meal}),
+    ...(source.origin === undefined ? {} : {origin: source.origin})
+  };
+}
+
 // 買い物の候補と確定リストも、登録時点の配合・数量をそのまま保存します。
 function shoppingMenus(value, data, {prepared = false} = {}) {
   if (prepared && value === null) return null;
   const seen = new Set(), maximum = prepared ? LIMITS.shoppingList : LIMITS.shoppingExtras;
   return list(value === undefined ? [] : value, maximum, '買い物のメニュー').map(source => {
-    record(source, prepared ? ['id', 'item', 'servings', 'ingredientIds'] : ['id', 'item', 'servings'], '買い物のメニュー');
+    record(source, prepared ? ['id', 'item', 'servings', 'ingredientIds', 'label', 'date', 'meal', 'origin'] : ['id', 'item', 'servings'], '買い物のメニュー');
     const id = text(source.id, prepared ? 500 : 120, '買い物のメニューの識別子');
     if (['__proto__', 'constructor', 'prototype'].includes(id) || seen.has(id)) throw new Error('買い物のメニューの識別子が重複または不正です。');
     seen.add(id);
@@ -322,7 +335,7 @@ function shoppingMenus(value, data, {prepared = false} = {}) {
     // DBから削除された材料も、過去のスナップショットにある場合は残して注意へ回します。
     const ingredientIds = ids(source.ingredientIds, new Set(item.ingredients.map(part => part.id)), '買い物で選んだ食材');
     if (source.ingredientIds === undefined) throw new Error('買い物で選んだ食材を確認してください。');
-    return {id, item, servings: source.servings, ingredientIds};
+    return {id, item, servings: source.servings, ingredientIds, ...shoppingMenuDetails(source)};
   });
 }
 
@@ -334,13 +347,7 @@ function shoppingCatalog(value, data) {
     if (['__proto__', 'constructor', 'prototype'].includes(id) || seen.has(id)) throw new Error('買い物の献立の識別子を確認してください。');
     seen.add(id);
     if (!Number.isInteger(source.servings) || source.servings < 1 || source.servings > 8) throw new Error('買い物の人数は1〜8人で指定してください。');
-    if (source.date !== undefined && !dateIsValid(source.date)) throw new Error('買い物の献立の日付を確認してください。');
-    if (source.meal !== undefined && !MEAL_IDS.includes(source.meal)) throw new Error('買い物の献立の食事区分を確認してください。');
-    if (source.origin !== undefined && !['plan', 'calendar', 'menu'].includes(source.origin)) throw new Error('買い物の献立の出所を確認してください。');
-    return {id, item: validateFrozenItems([source.item], data)[0], servings: source.servings,
-      ...(source.label === undefined ? {} : {label: text(source.label, 300, '買い物の献立の表示名', true)}),
-      ...(source.date === undefined ? {} : {date: source.date}), ...(source.meal === undefined ? {} : {meal: source.meal}),
-      ...(source.origin === undefined ? {} : {origin: source.origin})};
+    return {id, item: validateFrozenItems([source.item], data)[0], servings: source.servings, ...shoppingMenuDetails(source)};
   });
 }
 
@@ -487,9 +494,14 @@ export function validateJournal(value, data) {
 }
 
 export function parseJournal(source, data) {
-  if (typeof source !== 'string' || new TextEncoder().encode(source).length > MAX_BYTES) throw new Error('2 MB以下の保存ファイルを選んでください。');
+  if (typeof source !== 'string') throw new Error('JSON形式の保存ファイルを選んでください。');
+  const bytes = new TextEncoder().encode(source).length;
+  if (bytes > MAX_IMPORT_BYTES) throw new Error('保存ファイルが大きすぎます。記録本体の上限は2 MBです。');
   let value;
-  try { value = JSON.parse(source); } catch { throw new Error('保存ファイルを読み取れませんでした。JSON形式を確認してください。'); }
+  try { value = JSON.parse(source); } catch {
+    if (bytes > MAX_BYTES) throw new Error('保存ファイルを読み取れませんでした。記録本体の上限は2 MBです。');
+    throw new Error('保存ファイルを読み取れませんでした。JSON形式を確認してください。');
+  }
   return validateJournal(value, data);
 }
 

@@ -508,3 +508,17 @@ test('reference mode rejects incomplete profiles and forged targets before any s
   const manual = state(); manual.targets = {kcal: 1750, protein: 55, fat: 42, carbs: 220, fiber: 25, salt: 4};
   assert.deepEqual(validateJournal(manual, data).targets, manual.targets);
 });
+
+test('旧版が字下げ付きで書き出した大きなバックアップを復元できる', () => {
+  const journal=state();
+  journal.entries=Array.from({length:1000},(_,index)=>({
+    id:'note-'+index, date:'2026-11-12', meal:'lunch', status:'eaten',
+    note:'食'.repeat(655), items:[],
+  }));
+  const pretty=JSON.stringify(journal,null,2), compact=JSON.stringify(journal);
+  const limit=2*1024*1024;
+  assert.ok(Buffer.byteLength(pretty)>limit && Buffer.byteLength(compact)<limit);
+  assert.deepEqual(parseJournal(pretty,data),parseJournal(compact,data));
+  journal.entries.forEach(entry=>entry.note+='食'.repeat(100));
+  assert.throws(()=>parseJournal(JSON.stringify(journal),data),/2 MB/);
+});

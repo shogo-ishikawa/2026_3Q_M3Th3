@@ -1,7 +1,8 @@
 import {BREAKFAST_INGREDIENTS} from '../breakfast-recipes.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildShoppingChecklist, shoppingMenusFromEntries} from '../shopping-workflow.js';
+import {pendingShopping, createShoppingReceipt, undoReceipt} from '../shopping-status.js';
+import {buildShoppingChecklist, removeShoppingIngredient, shoppingMenuContext, shoppingMenusFromEntries} from '../shopping-workflow.js';
 import {INGREDIENT_GROUPS, ingredientGroup, commonPantryIds} from '../shopping-categories.js';
 import {INGREDIENTS} from '../data.js';
 
@@ -147,4 +148,77 @@ test('調味料を省く一括候補は明示した材料だけで、珍しい�
   for (const id of ['water','oil','salt','sugar','soy_sauce']) assert.ok(common.includes(id));
   for (const id of ['mapo_doubanjiang','world_tomyum_paste','chicken','milk','carbonated_water']) assert.ok(!common.includes(id));
   assert.deepEqual(commonPantryIds({ingredients:{water:{}}}), ['water']);
+});
+
+const shoppingState = () => ({settings: {startDate: '2026-11-15', servings: 1},
+  shoppingList: null, shoppingCatalog: [], shoppingExtras: [], entries: []});
+const onionEntry = (id, date) => entry(id, date, 'dinner', [item(id, [{id: 'onion', amount: 100}])]);
+const selectOnion = menu => ({...menu, ingredientIds: ['onion']});
+const scope = (state, source, from = '2026-11-16', to = from) => shoppingMenuContext(state, data, {source, from, to});
+
+test('週をまたぐ日付範囲には翌週の予定も含め、選んだ出所だけを表示する', () => {
+  const state = shoppingState();
+  state.entries = ['20', '21', '22', '23', '24'].map(day => onionEntry('day' + day, '2026-11-' + day));
+  const extra = {id: 'extra', servings: 2, item: state.entries[0].items[0]}; state.shoppingExtras = [extra];
+  assert.deepEqual(scope(state, 'calendar', '2026-11-21', '2026-11-23').menus.map(menu => menu.date),
+    ['2026-11-21', '2026-11-22', '2026-11-23']);
+  assert.deepEqual(scope(state, 'draft').menus, []);
+  assert.deepEqual(scope(state, 'menu').menus.map(menu => menu.id), ['extra']);
+});
+
+test('インポート元や表示期間を切り替えても確定した買い物と購入の割り当ては変わらない', () => {
+  const state = shoppingState();
+  state.entries = [onionEntry('previous', '2026-11-07'), onionEntry('a', '2026-11-15'), onionEntry('b', '2026-11-16')];
+  for (const source of ['draft', 'calendar']) {
+    state.shoppingList = null;
+    state.shoppingCatalog = source === 'draft' ? shoppingMenusFromEntries(state.entries.slice(1), data, {...options, servings: 1})
+      .map(menu => ({...menu, origin: 'plan'})) : [];
+    const second = scope(state, source).menus[0];
+    state.shoppingList = [selectOnion(second)];
+    const pantry = [{id: 'onion', amount: 100}];
+    for (const [browse, from] of [['menu', '2026-11-16'], ['calendar', '2026-11-07'], ['draft', '2026-11-26']]) {
+      const {catalog} = scope(state, browse, from);
+      const result = pendingShopping(state.shoppingList, data, {pantry, catalog});
+      assert.equal(result.items[0].buy, 100);
+      const purchased = createShoppingReceipt(state.shoppingList, 'onion', data, {pantry, catalog, id: 'bought'});
+      assert.deepEqual(purchased.allocations, [{menuId: second.id, amount: 100}]);
+      assert.equal(pendingShopping(state.shoppingList, data, {pantry, catalog, receipts: [purchased]}).items[0].buy, 0);
+      assert.equal(pendingShopping(state.shoppingList, data, {pantry, catalog, receipts: undoReceipt('bought', [purchased])}).items[0].buy, 100);
+    }
+  }
+});
+
+test('同日の同じ食事から2品目だけを取り込んでも1品目に充てた在庫を再利用しない', () => {
+  const state = shoppingState();
+  state.entries = [onionEntry('a', '2026-11-16'), onionEntry('b', '2026-11-16')];
+  const first = scope(state, 'calendar');
+  const second = first.menus.find(menu => menu.item.id === 'b');
+  state.shoppingList = [selectOnion(second)];
+  const {catalog} = scope(state, 'menu');
+  assert.equal(pendingShopping(state.shoppingList, data, {pantry: [{id: 'onion', amount: 100}], catalog}).items[0].buy, 100);
+});
+
+test('旧版の確定リストでもカレンダーで同じ料理を特定して日付と在庫割当てを引き継ぐ', () => {
+  const state = shoppingState();
+  state.entries = [onionEntry('a', '2026-11-15'), onionEntry('b', '2026-11-16')];
+  const {id, item, servings} = scope(state, 'calendar').menus[0];
+  state.shoppingList = [{id, item, servings, ingredientIds: ['onion']}];
+  const {catalog} = scope(state, 'menu');
+  assert.equal(catalog.find(menu => menu.id === id).label, '2026-11-16 夕食');
+  assert.equal(pendingShopping(state.shoppingList, data, {pantry: [{id: 'onion', amount: 100}], catalog}).items[0].buy, 100);
+});
+
+test('今回の不足分だけを外して再取り込みでき、購入記録と別の材料を保つ', () => {
+  const purchased = choose('first', item('first', [{id: 'onion', amount: 50}]), 1);
+  const needed = choose('second', item('second', [{id: 'onion', amount: 100}, {id: 'salt', amount: 1}]), 1);
+  const prepared = [purchased, needed], before = structuredClone(prepared);
+  const receipt = createShoppingReceipt([purchased], 'onion', data, {id: 'receipt'});
+  const after = removeShoppingIngredient(prepared, 'onion', ['second'], [receipt]);
+  assert.deepEqual(after.map(menu => menu.ingredientIds), [['onion'], ['salt']]);
+  const pending = list => pendingShopping(list, data, {receipts: [receipt]}).items.filter(row => row.buy > 0).map(row => [row.id, row.buy]);
+  assert.deepEqual(pending(after), [['salt', 1]]);
+  assert.deepEqual(pending([after[0], needed]), [['onion', 100], ['salt', 1]]);
+  assert.deepEqual(prepared, before);
+  assert.equal(removeShoppingIngredient([purchased], 'onion', ['first']), null);
+  assert.deepEqual(removeShoppingIngredient([purchased], 'onion', ['first'], [receipt])[0].ingredientIds, []);
 });

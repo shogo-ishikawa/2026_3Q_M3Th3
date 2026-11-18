@@ -28,15 +28,17 @@ export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal
   const staples = available.filter(recipe => recipe.role === 'staple' || recipe.role === 'main' && recipe.staple);
   const drinks = available.filter(recipe => recipe.role === 'drink');
   const prefix = `meal-settings-${++counter}`, root = make('div', 'meal-settings');
-  const detailsOpen = new Map();
+  const detailsOpen = new Map(), cards = new Map();
   if (meals.length === 1) root.className += ' meal-settings-single';
   const error = make('p', 'notice error meal-settings-error'); error.hidden = true; error.setAttribute('role', 'alert');
   const report = cause => {error.textContent = cause.message; error.hidden = false; onError(cause.message);};
   const act = action => event => {try {action(event); error.hidden = true; error.textContent = '';} catch (cause) {report(cause);}};
   function update(meal, patch) {
     const next = normaliseMealPreferences({...profiles, [meal]: {...profiles[meal], ...patch}});
-    if (onChange(meal, structuredClone(patch)) === false) {render(); return;}
-    profiles = next; render();
+    const accepted = onChange(meal, structuredClone(patch)) !== false;
+    if (accepted) profiles = next;
+    const changesFields = ['enabled', 'staple', 'stapleId', 'drinkId', 'sideCount'].some(key => Object.hasOwn(patch, key));
+    if (!accepted || changesFields) render(meal);
   }
   const field = (title, input) => {const label = make('label', 'meal-settings-field', title); label.htmlFor = input.id; label.append(input); return label;};
   const select = (meal, key, choices, value) => {
@@ -67,7 +69,7 @@ export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal
   }
   function quantityField(meal, kind, recipe, value) {
     const portion = recipePortion(recipe, data), input = make('input', `meal-settings-${kind}Amount`);
-    input.id = `${prefix}-${meal}-${kind}Amount`; input.type = 'number'; input.min = '0.001'; input.max = '100000'; input.step = 'any';
+    input.id = `${prefix}-${meal}-${kind}Amount`; input.type = 'number'; input.required = true; input.min = '0.001'; input.max = '100000'; input.step = 'any';
     input.value = String(value ?? portion.amount); input.setAttribute('aria-label', `${MEALS.find(([id]) => id === meal)[1]}の${kind === 'staple' ? '主食' : '飲み物'}の量（${portion.unit}）`);
     configureQuantityInput(input);
     input.addEventListener('change', act(() => update(meal, {[`${kind}Amount`]: readQuantityInput(input)})));
@@ -76,13 +78,22 @@ export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal
     if (kind === 'drink' && portion.unit === 'ml') setQuantityPresets(input, [100, 150, 200].map(amount => ({label: `${amount}ml`, value: amount})));
     return label;
   }
-  function render() {
-    const cards = [];
-    for (const [meal, title] of MEALS.filter(([id]) => meals.includes(id))) {
-      const choice = profiles[meal], card = make('fieldset', 'meal-settings-card'); card.dataset.meal = meal;
+  function render(targetMeal) {
+    // ほかの食事で入力中の量や、キーボードで操作している欄を保ちます。
+    const focused = document.activeElement;
+    const focusId = focused?.id && cards.get(targetMeal)?.contains?.(focused) ? focused.id : null;
+    for (const [meal, title] of MEALS) {
+      if (!meals.includes(meal) || (targetMeal && meal !== targetMeal)) continue;
+      const choice = profiles[meal];
+      let card = cards.get(meal);
+      if (!card) {
+        card = make('fieldset', 'meal-settings-card'); card.dataset.meal = meal;
+        cards.set(meal, card); root.append(card);
+      }
+      card.replaceChildren();
       card.append(make('legend', '', title));
       if (allowEnable) card.append(toggle(meal, 'enabled', `${title}を提案する`, choice.enabled));
-      if (allowEnable && !choice.enabled) {cards.push(card); continue;}
+      if (allowEnable && !choice.enabled) continue;
       const pair = make('div', 'meal-settings-pair');
       const volume = select(meal, 'volume', VOLUMES, choice.volume), mood = select(meal, 'mood', MOODS, choice.mood);
       volume.addEventListener('change', act(() => update(meal, {volume: volume.value})));
@@ -129,9 +140,9 @@ export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal
       const soup = select(meal, 'soup', SOUPS, choice.soup);
       soup.addEventListener('change', act(() => update(meal, {soup: soup.value})));
       details.append(sidePair, field('汁物', soup));
-      card.append(details); cards.push(card);
+      card.append(details);
     }
-    root.replaceChildren(...cards, error);
+    if (focusId) document.getElementById(focusId)?.focus({preventScroll: true});
   }
-  render(); return root;
+  render(); root.append(error); return root;
 }

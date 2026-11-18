@@ -129,3 +129,20 @@ test('fixed menu quantities remain authoritative when an earlier automatic stapl
  assert.deepEqual(changes,[{meal:'breakfast',patch:{volume:'hearty'}}]);
  assert.equal(source.mealPreferences.breakfast.stapleAmount,172.5);
 }));
+
+test('changing one meal keeps unrelated controls and unfinished quantities in place', () => withDocument(() => {
+  const source = settings();
+  Object.assign(source.mealPreferences.breakfast, {staple:'fixed', stapleId:'plain-rice'});
+  const root = mountMealSettings({settings:source, data});
+  const quantity = field(root, 'breakfast', 'stapleAmount');
+  assert.equal(quantity.required, true);
+  quantity.value = '';
+  const volume = field(root, 'dinner', 'volume');
+  volume.value = 'light'; volume.emit('change');
+  assert.equal(field(root, 'dinner', 'volume'), volume);
+  const staple = field(root, 'dinner', 'staple');
+  staple.value = 'fixed'; staple.emit('change');
+  assert.ok(field(root, 'dinner', 'stapleAmount'));
+  assert.equal(field(root, 'breakfast', 'stapleAmount'), quantity);
+  assert.equal(quantity.value, '');
+}));

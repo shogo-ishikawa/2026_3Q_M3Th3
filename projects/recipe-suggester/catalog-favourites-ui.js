@@ -15,19 +15,32 @@ export function favouriteGenre(item,data,savedGenre){
   return GENRES.includes(genre)&&genre!=='未分類'?genre:'未分類';
 }
 
-export function mountCatalogFavourites({favourites=[],data,settings={},onOpen=()=>{},onAddShopping=()=>{},onDelete=()=>{},onError=()=>{}}={}){
+export function mountCatalogFavourites({favourites=[],data,settings={},viewState={},onOpen=()=>{},onAddShopping=()=>{},onDelete=()=>{},onError=()=>{}}={}){
   if(!Array.isArray(favourites)||!data||!Array.isArray(data.recipes)||[onOpen,onAddShopping,onDelete,onError].some(fn=>typeof fn!=='function'))throw Error('お気に入りの一覧を確認してください。');
   const root=make('section','catalog-favourites');root.setAttribute('aria-label','お気に入りのメニュー');
-  const heading=make('div','catalog-favourites-heading');heading.append(make('h3','','お気に入りのメニュー'),make('p','field-note','ジャンルからいつもの料理を探せます。保存した量・材料・栄養を保ったまま開きます。'));
+  const heading=make('div','catalog-favourites-heading');heading.append(make('h3','','お気に入りのメニュー'));
   root.append(heading);
   const controls=make('div','catalog-favourites-controls'),genres=make('div','catalog-favourites-genres');genres.setAttribute('role','group');genres.setAttribute('aria-label','お気に入りのジャンル');
-  const searchLabel=make('label','catalog-favourites-search-label','お気に入りを検索'),search=make('input','catalog-favourites-search');search.type='search';search.placeholder='料理名で検索';search.setAttribute('aria-label','お気に入りを検索');searchLabel.append(search);
-  controls.append(genres,searchLabel);root.append(controls);
+  const searchLabel=make('label','catalog-favourites-search-label','お気に入りを検索'),search=make('input','catalog-favourites-search');search.type='search';search.placeholder='料理名・材料で検索';search.value=viewState.query??'';search.setAttribute('aria-label','お気に入りを検索');searchLabel.append(search);
+  controls.append(genres,searchLabel);controls.hidden=!favourites.length;root.append(controls);
   const status=make('p','field-note catalog-favourites-status');status.setAttribute('role','status');
   const results=make('div','catalog-favourites-results'),error=make('p','notice error catalog-favourites-error');error.hidden=true;error.setAttribute('role','alert');
   root.append(status,results,error);
-  let selectedGenre='all';
-  const records=favourites.map(favourite=>({favourite,genre:favouriteGenre(favourite.item,data,favourite.genre)}));
+  let selectedGenre=GENRES.includes(viewState.genre)?viewState.genre:'all';
+  const records=favourites.map(favourite=>({
+    favourite,
+    genre:favouriteGenre(favourite.item,data,favourite.genre),
+    searchTerms:[favourite.name,favourite.item.name,...favourite.item.ingredients.map(part=>data.ingredients?.[part.id]?.name??part.id)],
+  }));
+  const genreButtons=new Map(),availableGenres=new Set(records.map(record=>record.genre));
+  for(const id of ['all',...GENRES]){
+    const total=id==='all'?records.length:records.filter(record=>record.genre===id).length;
+    const button=action(`${id==='all'?'すべて':id} ${total}件`,()=>{
+      selectedGenre=id;viewState.genre=id;render();
+    },'button-secondary catalog-favourites-genre');
+    button.dataset.genre=id;
+    genreButtons.set(id,button);genres.append(button);
+  }
   const act=fn=>()=>{try{fn();error.hidden=true;error.textContent='';}catch(cause){const message=cause?.message??'操作を完了できませんでした。';error.textContent=message;error.hidden=false;onError(message);}};
   const cloneItem=favourite=>structuredClone(favourite.item);
   function card(favourite){
@@ -39,19 +52,30 @@ export function mountCatalogFavourites({favourites=[],data,settings={},onOpen=()
     article.append(make('p','catalog-favourite-amount',`保存した量：${formatAmount(item.quantity*portion.amount)}${portion.unit}`));
     for(const warning of mealSetWarnings({items:[item]},settings,data))article.append(make('p','catalog-favourite-warning',warning));
     const actions=make('div','catalog-favourite-actions');
-    actions.append(action('保存した内容を開く',act(()=>onOpen(cloneItem(favourite))),'button-secondary catalog-favourite-details'),action('買い物に追加',act(()=>onAddShopping(cloneItem(favourite))),'button-primary catalog-favourite-shopping'),action('お気に入りから外す',act(()=>onDelete(favourite.id)),'button-text catalog-favourite-remove'));
+    const details=action('保存した内容を開く',act(()=>onOpen(cloneItem(favourite))),'button-secondary catalog-favourite-details');
+    details.setAttribute('aria-label',`${favourite.name}の保存した内容を開く`);
+    const shopping=action('買い物に追加',act(()=>onAddShopping(cloneItem(favourite))),'button-primary catalog-favourite-shopping');
+    shopping.setAttribute('aria-label',`${favourite.name}を買い物に追加`);
+    const remove=action('お気に入りから外す',act(()=>onDelete(favourite.id)),'button-text catalog-favourite-remove');
+    remove.setAttribute('aria-label',`${favourite.name}をお気に入りから外す`);
+    actions.append(details,shopping,remove);
     article.append(actions);return article;
   }
   function render(){
-    genres.replaceChildren();
-    for(const [id,label,total]of [['all','すべて',records.length],...GENRES.map(genre=>[genre,genre,records.filter(record=>record.genre===genre).length])]){
-      const button=action(`${label} ${total}件`,()=>{selectedGenre=id;render();},'button-secondary catalog-favourites-genre');button.dataset.genre=id;button.setAttribute('aria-pressed',String(selectedGenre===id));genres.append(button);
+    for(const [id,button]of genreButtons){
+      button.setAttribute('aria-pressed',String(selectedGenre===id));
+      button.hidden=id!=='all'&&!availableGenres.has(id)&&id!==selectedGenre;
     }
-    const query=search.value?.trim()??'',matching=records.filter(record=>(selectedGenre==='all'||record.genre===selectedGenre)&&matchesJapaneseQuery([record.favourite.name,record.favourite.item.name],query));
+    const query=search.value.trim(),matching=records.filter(record=>(selectedGenre==='all'||record.genre===selectedGenre)&&matchesJapaneseQuery(record.searchTerms,query));
     status.textContent=`お気に入り ${matching.length}件 / 全${records.length}件`;
     results.replaceChildren();
     if(!matching.length){
       results.append(make('p','catalog-favourites-empty field-note',records.length?'このジャンルや検索語に一致するお気に入りがありません。':'料理の詳細や記録画面でお気に入りに保存すると、ここから呼び出せます。'));
+      if(records.length&&(query||selectedGenre!=='all')){
+        results.append(action('すべてのお気に入りを表示',()=>{
+          search.value='';viewState.query='';selectedGenre='all';viewState.genre='all';render();search.focus();
+        },'button-secondary catalog-favourites-clear'));
+      }
       return;
     }
     for(const genre of GENRES){
@@ -61,5 +85,5 @@ export function mountCatalogFavourites({favourites=[],data,settings={},onOpen=()
       const grid=make('div','catalog-favourites-grid');for(const {favourite}of group)grid.append(card(favourite));section.append(grid);results.append(section);
     }
   }
-  search.addEventListener('input',render);render();return root;
+  search.addEventListener('input',()=>{viewState.query=search.value;render();});render();return root;
 }

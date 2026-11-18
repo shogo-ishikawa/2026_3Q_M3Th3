@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS,INGREDIENTS,RECIPES} from '../data.js';
-import {mountFoodComposer} from '../food-composer-ui.js';
-import {defaultFoodSelection} from '../food-composer.js';
+import {mountFoodComposer,foodRecipeSwitch} from '../food-composer-ui.js';
+import {defaultFoodSelection,foodComposerFor} from '../food-composer.js';
+import {getVariationGroup} from '../menu-variations.js';
+import {eligibleRecipes} from '../planner.js';
 
 class Element {
   constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.textContent='';}
@@ -220,4 +222,25 @@ test('汎用のトースト画面は食パンのみで開き、明示したバ�
   let current;const specific=mountFoodComposer({kind:'toast',data,initial:defaultFoodSelection('toast',{recipeId:id}),onChange:r=>{current=r;}});
   assert.ok(current);assert.equal(checkbox(specific,component).checked,true,id);
  }
+}));
+
+
+test('具材選択から朝食マフィンの個別レシピへ移れ、絞り込んだ各食材・アレルゲンを守る',()=>withDocument(()=>{
+  const anchor='bread-english-muffin-ham-cheese',definition=foodComposerFor(anchor);
+  const allMuffins=getVariationGroup(anchor,RECIPES).recipes;
+  const egg='breakfast-english-muffin-egg',ham='breakfast-english-muffin-ham-cheese';
+  const build=(recipes,open=()=>{})=>foodRecipeSwitch(definition,getVariationGroup(anchor,recipes),open);
+  const selected=[],form=build(allMuffins,id=>selected.push(id)),select=byClass(form,'food-recipe-switch');
+  assert.deepEqual(select.children.map(option=>option.value),['',egg,ham]);
+  for(const id of [egg,ham]){select.value=id;select.emit('change');}
+  assert.deepEqual(selected,[egg,ham]);
+  for(const settings of [{allergens:['pork'],excludedIngredients:[]},{allergens:[],excludedIngredients:['breakfast_ham']}]){
+    const eligible=eligibleRecipes(settings,data);
+    // The adjustable entry may remain available with a different filling.
+    const filtered=[allMuffins.find(recipe=>recipe.id===anchor),...eligible.filter(recipe=>[egg,ham].includes(recipe.id))];
+    const control=byClass(build(filtered,id=>selected.push(id)),'food-recipe-switch');
+    assert.deepEqual(control.children.map(option=>option.value),['',egg]);
+    control.value=ham;control.emit('change');assert.equal(selected.length,2);
+  }
+  assert.equal(build(allMuffins.filter(recipe=>definition.recipeIds.includes(recipe.id))),null);
 }));

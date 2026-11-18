@@ -297,11 +297,12 @@ export function matchesJapaneseQuery(fields, query) {
   const terms = kana(query).split(' ').filter(Boolean);
   if (!terms.length) return true;
   const values = (Array.isArray(fields) ? fields : [fields]).map(kana);
-  const commonValues = values.flatMap(searchForms);
-  const tunaPresent = values.some(hasTunaReading);
-  return terms.every(term => (!hasTunaReading(term) || tunaPresent) &&
-    (values.some(value => value.includes(term)) ||
-    commonValues.some(value => value.includes(normaliseJapaneseSearch(term)))));
+  return terms.every(term => {
+    if (hasTunaReading(term) && !values.some(hasTunaReading)) return false;
+    if (values.some(value => value.includes(term))) return true;
+    const common = normaliseJapaneseSearch(term);
+    return values.some(value => searchForms(value).some(form => form.includes(common)));
+  });
 }
 
 
