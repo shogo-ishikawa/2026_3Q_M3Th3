@@ -15,6 +15,7 @@ export const SOUP_INTAKE_STAGES = Object.freeze([
 // 全量入る材料です。その他は具に残します。第4列は皮・肉だねと汁の配分です。
 // 新しい食材を「調味料らしい名前」だけで煮汁に分類する処理は行いません。
 const AUDITED_PARTITIONS = [
+  ['evening-main-tuna-negi-nabe', 'tuna negi enoki soup311_awase_dashi soy_sauce mirin sake', 'soup311_awase_dashi soy_sauce mirin sake'], // まぐろと長ねぎのねぎま鍋
   ['chicken-tofu-pot', 'chicken tofu chinese_cabbage shimeji negi kombu water sake salt', 'kombu water sake salt'], // 鶏肉と豆腐の塩鍋
   ['soup-001', 'tofu wakame miso water kombu scallion_garnish', 'miso water kombu'], // 豆腐とわかめのみそ汁
   ['soup-002', 'nameko negi miso water bonito', 'miso water bonito'], // なめこと長ねぎのみそ汁

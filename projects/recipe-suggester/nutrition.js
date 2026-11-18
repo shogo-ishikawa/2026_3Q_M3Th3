@@ -87,9 +87,17 @@ export function itemNutrition(item) {
 export function sumNutrition(items) {
   if(!Array.isArray(items))throw Error('食事の一覧を確認してください。');
   const values=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,0])),complete=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,true]));
+  const knownCounts=Object.fromEntries(NUTRIENT_KEYS.map(key=>[key,0]));
   let unknownItems=0;
-  for(const item of items){const part=itemNutrition(item);if(Object.values(part).some(v=>v===null))unknownItems++;for(const key of NUTRIENT_KEYS){if(part[key]===null)complete[key]=false;else values[key]+=part[key];}}
-  return {values,complete,unknownItems};
+  for(const item of items){
+    const part=itemNutrition(item);
+    if(Object.values(part).some(value=>value===null))unknownItems++;
+    for(const key of NUTRIENT_KEYS){
+      if(part[key]===null)complete[key]=false;
+      else{values[key]+=part[key];knownCounts[key]++;}
+    }
+  }
+  return {values,complete,knownCounts,unknownItems};
 }
 function validDate(date){return typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date+'T00:00:00Z'))&&new Date(date+'T00:00:00Z').toISOString().slice(0,10)===date;}
 export function summariseEntries(entries,{from,to,status='eaten'}={}) {

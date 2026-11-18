@@ -1,5 +1,5 @@
 /** 料理ごとに買う材料を選び、合算した後で家の在庫を一度だけ差し引きます。 */
-import {dateIsValid} from './journal.js';
+import {dateIsValid, shoppingServingsFor} from './journal.js';
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
 
 const MEAL_LABELS = {breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食'};
@@ -32,6 +32,7 @@ export function shoppingMenusFromEntries(entries, data, {from, to, servings = 2}
     if (!dateIsValid(entry.date) || !validId(entry.id) || !Array.isArray(entry.items) || !MEAL_LABELS[entry.meal]) {
       throw Error('予定の献立の形式を確認してください。');
     }
+    const menuServings = shoppingServingsFor(entry, servings);
     // メモだけの予定は表示側で注意を出します。架空の食事スナップショットは作りません。
     for (const item of entry.items) {
       menuItem(item);
@@ -39,7 +40,7 @@ export function shoppingMenusFromEntries(entries, data, {from, to, servings = 2}
       const id = JSON.stringify([entry.id, item.id]);
       if (seen.has(id)) throw Error('買い物に使う料理の識別子が重複しています。');
       seen.add(id);
-      menus.push({id, item: structuredClone(item), servings, date: entry.date, meal: entry.meal,
+      menus.push({id, item: structuredClone(item), servings: menuServings, date: entry.date, meal: entry.meal,
         label: `${entry.date} ${MEAL_LABELS[entry.meal]}`});
     }
   }
