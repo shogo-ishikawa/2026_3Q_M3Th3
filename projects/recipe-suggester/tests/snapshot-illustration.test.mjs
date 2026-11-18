@@ -6,6 +6,7 @@ import {itemFromRecipe} from '../nutrition.js';
 import {recipePortion} from '../catalog.js';
 import {createFavourite,validateFavourites} from '../favourites.js';
 import {recipeArtwork,snapshotArtworkRecipe} from '../recipe-illustration.js';
+import {RECIPE_ARTWORK} from '../recipe-artwork-manifest.js';
 import {recipeIllustrationElement} from '../recipe-illustration-ui.js';
 import {BREAD_PRESETS} from '../bread-foods.js';
 import {foodComposerDefinition,foodPresetSelection,buildFoodSelection} from '../food-composer.js';
@@ -102,4 +103,17 @@ test('パンの名前だけ・材料だけが同じでも、変更した量・�
     item=>{item.nutrition.kcal+=1;},
     item=>{item.recipeId='custom-arbitrary-toast';},
   ]){const changed=structuredClone(item);change(changed);assert.equal(snapshotArtworkRecipe(changed,data),null);}
+});
+
+test('イラストのある各料理を献立とお気に入りから開くと料理自身の絵が表示される',()=>{
+  for(const [id,art] of Object.entries(RECIPE_ARTWORK)){
+    const dish=describeRecipe(id,data);
+    const item={...itemFromRecipe(dish,data),portion:recipePortion(dish,data)};
+    const favourite=createFavourite(item,data);
+    const [restored]=validateFavourites(JSON.parse(JSON.stringify([favourite])),data);
+    for(const saved of [item,restored.item]){
+      const resolved=snapshotArtworkRecipe(saved,data);
+      assert.equal(recipeArtwork(resolved)?.largeSrc,art.largeSrc,id);
+    }
+  }
 });

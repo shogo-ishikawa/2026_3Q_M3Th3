@@ -1,4 +1,10 @@
 .meal-settings{display:grid;gap:.8rem;min-width:0}
+#meal-selection{grid-column:1/-1}
+.meal-selection{margin:.85rem 0 0;padding:0;border:0;min-width:0}
+.meal-selection legend{padding:0;font-size:.8125rem;font-weight:600}
+.meal-selection-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.25rem;max-width:19rem}
+.meal-selection-options .meal-settings-toggle{gap:.3rem}
+.meal-selection-options .meal-settings-toggle input{width:min(1.25rem,22px);height:min(1.25rem,22px);margin:0}
 .meal-settings-card{border:1px solid var(--line,#d9dfd3);border-radius:.8rem;margin:0;padding:.8rem;min-width:0}
 .meal-settings-card legend{font-weight:700;padding:0 .35rem}
 .meal-settings-pair,.meal-settings-fixed{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}

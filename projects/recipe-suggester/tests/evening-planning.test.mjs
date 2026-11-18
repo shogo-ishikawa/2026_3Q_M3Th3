@@ -6,6 +6,7 @@ import {defaultJournal, validateJournal} from '../journal.js';
 import {normaliseMealPreferences} from '../meal-profiles.js';
 import {canSuggestAtMeal, isBanshakuDish, recipeMealSuitability} from '../meal-suitability.js';
 import {recipeFamily} from '../catalog.js';
+import {dishClassification} from '../dish-hierarchy.js';
 
 const data = {allergens: ALLERGENS, ingredients: INGREDIENTS, recipes: RECIPES};
 const recipe = id => RECIPES.find(item => item.id === id);
@@ -83,4 +84,43 @@ test('older settings default to ordinary dinner and exported journals preserve t
   assert.equal(validateJournal(JSON.parse(JSON.stringify(old)), data).settings.mealPreferences.dinner.banshaku, true);
   old.settings.mealPreferences.lunch.banshaku = true;
   assert.throws(() => validateJournal(old, data), /晩酌/);
+});
+
+test('晩酌の主菜ジャンルを指定しても、副菜の調理法と組み合わせが週を通して変わる', () => {
+  const setting = {...options({banshaku: true, sideCount: 3, soup: 'none'}), days: 7, seed: 101111,
+    preferences: {genreMode: 'single', genre: 'エスニック'}};
+  const plan = generateCalendarPlan(setting, data);
+  assert.ok(plan.ok, plan.warnings.join(' '));
+  function checkDay(day) {
+    assert.equal(recipe(day.mainId).genre, 'エスニック');
+    const sides = day.recipeIds.map(recipe).filter(item => item.role === 'side');
+    assert.equal(sides.length, 3);
+    assert.ok(sides.every(isBanshakuDish));
+    assert.equal(new Set(sides.map(item => dishClassification(item).method)).size, 3);
+    return sides;
+  }
+  const allSides = plan.days.flatMap(checkDay);
+  assert.ok(allSides.filter(item => item.name.includes('ナムル')).length <= 1);
+  assert.ok(new Set(allSides.map(item => dishClassification(item).method)).size >= 6);
+  const sideId = plan.days[2].recipeIds.map(recipe).find(item => item.role === 'side').id;
+  for (const next of [
+    replaceRecipe(plan, {dayIndex: 2, recipeId: sideId}, data),
+    regeneratePlanMeal(plan, {dayIndex: 2, mealPreference: {}}, data),
+  ]) {
+    checkDay(next.days[2]);
+    assert.deepEqual(next.days.filter((_, index) => index !== 2), plan.days.filter((_, index) => index !== 2));
+  }
+});
+
+test('副菜の種類と除外条件を優先し、同じ調理法しかなければその中で組み合わせる', () => {
+  const namulIds = ['classic-side-bean-sprout-namul', 'classic-side-carrot-namul', 'classic-side-spinach-namul'];
+  const saladId = 'evening-side-tarako-potato', omit = namulIds[1];
+  const limited = subset([skewer, ...namulIds, saladId]);
+  const setting = {...options({banshaku: true, sideCount: 3, sideType: 'salad', staple: 'none', soup: 'none'}),
+    excludedIngredients: [recipe(omit).ingredients[0].id]};
+  const plan = generateCalendarPlan(setting, limited);
+  assert.ok(plan.ok, plan.warnings.join(' '));
+  const sides = plan.days[0].recipeIds.map(recipe).filter(item => item.role === 'side');
+  assert.equal(sides[0].id, saladId);
+  assert.deepEqual(sides.slice(1).map(item => item.id).sort(), [namulIds[0], namulIds[2]].sort());
 });

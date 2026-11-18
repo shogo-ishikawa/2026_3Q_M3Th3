@@ -74,12 +74,18 @@ test('選択式メニューの点検記録が全操作系統を覆い、全104�
   for(const id of targets){const recipe=RECIPES.find(row=>row.id===id);assert.ok(recipe,id);assert.ok(recipeArtwork(recipe),id);}
 });
 
-test('以前の150品の絵・生成記録・大小300ファイルを変更せず、新しい73品を個別に追加する',()=>{
-  assert.equal(oldArt.ids.length,150);assert.equal(Object.keys(RECIPE_ARTWORK).length,223);
+test('旧版150品とv3.21でそろえた選択式メニューを含む全223品の画像を保持する',()=>{
+  const previousIds=new Set([...oldArt.ids,...audit.entries.map(row=>row.defaultRecipeId),'bread-toast-pizza']);
+  assert.equal(oldArt.ids.length,150);
+  assert.equal(previousIds.size,223);
+  for(const id of previousIds)assert.ok(RECIPE_ARTWORK[id],id);
   assert.equal(hash(Object.fromEntries(oldArt.ids.map(id=>[id,RECIPE_ARTWORK[id]]))),oldArt.artworkHash);
   const oldIds=new Set(oldArt.ids);assert.equal(hash(prompts.images.filter(row=>oldIds.has(row.id))),oldArt.promptsHash);
   for(const [path,expected] of Object.entries(oldArt.files))assert.equal(digest(readFileSync(new URL(`../${path}`,import.meta.url))),expected,path);
-  assert.equal(prompts.images.length,223);assert.equal(new Set(prompts.images.map(row=>row.id)).size,223);
+});
+
+test('画像台帳と生成記録の料理ID・大小の画像ファイル・記録された容量が一致する',()=>{
+  assert.deepEqual(prompts.images.map(row=>row.id).sort(),Object.keys(RECIPE_ARTWORK).sort());
   const imageHashes=new Set();
   for(const [id,art] of Object.entries(RECIPE_ARTWORK)){
     const row=prompts.images.find(row=>row.id===id);assert.ok(row,id);
