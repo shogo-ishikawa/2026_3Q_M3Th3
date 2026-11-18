@@ -15,6 +15,7 @@ export function diningMatchMode(choice, requested, storeName) {
   const source = choice?.item ?? choice?.recipe;
   const mode = requested ?? source?.diningMatch?.mode ?? (source?.restaurant ? 'menu' : 'similar');
   if (!['menu', 'similar'].includes(mode)) throw Error('食べた料理と参考にする料理の関係を選んでください。');
+  if (source?.ingredientEdit) return 'similar';
   const referenceStore = source?.restaurant?.storeName;
   const actualStore = storeName ?? source?.diningMatch?.storeName;
   if (referenceStore && actualStore && referenceStore.normalize('NFKC').trim() !== actualStore.normalize('NFKC').trim()) return 'similar';

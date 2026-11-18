@@ -113,6 +113,7 @@ export function classifyNutritionBasis(value,data,{snapshot=own(value,'nutrition
     label='似た料理から概算';
     description=`「${value.diningMatch.referenceName}」の栄養を食べた量に合わせた目安です。`;
   }
+  if (snapshot && value?.ingredientEdit) description+=' この記録で変更した材料と分量を反映しています。';
   return {kind,label,description,unknownKeys,
     unknownNote:unknownKeys.length?`${unknownKeys.map(key=>LABELS[key]).join('・')}に未入力の成分があります。`:''};
 }

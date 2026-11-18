@@ -26,7 +26,7 @@ export const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000, shoppingExtras: 200, shoppingList: 500, shoppingCatalog: 500, shoppingReceipts: 2000};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'startTab', 'mealPreferences', 'shoppingOmittedIds'];
 const TEXT_SIZE_IDS = ['standard', 'large', 'larger', 'largest'];
-const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis', 'diningMatch'];
+const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis', 'diningMatch', 'ingredientEdit'];
 const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant', 'nutritionBasis'];
 const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。復旧方法を選ぶまで設定や記録の変更は保存できません。復旧画面から元のデータを書き出すか、バックアップを読み込んでください。復旧後はアレルギーと除外食材も確認してください。';
 const unknownNutrition = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
@@ -248,6 +248,32 @@ function diningMatch(item) {
     referenceBasis: validateNutritionBasis(source.referenceBasis)};
 }
 
+// 編集した料理は、追加食材を外したときに商品表示や不明だった成分を復元できるようにします。
+function ingredientEdit(item, context) {
+  const source=record(item.ingredientEdit,['base','baseChanged','additions'],'食事の材料編集');
+  if (item.batchId!==undefined) throw Error('作り置きの材料は調理時の記録を使います。');
+  const original=record(source.base,['nutrition','ingredients','groups','proteinSources','allergens','allergensKnown',
+    'ingredientsKnown','nutritionBasis','shoppingKnown','diningMode'],'材料を追加する前の料理');
+  const base={nutrition:nutrition(original.nutrition),ingredients:parts(original.ingredients,context.ingredientIds,{historical:true}),
+    groups:ids(original.groups,new Set(GROUP_IDS),'食品群'),proteinSources:ids(original.proteinSources,new Set(PROTEIN_IDS),'主な食材'),
+    allergens:ids(original.allergens,context.allergenIds,'アレルゲン'),ingredientsKnown:bool(original.ingredientsKnown,false,'材料の確認状況'),
+    allergensKnown:bool(original.allergensKnown,false,'アレルゲンの確認状況'),...sourceMetadata(original)};
+  if (original.diningMode!==undefined) {
+    if (!item.diningMatch || !['similar','menu'].includes(original.diningMode)) throw Error('元の外食の照合方法を確認してください。');
+    base.diningMode=original.diningMode;
+  }
+  const additions=parts(list(source.additions,100,'追加した食材'),context.ingredientIds,{historical:true});
+  const baseChanged=bool(source.baseChanged,false,'元の材料の編集');
+  if (!baseChanged && !additions.length) throw Error('変更した材料を確認してください。');
+  const amounts=new Map(base.ingredients.map(part=>[part.id,part.amount]));
+  for (const part of additions) amounts.set(part.id,(amounts.get(part.id)??0)+part.amount);
+  if (!Array.isArray(item.ingredients) || amounts.size!==item.ingredients.length || item.ingredients.some(part=>{
+    const total=amounts.get(part.id);
+    return total===undefined || Math.abs(total-part.amount)>1e-9*Math.max(total,part.amount);
+  })) throw Error('料理の材料と編集した内訳が一致しません。');
+  return {base,baseChanged,additions};
+}
+
 function snapshot(source, context, itemIds) {
   record(source, ITEM_KEYS, '食事の内容');
   const id = identifier(source.id, '食事の内容の識別子');
@@ -264,6 +290,7 @@ function snapshot(source, context, itemIds) {
     ...(source.portion === undefined ? {} : {portion: portion(source.portion)}),
     ...(source.batchId === undefined ? {} : {batchId: identifier(source.batchId, '作り置きの識別子')}),
     ...(source.diningMatch === undefined ? {} : {diningMatch: diningMatch(source)}),
+    ...(source.ingredientEdit === undefined ? {} : {ingredientEdit: ingredientEdit(source,context)}),
     ...(source.restaurant === undefined ? {} : {restaurant: validateRestaurantMetadata(source.restaurant, context.data, {historical: true})}), ...sourceMetadata(source)};
 }
 

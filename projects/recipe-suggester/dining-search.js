@@ -1,5 +1,5 @@
 /** 外で食べた一品を、献立と共通の料理・材料・食事履歴から探します。 */
-import {CATALOG_CATEGORIES, recipeFamily, recipeNature} from './catalog.js';
+import {CATALOG_CATEGORIES, grilledFishAliases, recipeFamily, recipeNature} from './catalog.js';
 import {matchesJapaneseQuery, normaliseJapaneseSearch} from './japanese-search.js';
 import {MENU_VARIATION_GROUPS, variationSearchAliases} from './menu-variations.js';
 
@@ -15,13 +15,9 @@ function recipeRow(recipe, data, byId) {
   const section = restaurant ? '店別メニュー' : recipe.custom ? 'マイメニュー' :
     nature === 'home-cooked' ? '登録レシピ' : '商品・外食の例';
   const familyId = recipeFamily(recipe), family = familyLabels.get(familyId);
-  // 店頭の「焼き鮭」「塩さば」から該当する魚を探し、ほかの焼き魚を一括で候補にしません。
-  const grilled = familyId === 'grilled-fish' && recipe.name.match(/^(.+?)の(塩焼き|開き焼き|焼き物)$/u);
-  const fishNames = grilled ? [`焼き${grilled[1]}`, `焼${grilled[1]}`,
-    ...(grilled[2] === '塩焼き' ? [`塩${grilled[1]}`] : [])] : [];
   const ingredients = (recipe.ingredients ?? []).map(part => data.ingredients?.[part.id]?.name ?? part.name);
   const names = terms([recipe.name, restaurant && recipe.name.split('｜').at(-1)]);
-  const aliases = terms([...fishNames, recipe.variantLabel, ...(recipe.searchAliases ?? []), ...variationSearchAliases(recipe),
+  const aliases = terms([...grilledFishAliases(recipe, familyId), recipe.variantLabel, ...(recipe.searchAliases ?? []), ...variationSearchAliases(recipe),
     restaurant?.storeName, restaurant?.sizeName, byId.get(restaurant?.genericRecipeId)?.name, family]);
   return {choice:{key:`recipe-${recipe.id}`, name:recipe.name, section, recipe, approximate:false},
     names, aliases, fields:terms([...names, ...aliases, ...ingredients]),
@@ -40,18 +36,20 @@ function historyRows(entries, byId) {
       const live = byId.get(item.recipeId), shop = match?.storeName || item.restaurant?.storeName;
       // 同じ店別メニューを再度選ぶ場合は改訂後の表示値を使います。
       // 別の店・別の料理を参照値で記録した履歴は、元の料理と区別して残します。
-      if (live && (!match || (live.restaurant && match.mode === 'menu' &&
+      if (live && !item.ingredientEdit && (!match || (live.restaurant && match.mode === 'menu' &&
           (!shop || shop === live.restaurant.storeName) && (!match.actualName || item.name === live.name)))) {
         recentRecipeIds.add(live.id);
         continue;
       }
-      const key = JSON.stringify([shop, item.name, item.recipeId, match?.referenceName, match?.mode]);
+      // 別のトッピングや材料の量で記録した同名の食事も履歴から選び直せます。
+      const composition = item.ingredientEdit ? item.ingredients.map(part => [part.id, part.amount]) : null;
+      const key = JSON.stringify([shop, item.name, item.recipeId, match?.referenceName, match?.mode, composition]);
       if (seen.has(key)) continue;
       seen.add(key);
       const name = shop && !item.name.startsWith(`${shop}｜`) ? `${shop}｜${item.name}` : item.name;
       const names = terms([item.name, name, match?.actualName]);
       const aliases = terms([shop, match?.referenceName, live?.name]);
-      rows.push({choice:{key:`history-${item.id}`, name, section:'最近の外食', item, approximate:false},
+      rows.push({choice:{key:`history-${item.id}`, name, section:item.ingredientEdit ? '最近の外食・食材変更あり' : '最近の外食', item, approximate:false},
         names, aliases, fields:terms([...names, ...aliases, ...(item.ingredients ?? []).map(part => part.name)]),
         priority:1, standard:false});
     }

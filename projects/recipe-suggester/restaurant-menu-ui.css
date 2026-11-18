@@ -19,3 +19,9 @@
 .dining-row-settings .restaurant-fields,.dining-log .manual-details > .restaurant-menu { padding:.5rem 0; }
 .dining-log .record-summary-nutrients { margin-bottom:0; }
 .dining-log .dining-replace { justify-self:start; min-height:44px; }
+
+.dining-keyword { display:grid; gap:.65rem; }
+.dining-keyword[hidden], .dining-guided[hidden], .dining-item-actions[hidden], .dining-editor[hidden] { display:none; }
+.dining-item-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .65rem; }
+.dining-item-actions button { max-width:100%; min-height:44px; white-space:normal; }
+.dining-editor, .dining-guided { min-width:0; }

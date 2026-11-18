@@ -113,3 +113,69 @@ test('お気に入りと最近の直接登録も、実際の量と材料の合�
   assert.deepEqual(favourite,before);
   const recentRoot=mounted({entries:[entry(180)]});assert.match(byClass(recentRoot,'record-summary-material-preview').textContent,/180g/);
 }));
+
+const change=(control,value,event='change')=>{control.value=value;control.emit(event);};
+const switchTo=(root,mode)=>classes(root,'record-search-mode').find(button=>button.dataset.mode===mode).emit('click');
+
+test('順に選ぶ範囲内に該当がなくても分類を保ち、全体検索を切り替えても各検索語を保つ',()=>withDocument(()=>{
+  const saves=[],opened=[];
+  const root=mounted({onSearchStateChange:value=>saves.push(value),onOpenRecipe:(...args)=>opened.push(args)});
+  const query=byClass(root,'record-search-query');
+  change(query,'からあげ','input');assert.ok(classes(root,'record-search-choice').some(node=>node.dataset.recipeId==='classic-karaage-thigh'));
+  switchTo(root,'guided');change(byClass(root,'record-search-family'),'rice');
+  change(query,'からあげ','input');assert.equal(classes(root,'record-search-choice').length,0);
+  assert.equal(byClass(root,'record-search-family').value,'rice');assert.match(byClass(root,'record-search-count').textContent,/ありません/);
+  change(query,'玄米','input');assert.ok(classes(root,'record-search-choice').length>0);
+  switchTo(root,'keyword');assert.equal(query.value,'からあげ');assert.ok(classes(root,'record-search-choice').length>0);
+  switchTo(root,'guided');assert.equal(query.value,'玄米');assert.equal(byClass(root,'record-search-family').value,'rice');
+  const restored=mounted({searchState:saves.at(-1)});assert.equal(byClass(restored,'record-search-query').value,'玄米');
+  byClass(root,'record-search-choice').emit('click');assert.equal(opened.length,1);assert.equal(opened[0][2],'玄米');
+  assert.ok(opened[0][3].includes(opened[0][0]));assert.ok(!opened[0][3].includes('classic-karaage-thigh'));
+}));
+
+test('主菜の食材・調理法・形態を保ったままレシピ名をかなで探し、材料からも検索できる',()=>withDocument(()=>{
+  const captured=[];
+  const root=mounted({onOpenRecipe:(...args)=>captured.push(args)});switchTo(root,'guided');
+  change(byClass(root,'record-search-section'),'main');change(byClass(root,'record-search-category'),'fish');
+  change(byClass(root,'record-search-method'),'grill');change(byClass(root,'record-search-nature'),'home-cooked');
+  const query=byClass(root,'record-search-query');change(query,'さけのしおやき','input');
+  const result=classes(root,'record-search-choice').find(node=>node.dataset.recipeId==='classic-grilled-salmon');assert.ok(result);
+  result.emit('click');assert.ok(captured[0][3].includes('classic-grilled-salmon'));
+  change(query,'とりのからあげ','input');assert.equal(classes(root,'record-search-choice').length,0);
+  assert.equal(byClass(root,'record-search-method').value,'grill');assert.equal(byClass(root,'record-search-category').value,'fish');
+  switchTo(root,'keyword');change(query,'れんこん','input');assert.ok(classes(root,'record-search-choice').length>0);
+  const actualConfirmations=[];query.emit('keydown',{key:'Enter',isComposing:true,preventDefault:()=>actualConfirmations.push('IME')});
+  query.emit('keydown',{key:'Enter',preventDefault:()=>actualConfirmations.push('submit')});assert.deepEqual(actualConfirmations,['submit']);
+}));
+
+test('料理の種類から選び直したバリエーションを詳細へ渡し、検索結果を超えて補わない',()=>withDocument(()=>{
+  const opened=[],root=mounted({onOpenRecipe:(...args)=>opened.push(args)});
+  const query=byClass(root,'record-search-query');change(query,'トースト','input');
+  const card=classes(root,'record-search-result').find(node=>classes(node,'record-search-choice')[0].dataset.recipeId==='bread-toast-custom');
+  const select=byClass(card,'record-search-variant');assert.ok(select.children.some(option=>option.value==='bread-toast-pizza'));
+  change(select,'bread-toast-pizza');byClass(card,'record-search-choice').emit('click');assert.equal(opened[0][0],'bread-toast-pizza');
+  change(query,'ピザトースト','input');assert.ok(classes(root,'record-search-choice').some(node=>node.dataset.recipeId==='bread-toast-pizza'));
+  assert.ok(classes(root,'record-search-variant').every(node=>node.children.every(option=>option.value!=='bread-toast-custom')));
+}));
+
+test('簡単記録の材料編集はお気に入りと実食を区別し、選んだ分量と記録のIDを渡す',()=>withDocument(()=>{
+  const added=entry(120,'2026-11-13'), favourite=createFavourite(added.items[0],data), changes=[];
+  const root=mounted({favourites:[favourite],entries:[added],onEditItem:(...args)=>changes.push(args)});
+  change(byClass(root,'quick-record-amount'),'100','input');classes(root,'quick-record-edit')[0].emit('click');
+  assert.equal(changes[0][0].quantity,100/150);assert.equal(changes[0][2],undefined);assert.deepEqual(changes[0][1],{date:'2026-11-13',meal:'breakfast',status:'eaten'});
+  const last=classes(root,'quick-record-edit').at(-1);last.emit('click');assert.equal(changes[1][2],added.id);
+  changes[1][0].ingredients[0].amount=12345;assert.notEqual(added.items[0].ingredients[0].amount,12345);
+}));
+
+test('焼き鮭の別名は料理全体と魚介の焼き物に共通し、選択中の肉料理や煮物には含めない',()=>withDocument(()=>{
+  const root=mounted({});
+  const query=byClass(root,'record-search-query');
+  const salmon=()=>classes(root,'record-search-choice').some(node=>node.dataset.recipeId==='classic-grilled-salmon');
+  change(query,'焼き鮭','input');assert.ok(salmon());
+  switchTo(root,'guided');change(byClass(root,'record-search-section'),'main');
+  change(byClass(root,'record-search-category'),'fish');change(byClass(root,'record-search-method'),'grill');
+  for(const term of ['さけ','焼き鮭','焼きしゃけ']){change(query,term,'input');assert.ok(salmon(),term);}
+  change(byClass(root,'record-search-method'),'simmer');assert.equal(classes(root,'record-search-choice').length,0);
+  change(byClass(root,'record-search-category'),'meat');change(byClass(root,'record-search-method'),'grill');
+  assert.equal(classes(root,'record-search-choice').length,0);
+}));
