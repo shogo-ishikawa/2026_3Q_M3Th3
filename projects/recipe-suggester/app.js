@@ -56,8 +56,8 @@ import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
 import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.32.0';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=3.32.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=3.33.0';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=3.33.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -658,14 +658,19 @@ function renderCatalog(){
   if(illustrationsHidden)illustrationFilter.checked=false;
   $('recipe-illustration-coverage').hidden=illustrationsHidden;
   const illustratedOnly=illustrationFilter.checked;
-  const hiddenIllustrations=illustratedOnly?candidates.filter(recipe=>!recipeArtwork(recipe)).length:0;
-  if(illustratedOnly)candidates=candidates.filter(recipe=>recipeArtwork(recipe));
+  const beforeIllustrationFilter=candidates.length;
+  if(illustratedOnly){
+    variationScope=variationScope.filter(recipe=>recipeArtwork(recipe));
+    const illustratedIds=new Set(variationScope.map(recipe=>recipe.id));
+    candidates=candidates.filter(recipe=>illustratedIds.has(recipe.id));
+  }
+  const hiddenIllustrations=beforeIllustrationFilter-candidates.length;
   const illustrationFilterNote=$('recipe-illustration-filter-note');
   illustrationFilterNote.hidden=!illustratedOnly&&!illustrationsHidden;
   illustrationFilterNote.replaceChildren();
   if(illustrationsHidden)illustrationFilterNote.append(node('span','','設定で料理イラストを非表示にしています。すべての料理を検索できます。'));
   if(illustratedOnly)illustrationFilterNote.append(node('span','',hiddenIllustrations?`イラスト限定中です。画像のない${hiddenIllustrations}種類は表示していません。`:'イラストのある料理に絞っています。'),button('イラスト限定を解除',()=>{$('recipe-illustrated-only').checked=false;recipeLimit=12;renderCatalog();},'button-secondary'));
-  const menus=groupMenuRecipes(candidates,{allRecipes:variationScope,query});
+  const menus=groupMenuRecipes(candidates,{query});
   $('recipe-results-count').textContent=`${menus.length}件のメニュー / ${candidates.length}種類が見つかりました`;
   const activeFilters=[];
   const removable=(id,label,remove)=>activeFilters.push({id,label,onRemove:()=>{remove();recipeLimit=12;renderCatalog();}});
@@ -1078,6 +1083,7 @@ function openFoodComposer(recipeId,{respectConditions=true,recordInitial={},vari
       form.querySelector('button[type="submit"]').disabled=!currentRecipe;
   };
   const builder=mountFoodComposer({kind:definition.kind,data:data(),initial,
+    allowedRecipeIds:definition.presets?scope.map(recipe=>recipe.id):undefined,
     onChange:recipe=>{latestBase=recipe;if(intakeWidget&&recipe){intakeWidget.hidden=false;intakeWidget.setBaseRecipe(recipe);}else{if(intakeWidget)intakeWidget.hidden=true;acceptRecipe(recipe);}},onError:()=>{}});
   if(latestBase&&soupIntakeFor(latestBase,data()))intakeWidget=mountSoupIntake({baseRecipe:latestBase,data:data(),onChange:acceptRecipe,onError:()=>{}});
   box.append(artwork,builder,...(intakeWidget?[intakeWidget]:[]),conditionNotice,arrange,form);

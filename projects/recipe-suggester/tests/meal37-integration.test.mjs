@@ -19,7 +19,7 @@ import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {DISH_CUSTOM_INGREDIENTS, DISH_CUSTOMISERS, defaultDishSelection, buildCustomDish, eligibleDishSelections} from '../dish-customisation.js';
 import {MENU_VARIATION_GROUPS, groupMenuRecipes, getVariationGroup} from '../menu-variations.js';
 import {recipePortion, recipeNature, isCompleteMeal} from '../catalog.js';
-import {browseDishes} from '../dish-hierarchy.js';
+import {browseDishes,dishSection} from '../dish-hierarchy.js';
 import {describeRecipe, eligibleRecipes} from '../planner.js';
 import {defaultJournal, parseJournal, JOURNAL_KEY} from '../journal.js';
 import {createCatalogEntry} from '../record-actions.js';
@@ -161,7 +161,20 @@ test('既存バリエーションを表示だけで集約し、検索・食事�
   assert.ok(pasta?.isGroup);
   assert.ok(pasta.recipes.some(recipe => recipe.id === 'daily-pasta-bolognese'));
   for (const group of full.filter(group => group.isGroup)) {
-    assert.equal(new Set(group.recipes.map(recipe => recipe.role)).size, 1, group.key);
+    const definition = MENU_VARIATION_GROUPS.find(candidate => candidate.id === group.groupId);
+    for (const recipe of group.recipes) {
+      const profile = definition.recipeProfiles?.[recipe.id];
+      assert.equal(recipe.role, profile?.role ?? definition.role, recipe.id);
+      assert.equal(recipeNature(recipe), profile?.nature ?? definition.nature, recipe.id);
+    }
+    const sections = new Set(group.recipes.map(dishSection));
+    for (const section of sections) {
+      const matching = browseDishes(group.recipes,{section});
+      const [visible] = groupMenuRecipes(matching);
+      assert.equal(visible.groupId, group.groupId);
+      assert.deepEqual(visible.recipes.map(recipe => recipe.id),
+        group.recipes.filter(recipe => dishSection(recipe) === section).map(recipe => recipe.id));
+    }
     if(group.groupId==='english-muffin'){
       const plain=group.recipes.filter(recipe=>recipe.id==='palette-english-muffin');
       assert.equal(plain.length,1);assert.equal(recipeNature(plain[0]),'ready-to-eat');assert.equal(plain[0].mealBase,false);
@@ -173,7 +186,7 @@ test('既存バリエーションを表示だけで集約し、検索・食事�
       ]));
       for(const recipe of assembled){assert.equal(recipeNature(recipe),'home-cooked');assert.equal(recipe.mealBase,true);}
       assert.equal(group.selectedRecipeId,'bread-english-muffin-ham-cheese');
-    }else assert.equal(new Set(group.recipes.map(recipe => recipeNature(recipe))).size, 1, group.key);
+    }
   }
   for(const nature of ['home-cooked','ready-to-eat']){
     const matching=browseDishes(RECIPES,{section:'staple',nature,query:'イングリッシュマフィン'});

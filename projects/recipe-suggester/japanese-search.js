@@ -321,12 +321,16 @@ export function matchesJapaneseQuery(fields, query) {
 }
 
 
-/** 名前にない語の数。同数なら、単語検索では括弧前の料理名が一致する単品を先にします。 */
+/** 名前にない語を数えます。単語検索では料理名の完全一致、前方一致、部分一致の順に選びます。 */
 export function japaneseQueryRank(primaryFields, query) {
   const terms = kana(query).split(' ').filter(Boolean);
   const missing = terms.reduce((missing,term) =>
     missing + Number(!matchesJapaneseQuery(primaryFields,term)),0);
-  if (!missing && terms.length === 1 && primaryFields.some(field =>
-    normaliseJapaneseSearch(field).split('(')[0].trim() === normaliseJapaneseSearch(terms[0]))) return -0.25;
+  if (!missing && terms.length === 1) {
+    const term = normaliseJapaneseSearch(terms[0]);
+    const names = primaryFields.map(field => normaliseJapaneseSearch(field).split('(')[0].trim());
+    if (names.includes(term)) return -0.25;
+    if (names.some(name => name.startsWith(term))) return -0.125;
+  }
   return missing;
 }

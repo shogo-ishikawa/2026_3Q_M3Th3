@@ -384,7 +384,9 @@ export function matchingFoodPreset(kind,selection) {
 }
 export function availableFoodPresets(kind,data,options={}) {
   const available=new Set(availableFoodComponents(kind,data,options).map(part=>part.id));
-  return (foodComposerDefinition(kind).presets??[]).filter(preset=>preset.components.every(([id])=>available.has(id)));
+  const allowed=options.allowedRecipeIds&&new Set(options.allowedRecipeIds);
+  return (foodComposerDefinition(kind).presets??[]).filter(preset=>
+    (!allowed||allowed.has(preset.recipeId))&&preset.components.every(([id])=>available.has(id)));
 }
 export function defaultFoodSelection(kind,{recipeId}={}) {
   const definition=foodComposerDefinition(kind), selected=typeof recipeId==='string'?definition.components.find(part=>part.recipeId===recipeId):null;

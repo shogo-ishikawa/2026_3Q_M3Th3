@@ -6,9 +6,9 @@ import {MENU_VARIATION_GROUPS, groupMenuRecipes, getVariationGroup} from '../men
 const standards = MENU_VARIATION_GROUPS.filter(group => !['drink','snack'].includes(group.role));
 const groupFor = (id, recipes=RECIPES, query='') => groupMenuRecipes(recipes,{query}).find(group => group.groupId===id);
 
-test('飲み物と間食を除いた61の選択式入口は、並び順に左右されない標準レシピを持つ',()=>{
+test('飲み物と間食を除いた選択式の入口は、並び順に左右されない標準レシピを持つ',()=>{
   const before=JSON.stringify(RECIPES);
-  assert.equal(standards.length,61);
+  assert.equal(standards.length, 92);
   for(const definition of standards){
     assert.ok(definition.recipeIds.includes(definition.defaultRecipeId),definition.id);
     assert.equal(groupFor(definition.id).selectedRecipeId,definition.defaultRecipeId,definition.id);

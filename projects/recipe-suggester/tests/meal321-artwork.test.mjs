@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {RECIPES,INGREDIENTS} from '../data.js';
-import {MENU_VARIATION_GROUPS} from '../menu-variations.js';
+import {MENU_VARIATION_GROUPS,getVariationGroup,groupMenuRecipes} from '../menu-variations.js';
 import {FOOD_COMPOSERS} from '../food-composer.js';
 import {DISH_CUSTOMISERS} from '../dish-customisation.js';
 import {MEAT_CHOICES} from '../meat-choices.js';
@@ -53,9 +53,20 @@ test('公開済みv3.20の全1013料理・456食材を全項目と順序まで�
   assert.equal(hash(previousRecipes),source.recipesHash);assert.equal(hash(previousIngredients),source.ingredientsHash);
 });
 
-test('選択式メニューの点検記録が全操作系統を覆い、全104標準料理とピザトーストに絵がある',()=>{
+test('v3.21で点検した全122入口の104標準料理とピザトーストの絵を保持する',()=>{
+  assert.equal(audit.release,'3.21.0');
+  const auditedGroups=audit.entries.filter(row=>row.kind==='menu-variation');
+  const baselineIds=new Set(auditedGroups.map(row=>row.group));
+  assert.equal(baselineIds.size,61);
+  // v3.33から「具だくさんの丼」の個別料理は「丼もの」の中で選びます。
+  const retained=MENU_VARIATION_GROUPS.filter(row=>visible(row)&&baselineIds.has(row.id));
+  const previousBowl=auditedGroups.find(row=>row.group==='rice-bowls');
+  const bowlGroup=getVariationGroup(previousBowl.defaultRecipeId,RECIPES);
+  assert.equal(bowlGroup.groupId,'donburi');
+  assert.equal(bowlGroup.selectedRecipeId,previousBowl.defaultRecipeId);
   const expected=[
-    ...MENU_VARIATION_GROUPS.filter(visible).map(row=>`menu-variation:${row.id}`),
+    ...retained.map(row=>`menu-variation:${row.id}`),
+    'menu-variation:rice-bowls',
     ...FOOD_COMPOSERS.filter(visible).map(row=>`food-composer:${row.kind}`),
     ...DISH_CUSTOMISERS.map(row=>`dish-customiser:${row.kind}`),
     ...MEAT_CHOICES.map(row=>`meat:${row.recipeId}`),
@@ -67,11 +78,22 @@ test('選択式メニューの点検記録が全操作系統を覆い、全104�
   assert.deepEqual(audit.entries.map(row=>`${row.kind}:${row.group}`).sort(),expected);
   const targets=new Set(audit.entries.map(row=>row.defaultRecipeId));
   assert.equal(targets.size,104);targets.add('bread-toast-pizza');
-  for(const definition of MENU_VARIATION_GROUPS.filter(visible)){
+  for(const definition of retained){
     const entry=audit.entries.find(row=>row.kind==='menu-variation'&&row.group===definition.id);
     assert.equal(entry.defaultRecipeId,definition.defaultRecipeId,definition.id);
   }
   for(const id of targets){const recipe=RECIPES.find(row=>row.id===id);assert.ok(recipe,id);assert.ok(recipeArtwork(recipe),id);}
+});
+
+test('イラスト限定のメニューには対応画像を持つ全種類だけが残り、各入口から正しい代表画像を解決する',()=>{
+  const illustrated=RECIPES.filter(recipe=>recipeArtwork(recipe));
+  const menus=groupMenuRecipes(illustrated);
+  const ids=menus.flatMap(menu=>menu.recipes.map(recipe=>recipe.id));
+  assert.deepEqual(ids.sort(),Object.keys(RECIPE_ARTWORK).sort());
+  for(const menu of menus){
+    assert.ok(menu.recipes.some(recipe=>recipe.id===menu.selectedRecipeId),menu.key);
+    assert.equal(recipeArtwork(menu.recipe)?.recipeId,menu.selectedRecipeId,menu.key);
+  }
 });
 
 test('旧版150品とv3.21でそろえた選択式メニューを含む全223品の画像を保持する',()=>{
