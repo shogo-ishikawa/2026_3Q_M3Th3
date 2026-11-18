@@ -382,12 +382,6 @@ dialog::backdrop { background: #1e2b24a8; backdrop-filter: blur(3px); }
 .ingredient-list > li { border-bottom: 1px solid var(--line); padding: 9px 3px; font-size: 0.75rem; line-height: 1.8; }
 .recipe-steps { padding-left: 24px; font-size: 0.8125rem; line-height: 1.9; }
 .recipe-steps li { padding: 0 0 10px 3px; }
-.planner-explanation { margin: 0 0 24px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
-.planner-explanation > summary { padding: 15px 18px; color: var(--teal); font-size: 0.8125rem; font-weight: 600; }
-.planner-explanation .details-content { padding: 0 18px 14px; font-size: 0.8125rem; line-height: 1.9; }
-.planner-explanation ol { padding-left: 23px; }
-.planner-explanation li { margin-bottom: 10px; }
-.planner-explanation h4 { margin: 18px 0 8px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @media (min-width: 1650px) {
   .app-layout { grid-template-columns: 228px minmax(0, 1fr); }
@@ -918,9 +912,6 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
 .nutrition-basis { padding:15px 0; border-block:1px solid #e1e6d7; margin-block:22px; }
 .nutrition-basis > summary { color:#527046; font-size:0.8125rem; }
 .nutrition-basis .ingredient-list li { font-size:0.75rem; line-height:1.9; }
-.planner-explanation { border-color:#dde3d2; border-radius:12px; background:#fbfcf7; }
-.planner-explanation > summary { padding:17px 20px; font-size:0.8125rem; color:#577249; }
-.planner-explanation .details-content { padding:0 20px 17px; font-size:0.8125rem; }
 
 @media (min-width:1650px) {
   .app-layout { grid-template-columns:238px minmax(0,1fr); }
@@ -1317,13 +1308,7 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
   html[data-text-size]:not([data-text-size="standard"]) .nutrition-controls { flex-wrap: wrap; }
 }
 
-.meal-shortcuts { display:flex; flex-wrap:wrap; gap:.6rem; margin:.75rem 0 1.25rem; }
-.meal-shortcuts button, .evening-filter { min-height:44px; }
 .start-page-choice { display:grid; gap:.4rem; max-width:22rem; margin-bottom:1.2rem; }
-@media (max-width:600px) {
-  .meal-shortcuts { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(12rem,100%),1fr)); }
-  .meal-shortcuts button { width:100%; white-space:normal; }
-}
 
 .recipe-sources { margin:.5rem 0; }
 .recipe-sources .source-note { overflow-wrap:anywhere; }
