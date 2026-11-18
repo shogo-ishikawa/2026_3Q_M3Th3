@@ -3,7 +3,7 @@ import {ALLERGENS, INGREDIENTS, RECIPES} from './data.js';
 import {generateCalendarPlan, replaceRecipe, toggleDish, activeRecipeIds, describeRecipe, eligibleRecipes, updatePlanStaple, regeneratePlanMeal, addPlanDish, planMealPreference} from './planner.js';
 import {GENRES, rebalanceGenreRatios} from './storage.js';
 import {MAX_IMPORT_BYTES, readJournal, writeJournal, replaceJournal, readJournalBackup, markJournalExport, readJournalExportTime, defaultJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
-import {createJournalHistory} from './journal-history.js';
+import {createJournalHistory, manualEditAffected} from './journal-history.js';
 import {mountQuickRecord} from './quick-record-ui.js';
 import {createRecordSummary} from './record-summary-ui.js';
 import {renderCatalogFilters} from './catalog-filter-ui.js';
@@ -112,7 +112,7 @@ function commit(change,{invalidate=true,message='',render=true}={}){
   }
   const messages=[...new Set(warnings.map(warning=>warning.message))];
   if(messages.length&&!confirm(`${messages.join('\n')}\n\n追加のご飯や別皿として、このまま登録しますか？`)){tell('登録を取り消しました。');return false;}
-  const remembered=undoHistory.record(state,clean,message||'記録の変更');
+  const remembered=undoHistory.record(state,clean,message||'記録の変更',{invalidatePlan:invalidate});
   state=clean;undoReset=null; if(invalidate)plan=null; persist(); if(render)renderAll();else{renderPersistenceStatus();renderHistory();} if(message||storageWarning)tell(message);
   if(remembered)showUndoNotice();
   return true;
@@ -151,6 +151,7 @@ function reconcileMealSelections(next,recipes){
 }
 function performUndo(){
   if(recovery)throw Error('保存データを復旧してから操作してください。');
+  const invalidatePlan=undoHistory.invalidatesPlan;
   let choicesAdjusted=false;
   const previous=undoHistory.undo(state,{validate:next=>{
     const recipes=[...RECIPES,...next.customRecipes],s=next.settings;
@@ -159,7 +160,8 @@ function performUndo(){
     if(reconcileMealSelections(next,recipes))choicesAdjusted=true;
     return validateJournal(next,builtin);
   }});if(!previous)return;
-  state=previous;undoReset=null;plan=null;resetManual();persist();renderAll();
+  if(manualEditAffected(state,previous,editing))resetManual();
+  state=previous;undoReset=null;if(invalidatePlan||choicesAdjusted)plan=null;persist();renderAll();
   tell(`直前の記録変更を元に戻しました。${choicesAdjusted?'取り消しで選べなくなった主食・飲み物の指定も解除しました。':''}`);if(undoHistory.size)showUndoNotice();
 }
 function replaceSavedJournal(next,message){
