@@ -1,4 +1,4 @@
-import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
+import {pre331Recipes, pre331Ingredients, recipesAddedSince330, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_RECIPES,BREAKFAST_INGREDIENTS} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS,withoutPantryV325Ingredients} from './helpers/pantry-v325-additions.mjs';
@@ -44,7 +44,7 @@ test('v3.27の全1021料理と463食材の全項目と順序を保持する', ()
 });
 
 test('公開済みv3.20の全1013料理・456食材を全項目と順序まで保持する',()=>{
-  assert.equal(RECIPES.length,1013+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);assert.equal(Object.keys(INGREDIENTS).length,456+PANTRY_V325_INGREDIENT_IDS.length+Object.keys(BREAKFAST_INGREDIENTS).length + added331IngredientIds.size);
+  assert.equal(RECIPES.length,1013+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + recipesAddedSince330.length);assert.equal(Object.keys(INGREDIENTS).length,456+PANTRY_V325_INGREDIENT_IDS.length+Object.keys(BREAKFAST_INGREDIENTS).length + added331IngredientIds.size);
   const addedIds=new Set([...BREAKFAST_RECIPES,...EVENING_RECIPES].map(recipe=>recipe.id));
   const previousRecipes=pre331Recipes.filter(recipe=>!addedIds.has(recipe.id));
   const previousIngredients=withoutPantryV325Ingredients(Object.fromEntries(Object.entries(pre331Ingredients).filter(([id])=>!Object.hasOwn(BREAKFAST_INGREDIENTS,id))));

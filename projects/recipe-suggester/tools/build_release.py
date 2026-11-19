@@ -9,6 +9,8 @@ FILES = (
     "account.css", "account-boot.js", "account-identity.js", "app-start.js", "saved-plan.js",
     "cloud-journal-firestore.js", "cloud-journal.js", "menu-feedback.js",
     "personal-nutrition.js", "personal-profile-ui.js", "weekly-review.js",
+    "celebration-recipes.js", "household-preferences.js", "household-preferences-ui.js",
+    "planner-personalization.js", "seasonal-preference.js", "taste-feedback.js",
     "firebase/README.md", "firebase/firebase.json", "firebase/firestore.indexes.json",
     "firebase/firestore.rules", "firebase/check-location.mjs", "firebase/tests/firestore_rules.py",
     "firebase/tests/journal_transactions.mjs",

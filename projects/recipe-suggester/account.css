@@ -24,7 +24,8 @@ body[data-account-locked] > :not(#account-gate, #install-guide, #launch-screen, 
   display: flex; align-items: center; justify-content: flex-end; gap: .9rem;
   padding: .4rem clamp(1rem, 5vw, 4rem); color: var(--ink); font-size: .85rem;
 }
-#account-greeting { min-width: 0; overflow-wrap: anywhere; }
+#account-greeting, #account-birthday { min-width: 0; overflow-wrap: anywhere; }
+#account-birthday { color: var(--teal); font-weight: 700; }
 #account-admin { color: #a12224; border: 0; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
 #account-admin, #account-logout { flex: none; min-height: 44px; }
 #account-sync-panel { margin-bottom: 1rem; }

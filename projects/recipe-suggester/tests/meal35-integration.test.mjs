@@ -1,4 +1,4 @@
-import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
+import {pre331Recipes, pre331Ingredients, recipesAddedSince330, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -142,7 +142,7 @@ test('追加63品を実際の公開DBへ統合し、未確認の購入品だけ�
   const products=[...CONFECTIONERY_RECIPES,...DESSERT_RECIPES];
   const additions=[...products,...COMFORT_RECIPES];
   assert.equal(additions.length,63);
-  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
+  assert.equal(RECIPES.length,847+ACCOMPANIMENT_RECIPES.length+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + recipesAddedSince330.length);
   assert.equal(Object.keys(INGREDIENTS).length,363+Object.keys(ACCOMPANIMENT_INGREDIENTS).length+Object.keys(SALAD_INGREDIENTS).length+Object.keys(DISH_CUSTOM_INGREDIENTS).length+Object.keys(PALETTE_INGREDIENTS).length+Object.keys(MEAT_CHOICE_INGREDIENTS).length+Object.keys(MAPO_INGREDIENTS).length+Object.keys(WORLD_INGREDIENTS).length+Object.keys(SEAFOOD_INGREDIENTS).length+Object.keys(NOODLE_INGREDIENTS).length+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);

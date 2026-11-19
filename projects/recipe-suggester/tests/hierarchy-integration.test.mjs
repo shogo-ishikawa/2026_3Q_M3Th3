@@ -1,5 +1,5 @@
 import {applyStrainedStock} from '../strained-stock.js';
-import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
+import {pre331Recipes, pre331Ingredients, recipesAddedSince330, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -81,7 +81,7 @@ test('既存580品は手順と表示文言・間食分類の整理と3品の副�
   assert.match(byId.get('classic-sushi-assorted').portion.label, /8貫/);
   assert.equal(byId.get('classic-sushi-assorted').ingredients.find(part => part.id === 'rice').amount, 360);
   for (const id of ['drink-milk-cocoa', 'drink-soy-cocoa', 'drink-yogurt']) assert.equal(byId.get(id).family, 'other-drink', id);
-  assert.equal(RECIPES.length, 580 + additions.length + added331Recipes.length);
+  assert.equal(RECIPES.length, 580 + additions.length + recipesAddedSince330.length);
   assert.equal(incoming.length, 87);
   assert.equal(Object.keys(INGREDIENTS).length, 235 + addedIngredientIds.size + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(recipe => recipe.id)).size, RECIPES.length);

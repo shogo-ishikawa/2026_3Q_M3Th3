@@ -5,6 +5,35 @@ export const PERSONAL_LIMITS = Object.freeze({
   minAge: 18, maxAge: 79, minHeightCm: 100, maxHeightCm: 240, minWeightKg: 30, maxWeightKg: 250,
 });
 
+const JAPAN_OFFSET_MS = 9 * 60 * 60 * 1000;
+export const MIN_BIRTH_DATE = '1900-01-01';
+
+export function jstDateKey(now = new Date()) {
+  return new Date(now.getTime() + JAPAN_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function validDay(day) {
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const date = new Date(day + 'T00:00:00Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === day;
+}
+
+// このアプリでは、2月29日生まれの平年の誕生日を3月1日とします。
+function birthdayInYear(birthDate, year) {
+  const day = year + birthDate.slice(4);
+  return day.endsWith('-02-29') && !validDay(day) ? year + '-03-01' : day;
+}
+
+export function ageOnDate(birthDate, today = jstDateKey()) {
+  if (!validDay(birthDate) || !validDay(today) || birthDate < MIN_BIRTH_DATE || birthDate > today) return null;
+  const year = today.slice(0, 4);
+  return Number(year) - Number(birthDate.slice(0, 4)) - Number(today < birthdayInYear(birthDate, year));
+}
+
+export function isBirthdayOnDate(birthDate, day = jstDateKey()) {
+  return ageOnDate(birthDate, day) !== null && birthdayInYear(birthDate, day.slice(0, 4)) === day;
+}
+
 const ADULT_ACTIVITY = {low: 1.50, moderate: 1.75, high: 2.00};
 const OLDER_ACTIVITY = {low: 1.50, moderate: 1.70, high: 1.90};
 const OLDEST_ACTIVITY = {low: 1.40, moderate: 1.70};
@@ -21,14 +50,19 @@ function ageBandFor(age) {
   return '75-plus';
 }
 
+export function validPersonalMeasurements(profile) {
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return false;
+  const {heightCm, weightKg, sex, activity} = profile;
+  return within(heightCm, PERSONAL_LIMITS.minHeightCm, PERSONAL_LIMITS.maxHeightCm) &&
+    within(weightKg, PERSONAL_LIMITS.minWeightKg, PERSONAL_LIMITS.maxWeightKg) &&
+    ['female', 'male'].includes(sex) && ['low', 'moderate', 'high'].includes(activity);
+}
+
 /** 健康な一般成人向け。入力がそろわないときや適用できない組み合わせにはnullを返します。 */
 export function derivePersonalNutrition(profile) {
-  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return null;
+  if (!validPersonalMeasurements(profile)) return null;
   const {age, heightCm, weightKg, sex, activity} = profile;
-  const limits = PERSONAL_LIMITS;
-  if (!Number.isInteger(age) || !within(age, limits.minAge, limits.maxAge) ||
-      !within(heightCm, limits.minHeightCm, limits.maxHeightCm) ||
-      !within(weightKg, limits.minWeightKg, limits.maxWeightKg)) return null;
+  if (!Number.isInteger(age) || !within(age, PERSONAL_LIMITS.minAge, PERSONAL_LIMITS.maxAge)) return null;
 
   const ageBand = ageBandFor(age);
   const reference = deriveReference({ageBand, sex, activity});

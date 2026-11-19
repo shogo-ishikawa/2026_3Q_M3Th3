@@ -45,5 +45,19 @@ service cloud.firestore {
         && request.resource.data.interest in
           ['regional', 'seafood', 'vegetables', 'breakfast', 'noodles', 'world'];
     }
+
+    // 利用者が確認して共有したジャンルだけを保存。お気に入りや食事の明細は含まない。
+    match /mealPaletteTasteReports/{uid} {
+      function permittedGenre(value) {
+        return value in ['和食', '洋食', '中華', 'エスニック', 'その他', '未共有'];
+      }
+      allow get, delete: if owns(uid);
+      allow list: if isAdmin();
+      allow create, update: if owns(uid)
+        && request.resource.data.keys().hasOnly(['favoriteGenre', 'planGenre'])
+        && permittedGenre(request.resource.data.favoriteGenre)
+        && permittedGenre(request.resource.data.planGenre)
+        && (request.resource.data.favoriteGenre != '未共有' || request.resource.data.planGenre != '未共有');
+    }
   }
 }

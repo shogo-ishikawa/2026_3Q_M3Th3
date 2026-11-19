@@ -1,4 +1,4 @@
-import {pre331Recipes, pre331Ingredients, added331Recipes} from './helpers/meal331-contract.mjs';
+import {pre331Recipes, pre331Ingredients, recipesAddedSince330} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -58,7 +58,7 @@ test('旧711品・268食材は手順と表示文言・間食分類の整理と3�
   const stableIngredients = Object.fromEntries(Object.entries(ingredients).map(([id,{name,note,...ingredient}])=>[id,ingredient]));
   assert.equal(hash(stable), '973426e8109f970adae4389b09d12190c0f10f4f1d7a4d60b2f6a66a8ee4a298');
   assert.equal(hash(stableIngredients), '1f37222ab10c64c9d9c678656a83cb0c18cee691f8d8d200815bd468c7df777c');
-  assert.equal(RECIPES.length, 711 + additions.length + added331Recipes.length);
+  assert.equal(RECIPES.length, 711 + additions.length + recipesAddedSince330.length);
 });
 
 test('公開DBは購入品の架空の作り方を除き、家庭料理を必要な工程数で読み込める', () => {

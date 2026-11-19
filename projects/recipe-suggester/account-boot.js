@@ -26,6 +26,8 @@ function lock() {
   gate.hidden = false;
   for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
   byId('account-greeting').textContent = '';
+  byId('account-birthday').textContent = '';
+  byId('account-birthday').hidden = true;
   byId('account-admin').hidden = true;
 }
 
@@ -190,7 +192,7 @@ async function start() {
         wireJournal();
       }
       byId('account-sync-panel').hidden = demo;
-      const session = {user, uid: user.uid, isAdmin: identity.isAdmin, storage: journal?.storage, db, firestore: sdk, journal, auth};
+      const session = {user, uid: user.uid, name: identity.name, isAdmin: identity.isAdmin, storage: journal?.storage, db, firestore: sdk, journal, auth};
       // app.js のDOMリスナーが二つのアカウントにまたがらないよう切り替え時は再起動する。
       mountedUid = user.uid;
       appLoaded = true;

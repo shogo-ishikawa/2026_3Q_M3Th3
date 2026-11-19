@@ -1,14 +1,15 @@
-// 既存の固定ハッシュは公開当時のDBを対象とする。v3.31で追加したものを分離し、
+// 既存の固定ハッシュは公開当時のDBを対象とする。v3.31以降に追加した料理を分離し、
 // 確認済みの変更点だけを当時の表現へ戻して、それ以外のすべての項目を比較する。
 import assert from 'node:assert/strict';
 import {RECIPES, INGREDIENTS} from '../../data.js';
+import {CELEBRATION_RECIPES} from '../../celebration-recipes.js';
 import {FRUIT_RECIPES, FRUIT_INGREDIENTS} from '../../fruit-varieties.js';
 import {CONVENIENCE_RECIPES, CONVENIENCE_INGREDIENTS} from '../../convenience-staples.js';
 import {KYOTO_RECIPES, KYOTO_INGREDIENTS} from '../../kyoto-foods.js';
 import {STRAINED_STOCK_INGREDIENTS, STRAINED_STOCK_RECIPES} from '../../strained-stock.js';
 
-export const added331Recipes = [...FRUIT_RECIPES, ...CONVENIENCE_RECIPES, ...KYOTO_RECIPES];
-const addedRecipeIds = new Set(added331Recipes.map(recipe => recipe.id));
+export const recipesAddedSince330 = [...FRUIT_RECIPES, ...CONVENIENCE_RECIPES, ...KYOTO_RECIPES, ...CELEBRATION_RECIPES];
+const addedRecipeIds = new Set(recipesAddedSince330.map(recipe => recipe.id));
 export const added331IngredientIds = new Set(Object.keys({
   ...FRUIT_INGREDIENTS, ...CONVENIENCE_INGREDIENTS, ...KYOTO_INGREDIENTS, ...STRAINED_STOCK_INGREDIENTS,
 }));

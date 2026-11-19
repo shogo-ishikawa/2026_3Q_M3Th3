@@ -1,4 +1,4 @@
-import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
+import {pre331Recipes, pre331Ingredients, recipesAddedSince330, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -20,7 +20,7 @@ test('公開済みv3.19の984料理・452食材の全項目と順序を保持す
   assert.equal(hash(old),fixture.recipeHash);
   const foods=Object.fromEntries(fixture.ingredientIds.map(id=>[id,pre331Ingredients[id]]));
   assert.equal(hash(foods),fixture.ingredientHash);
-  assert.equal(RECIPES.length,984+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
+  assert.equal(RECIPES.length,984+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + recipesAddedSince330.length);
   assert.equal(Object.keys(INGREDIENTS).length,452+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(recipe=>recipe.name)).size,RECIPES.length);

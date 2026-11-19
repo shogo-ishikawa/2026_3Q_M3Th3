@@ -1,4 +1,4 @@
-{"version":2,"reviewed":"2026-11-18","scope":"収録メニューの食事区分。晩酌の酒類は記録専用。","recipes":[
+{"version":2,"reviewed":"2026-11-19","scope":"収録メニューの食事区分。晩酌の酒類は記録専用。","recipes":[
 {"recipeId":"chicken-teriyaki","name":"鶏の照り焼き","family":"meat-main","occasions":["昼食","夕食","晩酌"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
 {"recipeId":"chicken-tomato","name":"鶏肉と野菜のトマト煮","family":"meat-main","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
 {"recipeId":"chicken-steam","name":"鶏むね肉と白菜の蒸し煮","family":"meat-main","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
@@ -1100,5 +1100,17 @@
 {"recipeId":"convenience-famichiki","name":"ファミチキ（ファミリーマート）","family":"meat-main","occasions":["昼食","夕食","間食","晩酌"],"meals":["lunch","dinner","snack"],"breakfastRole":null,"category":"main"},
 {"recipeId":"convenience-pork-bun","name":"じゅわっとジューシー本格肉まん（ファミリーマート）","family":"hot-snack","occasions":["昼食","間食"],"meals":["lunch","snack"],"breakfastRole":null,"category":"snack"},
 {"recipeId":"convenience-pizza-bun","name":"のびーるチーズのコク旨ピザまん（ファミリーマート）","family":"hot-snack","occasions":["昼食","間食"],"meals":["lunch","snack"],"breakfastRole":null,"category":"snack"},
-{"recipeId":"convenience-corn-dog","name":"アメリカンドッグ（ファミリーマート）","family":"hot-snack","occasions":["間食"],"meals":["snack"],"breakfastRole":null,"category":"snack"}
+{"recipeId":"convenience-corn-dog","name":"アメリカンドッグ（ファミリーマート）","family":"hot-snack","occasions":["間食"],"meals":["snack"],"breakfastRole":null,"category":"snack"},
+{"recipeId":"celebration-birthday-beef-rolls","name":"牛肉の彩り野菜ロール","family":"meat-main","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
+{"recipeId":"celebration-birthday-scallop-coquille","name":"ほたてとマッシュルームのコキール","family":"fish-main","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
+{"recipeId":"celebration-birthday-pear-walnut-salad","name":"洋梨と紫キャベツのくるみサラダ","family":"side","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"side"},
+{"recipeId":"celebration-birthday-carrot-orange-potage","name":"にんじんとオレンジのポタージュ","family":"potage","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"soup"},
+{"recipeId":"celebration-christmas-lemon-chicken","name":"鶏もも肉とじゃがいものレモンロースト","family":"meat-main","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
+{"recipeId":"celebration-christmas-herb-cod","name":"たらの緑のパン粉焼き","family":"grilled-fish","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
+{"recipeId":"celebration-christmas-wreath-salad","name":"ブロッコリーと赤パプリカのリースサラダ","family":"side","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"side"},
+{"recipeId":"celebration-christmas-beet-bean-soup","name":"ビーツと白いんげんの赤いスープ","family":"vegetable-soup","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"soup"},
+{"recipeId":"celebration-new-year-matsukaze","name":"鶏の松風焼き","family":"meat-main","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
+{"recipeId":"celebration-new-year-shrimp-lotus","name":"えびとれんこんの祝い煮","family":"fish-main","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"main"},
+{"recipeId":"celebration-new-year-apple-kinton","name":"りんごとさつまいもの茶巾きんとん","family":"small-dish","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"side"},
+{"recipeId":"celebration-new-year-seabream-soup","name":"焼き鯛と青菜のすまし椀","family":"clear-soup","occasions":["昼食","夕食"],"meals":["lunch","dinner"],"breakfastRole":null,"category":"soup"}
 ]}

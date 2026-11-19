@@ -1,4 +1,4 @@
-import {pre331Recipes, pre331Ingredients, added331Recipes, added331IngredientIds} from './helpers/meal331-contract.mjs';
+import {pre331Recipes, pre331Ingredients, recipesAddedSince330, added331IngredientIds} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -39,7 +39,7 @@ test('v3.10の917料理・429食材の全項目を固定ハッシュで保持す
 });
 
 test('新モジュールの料理・食材を実際の公開DBへ一度だけ取り込む',()=>{
-  assert.equal(RECIPES.length,917+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
+  assert.equal(RECIPES.length,917+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + recipesAddedSince330.length);
   assert.equal(Object.keys(INGREDIENTS).length,429+Object.keys(ADDED_311_INGREDIENTS).length+Object.keys(BREAD_INGREDIENTS).length+Object.keys(BREAKFAST_INGREDIENTS).length+PANTRY_V325_INGREDIENT_IDS.length + added331IngredientIds.size);
   assert.equal(new Set(RECIPES.map(r=>r.id)).size,RECIPES.length);
   assert.equal(new Set(RECIPES.map(r=>r.name)).size,RECIPES.length);

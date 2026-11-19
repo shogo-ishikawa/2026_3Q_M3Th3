@@ -1,4 +1,4 @@
-import {pre331Recipes, pre331Ingredients, added331Recipes} from './helpers/meal331-contract.mjs';
+import {pre331Recipes, pre331Ingredients, recipesAddedSince330} from './helpers/meal331-contract.mjs';
 import {EVENING_RECIPES} from './helpers/evening-additions.mjs';
 import {BREAKFAST_INGREDIENTS,BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS} from './helpers/pantry-v325-additions.mjs';
@@ -87,7 +87,7 @@ test('以前に主菜として記録した納豆とゆで卵は、分類を更�
 
 test('ご飯のお供8品を単品の副菜として記録し、生卵と牛丼のご飯を二重計上しない', () => {
   assert.equal(ACCOMPANIMENT_RECIPES.length, 8);
-  assert.equal(RECIPES.length, 855+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + added331Recipes.length);
+  assert.equal(RECIPES.length, 855+PALETTE_RECIPES.length+MAPO_RECIPES.length+WORLD_RECIPES.length+SEAFOOD_RECIPES.length+NOODLE_RECIPES.length+ADDED_311_RECIPES.length+BREAD_RECIPES.length+BREAKFAST_RECIPES.length+EVENING_RECIPES.length + recipesAddedSince330.length);
   for (const source of ACCOMPANIMENT_RECIPES) {
     const recipe = RECIPES.find(candidate => candidate.id === source.id);
     assert.ok(recipe, source.id);

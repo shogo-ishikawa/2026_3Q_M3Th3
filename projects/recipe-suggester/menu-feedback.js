@@ -1,3 +1,4 @@
+import {mountTasteFeedback} from './taste-feedback.js';
 import {RECIPES} from './data.js';
 import {normaliseJapaneseSearch} from './japanese-search.js';
 
@@ -163,12 +164,15 @@ function mountProposals(container, db, firestore) {
   });
 }
 
-export function setupMenuFeedback({db, firestore, user, isAdmin}) {
+export function setupMenuFeedback(session) {
+  const {db, firestore, user, isAdmin} = session;
   const vote = document.getElementById('menu-feedback');
   const admin = document.getElementById('admin-menu-proposals');
   mountVote(vote, db, firestore, user.uid);
   if (isAdmin) mountProposals(admin, db, firestore);
+  const unmountTaste = mountTasteFeedback(session);
   return () => {
+    unmountTaste();
     vote.replaceChildren();
     admin.replaceChildren();
   };
