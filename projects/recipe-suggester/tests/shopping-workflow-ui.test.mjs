@@ -32,6 +32,22 @@ const menus = () => [
 const prepared = () => menus().map(menu => ({id: menu.id, item: structuredClone(menu.item), servings: menu.servings, ingredientIds: menu.item.ingredients.map(part => part.id)}));
 const receipt = (selections = prepared(), ingredientId = 'carrot', options = {}) => createShoppingReceipt(selections, ingredientId, data, {now, id: `receipt-${ingredientId}`, ...options});
 
+test('一品専用は料理内の選択欄だけで材料を選べ、他の料理の選択を保持する', () => withDocument(() => {
+  const source = menus(), selection = {b:['water']}, saved = [];
+  const root = mountShoppingWorkflow({view:'review', menus:[source[0]], catalog:source, data,
+    selection, showPerMenuAdd:false, onPrepare:items=>saved.push(items)});
+  assert.equal(byClass(root, 'shopping-menu-card').length, 1);
+  assert.equal(byClass(root, 'shopping-selection-actions').length, 0);
+  assert.equal(byClass(root, 'shopping-selection-status').length, 0);
+  const toggle = labelled(root, '肉じゃがの残りの材料をまとめて選ぶ');
+  toggle.checked = false; toggle.emit('change');
+  const add = one(root, 'shopping-prepare'); assert.equal(add.disabled, true);
+  const salt = labelled(root, '肉じゃがの塩を買う'); salt.checked = true; salt.emit('change');
+  assert.equal(add.disabled, false); add.emit('click');
+  assert.deepEqual(saved[0].map(menu => [menu.id, menu.ingredientIds]), [['a',['salt']]]);
+  assert.deepEqual(selection, {b:['water']});
+}));
+
 test('献立画面は材料の選択とインポートだけを表示し、チェックリストを混ぜない', () => withDocument(() => {
   const source = menus(), before = structuredClone(source), changed = [], saved = [];
   const root = mountShoppingWorkflow({view: 'review', menus: source, data, omittedIds: ['water', 'salt'], onSelectionChange: value => changed.push(value), onPrepare: value => saved.push(value)});
@@ -257,4 +273,97 @@ test('actual purchased weight starts at the original packaged amount, supports e
     now,data,onStockReceipt:()=>{}}),'shopping-stock-input');
   assert.equal(Number(old.value),purchased.amount);
   assert.match(old.getAttribute('aria-label'),/手持ちに入れる量/);
+}));
+
+test('料理カードからはその料理で選んだ材料だけを追加し、他の選択と一括追加を保つ', () => withDocument(() => {
+  const candidates = menus();
+  Object.assign(candidates[0], {date:'2026-11-15', meal:'dinner', origin:'plan'});
+  Object.assign(candidates[1], {origin:'menu'});
+  candidates.push({...candidates[0], id:'calendar-copy', label:'2026-11-17 朝食', date:'2026-11-17', meal:'breakfast', origin:'calendar'});
+  const saved = [];
+  const root = mountShoppingWorkflow({view:'review', menus:candidates, data, selection:{a:['salt'], b:['carrot']},
+    onPrepare: selections => saved.push(selections)});
+  const [draft, extra, calendar] = byClass(root, 'shopping-prepare-menu');
+  assert.match(draft.getAttribute('aria-label'), /2026-11-15 夕食.*肉じゃが/);
+  assert.match(calendar.getAttribute('aria-label'), /2026-11-17 朝食.*肉じゃが/);
+  draft.emit('click'); extra.emit('click'); calendar.emit('click');
+  assert.deepEqual(saved.map(items => items.map(menu => [menu.id,menu.origin,menu.date,menu.meal,menu.ingredientIds])),
+    [[['a','plan','2026-11-15','dinner',['salt']]], [['b','menu',undefined,undefined,['carrot']]],
+     [['calendar-copy','calendar','2026-11-17','breakfast',['carrot','salt']]]]);
+  assert.equal('extra' in saved[1][0], false);
+  saved[0][0].item.ingredients.pop();
+  assert.equal(candidates[0].item.ingredients.length, 2);
+  const salt = labelled(root,'肉じゃがの塩を買う');
+  salt.checked = false; salt.emit('change');
+  assert.equal(draft.disabled, true); assert.equal(extra.disabled, false);
+  draft.emit('click');
+  assert.equal(saved.length,3);
+  one(root,'shopping-prepare').emit('click');
+  assert.deepEqual(saved[3].map(menu => [menu.id,menu.ingredientIds]), [['b',['carrot']],['calendar-copy',['carrot','salt']]]);
+  one(root,'shopping-select-none').emit('click');
+  assert.equal(extra.disabled,true); assert.equal(calendar.disabled,true);
+  one(root,'shopping-select-all').emit('click');
+  assert.equal(draft.disabled,false);
+  const dialog = mountShoppingWorkflow({view:'review', menus:[candidates[0]], data, showPerMenuAdd:false});
+  assert.equal(byClass(dialog,'shopping-prepare-menu').length,0);
+  assert.equal(byClass(dialog,'shopping-prepare').length,1);
+}));
+
+test('購入済みや調理済みの料理カードは追加ボタンを表示しない', () => withDocument(() => {
+  const candidates = menus();
+  candidates[1].item.batchId = 'batch';
+  const bought = receipt([prepared()[0]],'carrot');
+  const root = mountShoppingWorkflow({view:'review', menus:candidates, data, receipts:[bought], omittedIds:['salt','water']});
+  assert.equal(byClass(root,'shopping-prepare-menu').length,0);
+  assert.equal(one(root,'shopping-prepare').disabled,true);
+}));
+
+test('週では不足しても一品分の手持ちが足りるときは、期間のボタンだけで追加できる', () => withDocument(() => {
+  const catalog = menus(), soup = catalog[1], requests = [];
+  const root = mountShoppingWorkflow({
+    view:'review', data, menus:[soup], catalog, singleCatalog:[], pantry:[{id:'carrot',amount:100}],
+    omittedIds:['water','salt'], onPrepare:(items, options) => requests.push({items, options}),
+  });
+  const addOne = byClass(root, 'shopping-prepare-menu')[0];
+  if (addOne) {
+    assert.equal(addOne.disabled, true);
+    addOne.emit('click');
+  }
+  assert.equal(requests.length, 0);
+  assert.equal(labelled(root,'野菜スープのにんじんを買う').checked, true);
+  const bulk = one(root, 'shopping-prepare');
+  assert.equal(bulk.disabled, false);
+  bulk.emit('click');
+  assert.deepEqual(requests[0].items.map(item => [item.id,item.ingredientIds]), [['b',['carrot']]]);
+  assert.notEqual(requests[0].options?.single, true);
+}));
+
+test('個別追加はこの料理で不足する選択だけを送信し、期間用の選択と他の候補を保持する', () => withDocument(() => {
+  const catalog = menus(), requests = [], changes = [];
+  const root = mountShoppingWorkflow({
+    view:'review', data, menus:catalog, catalog, singleCatalog:[], pantry:[{id:'carrot',amount:100}],
+    selection:{a:['salt']}, onSelectionChange:selection => changes.push(selection),
+    onPrepare:(items, options) => requests.push({items, options}),
+  });
+  const soup = byClass(root,'shopping-menu-card').find(card => card.dataset.menuId === 'b');
+  const addOne = one(soup,'shopping-prepare-menu'), bulk = one(root,'shopping-prepare');
+  const water = labelled(soup,'野菜スープの水を買う');
+  assert.equal(water.checked, true);
+  assert.equal(labelled(soup,'野菜スープのにんじんを買う').checked, true);
+  addOne.emit('click');
+  assert.equal(requests[0].options?.single, true);
+  assert.deepEqual(requests[0].items.map(item => [item.id,item.ingredientIds]), [['b',['water']]]);
+  bulk.emit('click');
+  assert.deepEqual(requests[1].items.map(item => [item.id,item.ingredientIds]), [['a',['salt']],['b',['carrot','water']]]);
+  assert.notEqual(requests[1].options?.single, true);
+  water.checked = false;
+  water.emit('change');
+  assert.equal(addOne.disabled, true);
+  assert.equal(bulk.disabled, false);
+  addOne.emit('click');
+  assert.equal(requests.length, 2);
+  assert.deepEqual(changes.at(-1), {a:['salt'],b:['carrot']});
+  one(root,'shopping-select-none').emit('click');
+  assert.equal(addOne.disabled, true);
+  assert.equal(bulk.disabled, true);
 }));

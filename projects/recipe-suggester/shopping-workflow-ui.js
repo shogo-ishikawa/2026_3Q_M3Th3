@@ -32,7 +32,9 @@ function grouped(items, data) {
 
 function mergeCatalog(...collections) {
   const menus = new Map();
-  for (const collection of collections) for (const menu of collection ?? []) if (!menus.has(menu.id)) menus.set(menu.id, fullSelection(menu));
+  for (const collection of collections) for (const menu of collection ?? []) if (!menus.has(menu.id)) {
+    menus.set(menu.id, menu.stockScope === 'selected' ? menu : fullSelection(menu));
+  }
   return [...menus.values()];
 }
 
@@ -79,8 +81,8 @@ export async function copyShoppingChecklist(field, fallback) {
 }
 
 /** 選択は献立IDごとの食材ID。[]は明示的な全解除です。 */
-export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog = menus, data, pantry = [], omittedIds = [], prepared = null,
-  receipts = [], purchaseSettings = [], selection = {}, now,
+export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog = menus, data, pantry = [], omittedIds = [], prepared = null, singleCatalog,
+  receipts = [], purchaseSettings = [], selection = {}, now, showPerMenuAdd = true,
   onSelectionChange = () => {}, onPrepare = () => {}, onPurchase = () => {}, onUndoPurchase = () => {}, onStockReceipt, canStockReceipt = () => true,
   onPurchaseSettings = () => {}, onRemoveIngredient, onRemoveExtra, onOpenMenu, onError = () => {}} = {}) {
   if (!['review', 'checklist', 'purchased'].includes(view)) throw Error('買い物の表示先を確認してください。');
@@ -93,6 +95,11 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
   };
   root.append(error);
   const allMenus = mergeCatalog(catalog, menus, prepared);
+  if (view === 'review' && !showPerMenuAdd && menus.length === 1) {
+    // 以前は一部だけ追加した料理も、詳細の購入状況は今選び直せる全材料で示す。
+    const index = allMenus.findIndex(menu => menu.id === menus[0].id);
+    allMenus[index] = fullSelection(menus[0]);
+  }
   const ledgerOptions = {pantry, omittedIds, receipts, catalog: allMenus};
 
   function showWarnings(result, container) {
@@ -112,15 +119,30 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
     }
     const canBuy = menu => !menu.item.batchId && !menu.item.restaurant && !menu.item.diningMatch && (menu.item.ingredientsKnown === true || menu.item.shoppingKnown === true);
     const materialIds = menu => canBuy(menu) ? unique((menu.item.ingredients ?? []).filter(part => data.ingredients[part.id] && !omitted.has(stockPurchaseId(part.id)) && (pendingByMenu.get(menu.id)?.get(stockPurchaseId(part.id))?.buy ?? 0) > 0).map(part => part.id)) : [];
-    const available = new Map(menus.map(menu => [menu.id, materialIds(menu)]));
+    const weekly = new Map(menus.map(menu => [menu.id, materialIds(menu)]));
+    // 単品追加に未選択の別料理の予約を持ち込まない。購入済みと確定した在庫は共用する。
+    const singleSources = new Map(), individual = new Map(), available = new Map();
+    for (const menu of menus) {
+      const additional = pendingShopping([fullSelection(menu)], data,
+        {pantry, omittedIds, receipts, catalog:singleCatalog ?? prepared ?? []});
+      const byId = new Map(additional.items.map(row => [row.id, row.sources[0]]));
+      singleSources.set(menu.id, byId);
+      const ids = canBuy(menu) ? unique(menu.item.ingredients.filter(part =>
+        (byId.get(stockPurchaseId(part.id))?.buy ?? 0) > 0).map(part => part.id)) : [];
+      individual.set(menu.id, ids);
+      available.set(menu.id, showPerMenuAdd ? unique([...weekly.get(menu.id), ...ids]) : ids);
+    }
     const selectedFor = menu => new Set(Object.hasOwn(chosen, menu.id) ? chosen[menu.id] : available.get(menu.id));
-    const selectedIds = menu => available.get(menu.id).filter(id => selectedFor(menu).has(id));
+    const selectedIds = (menu, choices = available) => choices.get(menu.id).filter(id => selectedFor(menu).has(id));
     const publish = () => onSelectionChange(clone(chosen));
-    const candidateSelections = () => menus.map(({extra, ...menu}) => ({...menu, item: clone(menu.item),
-      ingredientIds: selectedIds(menu)})).filter(menu => menu.ingredientIds.length);
+    function prepareMenus(candidates, single) {
+      const selections = candidates.map(({extra, ...menu}) => ({...menu, item: clone(menu.item),
+        ingredientIds: selectedIds(menu, single ? individual : weekly)})).filter(menu => menu.ingredientIds.length);
+      if (selections.length) onPrepare(selections, {single});
+    }
     const refreshChecks = [];
     function updateStatus() {
-      const count = menus.filter(menu => selectedIds(menu).length).length;
+      const count = menus.filter(menu => selectedIds(menu, showPerMenuAdd ? weekly : individual).length).length;
       status.textContent = `${count}品の材料を選択中`;
       prepare.disabled = !count;
     }
@@ -132,8 +154,9 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
     }
     toolbar.append(control('すべて選ぶ', 'button-secondary shopping-select-all', () => changeAll(true)),
       control('選択を外す', 'button-secondary shopping-select-none', () => changeAll(false)));
-    const prepare = control('選んだ食材を買い物リストに追加', 'button-primary shopping-prepare', () => onPrepare(candidateSelections()));
-    review.append(toolbar, status, cards, prepare); root.append(review);
+    const prepare = control('選んだ食材を買い物リストに追加', 'button-primary shopping-prepare', () => prepareMenus(menus, !showPerMenuAdd));
+    if (showPerMenuAdd || menus.length !== 1) review.append(toolbar, status);
+    review.append(cards, prepare); root.append(review);
     function renderCards() {
       cards.replaceChildren();
       if (!menus.length) { cards.append(make('p', 'shopping-empty', 'この期間の献立はありません。')); return; }
@@ -149,7 +172,14 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
         if (actions.children.length) card.append(actions);
         if (menu.item.batchId || menu.item.restaurant || menu.item.diningMatch) { card.append(make('p', 'shopping-menu-note', menu.item.batchId ? '作り置き済み' : '外食のため買い物なし')); cards.append(card); continue; }
         const ids = available.get(menu.id), selected = selectedFor(menu), inputs = new Map(), menuToggle = make('label', 'shopping-menu-toggle'), menuCheck = make('input'); menuCheck.type = 'checkbox';
-        const updateMenuCheck = () => { menuCheck.checked = ids.length > 0 && ids.every(id => selectedFor(menu).has(id)); menuCheck.indeterminate = ids.some(id => selectedFor(menu).has(id)) && !menuCheck.checked; };
+        const addOne = showPerMenuAdd && ids.length
+          ? control('この料理の食材だけを追加', 'button-secondary shopping-prepare-menu', () => prepareMenus([menu], true)) : null;
+        const updateMenuCheck = () => {
+          const selectedCount = selectedIds(menu).length;
+          menuCheck.checked = ids.length > 0 && selectedCount === ids.length;
+          menuCheck.indeterminate = selectedCount > 0 && !menuCheck.checked;
+          if (addOne) addOne.disabled = !selectedIds(menu, individual).length;
+        };
         const refresh = () => {
           const selection = selectedFor(menu);
           for (const [id, input] of inputs) input.checked = !input.disabled && selection.has(id);
@@ -165,7 +195,10 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
           const details = make('details', 'shopping-menu-ingredients'); details.append(make('summary', '', `食材 ${parts.size}種類`));
           const ingredients = make('div', 'shopping-menu-materials');
           for (const [id, required] of parts) {
-            const ingredient = data.ingredients[id], source = pendingByMenu.get(menu.id)?.get(stockPurchaseId(id)), label = make('label', 'shopping-material-choice'), input = make('input'); input.type = 'checkbox';
+            const ingredient = data.ingredients[id], purchaseId = stockPurchaseId(id);
+            const single = singleSources.get(menu.id).get(purchaseId);
+            const source = showPerMenuAdd ? pendingByMenu.get(menu.id)?.get(purchaseId) : single;
+            const label = make('label', 'shopping-material-choice'), input = make('input'); input.type = 'checkbox';
             inputs.set(id, input); input.checked = selected.has(id) && ids.includes(id); input.disabled = !ids.includes(id); input.setAttribute('aria-label', `${menu.item.name}の${ingredient.name}を買う`);
             const description = make('span'), notes = [];
             if (omitted.has(stockPurchaseId(id))) notes.push('常備品として除外');
@@ -175,6 +208,9 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
               notes.push(`残り ${materialAmount(id, source.buy, data)}`);
               if ((source?.purchased ?? 0) > 0) notes.push(`購入済み ${materialAmount(id, source.purchased, data)}`);
             }
+            if (showPerMenuAdd && canBuy(menu) && (single?.buy ?? 0) !== (source?.buy ?? 0)) {
+              notes.push(single?.buy > 0 ? `この料理だけなら ${materialAmount(id, single.buy, data)}` : 'この料理だけなら購入不要');
+            }
             description.append(make('strong', '', ingredient.name), make('small', '', notes.join(' · ')));
             label.append(input, description); ingredients.append(label);
             input.addEventListener('change', run(() => {
@@ -183,6 +219,10 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
             }));
           }
           details.append(ingredients); card.append(details);
+        }
+        if (addOne) {
+          addOne.setAttribute('aria-label', [menu.label, menu.item.name, 'この料理の食材だけを追加'].filter(Boolean).join(' '));
+          card.append(addOne);
         }
         if (state?.unknown || !menu.item.ingredientsKnown || !parts.size) card.append(make('p', 'shopping-review-warning', '未確認の材料があります。'));
         cards.append(card);

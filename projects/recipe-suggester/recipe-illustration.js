@@ -1,6 +1,6 @@
 /** 個別の標準レシピに対応する完成イメージだけを返します。分類画像は流用しません。 */
 import {RECIPES} from './data.js';
-import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js?v=4.8.0';
+import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js?v=4.9.0';
 import {foodComposerDefinition,defaultFoodSelection,buildFoodSelection} from './food-composer.js';
 import {itemFromRecipe} from './nutrition.js';
 import {recipePortion} from './catalog.js';

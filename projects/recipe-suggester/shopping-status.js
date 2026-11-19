@@ -61,6 +61,7 @@ function receiptCoverage(receipts) {
 }
 
 const allIngredients = menu => ({...menu, ingredientIds: [...new Set(menu.item.ingredients.map(part => part.id))]});
+const scopedIngredients = menu => menu.stockScope === 'selected' ? menu : allIngredients(menu);
 
 // 在庫の割り当ては週間の全候補で一度行います。数日分だけインポートしても同じ在庫を再利用しません。
 function allocationScope(prepared, catalog) {
@@ -69,9 +70,13 @@ function allocationScope(prepared, catalog) {
   const scope = new Map();
   for (const menu of catalog) {
     if (!menu?.item || !validId(menu.id) || scope.has(menu.id)) throw Error('献立リストの識別子を確認してください。');
-    scope.set(menu.id, allIngredients(menu));
+    scope.set(menu.id, scopedIngredients(menu));
   }
-  for (const menu of prepared) scope.set(menu.id, allIngredients(menu));
+  for (const menu of prepared) {
+    const reserved = scope.get(menu.id);
+    const wholeMenu = reserved && reserved.stockScope !== 'selected';
+    scope.set(menu.id, wholeMenu ? allIngredients(menu) : scopedIngredients(menu));
+  }
   return [...scope.values()];
 }
 
@@ -157,7 +162,7 @@ const LABELS = {purchased: '購入済み', partial: '一部購入済み', unpurc
 /** 献立全体を渡すと、同じ手持ちを別の料理にも充当することを防げます。 */
 export function shoppingMenuStatuses(menus, data, {pantry = [], omittedIds = [], receipts = []} = {}) {
   if (!Array.isArray(menus)) throw Error('献立リストを確認してください。');
-  const selections = menus.map(allIngredients), result = pendingShopping(selections, data, {pantry, omittedIds, receipts});
+  const selections = menus.map(scopedIngredients), result = pendingShopping(selections, data, {pantry, omittedIds, receipts});
   const missing = new Set(result.missingMenus.map(menu => menu.menuId)), omitted = new Set(omittedIds.map(stockPurchaseId));
   return menus.map(menu => {
     const totals = {totalIngredients: 0, purchasedIngredients: 0, stockIngredients: 0, omittedIngredients: 0,

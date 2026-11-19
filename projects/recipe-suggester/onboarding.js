@@ -5,7 +5,7 @@ import {recipePortion} from './catalog.js';
 import {itemFromRecipe} from './nutrition.js';
 import {commonPantryIds} from './shopping-categories.js';
 import {shoppingMenusFromEntries} from './shopping-workflow.js';
-import {matchesJapaneseQuery} from './japanese-search.js';
+import {fillIngredientPicker} from './ingredient-picker-ui.js';
 
 const WELCOME_KEY = 'meal-palette-welcome-v4';
 const BREAKFAST = ['staple-cheese-toast', 'staple-oatmeal-milk', 'savoury-french-toast'];
@@ -92,25 +92,11 @@ export function setupWelcome({demo, storage, initialError, data, getState, canEd
   };
   function ingredients() {
     const picked = byId('setup-picked');
-    const results = byId('setup-matches');
     picked.replaceChildren();
-    results.replaceChildren();
     for (const id of draft.excluded) {
       addChip(picked, data.ingredients[id].name + ' を外す', () => { draft.excluded.delete(id); ingredients(); });
     }
-    const query = byId('setup-search').value.trim();
-    if (!query) return;
-    const matches = Object.entries(data.ingredients)
-      .filter(([id, item]) => !draft.excluded.has(id) && matchesJapaneseQuery([item.name, id], query)).slice(0, 10);
-    for (const [id, item] of matches) {
-      addChip(results, '＋ ' + item.name, () => {
-        draft.excluded.add(id);
-        byId('setup-search').value = '';
-        ingredients();
-        byId('setup-search').focus();
-      });
-    }
-    if (!matches.length) results.textContent = '一致する食材がありません。';
+    fillIngredientPicker(byId('setup-ingredient-picker'),data,byId('setup-search').value,[...draft.excluded]);
   }
   function open() {
     if (!canEdit()) return;
@@ -150,6 +136,13 @@ export function setupWelcome({demo, storage, initialError, data, getState, canEd
   byId('settings-setup').addEventListener('click', open);
   byId('setup-cancel').addEventListener('click', () => dialog.close());
   byId('setup-search').addEventListener('input', ingredients);
+  byId('setup-ingredient-picker').addEventListener('change', () => {
+    const id=byId('setup-ingredient-picker').value;
+    if (!id) return;
+    draft.excluded.add(id);
+    byId('setup-search').value = '';
+    ingredients();
+  });
   byId('setup-search').addEventListener('keydown', event => { if (event.key === 'Enter') event.preventDefault(); });
   common.addEventListener('change', () => { draft.omitCommon = common.checked; });
   byId('setup-reference').addEventListener('change', event => { byId('setup-profile').hidden = !event.target.checked; });

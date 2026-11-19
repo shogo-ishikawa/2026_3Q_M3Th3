@@ -21,12 +21,13 @@ import {createRepeatedMeal} from './meal-sets.js';
 import {createRecordSummary} from './record-summary-ui.js';
 import {renderCatalogFilters} from './catalog-filter-ui.js';
 import {NUTRIENT_KEYS, NUTRIENT_LABELS, NUTRIENT_UNITS, recipeNutrition, itemFromRecipe, itemNutrition, sumNutrition, summariseEntries} from './nutrition.js';
-import {discardRemovedCookedMenus,matchingMenuShopping,mergeShoppingSelections,missingShoppingSelection,removeShoppingIngredient,retireMenuShopping,shoppingMenuContext,shoppingMenusFromEntries} from './shopping-workflow.js';
+import {discardRemovedCookedMenus,draftDishShoppingContext,matchingMenuShopping,mergeShoppingSelections,missingShoppingSelection,removeShoppingIngredient,retireMenuShopping,shoppingMenuContext,shoppingMenusFromEntries} from './shopping-workflow.js';
 import {INGREDIENT_GROUPS,ingredientGroup,commonPantryIds} from './shopping-categories.js';
 import {mountShoppingWorkflow,shoppingChecklistText,copyShoppingChecklist} from './shopping-workflow-ui.js';
 import {createShoppingReceipt,isCompletedMenuPurchase,migrateLegacyReceipts} from './shopping-status.js';
 import {stockReceipt,cancelReceipt,mealPantryUse,changeMealStatus,eatenShoppingIds} from './pantry-transfer.js';
 import {mountPantry} from './pantry-ui.js';
+import {fillIngredientPicker} from './ingredient-picker-ui.js';
 import {pantryRecipeOptions} from './pantry-availability.js';
 import {mountMealSettings} from './meal-settings-ui.js';
 import {mountPlanDishPicker,mountPlanMealEditor} from './meal-plan-editor-ui.js';
@@ -70,8 +71,8 @@ import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
 import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.8.0';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.8.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.9.0';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.9.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -300,14 +301,21 @@ function renderSettings(){
 function renderIngredientSearch(preferred){
   const prefix=preferred?'preferred':'ingredient',values=preferred?state.settings.preferences.preferredIngredients:state.settings.excludedIngredients;
   $(prefix+'-selections').replaceChildren(...values.map(id=>button(`${INGREDIENTS[id].name} ×`,()=>commit(next=>{if(preferred)next.settings.preferences.preferredIngredients=next.settings.preferences.preferredIngredients.filter(x=>x!==id);else next.settings.excludedIngredients=next.settings.excludedIngredients.filter(x=>x!==id);}))));
-  const query=$(prefix+'-search').value.trim(),box=$(prefix+'-options');box.replaceChildren();if(!query)return;
-  const matches=Object.entries(INGREDIENTS).filter(([id,i])=>matchesJapaneseQuery([i.name,id],query)&&!values.includes(id)).slice(0,20);
-  for(const [id,i]of matches)box.append(button(`＋ ${i.name}`,()=>{
-    if(preferred&&state.settings.excludedIngredients.includes(id))throw Error('この食材は除外中です。先に除外を取り消してください。');
-    commit(next=>{if(preferred)next.settings.preferences.preferredIngredients.push(id);else{next.settings.excludedIngredients.push(id);next.settings.preferences.preferredIngredients=next.settings.preferences.preferredIngredients.filter(x=>x!==id);}});
-    $(prefix+'-search').value='';renderIngredientSearch(preferred);
-  }));
-  if(!matches.length)box.append(node('p','field-note','一致する食材がありません。別の名前で探してください。'));
+  const unavailable = preferred ? [...values, ...state.settings.excludedIngredients] : values;
+  fillIngredientPicker($(prefix+'-picker'), data(), $(prefix+'-search').value, unavailable);
+}
+function addPlannerIngredient(preferred) {
+  const prefix=preferred?'preferred':'ingredient',id=$(prefix+'-picker').value;
+  if(!id)return;
+  if(preferred&&state.settings.excludedIngredients.includes(id))throw Error('この食材は除外中です。');
+  const saved=commit(next=>{
+    if(preferred)next.settings.preferences.preferredIngredients=[...new Set([...next.settings.preferences.preferredIngredients,id])];
+    else{
+      next.settings.excludedIngredients=[...new Set([...next.settings.excludedIngredients,id])];
+      next.settings.preferences.preferredIngredients=next.settings.preferences.preferredIngredients.filter(x=>x!==id);
+    }
+  });
+  if(saved){$(prefix+'-search').value='';renderIngredientSearch(preferred);}
 }
 function isDiningEntry(entry){
   return entry.note==='外食'||(entry.items.length>0&&entry.items.every(item=>item.diningMatch));
@@ -645,6 +653,12 @@ function renderPlan(){
         for(const label of day.dishReasons[id])reasons.append(node('li','',label));
         dish.append(reasons);
       }
+      if(included){
+        const shop=button('食材を選ぶ',()=>openPlanDishShopping(day,id),'button-text plan-dish-shopping');
+        shop.id=`plan-shop-${day.date}-${day.meal}-${id}`;shop.dataset.recipeId=id;
+        shop.setAttribute('aria-label',`${day.date} ${MEALS[day.meal]}の${r.name}の食材を買い物に追加`);
+        dish.append(shop);
+      }
       row.append(inclusion,dish,node('span','dish-amount',planAmountText(day,id)));card.append(row);
     }
     const actions=node('div','plan-edit-actions'),addButton=button('＋ 料理を追加',()=>openPlanDishPicker(index),'button-secondary compact');
@@ -767,8 +781,7 @@ function renderShoppingOmissions(){
   $('shopping-omit-common').indeterminate=common.some(id=>omitted.includes(id))&&!$('shopping-omit-common').checked;
   $('shopping-omitted-choices').replaceChildren(...common.map(id=>check(id,INGREDIENTS[id].name,omitted.includes(id),yes=>commit(next=>{next.settings.shoppingOmittedIds=yes?[...new Set([...next.settings.shoppingOmittedIds,id])]:next.settings.shoppingOmittedIds.filter(x=>x!==id);},{invalidate:false}))));
   $('shopping-omitted-selections').replaceChildren(...omitted.map(id=>button(`${INGREDIENTS[id].name} ×`,()=>commit(next=>{next.settings.shoppingOmittedIds=next.settings.shoppingOmittedIds.filter(x=>x!==id);},{invalidate:false}))));
-  const query=$('shopping-omit-search').value.trim(),options=$('shopping-omit-options');options.replaceChildren();if(!query)return;
-  for(const id of Object.keys(INGREDIENTS).filter(id=>!omitted.includes(id)&&matchesJapaneseQuery([INGREDIENTS[id].name,id],query)).slice(0,20))options.append(button(`＋ ${INGREDIENTS[id].name}`,()=>commit(next=>{next.settings.shoppingOmittedIds.push(id);},{invalidate:false})));
+  fillIngredientPicker($('shopping-omit-picker'),data(),$('shopping-omit-search').value,omitted);
 }
 function refreshShoppingAction(container, rows, action, id, fallback) {
   const list=$(container),previous=[...list.querySelectorAll(rows)];
@@ -777,6 +790,38 @@ function refreshShoppingAction(container, rows, action, id, fallback) {
   const next=[...list.querySelectorAll(rows)];
   const target=next[Math.min(Math.max(index,0),next.length-1)]?.querySelector(action)??$(fallback);
   target.focus({preventScroll:true});
+}
+function saveShoppingSelections(selections,{single=false}={}){
+  if(!selections.length){tell('追加する食材を選んでください。');return false;}
+  const receipts=shoppingReceipts();
+  return commit(next=>{
+    next.shoppingReceipts=receipts;next.shoppingChecks=[];
+    next.shoppingList=mergeShoppingSelections(next.shoppingList,selections,{single});
+  },{invalidate:false,message:'選んだ食材をチェックリストへ追加しました。'});
+}
+function openPlanDishShopping(day,recipeId){
+  const catalogData=data();
+  const {menu,catalog,prepared}=draftDishShoppingContext(state,catalogData,day.date,day.meal,recipeId);
+  if(!menu){tell('この料理は現在の買い物候補に含まれていません。');return;}
+  const dialog=$('recipe-dialog');
+  $('dialog-title').textContent='買う食材を選ぶ';
+  $('dialog-meta').textContent='';
+  const review=mountShoppingWorkflow({
+    view:'review',menus:[menu],catalog,singleCatalog:catalog,prepared,data:catalogData,
+    pantry:state.pantry,omittedIds:state.settings.shoppingOmittedIds,receipts:shoppingReceipts(),
+    selection:shoppingSelection,showPerMenuAdd:false,
+    onPrepare:selections=>{
+      if(!saveShoppingSelections(selections,{single:true}))return false;
+      dialog.close();
+      $(`plan-shop-${day.date}-${day.meal}-${recipeId}`)?.focus({preventScroll:true});
+      return true;
+    },onError:message=>tell(message,true)
+  });
+  const ingredients=review.querySelector('.shopping-menu-ingredients');
+  if(ingredients)ingredients.open=true;
+  $('dialog-content').replaceChildren(review);
+  if(!dialog.open)dialog.showModal();
+  dialog.scrollTop=0;
 }
 function renderShopping(){
   renderShoppingOmissions();
@@ -787,7 +832,7 @@ function renderShopping(){
   const eatenIds=eatenShoppingIds(state);
   const common={catalog,data:data(),pantry:state.pantry,omittedIds:state.settings.shoppingOmittedIds,prepared,receipts,purchaseSettings:state.purchaseSettings,selection:shoppingSelection,
     onSelectionChange:next=>{shoppingSelection=next;},onOpenMenu:menu=>openSnapshot(menu.item),
-    onPrepare:selections=>{if(!selections.length){tell('追加する食材を選んでください。');return false;}const okay=commit(next=>{next.shoppingReceipts=receipts;next.shoppingChecks=[];next.shoppingList=mergeShoppingSelections(next.shoppingList,selections);},{invalidate:false,message:'選んだ食材をチェックリストへ追加しました。'});if(okay)setKitchenTab('checklist',{focus:true});return okay;},
+    onPrepare:(selections,mode)=>{const okay=saveShoppingSelections(selections,mode);if(okay)setKitchenTab('checklist',{focus:true});return okay;},
     onPurchase:id=>{const receipt=createShoppingReceipt(prepared??[],id,data(),{purchaseSettings:state.purchaseSettings,pantry:state.pantry,omittedIds:state.settings.shoppingOmittedIds,receipts,catalog});if(!receipt)return false;const okay=commit(next=>{next.shoppingReceipts=[...receipts,receipt];next.shoppingChecks=[];},{invalidate:false,render:false});if(okay)refreshShoppingAction('shopping-list','.shopping-check-row','input[type=checkbox]',id,'shopping-add-more');return okay;},
     onRemoveIngredient:(id,menuIds)=>{
       const okay=commit(next=>{
@@ -819,7 +864,7 @@ function renderShopping(){
     onPurchaseSettings:settings=>commit(next=>{next.purchaseSettings=settings;},{invalidate:false,message:'購入量と包装の設定を保存しました。'}),
     onRemoveExtra:id=>commit(next=>{next.shoppingExtras=next.shoppingExtras.filter(x=>x.id!==id);delete shoppingSelection[id];},{invalidate:false,message:'追加候補から外しました。'}),onError:message=>{if(message)tell(message,true);}};
   $('shopping-list').replaceChildren(mountShoppingWorkflow({...common,view:'checklist'}));
-  $('shopping-review-list').replaceChildren(mountShoppingWorkflow({...common,menus,catalog:reviewCatalog,view:'review'}));
+  $('shopping-review-list').replaceChildren(mountShoppingWorkflow({...common,menus,catalog:reviewCatalog,singleCatalog:catalog,view:'review'}));
   $('shopping-purchased-list').replaceChildren(mountShoppingWorkflow({...common,prepared:state.shoppingList,catalog:[...state.shoppingCatalog,...catalog],view:'purchased'}));
   const shoppingText=shoppingChecklistText(prepared,data(),{pantry:state.pantry,omittedIds:state.settings.shoppingOmittedIds,receipts,purchaseSettings:state.purchaseSettings,catalog});
   $('copy-shopping').disabled=!shoppingText;
@@ -851,7 +896,7 @@ function addPantryRecipeShortfalls(recipe,servings){
   return commit(next=>{
     next.shoppingReceipts=receipts;next.shoppingChecks=[];
     if(completedId)retireMenuShopping(next,completedId);
-    next.shoppingList=mergeShoppingSelections(next.shoppingList,[menu]);
+    next.shoppingList=mergeShoppingSelections(next.shoppingList,[menu],{single:true});
   },{invalidate:false,message:`${option.missing.map(part=>part.name).join('、')}を買い物リストに追加しました。`});
 }
 function queueShoppingItem(item,servings){
@@ -1785,7 +1830,11 @@ for(const input of document.querySelectorAll('input[name="text-size"]'))input.ad
 }));
 for(const id of ['genre-mode','single-genre'])bind(id,'change',()=>commit(next=>{next.settings.preferences.genreMode=$('genre-mode').value;next.settings.preferences.genre=$('genre-mode').value==='single'?$('single-genre').value:'all';}));
 bind('ratio-equal','click',()=>commit(next=>next.settings.preferences.genreRatios=Object.fromEntries(GENRES.map(g=>[g,20]))));bind('ratio-japanese','click',()=>commit(next=>next.settings.preferences.genreRatios={和食:50,洋食:20,中華:20,エスニック:10,その他:0}));
-bind('ingredient-search','input',()=>renderIngredientSearch(false));bind('preferred-search','input',()=>renderIngredientSearch(true));
+for (const [prefix, preferred] of [['ingredient',false],['preferred',true]]) {
+  bind(prefix+'-search','input',()=>renderIngredientSearch(preferred));
+  bind(prefix+'-search','keydown',event=>{if(event.key==='Enter')event.preventDefault();});
+  bind(prefix+'-picker','change',()=>addPlannerIngredient(preferred));
+}
 function generateMeals(){
   if(recovery)throw Error('献立を作る前に保存データを復旧してください。');
   if(shiftDate(state.settings.startDate,state.settings.days-1)>'2100-12-31')throw Error('献立の期間は2100年内で指定してください。');
@@ -1850,6 +1899,12 @@ bind('targets-form','submit',event=>{event.preventDefault();commit(next=>{
   next.targets=Object.fromEntries(NUTRIENT_KEYS.map(k=>[k,readQuantityInput($('target-'+k),{label:NUTRIENT_LABELS[k]})]));
 },{invalidate:false,message:'手入力の比較値を保存しました。'});});
 bind('shopping-omit-search','input',renderShoppingOmissions);
+bind('shopping-omit-picker','change',()=>{
+  const id=$('shopping-omit-picker').value;
+  if(id&&commit(next=>{next.settings.shoppingOmittedIds=[...new Set([...next.settings.shoppingOmittedIds,id])];},{invalidate:false})){
+    $('shopping-omit-search').value='';renderShoppingOmissions();
+  }
+});
 bind('shopping-omit-common','change',()=>{const checked=$('shopping-omit-common').checked,ids=commonPantryIds(data());commit(next=>{next.settings.shoppingOmittedIds=checked?[...new Set([...next.settings.shoppingOmittedIds,...ids])]:next.settings.shoppingOmittedIds.filter(id=>!ids.includes(id));},{invalidate:false});});
 bind('kitchen-tabs','click',event=>{const tab=event.target.closest('[data-kitchen-tab]');if(tab)setKitchenTab(tab.dataset.kitchenTab);});
 bind('kitchen-tabs','keydown',event=>{const tabs=[...$('kitchen-tabs').querySelectorAll('[data-kitchen-tab]')],index=tabs.indexOf(document.activeElement);if(index<0)return;let next;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();setKitchenTab(tabs[next].dataset.kitchenTab);tabs[next].focus();});
