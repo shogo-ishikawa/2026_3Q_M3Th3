@@ -100,11 +100,17 @@ def verify_app_settings(page):
     expect(page.locator("#home-install-panel")).to_be_hidden()
     expect(page.locator("#install-guide")).to_be_hidden()
     expect(page.locator("#offline-state")).to_be_hidden()
-    page.locator("#settings-tab-data").click()
-    # 折り畳んだ説明の中に教材リンクが残っていないかも調べる。
-    for disclosure in page.locator(".about-section:visible").all():
-        disclosure.locator("summary").click()
+    page.locator("#settings-tab-help").click()
+    guide = page.locator("#settings-panel-help")
+    expect(guide).to_be_visible()
+    topic = guide.locator("details").filter(has_text="レシピを探す・料理写真を残す")
+    topic.locator("summary").click()
+    expect(topic.get_by_text("「自分の料理写真」", exact=False)).to_be_visible()
     check_app_only(page)
+    topic.get_by_role("link", name="メニューを開く").click()
+    expect(page.locator("#panel-catalog")).to_be_visible()
+    page.locator("#tab-settings").click()
+    page.locator("#settings-tab-data").click()
 
 
 def verify_android_app(context, url):

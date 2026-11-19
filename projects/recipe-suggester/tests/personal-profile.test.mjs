@@ -130,7 +130,10 @@ test('表示切り替えは保存せず、詳細モードだけ同意と数値�
   };
   const state = make();
   renderNutritionProfile(get, state);
-  assert.equal(get('profile-personal-fields').disabled, true);
+  assert.equal(get('profile-mode').value, 'personal');
+  assert.equal(get('profile-personal-fields').disabled, false);
+  assert.equal(get('manual-targets-panel').hidden, true);
+  assert.equal(get('personal-age').value, '');
   get('profile-mode').value = 'personal';
   showProfileFields(get);
   assert.equal(get('profile-simple-fields').disabled, true);
@@ -152,6 +155,26 @@ test('表示切り替えは保存せず、詳細モードだけ同意と数値�
   renderNutritionProfile(get, state);
   assert.equal(get('personal-height').value, '');
   assert.equal(get('personal-consent').checked, false);
+});
+
+test('新規設定だけが個人の入力欄で開き、旧形式と明示的な選択は再読込後も維持する', () => {
+  const inputs = Object.create(null), get = id => inputs[id] ??= {};
+  const state = roundTrip(make());
+  renderNutritionProfile(get, state, undefined, {}, true);
+  assert.equal(get('profile-mode').value, 'manual');
+  assert.equal(get('profile-personal-fields').hidden, true);
+  renderNutritionProfile(get, state);
+  assert.equal(get('profile-mode').value, 'personal');
+  assert.equal(state.personalProfile, undefined);
+  for (const selection of [manual(), simple]) {
+    setNutritionMode(state, selection);
+    renderNutritionProfile(get, roundTrip(state));
+    assert.equal(get('profile-mode').value, selection.mode);
+  }
+  const old = make();
+  delete old.profile.setupPending;
+  renderNutritionProfile(get, roundTrip(old));
+  assert.equal(get('profile-mode').value, 'manual');
 });
 
 test('生年月日の保存で編集中の詳細プロフィールが消えず、同意した項目を保存できる', () => {

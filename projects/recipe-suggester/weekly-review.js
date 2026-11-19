@@ -45,7 +45,7 @@ export function renderWeeklyReview(container, entries, completedDays, to) {
   dates.append(element('p', previous ? '前回　' + weekRange(previous) : '前回　記録できる期間より前です。'));
   container.append(dates);
   if (!recent.completedCount && !previous?.completedCount) {
-    container.append(element('p', 'この期間には記録を完了した日がありません。「記録」でその日の飲食をすべて入力したら、完了にチェックしてください。', 'field-note'));
+    container.append(element('p', 'この期間には記録を完了した日がありません。', 'field-note'));
     return;
   }
   if (rows.every(row => row.current === null && row.prior === null)) {
@@ -72,5 +72,5 @@ export function renderWeeklyReview(container, entries, completedDays, to) {
     tr.append(heading, averageCell(current, key, currentDays), averageCell(prior, key, priorDays), element('td', sign + diffText));
   }
   table.prepend(caption);
-  container.append(table, element('p', '平均には記録を完了した日を使います。量が不明な日は成分ごとに除きます。差は今回の平均から前回の平均を引いた値です。', 'field-note'));
+  container.append(table, element('p', '量が不明な日は成分ごとに除きます。', 'field-note'));
 }

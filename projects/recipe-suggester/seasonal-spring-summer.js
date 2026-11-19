@@ -3,6 +3,7 @@ import {occasionDish} from './occasion-recipe.js';
 export const SPRING_SUMMER_RECIPES = [
   occasionDish('coming-of-age', {
     id: 'tai-yuzu-salt', name: '鯛の昆布包み酒蒸し', role: 'main', family: 'fish-main', genre: '和食', category: 'fish', method: 'steam', minutes: 25,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['seabream_sashimi', 200], ['kombu', 4], ['negi', 60], ['carrot', 30], ['sake', 20], ['kyoto_usukuchi', 5], ['water', 35]],
     steps: [
       '昆布を分量の水で湿らせ、長ねぎを斜めに薄く、にんじんを短い細切りにする。',
@@ -21,6 +22,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('coming-of-age', {
     id: 'lotus-plum-fans', name: 'れんこんの梅酢あえ', role: 'side', family: 'small-dish', genre: '和食', category: 'vegetable', method: 'pickled', minutes: 20,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['lotus_root', 150], ['ume', 12], ['vinegar', 12], ['sugar', 4], ['sesame', 3]],
     steps: [
       'れんこんを薄い半月切りにし、透き通って歯ごたえが残るまでゆで、水気を切る。',
@@ -39,6 +41,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('setsubun', {
     id: 'sardine-plum-roll', name: 'いわしの梅しそ渦巻き焼き', role: 'main', family: 'fish-main', genre: '和食', category: 'fish', method: 'grill', minutes: 30,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['sardine', 220], ['ume', 12], ['shiso', 5], ['starch', 8], ['oil', 6], ['sake', 12]],
     steps: [
       '開いたいわしの小骨を除いて水分を拭き、種を除いてたたいた梅肉を薄く塗る。',
@@ -48,6 +51,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('setsubun', {
     id: 'chicken-soybean-patties', name: '鶏肉とつぶし大豆の磯辺つくね', role: 'main', family: 'meat-main', genre: '和食', category: 'meat', method: 'grill', minutes: 30,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['chicken_minced', 180], ['soybeans', 80], ['negi', 30], ['starch', 8], ['ginger', 5], ['nori', 2], ['soy_sauce', 10], ['mirin', 14], ['oil', 5], ['water', 30]],
     steps: [
       'ゆで大豆を粒の形がなくなるまでつぶし、鶏ひき肉、刻んだ長ねぎ、片栗粉、おろししょうがと練る。',
@@ -57,6 +61,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('setsubun', {
     id: 'squash-soy-dressed', name: 'かぼちゃとゆで大豆のごまあえ', role: 'side', family: 'small-dish', genre: '和食', category: 'vegetable', method: 'dressed', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['pumpkin', 170], ['soybeans', 60], ['ground_sesame', 7], ['miso', 8], ['mirin', 7], ['water', 20]],
     steps: [
       'かぼちゃの種を除き、皮をところどころ落として小さめの角切りにする。',
@@ -120,6 +125,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('hinamatsuri', {
     id: 'trio-egg-stack', name: 'ひし形の三色重ね卵焼き', role: 'main', family: 'egg-main', genre: '和食', category: 'egg', method: 'grill', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['egg', 4], ['spinach', 55], ['salmon', 55], ['milk', 25], ['starch', 4], ['oil', 5], ['salt', 1]],
     steps: [
       'ほうれん草をゆでて絞り、細かく刻む。鮭は中心まで火を通し、骨を除いて細かくほぐす。',
@@ -138,6 +144,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('hinamatsuri', {
     id: 'clam-egg-ribbon', name: 'あさりと卵の春色すまし汁', role: 'soup', family: 'soup', genre: '和食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['clam', 70], ['egg', 1], ['komatsuna', 45], ['kyoto_kombu_dashi', 350], ['kyoto_usukuchi', 6], ['sake', 8]],
     steps: [
       '小松菜を短く切り、卵は小鉢で溶く。あさりはむき身の分量を使い、さっと洗って水を切る。',
@@ -165,6 +172,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('white-day', {
     id: 'apple-yogurt-slaw', name: 'りんごとかぶの白いヨーグルトあえ', role: 'side', family: 'small-dish', genre: '洋食', category: 'fruit', method: 'salad', minutes: 15,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['apple', 90], ['turnip', 110], ['yogurt', 45], ['lemon', 7], ['salt', 0.8]],
     steps: [
       'かぶは厚めのせん切りにし、塩をまぶして軽くもみ、水気を絞る。',
@@ -174,6 +182,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('white-day', {
     id: 'potato-onion-cream', name: 'じゃがいもと長ねぎの豆乳ポタージュ', role: 'soup', family: 'potage', genre: '洋食', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['potato', 180], ['negi', 85], ['soy_milk', 180], ['water', 180], ['butter', 7], ['salt', 1.5]],
     steps: [
       'じゃがいもは薄い半月切り、長ねぎの白い部分は薄い小口切りにする。',
@@ -201,6 +210,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('spring-equinox', {
     id: 'burdock-peanut-free', name: 'ごぼうとにんじんのくるみみそ', role: 'side', family: 'small-dish', genre: '和食', category: 'vegetable', method: 'dressed', minutes: 20,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['burdock', 100], ['carrot', 65], ['walnut', 18], ['miso', 11], ['sugar', 4], ['water', 25]],
     steps: [
       'ごぼうとにんじんを細い拍子木に切り、先にごぼうを入れて順にゆで、湯を切る。',
@@ -210,6 +220,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('spring-equinox', {
     id: 'fried-tofu-mizuna', name: '水菜と焼き油揚げの昆布だし汁', role: 'soup', family: 'soup', genre: '和食', minutes: 15,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['simmered_mizuna', 65], ['aburaage', 35], ['shimeji', 55], ['kyoto_kombu_dashi', 350], ['kyoto_usukuchi', 7], ['mirin', 5]],
     steps: [
       '油揚げをフライパンで乾いりし、表面を香ばしくして短冊に切る。水菜を短く、しめじを小房に分ける。',
@@ -237,6 +248,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('graduation', {
     id: 'broccoli-eggy-buds', name: 'ブロッコリーのミモザおひたし', role: 'side', family: 'small-dish', genre: '和食', category: 'vegetable', method: 'dressed', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['broccoli', 160], ['egg', 1], ['soup311_awase_dashi', 60], ['kyoto_usukuchi', 7], ['mirin', 5]],
     steps: [
       'ブロッコリーを小さい房に分け、茎も皮を厚めにむいて短冊にし、順にゆでる。',
@@ -246,6 +258,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('graduation', {
     id: 'asparagus-corn-soup', name: 'アスパラガスとコーンの卵スープ', role: 'soup', family: 'soup', genre: '洋食', minutes: 15,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['asparagus', 80], ['corn', 70], ['egg', 1], ['soup311_consomme', 3.5], ['water', 360], ['starch', 3]],
     steps: [
       'アスパラガスの根元の硬い部分を取り、穂先を残して斜め薄切りにする。卵はよく溶いておく。',
@@ -264,6 +277,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('school-entry', {
     id: 'salmon-spinach-bake', name: '鮭とほうれん草のチーズ卵焼き', role: 'main', family: 'fish-main', genre: '和食', category: 'fish', method: 'grill', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['salmon', 160], ['spinach', 85], ['egg', 3], ['cheese', 25], ['milk', 25], ['oil', 5], ['salt', 1]],
     steps: [
       '鮭の骨を除き、小さめに切る。ほうれん草をゆでて絞り、短く刻む。',
@@ -273,6 +287,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('school-entry', {
     id: 'carrot-orange-ribbons', name: 'にんじんとオレンジの花束サラダ', role: 'side', family: 'small-dish', genre: '和食', category: 'vegetable', method: 'salad', minutes: 15,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['carrot', 130], ['orange', 95], ['raisin', 12], ['lemon', 8], ['olive_oil', 6], ['salt', 0.6]],
     steps: [
       'にんじんをピーラーで薄く長く削る。塩を振ってしんなりしたら軽く絞る。',
@@ -282,6 +297,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('school-entry', {
     id: 'spring-cabbage-milk-soup', name: '春キャベツと新玉ねぎのミルクスープ', role: 'soup', family: 'soup', genre: '洋食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['cabbage', 140], ['onion', 90], ['milk', 180], ['water', 170], ['butter', 6], ['soup311_consomme', 3]],
     steps: [
       'キャベツをひと口大、新玉ねぎを薄いくし形に切る。鍋にバターを入れ、玉ねぎを透き通るまで炒める。',
@@ -318,6 +334,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('childrens-day', {
     id: 'bamboo-wakame-egg', name: 'たけのことわかめのふわふわ卵椀', role: 'soup', family: 'soup', genre: '和食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['bamboo_shoot_cooked', 75], ['wakame', 2], ['egg', 1], ['soup311_awase_dashi', 350], ['kyoto_usukuchi', 7], ['starch', 3], ['water', 10]],
     steps: [
       'ゆでたけのこの穂先はくし形、根元は薄切りにする。乾燥わかめは戻して水気を切る。',
@@ -345,6 +362,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('spring', {
     id: 'peas-potato-warm', name: '新じゃがとグリーンピースの温サラダ', role: 'side', family: 'small-dish', genre: '洋食', category: 'vegetable', method: 'salad', minutes: 25,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['potato', 200], ['green_pea', 65], ['onion', 40], ['vinegar', 9], ['olive_oil', 8], ['parsley', 2], ['salt', 1]],
     steps: [
       '新じゃがはよく洗い、一口大に切ってゆでる。柔らかくなる直前にグリーンピースを入れ、一緒に湯を切る。',
@@ -354,6 +372,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('spring', {
     id: 'pea-onion-potage', name: 'グリーンピースと新玉ねぎの豆乳ポタージュ', role: 'soup', family: 'potage', genre: '洋食', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['green_pea', 130], ['onion', 100], ['potato', 50], ['soy_milk', 150], ['water', 210], ['olive_oil', 5], ['salt', 1.5]],
     steps: [
       '新玉ねぎとじゃがいもを薄切りにする。鍋でオリーブ油を温め、玉ねぎを色付けずに炒める。',
@@ -363,6 +382,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('marine-day', {
     id: 'squid-scallop-skewers', name: 'いかとほたての磯の串焼き', role: 'main', family: 'fish-main', genre: '和食', category: 'fish', method: 'grill', minutes: 25,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['squid', 110], ['scallop', 110], ['pepper', 75], ['soy_sauce', 10], ['mirin', 14], ['ginger', 5], ['oil', 5]],
     steps: [
       'いかは格子に切り目を入れて一口大、ピーマンは角切りにする。ほたては大きければ厚みを半分にする。',
@@ -381,6 +401,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('marine-day', {
     id: 'seaweed-octopus', name: 'たこときゅうりののり酢あえ', role: 'side', family: 'small-dish', genre: '和食', category: 'fish', method: 'dressed', minutes: 15,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['octopus', 100], ['cucumber', 100], ['nori', 2], ['vinegar', 13], ['soy_sauce', 6], ['ginger', 4], ['sugar', 3]],
     steps: [
       'ゆでだこを薄くそぎ切りにし、きゅうりは縦半分にして斜め薄切りにする。しょうがを細いせん切りにする。',
@@ -408,6 +429,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('mountain-day', {
     id: 'yam-mushroom-egg', name: '長いもと三種きのこの山かけ卵焼き', role: 'main', family: 'egg-main', genre: '和食', category: 'egg', method: 'grill', minutes: 25,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['yam', 120], ['egg', 3], ['shimeji', 55], ['enoki', 40], ['shiitake', 35], ['soy_sauce', 9], ['oil', 6]],
     steps: [
       'しめじとえのきをほぐして短く切り、しいたけを薄切りにする。長いもは皮をむいてすりおろす。',
@@ -426,6 +448,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('mountain-day', {
     id: 'mountain-mushroom-soup', name: '三種きのこと里いもの山里みそ汁', role: 'soup', family: 'miso-soup', genre: '和食', minutes: 25,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['taro', 120], ['simmered_maitake', 55], ['nameko', 45], ['shiitake', 35], ['soup311_awase_dashi', 355], ['miso', 18]],
     steps: [
       '里いもの皮をむいて小さめに切る。まいたけをほぐし、しいたけを薄切りにし、なめこをさっと洗う。',
@@ -453,6 +476,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('obon', {
     id: 'winter-melon-ginger', name: '冬瓜の冷やししょうがあん', role: 'side', family: 'small-dish', genre: '和食', category: 'vegetable', method: 'simmer', minutes: 35,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['winter_melon', 260], ['kyoto_kombu_dashi', 210], ['kyoto_usukuchi', 9], ['mirin', 8], ['ginger', 6], ['starch', 4], ['water', 12]],
     steps: [
       '冬瓜はわたと種を除き、皮をむいて一口大にする。角を軽く落とし、昆布だしとともに鍋に入れる。',
@@ -462,6 +486,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('obon', {
     id: 'pumpkin-soymilk-miso', name: 'かぼちゃと油揚げの豆乳みそ汁', role: 'soup', family: 'miso-soup', genre: '和食', minutes: 25,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['pumpkin', 130], ['aburaage', 25], ['onion', 45], ['kyoto_kombu_dashi', 240], ['soy_milk', 130], ['miso', 16]],
     steps: [
       'かぼちゃの種とわたを取り、薄いいちょう切りにする。油揚げを短冊、玉ねぎを薄切りにする。',
@@ -480,6 +505,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('summer', {
     id: 'mackerel-pickled-tomato', name: 'あじのトマト南蛮漬け', role: 'main', family: 'fish-main', genre: '和食', category: 'fish', method: 'pickled', minutes: 30,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['horse_mackerel', 210], ['tomato', 140], ['onion', 65], ['starch', 12], ['oil', 12], ['vinegar', 20], ['soy_sauce', 11], ['sugar', 5], ['water', 35]],
     steps: [
       'トマトは角切り、玉ねぎは薄切りにする。酢、しょうゆ、砂糖、水をひと煮立ちさせ、野菜を加える。',
@@ -489,6 +515,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('summer', {
     id: 'bittermelon-corn-salad', name: 'ゴーヤーとコーンのツナあえ', role: 'side', family: 'small-dish', genre: '和食', category: 'vegetable', method: 'dressed', minutes: 15,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['bitter_melon', 100], ['corn', 70], ['tuna_canned', 45], ['vinegar', 10], ['soy_sauce', 6], ['ground_sesame', 4]],
     steps: [
       'ゴーヤーを縦半分に切って種とわたを除き、ごく薄く切る。短くゆでて冷水に取り、水気を絞る。',
@@ -498,6 +525,7 @@ export const SPRING_SUMMER_RECIPES = [
   }),
   occasionDish('summer', {
     id: 'chilled-zucchini-soup', name: 'ズッキーニと枝豆の冷製スープ', role: 'soup', family: 'potage', genre: '洋食', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['zucchini', 160], ['edamame', 70], ['onion', 55], ['milk', 140], ['water', 170], ['olive_oil', 5], ['salt', 1.5]],
     steps: [
       '枝豆はゆでてさやと薄皮を除く。ズッキーニと玉ねぎを薄切りにし、油で焦がさないよう炒める。',

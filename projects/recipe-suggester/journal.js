@@ -84,7 +84,7 @@ export function entriesForDay(entries, date) {
 
 export function defaultJournal(today = dateKey()) {
   if (!dateIsValid(today)) throw new Error('日付を確認してください。');
-  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard', recordView: 'detailed', startTab: 'planner', mealPreferences: normaliseMealPreferences(), shoppingOmittedIds: []}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: [], favourites: [], shoppingExtras: [], shoppingList: null, shoppingCatalog: [], shoppingReceipts: []};
+  return {version: 3, settings: {...defaultState(today).settings, meal: 'dinner', stapleId: 'auto', drinkId: 'none', stapleAmount: null, drinkAmount: null, hideRecipeIllustrations: false, textSize: 'standard', recordView: 'detailed', startTab: 'planner', mealPreferences: normaliseMealPreferences(), shoppingOmittedIds: []}, entries: [], customRecipes: [], pantry: [], targets: {...DEFAULT_TARGETS}, completedDays: [], profile: {...DEFAULT_PROFILE, setupPending: true}, shoppingChecks: [], mealSets: [], purchaseSettings: [], batches: [], favourites: [], shoppingExtras: [], shoppingList: null, shoppingCatalog: [], shoppingReceipts: []};
 }
 
 // JSON以外のオブジェクト、アクセサー、危険なキーをデータとして受け付けません。
@@ -435,9 +435,10 @@ function shoppingReceipts(value) {
 }
 
 function profile(value) {
-  record(value, ['ageBand', 'sex', 'activity', 'mode', 'previousMode'], '比較用プロフィール');
+  record(value, ['ageBand', 'sex', 'activity', 'mode', 'previousMode', 'setupPending'], '比較用プロフィール');
   const allowed = {ageBand: ['unset', '18-29', '30-49', '50-64', '65-74', '75-plus'], sex: ['unset', 'male', 'female'], activity: ['unset', 'low', 'moderate', 'high'], mode: ['manual', 'reference', 'personal']};
   for (const [key, values] of Object.entries(allowed)) if (!values.includes(value[key])) throw new Error('年代・性別・活動量・比較方法を確認してください。');
+  if (value.setupPending !== undefined && (value.setupPending !== true || value.mode !== 'manual')) throw Error('栄養の目安の設定を確認してください。');
   if (value.mode === 'personal') {
     if (!['manual', 'reference'].includes(value.previousMode) || (value.previousMode === 'reference' && !deriveReference(value))) throw Error('詳細プロフィールを削除した後に使う比較方法を確認してください。');
   } else if (value.previousMode !== undefined) throw Error('比較方法の設定を確認してください。');
@@ -472,7 +473,8 @@ export function setNutritionMode(state, selection, details = state.personalProfi
     const previousMode = previous.mode === 'personal' ? previous.previousMode : previous.mode;
     chosen = {...previous, mode: 'personal', previousMode};
   }
-  const next = profile(chosen);
+  const {setupPending, ...configured} = chosen;
+  const next = profile(configured);
   const reference = activeNutritionReference({profile: next, personalProfile: details, birthDate: state.birthDate}, today);
   if (next.mode === 'personal' && !reference) throw Error('現在の年齢と身体情報では個人の目安を計算できません。18〜79歳が対象で、75歳以上の「高い」活動量には参照値がありません。');
   if (next.mode === 'reference' && !reference) throw Error('年代・基準表の性別・活動量を選んでください。75歳以上の「高い」活動量には参照値がありません。');

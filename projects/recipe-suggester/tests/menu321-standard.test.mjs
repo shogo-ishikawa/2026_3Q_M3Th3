@@ -8,7 +8,7 @@ const groupFor = (id, recipes=RECIPES, query='') => groupMenuRecipes(recipes,{qu
 
 test('飲み物と間食を除いた選択式の入口は、並び順に左右されない標準レシピを持つ',()=>{
   const before=JSON.stringify(RECIPES);
-  assert.equal(standards.length, 92);
+  assert.equal(standards.length, 101);
   for(const definition of standards){
     assert.ok(definition.recipeIds.includes(definition.defaultRecipeId),definition.id);
     assert.equal(groupFor(definition.id).selectedRecipeId,definition.defaultRecipeId,definition.id);

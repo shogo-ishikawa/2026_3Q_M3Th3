@@ -28,11 +28,11 @@ import {INGREDIENTS,RECIPES} from './data.js';
 import {recipeNutrition} from './nutrition.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {recipePortion,recipeFamily} from './catalog.js';
-import {hasReviewedMealOccasions,mealOccasionsFor} from './meal-occasions.js';
+import {hasReviewedMealOccasions,mealOccasionsFor,recipeSceneIds,SCENE_LABELS} from './meal-occasions.js';
 const data={ingredients:INGREDIENTS};
 console.log(JSON.stringify({ingredients:INGREDIENTS,recipes:RECIPES.map(r=>({...r,
     result:recipeNutrition(r,data),basis:deriveRecipeBasis(r,data),size:recipePortion(r,data),
-    family:recipeFamily(r),occasions:mealOccasionsFor(r),reviewed:hasReviewedMealOccasions(r)}))}));
+    family:recipeFamily(r),occasions:mealOccasionsFor(r),scenes:recipeSceneIds(r).map(id => SCENE_LABELS[id]),reviewed:hasReviewedMealOccasions(r)}))}));
 """
 
 def require(test, message):
@@ -141,7 +141,7 @@ def audit(catalogue):
     output = StringIO(newline='')
     csvout = csv.writer(output,lineterminator='\n')
     csvout.writerow(['料理ID','料理名','基準量',*[name+unit for name,unit in zip(NAMES,['(kcal)']+['(g)']*5)],
-                     '計算の根拠','未確定の成分',*OCCASIONS,'食品番号（文科省）','資料URL','確認内容・注意点'])
+                     '計算の根拠','未確定の成分',*OCCASIONS,'行事・シーン','食品番号（文科省）','資料URL','確認内容・注意点'])
     counts = Counter()
     seen = set()
     for r in recipes:
@@ -202,7 +202,7 @@ def audit(catalogue):
             remark.append('未掲載・範囲表示・未測定等は空欄')
         csvout.writerow([key,r['name'],r['size']['label'],*[display(n[k],k) for k in KEYS],
                          basis,'・'.join(missing),*['○' if x in r['occasions'] else '' for x in OCCASIONS],
-                         ' '.join(sorted(codes)),' '.join(dict.fromkeys(urls)),'／'.join(remark)])
+                         '・'.join(r['scenes']),' '.join(sorted(codes)),' '.join(dict.fromkeys(urls)),'／'.join(remark)])
     print(f'{len(recipes)} menus, {len(ingredients)} ingredients. {dict(counts)}')
     return output.getvalue().encode('utf-8-sig')
 

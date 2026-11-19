@@ -1,4 +1,6 @@
 import {existingOccasionIds} from './occasion-classics.js';
+import {REGIONAL_OCCASION_RECIPES} from './regional-occasion-recipes.js';
+import {WORLD_OCCASION_RECIPES} from './world-occasion-recipes.js';
 import {compiledRecipeTags} from './occasion-recipe.js';
 import {SPRING_SUMMER_RECIPES} from './seasonal-spring-summer.js';
 import {AUTUMN_WINTER_RECIPES} from './seasonal-autumn-winter.js';
@@ -10,12 +12,12 @@ const eventNames = {
   'new-year': ['お正月', '正月', '新年', 'おせち'],
 };
 
-function dish(event, {id, name, role, family, category, method, minutes, ingredients, steps, aliases = []}) {
+function dish(event, {id, name, role, family, category, method, minutes, ingredients, steps, aliases = [], mealOccasions = ['昼食', '夕食']}) {
   return {
     id: `celebration-${id}`, name, role, family, genre: event === 'new-year' ? '和食' : '洋食',
     nature: 'home-cooked', servings: 2, minutes, staple: false, mealBase: false,
     portion: {amount: 1, unit: role === 'soup' ? '杯' : '皿'},
-    mealOccasions: ['昼食', '夕食'], tags: minutes <= 20 ? ['時短'] : [],
+    mealOccasions, tags: minutes <= 20 ? ['時短'] : [],
     searchAliases: [...eventNames[event], ...aliases],
     ...(category ? {displayCategory: category, displayMethod: method, displaySecondaryCategories: []} : {}),
     ingredients: ingredients.map(([id, amount]) => ({id, amount})), steps,
@@ -50,6 +52,7 @@ const birthday = [
   }),
   dish('birthday', {
     id: 'birthday-pear-walnut-salad', name: '洋梨と紫キャベツのくるみサラダ', role: 'side', family: 'side', category: 'vegetable', method: 'salad', minutes: 15,
+    mealOccasions: ['朝食', '昼食', '夕食', '晩酌'],
     ingredients: [['fruit_european_pear', 120], ['red_cabbage', 100], ['lettuce', 40], ['walnut', 14], ['lemon', 10], ['olive_oil', 8], ['salt', 0.6]],
     steps: [
       '紫キャベツを細いせん切りにし、分量の塩をまぶして軽くもむ。しんなりしたら水気を軽く絞る。レタスは洗ってちぎる。',
@@ -60,6 +63,7 @@ const birthday = [
   }),
   dish('birthday', {
     id: 'birthday-carrot-orange-potage', name: 'にんじんとオレンジのポタージュ', role: 'soup', family: 'potage', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['carrot', 180], ['onion', 50], ['potato', 50], ['orange', 100], ['olive_oil', 6], ['water', 280], ['salt', 1.1]],
     steps: [
       'にんじんとじゃがいもは皮をむいて薄い半月切りにし、玉ねぎは薄切りにする。オレンジは皮と薄皮を除き、果肉を粗く刻む。',
@@ -119,6 +123,7 @@ const christmas = [
 const newYear = [
   dish('new-year', {
     id: 'new-year-matsukaze', name: '鶏の松風焼き', role: 'main', family: 'meat-main', category: 'meat', method: 'grill', minutes: 35,
+    mealOccasions: ['朝食', '昼食', '夕食', '晩酌'],
     ingredients: [['chicken_minced', 230], ['egg', 1], ['miso', 16], ['sugar', 6], ['starch', 8], ['ginger', 5], ['sesame', 5], ['canteen_aonori', 0.4]],
     steps: [
       'オーブンを180℃に予熱する。しょうがをすりおろし、卵を溶く。小さな耐熱の角型にオーブンシートを敷く。',
@@ -130,6 +135,7 @@ const newYear = [
   }),
   dish('new-year', {
     id: 'new-year-shrimp-lotus', name: 'えびとれんこんの祝い煮', role: 'main', family: 'fish-main', category: 'fish', method: 'simmer', minutes: 25,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['shrimp', 200], ['lotus_root', 150], ['soup311_awase_dashi', 200], ['ginger', 6], ['soy_sauce', 16], ['mirin', 18], ['sake', 12]],
     steps: [
       'れんこんは皮をむいて輪切りにし、穴の間の縁を浅く切り取って花形にする。しょうがは薄切りにする。',
@@ -140,6 +146,7 @@ const newYear = [
   }),
   dish('new-year', {
     id: 'new-year-apple-kinton', name: 'りんごとさつまいもの茶巾きんとん', role: 'side', family: 'small-dish', category: 'vegetable', method: 'simmer', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食', '間食'],
     ingredients: [['sweet_potato', 200], ['apple', 95], ['sugar', 8], ['lemon', 5], ['water', 35]],
     steps: [
       'さつまいもは皮を厚めにむいて輪切りにし、串がすっと通るまで蒸す。熱いうちにつぶして繊維を取り除く。',
@@ -150,6 +157,7 @@ const newYear = [
   }),
   dish('new-year', {
     id: 'new-year-seabream-soup', name: '焼き鯛と青菜のすまし椀', role: 'soup', family: 'clear-soup', minutes: 25,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     aliases: ['お吸い物', '祝い椀'],
     ingredients: [['seabream_sashimi', 100], ['komatsuna', 60], ['carrot', 35], ['soup311_awase_dashi', 340], ['kyoto_usukuchi', 6], ['sake', 10], ['salt', 0.5]],
     steps: [
@@ -163,6 +171,14 @@ const newYear = [
 
 export const CLASSIC_CELEBRATION_RECIPES = [...birthday, ...christmas, ...newYear];
 export const CELEBRATION_RECIPES = [...CLASSIC_CELEBRATION_RECIPES, ...SPRING_SUMMER_RECIPES, ...AUTUMN_WINTER_RECIPES];
+// 食卓にいつでも出せる料理。行事のタグは当日の候補を優先するためにも使う。
+export const REGIONAL_AND_WORLD_RECIPES = [...REGIONAL_OCCASION_RECIPES, ...WORLD_OCCASION_RECIPES];
+
+const collections = new Map([
+  ...REGIONAL_OCCASION_RECIPES.map(recipe => [recipe.id, 'regional']),
+  ...WORLD_OCCASION_RECIPES.map(recipe => [recipe.id, 'world']),
+]);
+export function recipeCollection(recipe) { return collections.get(recipe?.id); }
 
 const occasionsByRecipe = new Map();
 for (const [id, recipes] of Object.entries({birthday, christmas, 'new-year': newYear})) {

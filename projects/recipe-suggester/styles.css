@@ -354,15 +354,11 @@ details[open] > summary .summary-plus { transform: rotate(45deg); }
 .appearance-settings { margin-bottom: 25px; }
 .appearance-settings .choice-label { font-size: 0.875rem; }
 .appearance-settings .field-note { margin-bottom: 0; }
-.profile-section > .section-copy { margin-bottom: 18px; }
+#birthday-form > .choice-label { margin: 14px 0; }
 .profile-section form > label, .profile-section form > .field-pair { margin-top: 16px; }
 .profile-section form > label:first-child { margin-top: 0; }
 .profile-section fieldset > label, .profile-section fieldset > .field-pair { margin-top: 14px; }
 #profile-apply, #clear-personal-profile { margin-top: 12px; }
-.activity-guide { padding: 12px 14px; background: #f3f5ee; border-left: 2px solid #c9d6bd; margin: 15px 0 18px; }
-.activity-guide p { margin: 0 0 7px; color: var(--muted); font-size: 0.625rem; line-height: 1.85; }
-.activity-guide p:last-child { margin-bottom: 0; }
-.activity-guide strong { display: inline-block; width: 42px; color: #4e6644; font-size: 0.625rem; }
 .profile-summary { padding: 13px 15px; margin: 18px 0 0; background: var(--teal-soft); color: #4d6d45; font-size: 0.6875rem; border-radius: 5px; }
 .targets-details { margin-top: 0; }
 .targets-details > .field-note { margin: -4px 0 18px; }
@@ -610,6 +606,7 @@ dialog::backdrop { background: #1e2b24a8; backdrop-filter: blur(3px); }
 #period-summary > .field-note { margin-top: 5px; }
 #nutrition-reference-note { padding: 15px 17px; border: 1px solid var(--line); border-radius: 5px; background: #fdfdf9; }
 #nutrition-reference-note > strong { font-size: 0.6875rem; color: #5a7250; font-weight: 600; }
+#nutrition-reference-note > .text-link { display: block; }
 #nutrition-reference-note details { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
 #nutrition-reference-note summary { font-size: 0.6875rem; }
 #nutrition-reference-note .text-link { display: inline-block; margin: 12px 15px 0 0; font-size: 0.6875rem; }
@@ -892,8 +889,6 @@ summary::after { color:#687953; }
 .pantry-row input { border-radius:8px; min-height:37px; }
 .pantry-row .button-text { font-size:0.6875rem; }
 .settings-grid { gap:25px; }
-.activity-guide { padding:16px 17px; border-radius:0 9px 9px 0; background:#f4f6ec; border-left:2px solid #b8c8a2; }
-.activity-guide p, .activity-guide strong { font-size:0.75rem; }
 .profile-summary { margin-top:22px; padding:16px 18px; font-size:0.8125rem; border-radius:11px; }
 .targets-details > .field-note { font-size:0.75rem; }
 .data-actions h2 { font-size:1.5rem; }
@@ -1421,6 +1416,21 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
   height: 100%;
   min-height: 0;
   object-fit: contain;
+}
+
+#launch-screen .launch-version {
+  position: absolute;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: .22rem .8rem;
+  border-radius: 1rem;
+  background: #112c25;
+  color: #fff;
+  font-size: .9375rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
 }
 
 #weekly-review { min-width: 0; }

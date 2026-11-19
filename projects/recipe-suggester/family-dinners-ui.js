@@ -118,8 +118,8 @@ export function mountFamilyDinners({state, data, date, proposedItems, selectedId
       const actions = element('div', '', 'meal-sets-actions');
       add.disabled = Boolean(restricted);
       actions.append(add);
-      detail.append(destination, element('p', '人数は買い物の材料に反映します。栄養記録は1人分です。', 'field-note'), actions);
-      if (restricted) detail.append(element('p', '現在の除外条件で食べられることを確認できないため、この夕飯は予定に追加できません。', 'field-note'));
+      detail.append(destination, element('p', '材料は人数分、栄養は1人分です。', 'field-note'), actions);
+      if (restricted) detail.append(element('p', '除外条件に合うか確認できないため、予定に追加できません。', 'field-note'));
       const manage = element('details', '', 'meal-sets-history');
       const rename = nameInput(set.name);
       const edit = element('div', '', 'meal-sets-actions');
@@ -182,7 +182,7 @@ export function mountFamilyDinners({state, data, date, proposedItems, selectedId
     showSource();
     saveControls(create, () => readItems());
   } else {
-    create.append(element('p', '提案された夕食の「家族の定番に保存」から登録できます。メニューで料理をお気に入りにすると、ここで自由に組み合わせられます。', 'field-note'));
+    create.append(element('p', '献立の「家族の定番に保存」から登録するか、お気に入りの料理を組み合わせてください。', 'field-note'));
     create.append(action('メニューから料理を探す', onBrowse));
   }
   root.append(create, error);

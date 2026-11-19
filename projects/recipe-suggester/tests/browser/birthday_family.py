@@ -16,7 +16,7 @@ def verify_birthday_family(browser, url, db):
     page.clock.set_fixed_time(datetime(2026, 4, 10, 14, 30, tzinfo=timezone.utc))
     page.goto(url)
     login_as(page)
-    page.locator('#first-visit').get_by_role('link', name='誕生日・家族構成を設定').click()
+    page.locator('#first-visit').get_by_role('link', name='栄養のプロフィールを設定する').click()
     page.locator('#birth-date').fill('1990-04-11')
     page.locator('#birthday-consent').check()
     page.locator('#save-birth-date').click()

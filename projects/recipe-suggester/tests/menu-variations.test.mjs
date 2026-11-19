@@ -256,7 +256,7 @@ test('魚介やアレルギー条件で絞った追加グループは対象外�
 
 test('うどんの一般名はかけうどん、個別名はその種類で開き、既存の区分・材料・必要量を使う', () => {
   const members = getVariationGroup('kyoto-keiran-udon', RECIPES).recipes;
-  assert.equal(members.length, 12);
+  assert.equal(members.length, 13);
   assert.equal(groupMenuRecipes(members, {query:'うどん'})[0].selectedRecipeId, 'daily-udon-plain');
   for (const [id, query] of [
     ['kyoto-keiran-udon','けいらんうどん'], ['udon-egg','卵と小松菜の温うどん'], ['udon-pork','焼きうどん'],

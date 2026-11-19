@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RECIPES, INGREDIENTS, ALLERGENS} from '../data.js';
-import {MEAL_OCCASIONS, hasReviewedMealOccasions, mealOccasionsFor} from '../meal-occasions.js';
+import {MEAL_OCCASIONS, hasReviewedMealOccasions, mealOccasionsFor, recipeSceneIds, SCENE_LABELS} from '../meal-occasions.js';
+import {isAvailableOnDate} from '../planner-personalization.js';
+import {getVariationGroup} from '../menu-variations.js';
 import {canSuggestAtMeal} from '../meal-suitability.js';
 import {generateCalendarPlan, generatePlan, replaceRecipe} from '../planner.js';
 
@@ -50,4 +52,36 @@ test('rice balls can be proposed or swapped as a one-item snack', () => {
   assert.ok(replaced.ok);
   assert.equal(replaced.days[0].recipeIds.length, 1);
   assert.notEqual(replaced.days[0].recipeIds[0], id);
+});
+
+test('行事と日常シーンの登録、時間帯との併用、地域・家庭向け料理の年中の提案', () => {
+  const covered = new Set();
+  for (const recipe of RECIPES) {
+    const scenes = recipeSceneIds(recipe);
+    assert.ok(scenes.length && scenes.every(id => Object.hasOwn(SCENE_LABELS, id)), recipe.id);
+    assert.equal(new Set(scenes).size, scenes.length, recipe.id);
+    scenes.forEach(id => covered.add(id));
+    if (mealOccasionsFor(recipe).includes('間食')) assert.ok(scenes.includes('teatime'),recipe.id);
+  }
+  assert.deepEqual(covered, new Set(Object.keys(SCENE_LABELS)));
+  for (const [id, scene, meal] of [
+    ['celebration-regional-nara-chagayu','regional','朝食'],
+    ['celebration-regional-gifu-gohei','teatime','間食'],
+    ['celebration-menemen','brunch','朝食'],
+    ['celebration-salmon-tartare-avocado','anniversary','晩酌'],
+    ['celebration-new-year-apple-kinton','new-year','朝食'],
+    ['breakfast-lentil-potato','everyday','朝食'],
+  ]) {
+    assert.ok(recipeSceneIds(get(id)).includes(scene), id);
+    assert.ok(mealOccasionsFor(get(id)).includes(meal), id);
+  }
+  const salmon=get('celebration-salmon-tartare-avocado');
+  assert.equal(isAvailableOnDate(salmon, [], '2026-06-09', {seasonal:false}),true);
+  assert.equal(recipeSceneIds(salmon).includes('everyday'),false);
+  assert.equal(isAvailableOnDate(get('celebration-new-year-seabream-soup'), [], '2026-06-09', {seasonal:false}),false);
+  const regionalLunch=RECIPES.filter(recipe=>recipeSceneIds(recipe).includes('regional') && mealOccasionsFor(recipe).includes('昼食'));
+  const udonGroup=getVariationGroup('celebration-regional-kagawa-shippoku',regionalLunch);
+  assert.equal(udonGroup.groupId,'udon');
+  assert.ok(udonGroup.recipes.some(recipe=>recipe.id==='kyoto-keiran-udon'));
+  assert.ok(!udonGroup.recipes.some(recipe=>recipe.id==='daily-udon-plain'));
 });

@@ -17,7 +17,7 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
   if(!data?.recipes||!Array.isArray(batches)||!Array.isArray(entries)||[onCreate,onRecord,onArchive,onError].some(callback=>typeof callback!=='function'))throw Error('作り置き画面の表示内容を確認してください。');
   const prefix=`batch-cooking-${++mountCount}`,root=make('section','batch-cooking');
   root.setAttribute('aria-label','作り置きと取り分け');
-  root.append(make('h3','','作り置きと取り分け'),make('p','field-note','完成した料理の重量を量って登録すると、食べたg数に合わせて栄養を計算します。予定に入れた量も取り分け予約として残量から引きます。'));
+  root.append(make('h3','','作り置きと取り分け'),make('p','field-note','栄養は食べた重さで計算します。予定の分は残量から引きます。'));
   const error=make('p','batch-error');error.setAttribute('role','status');error.setAttribute('aria-live','polite');error.hidden=true;
   function problem(cause){const message=typeof cause==='string'?cause:cause.message;error.textContent=message;error.hidden=!message;if(message)onError(message);}
   const createDetails=make('details','batch-create-details');createDetails.append(make('summary','','作った料理を登録する'));
@@ -51,7 +51,7 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
   createDetails.append(form);root.append(createDetails,error);
   const list=make('div','batch-list');
   const visible=batches.filter(batch=>!batch.archived),archived=batches.filter(batch=>batch.archived);
-  if(!visible.length)list.append(make('p','field-note','登録中の作り置きはありません。「作った料理を登録する」から追加できます。'));
+  if(!visible.length)list.append(make('p','field-note','登録中の作り置きはありません。'));
   function cardFor(batch,archived=false){
     const card=make('article','batch-card');let balance;
     try{balance=batchBalance(batch,entries);}catch(cause){card.append(make('h4','',batch.name),make('p','batch-error',cause.message));return card;}
@@ -62,7 +62,7 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
     materialDetails.append(make('summary','','調理時の材料と全体の栄養を見る'),materials);
     const values=make('dl','batch-nutrients');
     for(const key of NUTRIENT_KEYS){const metric=make('div','batch-nutrient');metric.append(make('dt','',NUTRIENT_LABELS[key]),make('dd','',batch.item.nutrition[key]===null?'不明':`${formatNutrient(batch.item.nutrition[key], key)} ${NUTRIENT_UNITS[key]}`));values.append(metric);}
-    materialDetails.append(values,make('p','field-note','調理済みの取り分け分は買い物リストへ加えません。調理前に材料を買う場合は、通常の献立予定で管理してください。'),make('p','field-note',batch.item.sourceNote??''));card.append(materialDetails);
+    materialDetails.append(values,make('p','field-note','作り置きの材料は買い物リストに追加されません。'),make('p','field-note',batch.item.sourceNote??''));card.append(materialDetails);
     if(!archived&&balance.remainingGrams>1e-6){
       const id=`${prefix}-${batch.id}`,takeForm=make('form','batch-take-form'),takeGrams=input(id,'take-grams','number',Math.min(100,balance.remainingGrams));takeGrams.min='0.001';takeGrams.max=String(balance.remainingGrams);takeGrams.step='any';takeGrams.required=true;
       const takeDate=input(id,'take-date','date',selectedDate>=batch.preparedDate?selectedDate:batch.preparedDate);takeDate.min=batch.preparedDate;takeDate.max='2100-12-31';takeDate.required=true;
@@ -75,7 +75,7 @@ export function mountBatchCooking({batches=[],entries=[],data,selectedDate,onCre
       takeForm.addEventListener('submit',event=>{event.preventDefault();try{onRecord(takeBatch({batchId:batch.id,grams:readQuantityInput(takeGrams,{label:'取り分ける量'}),date:takeDate.value,meal:meal.value,status:status.value},batches,entries));problem('');}catch(cause){problem(cause);}});updatePreview();card.append(takeForm);
     }
     if(!archived){const finish=action('この作り置きを終了','button-secondary batch-archive');finish.type='button';finish.addEventListener('click',()=>{try{onArchive(batch.id);problem('');}catch(cause){problem(cause);}});card.append(finish,make('p','field-note','終了しても食事の記録と調理時のデータは残ります。'));
-    }else card.append(make('p','field-note','終了済み。記録した取り分け量と栄養は保持しています。'));
+    }else card.append(make('p','field-note','終了済み'));
     return card;
   }
   for(const batch of visible)list.append(cardFor(batch));root.append(list);

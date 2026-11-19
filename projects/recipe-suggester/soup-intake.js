@@ -115,6 +115,23 @@ const AUDITED_PARTITIONS = [
   ['soup311-consomme-plain', 'water soup311_consomme parsley', 'water soup311_consomme'], // コンソメスープ
   ['soup311-consomme-vegetable', 'cabbage onion carrot mushroom water soup311_consomme black_pepper', 'water soup311_consomme black_pepper'], // 野菜のコンソメスープ
   ['soup311-wonton-pork', 'soup311_wonton_wrappers pork_minced negi ginger soy_sauce sake sesame_oil salt noodle_chinese_stock komatsuna black_pepper', 'sake noodle_chinese_stock', {"soy_sauce":0.5,"sesame_oil":0.5}], // 豚肉と長ねぎのワンタンスープ
+  // だまこを丸める手水の塩は団子側に残す。つみっこの水は全量が生地用。
+  ['celebration-regional-akita-damako', 'rice chicken burdock simmered_maitake negi water soy_sauce sake salt', 'water soy_sauce sake'],
+  ['celebration-regional-yamagata-imoni', 'beef taro konjac negi water sake soy_sauce sugar', 'water sake soy_sauce sugar'],
+  ['celebration-regional-saitama-tsumikko', 'flour chicken daikon carrot burdock negi water soup311_awase_dashi soy_sauce mirin', 'soup311_awase_dashi soy_sauce mirin'],
+  ['celebration-regional-tokyo-fukagawa', 'rice clam negi ginger miso sake water', 'miso sake water'],
+  ['celebration-regional-ishikawa-nasu-somen', 'somen aubergine noodle_niboshi_stock kyoto_usukuchi mirin sake', 'noodle_niboshi_stock kyoto_usukuchi mirin sake'],
+  ['celebration-regional-hiroshima-kaki-dote', 'simmered_oyster tofu chinese_cabbage negi shiitake miso mirin sugar kyoto_kombu_dashi', 'miso mirin sugar kyoto_kombu_dashi'],
+  ['celebration-regional-kagawa-shippoku', 'udon taro daikon carrot aburaage negi noodle_niboshi_stock kyoto_usukuchi mirin', 'noodle_niboshi_stock kyoto_usukuchi mirin'],
+  ['celebration-regional-ehime-imotaki', 'chicken taro shiitake konjac aburaage soup311_awase_dashi kyoto_usukuchi sugar mirin sake', 'soup311_awase_dashi kyoto_usukuchi sugar mirin sake'],
+  // 冷や汁のあじ・みそ・すりごまはすり合わせてだしに溶かす。
+  ['celebration-regional-miyazaki-hiyajiru', 'rice cooked_barley horse_mackerel cucumber tofu miso ground_sesame shiso soup311_awase_dashi', 'horse_mackerel miso ground_sesame soup311_awase_dashi'],
+  // 鶏飯は約1割のゆで汁としょうゆ・みりんをしいたけに煮含める。薄焼き卵の油は具側。
+  ['celebration-regional-kagoshima-keihan', 'rice chicken_breast shiitake egg palette_takuan scallion_garnish nori water sake soy_sauce mirin salt oil', '', {water: 0.9, sake: 0.9, salt: 0.9}],
+  ['celebration-provencal-bouillabaisse', 'cod clam shrimp onion celery garlic canned_tomato perf_wine_white water olive_oil parsley salt', 'canned_tomato perf_wine_white water olive_oil salt'],
+  ['celebration-sopa-de-ajo', 'garlic wholegrain_bread egg paprika_powder olive_oil water salt', 'paprika_powder olive_oil water salt'],
+  // カルド・ヴェルデはつぶした野菜が汁。後から加えるキャベツとウインナーは具。
+  ['celebration-caldo-verde', 'potato cabbage onion garlic palette_wiener olive_oil water salt', 'potato onion garlic olive_oil water salt'],
   // 大根おろしは汁ごとだしへ混ぜる。ぶり、ねぎ、薄切りしょうがを具として扱う。
   ['celebration-winter-yellowtail-leek', 'yellowtail negi daikon kyoto_kombu_dashi soy_sauce mirin ginger', 'daikon kyoto_kombu_dashi soy_sauce mirin'],
 ];

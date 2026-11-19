@@ -263,7 +263,7 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
         row.append(control(`手持ちに追加（${foodName} ${quantity}）`, 'button-secondary shopping-stock-receipt',
           () => onStockReceipt(receipt.id)));
       } else if (ingredient && onStockReceipt) {
-        row.append(make('p', 'field-note', '食べた料理への割り当てを含みます。余った分は「手持ち食材」から入力できます。'));
+        row.append(make('p', 'field-note', '食べた分を含みます。余った分は「手持ち食材」に登録できます。'));
       }
       row.append(control('購入チェックを戻す', 'button-secondary shopping-undo-purchase', () => {
         if (onUndoPurchase(receipt.id) === false) return;

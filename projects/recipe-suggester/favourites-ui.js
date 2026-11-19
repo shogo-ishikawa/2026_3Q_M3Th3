@@ -18,7 +18,7 @@ const button=(label,fn,className='button-secondary')=>{const control=make('butto
 export function mountFavourites({favourites=[],entries=[],data,date,meal='dinner',status='eaten',settings={},onAdd=()=>{},onEditItem,onSave=()=>{},onDelete=()=>{},onError=()=>{}}={}){
   if(!Array.isArray(favourites)||!Array.isArray(entries)||!dateIsValid(date)||[onAdd,onSave,onDelete,onError].some(fn=>typeof fn!=='function'))throw Error('お気に入りと記録先を確認してください。');
   const prefix=`favourites-${++count}`,root=make('section','favourites');root.setAttribute('aria-label','お気に入りと最近使った料理');
-  root.append(make('h3','','お気に入り・最近使った料理'),make('p','field-note','単品を前回の量で呼び出せます。量を変更して追加でき、栄養と材料は保存した内容を使います。'));
+  root.append(make('h3','','お気に入り・最近使った料理'));
   const error=make('p','favourites-error');error.hidden=true;error.setAttribute('role','status');error.setAttribute('aria-live','polite');
   const act=fn=>()=>{try{fn();error.hidden=true;error.textContent='';}catch(cause){error.textContent=cause.message;error.hidden=false;onError(cause.message);}};
   const controls=make('div','favourites-destination'),targetDate=make('input');targetDate.id=`${prefix}-date`;targetDate.type='date';targetDate.min='2000-01-01';targetDate.max='2100-12-31';targetDate.value=date;
@@ -59,14 +59,14 @@ export function mountFavourites({favourites=[],entries=[],data,date,meal='dinner
   function render(){
     const query=search.value??'',selected=favourites.filter(favourite=>matchesJapaneseQuery([favourite.name,favourite.item.name],query));
     saved.replaceChildren(make('h4','','お気に入り'));
-    if(!selected.length)saved.append(make('p','field-note',favourites.length?'一致するお気に入りがありません。':'料理の詳細や最近使った料理から、お気に入りに追加できます。'));
+    if(!selected.length)saved.append(make('p','field-note',favourites.length?'一致するお気に入りがありません。':'お気に入りはレシピから追加できます。'));
     else{const grid=make('div','favourites-grid');selected.forEach((favourite,index)=>grid.append(card(favourite.item,{favourite,index})));saved.append(grid);}
     renderRecent(query);
   }
   function renderRecent(query){
     const matching=recents.filter(({item})=>matchesJapaneseQuery([item.name],query));recent.replaceChildren(make('h4','','最近使った料理'));
-    if(!dateIsValid(targetDate.value)){recent.append(make('p','field-note','記録する日付を選ぶと、その日までに食べた料理が表示されます。'));return;}
-    if(!matching.length)recent.append(make('p','field-note','この日以前の実食記録に一致する料理がありません。作り置きは残量画面から記録してください。'));
+    if(!dateIsValid(targetDate.value)){recent.append(make('p','field-note','記録する日付を選んでください。'));return;}
+    if(!matching.length)recent.append(make('p','field-note','この日までの記録に該当する料理がありません。'));
     else{const grid=make('div','favourites-grid');matching.forEach((source,index)=>grid.append(card(source.item,{date:source.date,meal:source.meal,index})));recent.append(grid);}
   }
   targetDate.addEventListener('change',()=>{

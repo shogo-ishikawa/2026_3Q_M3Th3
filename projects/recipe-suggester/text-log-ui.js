@@ -16,7 +16,7 @@ const meals=[['breakfast','朝食'],['lunch','昼食'],['dinner','夕食'],['sna
 export function mountTextLog({data,date,meal='dinner',status='eaten',settings={},onAdd=()=>{},onError=()=>{},canConfigure=()=>false,onConfigure=null}={}){
   if(!Array.isArray(data?.recipes)||typeof onAdd!=='function'||typeof onError!=='function'||typeof canConfigure!=='function'||onConfigure!==null&&typeof onConfigure!=='function')throw Error('文章から記録する画面の設定を確認してください。');
   const prefix=`text-log-${++mounts}`,root=make('section','text-log');root.setAttribute('aria-label','文章からまとめて食事を記録');
-  root.append(make('h3','','文章からまとめて記録'),make('p','field-note','料理名と量を「、」や改行で区切って入力します。候補の料理と量を確認してから一括登録します。'));
+  root.append(make('h3','','文章からまとめて記録'),make('p','field-note','料理名と量を「、」か改行で区切ってください。'));
   const text=make('textarea','text-log-source');text.id=`${prefix}-source`;text.rows=3;text.maxLength=2000;text.placeholder='例：ご飯150g、納豆1パック、みそ汁1杯';
   const parse=make('button','button-secondary text-log-parse','料理の候補を作る');parse.type='button';root.append(field('食べたもの',text),parse);
   const context=make('div','text-log-context'),dateField=make('input');dateField.type='date';dateField.id=`${prefix}-date`;dateField.min='2000-01-01';dateField.max='2100-12-31';dateField.value=date??'';
@@ -25,7 +25,7 @@ export function mountTextLog({data,date,meal='dinner',status='eaten',settings={}
   context.append(field('記録する日付',dateField),field('食事',mealField),field('記録の種類',statusField));root.append(context);
   const list=make('div','text-log-rows'),summary=make('div','text-log-summary'),message=make('p','text-log-status field-note'),error=make('p','text-log-error');error.hidden=true;error.setAttribute('role','status');error.setAttribute('aria-live','polite');
   const submit=make('button','button-primary text-log-submit','内容を確認して一括登録');submit.type='button';submit.disabled=true;
-  root.append(make('p','field-note','候補を選んだ後、おでん・刺身・パンなどは「具材・種類・個数を指定」から内訳を変更できます。具材ごとの数量を確定し、この行の量で食べた皿数などを指定します。換算が未登録の単位は基準量を確認してください。'),list,summary,message,error,submit);
+  root.append(list,summary,message,error,submit);
   let controls=[],current=null;
   const registrationSummary=createRecordSummary({getEntry:()=>current,data}),warnings=make('div','text-log-summary-warnings');
   summary.append(registrationSummary.element,warnings);
@@ -53,7 +53,7 @@ export function mountTextLog({data,date,meal='dinner',status='eaten',settings={}
     control.standard.append(make('summary','',confirmed?'確定した具材と量を見る':'標準の登録内訳を見る'));
     const ingredients=make('ul','text-log-standard-items');
     for(const part of recipe.ingredients??[]){const food=data.ingredients?.[part.id];ingredients.append(make('li','',`${food?.name??part.id} ${round(part.amount/recipe.servings)}${food?.unit??''}`));}
-    control.standard.append(make('p','field-note',`基準量（${portion.amount}${portion.unit}）の内訳です。量の変更に合わせて比例計算します。`),ingredients);
+    control.standard.append(make('p','field-note',`${portion.amount}${portion.unit}あたりの内訳`),ingredients);
     if(recipe.ingredientsKnown===false)control.standard.append(make('p','text-log-warning','この内訳は概算用の登録例です。商品の原材料すべてを確認したものではありません。'));
   }
   function chooseRecipe(control){

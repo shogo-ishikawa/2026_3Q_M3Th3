@@ -1,5 +1,5 @@
 import {isBirthdayOnDate} from './personal-nutrition.js';
-import {recipeOccasionIds} from './celebration-recipes.js';
+import {recipeOccasionIds, recipeCollection} from './celebration-recipes.js';
 import {existingOccasionIds} from './occasion-classics.js';
 import {dishClassification, COOKING_METHODS} from './dish-hierarchy.js';
 import {ingredientGroup} from './shopping-categories.js';
@@ -41,7 +41,7 @@ function audienceTag(tags, counts) {
 }
 
 export function isAvailableOnDate(recipe, occasions, date, personal) {
-  if (existingOccasionIds(recipe).length) return true;
+  if (existingOccasionIds(recipe).length || recipeCollection(recipe)) return true;
   const tags = recipeOccasionIds(recipe);
   const events = tags.filter(id => Object.hasOwn(OCCASION_LABELS, id));
   if (!events.length || events.some(id => occasions.includes(id))) return true;

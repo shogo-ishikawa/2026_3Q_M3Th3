@@ -1,5 +1,5 @@
 import {recipeFamily, isCompleteMeal} from './catalog.js';
-import {mealOccasionsFor} from './meal-occasions.js';
+import {mealOccasionsFor, recipeSceneIds, SCENE_LABELS} from './meal-occasions.js';
 
 const BREAKFAST_PROTEINS = new Set(`
 classic-boiled-egg classic-natto-plain classic-natto-grated-daikon
@@ -65,6 +65,6 @@ export function mealSuitabilityAudit(recipes) {
   return recipes.map(recipe => {
     const {meals, breakfastRole, category} = recipeMealSuitability(recipe);
     return {recipeId: recipe.id, name: recipe.name, family: recipeFamily(recipe),
-      occasions: mealOccasionsFor(recipe), meals, breakfastRole, category};
+      occasions: mealOccasionsFor(recipe), scenes: recipeSceneIds(recipe).map(id => SCENE_LABELS[id]), meals, breakfastRole, category};
   });
 }

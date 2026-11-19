@@ -108,12 +108,18 @@ def verify(context, url, server):
             window.seenSplash = [event.target.naturalWidth, event.target.naturalHeight,
               getComputedStyle(event.target).objectFit, !event.target.parentElement.hidden,
               bounds.width <= innerWidth + 1 && bounds.height <= innerHeight + 1];
+            const version = document.querySelector('#launch-screen .launch-version');
+            const label = version.getBoundingClientRect();
+            window.splashVersion = [version.textContent, label.width > 0 && label.height > 0
+              && label.top >= 0 && label.bottom <= innerHeight];
           }
         }, true);
     """)
     page.goto(url + "#shopping")
     page.wait_for_function("window.seenSplash")
     assert page.evaluate("window.seenSplash") == [1143, 2048, "contain", True, True]
+    version = (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+    assert page.evaluate("window.splashVersion") == ["v" + version, True]
     expect(page.locator("#launch-screen")).to_be_hidden()
     expect(page.locator("#panel-kitchen")).to_be_visible()
     check_app_only(page)

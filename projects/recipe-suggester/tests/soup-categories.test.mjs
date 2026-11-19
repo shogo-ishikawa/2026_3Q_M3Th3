@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CELEBRATION_RECIPES} from '../celebration-recipes.js';
+import {CELEBRATION_RECIPES, REGIONAL_AND_WORLD_RECIPES} from '../celebration-recipes.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {CATALOG_CATEGORIES, catalogFamilies, catalogVariants, recipeFamily, recipePortion, quantityFromAmount} from '../catalog.js';
 import {decorateRecipe} from '../catalog-metadata.js';
@@ -10,11 +10,12 @@ import {defaultJournal, parseJournal} from '../journal.js';
 import {createCatalogEntry} from '../record-actions.js';
 
 const data={recipes:RECIPES, ingredients:INGREDIENTS, allergens:ALLERGENS};
+const addedSoups = [...CELEBRATION_RECIPES, ...REGIONAL_AND_WORLD_RECIPES].filter(recipe => recipe.role === 'soup');
 const soup=RECIPES.filter(recipe=>recipe.role==='soup');
 const byId=id=>RECIPES.find(recipe=>recipe.id===id);
 
 test('従来の86品と追加の汁物を10小分類へ重複なく分け、記録とメニューの同じ候補を返す',()=>{
-  const count = 86 + CELEBRATION_RECIPES.filter(recipe => recipe.role === 'soup').length;
+  const count = 86 + addedSoups.length;
   const before=JSON.stringify(RECIPES),families=catalogFamilies(RECIPES,{role:'soup'});
   assert.equal(soup.length,count);assert.equal(families.length,10);
   const ids=families.flatMap(family=>catalogVariants(RECIPES,family.id).map(recipe=>recipe.id));
@@ -68,7 +69,7 @@ test('分類名の検索からも候補を探せ、空の分類や異なる料�
 });
 
 test('旧データの大まかなfamilyを維持し、表示と単位だけを新しい小分類から求める',()=>{
-  const celebrationFamilies = new Map(CELEBRATION_RECIPES.filter(recipe => recipe.role === 'soup')
+  const celebrationFamilies = new Map(addedSoups
     .map(recipe => [recipe.id, recipe.family]));
   for(const recipe of soup){
     if (celebrationFamilies.has(recipe.id)) assert.equal(recipe.family, celebrationFamilies.get(recipe.id));
