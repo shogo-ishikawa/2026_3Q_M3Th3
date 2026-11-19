@@ -36,12 +36,14 @@ def verify_weekly_review(page):
 
 
 def downloaded_json(page, button):
+    page.locator('#settings-tab-data').click()
     with page.expect_download() as event:
         page.locator(button).click()
     return json.loads(Path(event.value.path()).read_text(encoding='utf-8'))
 
 
 def import_json(page, record):
+    page.locator('#settings-tab-data').click()
     page.locator('#import-file').set_input_files({'name': 'profile.json', 'mimeType': 'application/json',
                                                   'buffer': json.dumps(record).encode()})
 
@@ -67,6 +69,14 @@ def verify_personal_nutrition(browser, url, db):
     assert original['targets']['kcal'] == 2017 and 'personalProfile' not in original
     page.locator('#profile-mode').select_option('personal')
     page.locator('#personal-age').fill('38')
+    # 栄養プロフィールの編集中に別の設定を保存しても、選択や入力を失わない。
+    page.locator('#settings-tab-family').click()
+    page.locator('#household-count-adult').fill('1')
+    page.locator('#save-household').click()
+    page.locator('#clear-household').click()
+    page.locator('#settings-tab-profile').click()
+    expect(page.locator('#profile-mode')).to_have_value('personal')
+    expect(page.locator('#personal-age')).to_have_value('38')
     page.locator('#personal-height').fill('164.2')
     page.locator('#personal-weight').fill('60.8')
     page.locator('#personal-sex').select_option('female')
@@ -96,12 +106,34 @@ def verify_personal_nutrition(browser, url, db):
     assert json.loads(journal_bytes(remote)) == active
 
     assert 'mealPaletteMenuVotes/member' not in db.documents
+    page.locator('#settings-tab-feedback').click()
     vote = page.locator('#menu-feedback')
     vote.locator('summary').click()
     vote.locator('select').select_option('regional')
     vote.locator('[data-send]').click()
     expect(vote.get_by_role('status')).to_have_text('希望を送信しました。')
     assert db.documents['mealPaletteMenuVotes/member'] == {'interest': 'regional'}
+
+    # 以前の1件を含めて複数の希望を送信し、別端末の追加を保って1件ずつ更新する。
+    vote.locator('select').select_option('seafood')
+    vote.locator('[data-send]').click()
+    expect(vote.get_by_role('status')).to_have_text('希望を送信しました。')
+    expect(vote.locator('li')).to_have_count(2)
+    remote.locator('#settings-tab-feedback').click()
+    other_vote = remote.locator('#menu-feedback')
+    other_vote.locator('summary').click()
+    expect(other_vote.locator('li')).to_have_count(2)
+    other_vote.locator('select').select_option('noodles')
+    other_vote.locator('[data-send]').click()
+    expect(other_vote.locator('li')).to_have_count(3)
+    vote.locator('[data-edit="seafood"]').click()
+    vote.locator('select').select_option('world')
+    vote.locator('[data-send]').click()
+    expect(vote.get_by_role('status')).to_have_text('希望を変更しました。')
+    assert db.documents['mealPaletteMenuVotes/member'] == {'interests': ['regional', 'noodles', 'world']}
+    vote.locator('[data-withdraw="regional"]').click()
+    expect(vote.locator('li')).to_have_count(2)
+    assert db.documents['mealPaletteMenuVotes/member'] == {'interests': ['noodles', 'world']}
 
     # 明示的な書き出し／読み込みは詳細を含み、自動退避は除外する。
     import_json(page, original)
@@ -113,6 +145,7 @@ def verify_personal_nutrition(browser, url, db):
     import_json(page, active)
     expect(page.locator('#profile-mode')).to_have_value('personal')
     assert json.loads(journal_bytes(page)) == active
+    page.locator('#settings-tab-profile').click()
     page.locator('#clear-personal-profile').click()
     expect(page.locator('#profile-mode')).to_have_value('manual')
     expect(page.locator('#personal-age')).to_have_value('')
@@ -126,6 +159,7 @@ def verify_personal_nutrition(browser, url, db):
     expect(remote.locator('#profile-mode')).to_have_value('manual')
     expect(remote.locator('#target-kcal')).to_have_value('2017')
     other_device.close()
+    page.locator('#settings-tab-data').click()
     page.locator('#restore-journal-backup').click()
     expect(page.locator('#app-message')).to_contain_text('変更前のデータへ戻しました')
     assert 'personalProfile' not in json.loads(journal_bytes(page))

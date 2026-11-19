@@ -46,6 +46,17 @@ def verify_browser_install(browser, devices, url):
         expect(header).to_be_focused()
 
         page.locator("#tab-settings").click()
+        page.locator("#settings-tab-profile").focus()
+        page.keyboard.press("ArrowRight")
+        expect(page.locator("#settings-tab-family")).to_be_focused()
+        expect(page.locator("#household-form")).to_be_visible()
+        page.keyboard.press("End")
+        expect(page.locator("#settings-tab-feedback")).to_be_focused()
+        page.keyboard.press("Home")
+        expect(page.locator("#settings-tab-profile")).to_be_focused()
+        expect(page.locator("#profile-form")).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+        page.locator("#settings-tab-display").click()
         settings = page.locator("#install-meal-palette")
         expect(settings).to_have_accessible_name(INSTALL_LABEL)
         if device == "Pixel 7":
@@ -84,8 +95,12 @@ def check_app_only(page):
 
 def verify_app_settings(page):
     page.locator("#tab-settings").click()
-    expect(page.locator("#home-installed")).to_be_visible()
-    expect(page.locator("#offline-state")).to_be_visible()
+    page.locator("#settings-tab-display").click()
+    expect(page.locator("#appearance-settings-title")).to_be_visible()
+    expect(page.locator("#home-install-panel")).to_be_hidden()
+    expect(page.locator("#install-guide")).to_be_hidden()
+    expect(page.locator("#offline-state")).to_be_hidden()
+    page.locator("#settings-tab-data").click()
     # 折り畳んだ説明の中に教材リンクが残っていないかも調べる。
     for disclosure in page.locator(".about-section:visible").all():
         disclosure.locator("summary").click()
@@ -106,6 +121,7 @@ def verify_android_app(context, url):
     page.reload()
     expect(page.locator("#panel-settings")).to_be_visible()
     check_app_only(page)
+    expect(page.locator("#settings-tab-data")).to_have_attribute("aria-selected", "true")
     sample_link = page.locator("#setup-actions [data-sample-link]")
     expect(sample_link).to_have_attribute("target", "_self")
     tabs = len(context.pages)

@@ -59,8 +59,8 @@ export function renderCatalogFilters({filters = [], protectedLabels = [], result
     const list = make('ul', 'catalog-protected-filter-list');
     for (const label of protectedText) list.append(make('li', '', label));
     const note = make('p', '', 'アレルギーと避ける食材の条件は、自動では解除しません。');
-    const settings = make('a', 'catalog-filter-settings', '除外条件を設定で確認');
-    settings.setAttribute('href', '#settings');
+    const settings = make('a', 'catalog-filter-settings', '献立の除外条件を確認');
+    settings.setAttribute('href', '#planner');
     protection.append(list, note, settings);
     root.append(protection);
   }

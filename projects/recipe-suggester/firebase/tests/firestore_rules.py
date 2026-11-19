@@ -31,7 +31,11 @@ def emulator_token(uid, email="reader@example.invalid", provider="google.com", v
 
 def document(**fields):
     types = {str: "stringValue", int: "integerValue", bool: "booleanValue"}
-    return {"fields": {key: {types[type(val)]: val} for key, val in fields.items()}}
+    def encode(value):
+        if isinstance(value, list):
+            return {"arrayValue": {"values": [encode(item) for item in value]}}
+        return {types[type(value)]: value}
+    return {"fields": {key: encode(value) for key, value in fields.items()}}
 
 
 class FirestoreRules(unittest.TestCase):
@@ -127,6 +131,24 @@ class FirestoreRules(unittest.TestCase):
         self.call(200, "DELETE", self.vote, self.owner)
         self.call(404, "GET", self.vote, self.owner)
 
+    def test_multiple_menu_requests_and_legacy_clients(self):
+        self.call(200, "PATCH", self.vote, self.owner, document(interest="world"))
+        self.call(200, "PATCH", self.vote, self.owner, document(interests=["seafood", "world"]))
+        for invalid in [document(interests=[]), document(interests=["seafood", "seafood"]),
+                        document(interests=["free text"]), document(interests=[True]),
+                        document(interests="seafood"), document(interests=["world"], kcal=500),
+                        document(interest="world", interests=["world"])]:
+            self.call(403, "PATCH", self.vote, self.owner, invalid)
+        self.call(403, "PATCH", self.vote, self.owner, document(interest="regional"))
+        self.call(403, "DELETE", self.vote, self.owner)
+        for who in [None, self.other, self.admin, emulator_token(self.uid, verified=False),
+                    emulator_token(self.uid, provider="password")]:
+            self.call(403, "PATCH", self.vote, who, document(interests=["world", "noodles"]))
+        self.call(200, "PATCH", self.vote, self.owner, document(interests=["noodles", "regional", "world"]))
+        self.call(200, "PATCH", self.vote, self.owner, document(interests=["world"]))
+        self.call(200, "DELETE", self.vote, self.owner)
+        self.call(404, "GET", self.vote, self.owner)
+
     def test_consent_to_genre_summary(self):
         path = '/mealPaletteTasteReports/' + self.uid
         report = document(favoriteGenre='和食', planGenre='未共有')
@@ -146,13 +168,27 @@ class FirestoreRules(unittest.TestCase):
 
     def test_only_verified_google_admin_can_count_votes(self):
         self.call(200, "PATCH", self.vote, self.owner, document(interest="seafood"))
+        def match(field, operator):
+            return {"fieldFilter": {"field": {"fieldPath": field}, "op": operator, "value": {"stringValue": "seafood"}}}
         query = {"structuredQuery": {"from": [{"collectionId": "mealPaletteMenuVotes"}],
-                 "where": {"fieldFilter": {"field": {"fieldPath": "interest"},
-                           "op": "EQUAL", "value": {"stringValue": "seafood"}}}},
+                 "where": {"compositeFilter": {"op": "OR", "filters": [match("interest", "EQUAL"),
+                           match("interests", "ARRAY_CONTAINS")]}}},
                  "aggregations": [{"alias": "count", "count": {}}]}
         body = {"structuredAggregationQuery": query}
-        result = self.call(200, "POST", ":runAggregationQuery", self.admin, body)
-        self.assertGreaterEqual(int(result[0]["result"]["aggregateFields"]["count"]["integerValue"]), 1)
+        def count():
+            result = self.call(200, "POST", ":runAggregationQuery", self.admin, body)
+            return int(result[0]["result"]["aggregateFields"]["count"]["integerValue"])
+        baseline = count()
+        self.assertGreaterEqual(baseline, 1)
+        self.call(200, "PATCH", self.vote, self.owner, document(interests=["breakfast", "seafood"]))
+        self.assertEqual(count(), baseline)
+        uid = self.uid + "-second"
+        second_vote = "/mealPaletteMenuVotes/" + uid
+        second_owner = emulator_token(uid)
+        self.call(200, "PATCH", second_vote, second_owner, document(interest="seafood"))
+        self.assertEqual(count(), baseline + 1)
+        self.call(200, "DELETE", second_vote, second_owner)
+        self.call(200, "PATCH", self.vote, self.owner, document(interests=["seafood"]))
         admin_email = ADMIN_EMAIL
         for denied in [None, self.owner, emulator_token("admin", admin_email, verified=False),
                        emulator_token("admin", admin_email, provider="password")]:

@@ -1,7 +1,9 @@
+import {validateDrivePhotoLinks} from './drive-photo-link.js';
 // 食事記録と設定を検証し、渡されたアカウントの保存先で読み書きします。
 import {CATALOG_CATEGORIES, FOOD_NATURES} from './catalog.js';
 import {deriveReference} from './dietary-reference.js';
 import {removeStaleBirthdayReasons} from './planner-personalization.js';
+import {MANUAL_OCCASIONS, OCCASION_LABELS, menuOccasions} from './occasion-calendar.js';
 import {ageOnDate, derivePersonalNutrition, jstDateKey, validPersonalMeasurements} from './personal-nutrition.js';
 import {recipeConfirmation} from './nutrition.js';
 import {validateHousehold} from './household-preferences.js';
@@ -513,13 +515,13 @@ export function setBirthDate(state, birthDate, today = jstDateKey()) {
     state.personalProfile.ageSource = 'birthDate';
     refreshBirthdayNutrition(state, today);
   }
-  removeStaleBirthdayReasons(state.draftPlan, state.birthDate);
+  removeStaleBirthdayReasons(state.draftPlan, state.birthDate, state.familyCalendar);
 }
 
 export function clearBirthDate(state) {
   delete state.birthDate;
   if (state.personalProfile?.ageSource === 'birthDate' && state.profile.mode === 'personal') restorePreviousNutritionMode(state);
-  removeStaleBirthdayReasons(state.draftPlan, state.birthDate);
+  removeStaleBirthdayReasons(state.draftPlan, state.birthDate, state.familyCalendar);
 }
 
 function nutritionTargets(value) {
@@ -583,8 +585,22 @@ function validateDraft(source, data, recipes) {
   return {settings: {...base, seed}, days, warnings: labels(source.warnings)};
 }
 
+function validateFamilyCalendar(value) {
+  const seen = new Set();
+  return list(value ?? [], 100, '家族の行事').map(item => {
+    record(item, ['date', 'occasion', 'annual'], '家族の行事');
+    if (!dateIsValid(item.date) || !MANUAL_OCCASIONS.includes(item.occasion) || typeof item.annual !== 'boolean') {
+      throw Error('家族の行事の日付と種類を確認してください。');
+    }
+    const key = `${item.date}/${item.occasion}`;
+    if (seen.has(key)) throw Error('同じ日付に同じ行事が登録されています。');
+    seen.add(key);
+    return {date: item.date, occasion: item.occasion, annual: item.annual};
+  });
+}
+
 function validateV3(value, data) {
-  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'manualTargets', 'profile', 'personalProfile', 'birthDate', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts', 'draftPlan'], '保存データ');
+  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'manualTargets', 'profile', 'personalProfile', 'birthDate', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts', 'familyCalendar', 'suggestedRecipeIds', 'draftPlan', 'drivePhotoLinks'], '保存データ');
   const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), recipeIds: new Set(data.recipes.map(recipe => recipe.id)), allergenIds: new Set(data.allergens.map(allergen => allergen.id)), customIds: new Set()};
   const customRecipes = list(value.customRecipes, LIMITS.customRecipes, 'マイレシピ').map(recipe => customRecipe(recipe, context));
   const recipes = [...data.recipes, ...customRecipes];
@@ -651,8 +667,13 @@ function validateV3(value, data) {
   const shoppingList = value.shoppingList === undefined ? null : shoppingMenus(value.shoppingList, data, {prepared: true});
   const catalog = shoppingCatalog(value.shoppingCatalog, data), receipts = shoppingReceipts(value.shoppingReceipts);
   const draftPlan = value.draftPlan === undefined ? undefined : validateDraft(value.draftPlan, data, recipes);
-  removeStaleBirthdayReasons(draftPlan, birthDate);
+  const familyCalendar = validateFamilyCalendar(value.familyCalendar);
+  removeStaleBirthdayReasons(draftPlan, birthDate, familyCalendar);
+  const suggestedRecipeIds = unique(list(value.suggestedRecipeIds ?? [], 2048, '提案した料理').map(id => identifier(id)));
+  const drivePhotoLinks = validateDrivePhotoLinks(value.drivePhotoLinks, new Set(recipes.map(recipe => recipe.id)));
   return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, ...nutrition, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites, shoppingExtras, shoppingList, shoppingCatalog: catalog, shoppingReceipts: receipts,
+    ...(familyCalendar.length ? {familyCalendar} : {}), ...(suggestedRecipeIds.length ? {suggestedRecipeIds} : {}),
+    ...(drivePhotoLinks.length ? {drivePhotoLinks} : {}),
     ...(draftPlan === undefined ? {} : {draftPlan})};
 }
 
@@ -843,7 +864,20 @@ function withoutArchivedPersonalProfile(raw, {body = true, birthday = true} = {}
   const stripBody = body && Object.hasOwn(saved, 'personalProfile');
   const stripDate = birthday && Object.hasOwn(saved, 'birthDate');
   const removedReasons = birthday && removeStaleBirthdayReasons(saved.draftPlan);
-  if (!stripBody && !stripDate && !removedReasons) return raw;
+  const privateDates = Object.hasOwn(saved, 'familyCalendar');
+  if (!stripBody && !stripDate && !removedReasons && !privateDates) return raw;
+  if (privateDates) {
+    // 復旧用の自動退避から削除した家族行事を再登録しない。通常のJSON書き出しには保持する。
+    delete saved.familyCalendar;
+    for (const day of Array.isArray(saved.draftPlan?.days) ? saved.draftPlan.days : []) {
+      if (typeof day?.date !== 'string') continue;
+      const automatic = menuOccasions(day.date);
+      const labels = new Set(MANUAL_OCCASIONS.filter(id => !automatic.includes(id)).map(id => OCCASION_LABELS[id] + 'の料理'));
+      for (const [id, reasons] of Object.entries(day.dishReasons ?? {})) {
+        if (Array.isArray(reasons)) day.dishReasons[id] = reasons.filter(text => !labels.has(text));
+      }
+    }
+  }
   const restoreTargets = saved.profile?.mode === 'personal' && (stripBody || saved.personalProfile?.ageSource === 'birthDate');
   if (stripBody) delete saved.personalProfile;
   if (stripDate) delete saved.birthDate;

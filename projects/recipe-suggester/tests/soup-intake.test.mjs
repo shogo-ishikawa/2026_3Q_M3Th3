@@ -14,7 +14,7 @@ const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-8,`${actual
 const compare=(actual,expected)=>{for(const key of NUTRIENT_KEYS)expected[key]===null?assert.equal(actual[key],null):near(actual[key],expected[key]);};
 
 test('監査済みの汁物・鍋料理は全量摂取で従来値と完全に一致し、1人分へ正規化する',()=>{
-  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,99);
+  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,100);
   for(const base of supported){
     const generated=buildSoupIntake({baseRecipe:base},data);
     assert.deepEqual(recipeNutrition(generated,data),recipeNutrition(base,data),base.id);
@@ -24,6 +24,14 @@ test('監査済みの汁物・鍋料理は全量摂取で従来値と完全に�
     assert.equal(generated.nutritionBasis,'estimate');
   }
   for(const base of RECIPES.filter(r=>dishClassification(r).method==='hotpot'))assert.ok(soupIntakeFor(base,data),base.id);
+});
+
+test('ぶりと焼きねぎのみぞれ鍋では、残した煮汁に混ぜた大根おろしと調味料を差し引く', () => {
+  const base = recipe('celebration-winter-yellowtail-leek');
+  const {ingredientFractions} = soupIntakeFor(base, data);
+  assert.deepEqual(ingredientFractions, {
+    yellowtail: 0, negi: 0, daikon: 1, kyoto_kombu_dashi: 1, soy_sauce: 1, mirin: 1, ginger: 0,
+  });
 });
 
 test('みそ汁で汁だけを残すとみそ・だしの栄養だけ減り、具の栄養は全量残る',()=>{

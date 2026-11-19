@@ -1,5 +1,6 @@
 /** 本人確認と保存先の準備が済んだアカウントだけでアプリを開く。 */
 import {accountIdentity} from './account-identity.js';
+import {createDrivePhotos} from './drive-photos.js';
 
 const byId = id => document.getElementById(id);
 const gate = byId('account-gate');
@@ -13,6 +14,7 @@ let generation = 0;
 let openingUid = null;
 let mountedUid = null;
 let journal = null;
+let photos = null;
 let stopFeedback;
 let appLoaded = false;
 let adminVisible = false;
@@ -38,6 +40,8 @@ function stop() {
   lock();
   journal?.stop();
   journal = null;
+  photos?.stop();
+  photos = null;
   stopFeedback?.();
   stopFeedback = null;
 }
@@ -54,7 +58,10 @@ function showStatus(status) {
   byId('account-sync-retry').hidden = !['pending', 'error'].includes(status.state);
   byId('account-save-copy').hidden = status.state !== 'conflict';
   byId('account-use-cloud').hidden = status.state !== 'conflict';
-  byId('account-legacy-import').hidden = !journal?.legacyRaw();
+  const legacy = Boolean(journal?.legacyRaw());
+  byId('account-legacy-import').hidden = !legacy;
+  byId('account-sync-panel').hidden = !legacy && !['pending', 'error', 'conflict'].includes(status.state);
+  if (status.state === 'synced') syncMessage('');
 }
 
 function syncMessage(text) {
@@ -191,8 +198,9 @@ async function start() {
         if (lastStatus) showStatus(lastStatus);
         wireJournal();
       }
-      byId('account-sync-panel').hidden = demo;
-      const session = {user, uid: user.uid, name: identity.name, isAdmin: identity.isAdmin, storage: journal?.storage, db, firestore: sdk, journal, auth};
+      if (demo) byId('account-sync-panel').hidden = true;
+      if (!demo) photos = createDrivePhotos({auth, sdk, uid:user.uid, projectId:config.projectId, isCurrent:current});
+      const session = {user, uid: user.uid, name: identity.name, isAdmin: identity.isAdmin, storage: journal?.storage, db, firestore: sdk, journal, auth, photos};
       // app.js のDOMリスナーが二つのアカウントにまたがらないよう切り替え時は再起動する。
       mountedUid = user.uid;
       appLoaded = true;
@@ -208,8 +216,9 @@ async function start() {
       const admin = byId('account-admin');
       admin.hidden = !identity.isAdmin;
       if (identity.isAdmin) admin.onclick = () => {
-        if (demo) { location.assign('./#settings'); return; }
+        if (demo) { location.assign('./#settings-feedback'); return; }
         byId('tab-settings').click();
+        byId('settings-tab-feedback').click();
         byId('admin-menu-proposals').focus();
       };
       gate.hidden = true;

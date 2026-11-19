@@ -32,7 +32,7 @@ test('任意の条件だけを個別に外し、一括解除でもアレルギ�
   assert.equal(state.query,'');assert.equal(state.genre,'all');
   assert.deepEqual(state.allergens,['milk']);assert.deepEqual(state.excludedIngredients,['tomato']);
   assert.equal(byClass(root,'catalog-protected-filter-list')[0].children.length,2);
-  assert.equal(byClass(root,'catalog-filter-settings')[0].attributes.href,'#settings');
+  assert.equal(byClass(root,'catalog-filter-settings')[0].attributes.href,'#planner');
 }));
 
 test('保護対象や未対応の識別子を任意フィルターとして渡しても解除ボタンを作らない',()=>withDocument(()=>{

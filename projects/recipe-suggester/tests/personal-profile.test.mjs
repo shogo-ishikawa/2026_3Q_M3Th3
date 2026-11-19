@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   activeNutritionReference, clearArchivedPersonalProfiles, clearPersonalProfile, defaultJournal,
   hasArchivedPersonalProfile, JOURNAL_BACKUP_KEY, JOURNAL_KEY, parseJournal, readJournalBackup,
-  replaceJournal, setNutritionMode, validateJournal, writeJournal,
+  replaceJournal, setBirthDate, setNutritionMode, validateJournal, writeJournal,
 } from '../journal.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {applyQuickSetup} from '../onboarding.js';
@@ -152,4 +152,44 @@ test('表示切り替えは保存せず、詳細モードだけ同意と数値�
   renderNutritionProfile(get, state);
   assert.equal(get('personal-height').value, '');
   assert.equal(get('personal-consent').checked, false);
+});
+
+test('生年月日の保存で編集中の詳細プロフィールが消えず、同意した項目を保存できる', () => {
+  const inputs = new Map();
+  const get = id => {
+    if (!inputs.has(id)) inputs.set(id, {});
+    return inputs.get(id);
+  };
+  const source = make();
+  const initial = renderNutritionProfile(get, source, '2026-04-11');
+  get('profile-mode').value = 'personal';
+  showProfileFields(get);
+  get('personal-height').value = '167';
+  get('personal-height').valueAsNumber = 167;
+  get('personal-weight').valueAsNumber = 60;
+  get('personal-sex').value = 'female';
+  get('personal-activity').value = 'moderate';
+  get('personal-consent').checked = true;
+  source.birthDate = '1990-04-11';
+  renderNutritionProfile(get, source, '2026-04-11', initial);
+  assert.equal(get('profile-mode').value, 'personal');
+  assert.equal(get('personal-height').value, '167');
+  assert.equal(get('personal-age').value, 36);
+  assert.equal(get('personal-consent').checked, true);
+  applyNutritionProfileForm(get, source);
+  assert.equal(source.personalProfile.heightCm, 167);
+  assert.equal(source.personalProfile.ageSource, 'birthDate');
+});
+
+test('保存済みの年齢を生年月日からの計算に切り替えても、編集中の身長は維持する', () => {
+  const inputs = Object.create(null), get = id => inputs[id] ??= {};
+  const source = make();
+  asPersonal(source);
+  const initial = renderNutritionProfile(get, source, '2026-11-19');
+  get('personal-height').value = '172';
+  setBirthDate(source, '1983-11-20', '2026-11-19');
+  renderNutritionProfile(get, source, '2026-11-19', initial);
+  assert.equal(get('personal-age').readOnly, true);
+  assert.equal(get('personal-age').value, 42);
+  assert.equal(get('personal-height').value, '172');
 });

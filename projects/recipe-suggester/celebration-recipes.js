@@ -1,3 +1,8 @@
+import {existingOccasionIds} from './occasion-classics.js';
+import {compiledRecipeTags} from './occasion-recipe.js';
+import {SPRING_SUMMER_RECIPES} from './seasonal-spring-summer.js';
+import {AUTUMN_WINTER_RECIPES} from './seasonal-autumn-winter.js';
+
 // 食材の数量は2人分。単位、栄養、アレルゲンには共通の食材台帳を使う。
 const eventNames = {
   birthday: ['誕生日', 'バースデー'],
@@ -156,15 +161,15 @@ const newYear = [
   }),
 ];
 
-export const CELEBRATION_RECIPES = [...birthday, ...christmas, ...newYear];
+export const CLASSIC_CELEBRATION_RECIPES = [...birthday, ...christmas, ...newYear];
+export const CELEBRATION_RECIPES = [...CLASSIC_CELEBRATION_RECIPES, ...SPRING_SUMMER_RECIPES, ...AUTUMN_WINTER_RECIPES];
 
 const occasionsByRecipe = new Map();
 for (const [id, recipes] of Object.entries({birthday, christmas, 'new-year': newYear})) {
   const occasions = Object.freeze([id]);
   for (const recipe of recipes) occasionsByRecipe.set(recipe.id, occasions);
 }
-const noOccasions = Object.freeze([]);
 
 export function recipeOccasionIds(recipe) {
-  return occasionsByRecipe.get(recipe?.id) ?? noOccasions;
+  return occasionsByRecipe.get(recipe?.id) ?? compiledRecipeTags(recipe?.id) ?? existingOccasionIds(recipe);
 }

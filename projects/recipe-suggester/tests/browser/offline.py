@@ -11,6 +11,7 @@ from playwright.sync_api import expect, sync_playwright
 from account_flow import FixtureDatabase, journal_bytes, login_as, stage_fixture, verify_accounts
 from nutrition_profile import verify_personal_nutrition
 from birthday_family import verify_birthday_family
+from drive_photos import verify_drive_photos
 from home_install import check_app_only, verify_android_app, verify_app_settings, verify_browser_install
 
 
@@ -41,6 +42,7 @@ def verify(context, url, server):
     original = journal_bytes(page)
     assert original and json.loads(original)["settings"]["shoppingOmittedIds"]
     page.locator("#tab-settings").click()
+    page.locator("#settings-tab-data").click()
     sample_link = page.locator("#setup-actions [data-sample-link]")
     expect(sample_link).to_have_attribute("target", "_blank")
     with context.expect_page() as new_page:
@@ -83,6 +85,7 @@ def verify(context, url, server):
     assert exported
 
     page.locator("#tab-settings").click()
+    page.locator("#settings-tab-display").click()
     expect(page.locator("#offline-state")).to_contain_text("オフラインで使えます", timeout=90000)
     page.wait_for_function("navigator.serviceWorker.controller !== null")
     assert page.evaluate("async () => (await navigator.serviceWorker.ready).scope") == url
@@ -146,6 +149,7 @@ if __name__ == "__main__":
                     verify_accounts(browser, url, FixtureDatabase())
                     verify_personal_nutrition(browser, url, FixtureDatabase())
                     verify_birthday_family(browser, url, FixtureDatabase())
+                    verify_drive_photos(browser, url)
                     verify_browser_install(browser, runner.devices, url)
                     context = browser.new_context(viewport={"width": 390, "height": 844}, locale="ja-JP")
                     FixtureDatabase().connect(context)

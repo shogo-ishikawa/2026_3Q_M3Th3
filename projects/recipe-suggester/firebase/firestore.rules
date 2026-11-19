@@ -36,14 +36,26 @@ service cloud.firestore {
       }
     }
 
-    // 「集計に送る」で送った希望だけを、1アカウント1票で数える。
+    // 同じ人が同じテーマを再送しても、UIDごとの1文書を1人として数える。
     match /mealPaletteMenuVotes/{uid} {
-      allow get, delete: if owns(uid);
+      function topics() {
+        return ['regional', 'seafood', 'vegetables', 'breakfast', 'noodles', 'world'];
+      }
+      function validSingle(data) {
+        return data.keys().hasOnly(['interest']) && data.interest in topics();
+      }
+      function validSelection(data) {
+        return data.keys().hasOnly(['interests']) && data.interests is list
+          && data.interests.size() >= 1 && data.interests.size() <= 6
+          && data.interests.hasOnly(topics()) && data.interests.toSet().size() == data.interests.size();
+      }
+      allow get: if owns(uid);
       allow list: if isAdmin();
-      allow create, update: if owns(uid)
-        && request.resource.data.keys().hasOnly(['interest'])
-        && request.resource.data.interest in
-          ['regional', 'seafood', 'vegetables', 'breakfast', 'noodles', 'world'];
+      allow create: if owns(uid) && (validSingle(request.resource.data) || validSelection(request.resource.data));
+      // 旧アプリからの単一票の上書き・取り消しでほかのテーマを消さない。
+      allow update: if owns(uid) && (validSelection(request.resource.data)
+        || ('interest' in resource.data && validSingle(request.resource.data)));
+      allow delete: if owns(uid) && ('interest' in resource.data || resource.data.interests.size() == 1);
     }
 
     // 利用者が確認して共有したジャンルだけを保存。お気に入りや食事の明細は含まない。
