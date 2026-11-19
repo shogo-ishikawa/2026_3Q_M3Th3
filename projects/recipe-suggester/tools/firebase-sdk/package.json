@@ -1,0 +1,14 @@
+{
+  "name": "meal-palette-firebase-sdk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild entry.js --platform=browser --target=es2020 --bundle --format=esm --minify --legal-comments=eof --outfile=../../assets/firebase/firebase-sdk.js"
+  },
+  "dependencies": {
+    "firebase": "13.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

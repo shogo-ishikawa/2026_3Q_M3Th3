@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function verifiedGoogle() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true;
+    }
+    function owns(uid) {
+      return verifiedGoogle() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return verifiedGoogle() && request.auth.token.email is string
+        && hashing.sha256(request.auth.token.email).toHexString().lower()
+          == 'd8d92fabafd71db21fab083c0e43e904581a9ca65436056c11a00706b8a008cb';
+    }
+
+    // 個人の献立と栄養記録は本人が使用する端末間で同期する。
+    match /users/{uid}/mealJournal/current {
+      allow get, delete: if owns(uid);
+      allow create, update: if owns(uid)
+        && request.resource.data.keys().hasOnly(['revision', 'partCount'])
+        && request.resource.data.revision is string
+        && request.resource.data.revision.matches('[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}')
+        && request.resource.data.partCount is int
+        && request.resource.data.partCount >= 1
+        && request.resource.data.partCount <= 32;
+
+      match /parts/{partId} {
+        allow get, delete: if owns(uid);
+        allow create, update: if owns(uid)
+          && partId.matches('([0-9]|[12][0-9]|3[01])')
+          && request.resource.data.keys().hasOnly(['text'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 294912;
+      }
+    }
+
+    // 「集計に送る」で送った希望だけを、1アカウント1票で数える。
+    match /mealPaletteMenuVotes/{uid} {
+      allow get, delete: if owns(uid);
+      allow list: if isAdmin();
+      allow create, update: if owns(uid)
+        && request.resource.data.keys().hasOnly(['interest'])
+        && request.resource.data.interest in
+          ['regional', 'seafood', 'vegetables', 'breakfast', 'noodles', 'world'];
+    }
+  }
+}

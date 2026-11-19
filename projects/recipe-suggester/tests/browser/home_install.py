@@ -2,6 +2,7 @@
 import re
 
 from playwright.sync_api import expect
+from account_flow import FixtureDatabase, login_as
 
 
 INSTALL_LABEL = "スマホにアプリをインストール"
@@ -17,6 +18,7 @@ COURSE_LINKS = (
 def verify_browser_install(browser, devices, url):
     for device, guide in (("iPhone 13", "#install-ios-guide"), ("Pixel 7", "#install-android-guide")):
         context = browser.new_context(**devices[device], locale="ja-JP", service_workers="block")
+        FixtureDatabase().connect(context)
         # 自動判定のタイミングに依存せず、案内のみ／標準プロンプトありの順に試す。
         context.add_init_script("""
             window.addEventListener('beforeinstallprompt', event => {
@@ -25,6 +27,12 @@ def verify_browser_install(browser, devices, url):
         """)
         page = context.new_page()
         page.goto(url)
+        locked_install = page.locator("#account-gate [data-install-app]")
+        expect(locked_install).to_be_visible()
+        locked_install.click()
+        expect(page.locator(guide)).to_be_visible()
+        page.locator("#close-install-guide").click()
+        login_as(page)
         header = page.locator("#install-meal-palette-header")
         expect(header).to_have_accessible_name(INSTALL_LABEL)
         expect(header).to_be_in_viewport()

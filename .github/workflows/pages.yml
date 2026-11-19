@@ -50,10 +50,32 @@ jobs:
         run: npm test --prefix projects/sound-analysis-lab
       - name: Package sound lab
         run: python projects/sound-analysis-lab/tools/build_release.py
+      - name: Build local Firebase SDK for Meal Palette
+        working-directory: projects/recipe-suggester/tools/firebase-sdk
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Prepare Meal Palette test configuration
+        if: github.event_name == 'pull_request'
+        run: python projects/recipe-suggester/tools/configure_firebase.py --test-fixture
+      - name: Configure Meal Palette for publication
+        if: github.event_name != 'pull_request'
+        env:
+          MEAL_PALETTE_FIREBASE_PROJECT_ID: ${{ vars.MEAL_PALETTE_FIREBASE_PROJECT_ID }}
+          MEAL_PALETTE_FIREBASE_WEB_CONFIG: ${{ vars.MEAL_PALETTE_FIREBASE_WEB_CONFIG }}
+        run: python projects/recipe-suggester/tools/configure_firebase.py
       - name: Check meal planner JavaScript
         run: npm test --prefix projects/recipe-suggester
       - name: Check meal planner Python notebook
         run: python -m unittest discover -s projects/recipe-suggester/tests -p 'test_*.py' -v
+      - name: Prepare Java for the Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Check Meal Palette Firestore permissions
+        working-directory: projects/recipe-suggester/firebase
+        run: npx --yes firebase-tools@15.37.0 emulators:exec --project demo-meal-palette --only firestore 'python3 tests/firestore_rules.py && node tests/journal_transactions.mjs'
       - name: Check Meal Palette offline shopping in Chrome
         run: |
           python -m pip install "playwright>=1.50,<2"

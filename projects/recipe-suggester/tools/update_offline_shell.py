@@ -35,16 +35,27 @@ def offline_outputs(root=ROOT):
     html = (root / 'index.html').read_text()
     mapping = re.search(IMPORT_MAP, html, re.S).group(1)
     # 許可するインラインスクリプトは、この版の対応表だけです。
-    html, count = re.subn(r"script-src 'self'(?: 'sha256-[A-Za-z0-9+/=]+')?;",
-                          "script-src 'self' '" + digest(mapping.encode()) + "';", html, count=1)
+    html, count = re.subn(r"script-src 'self'(?: 'sha256-[A-Za-z0-9+/=]+')?(?=[ ;])",
+                          "script-src 'self' '" + digest(mapping.encode()) + "'", html, count=1)
     if count != 1:
         raise ValueError('index.html の script-src を確認してください。')
 
+    config = root / 'assets/firebase/config.json'
+    auth_domain = '*.firebaseapp.com'
+    if config.is_file():
+        auth_domain = json.loads(config.read_text())['authDomain']
+        if not re.fullmatch(r'[a-z0-9-]+\.firebaseapp\.com', auth_domain):
+            raise ValueError('Firebase 認証ドメインを確認してください。')
+    # 設定を組み込んだビルドでは、そのプロジェクトのログイン用 iframe だけを許可します。
+    html = re.sub(r"(frame-src [^;\"]*?https://)(?:\*|[a-z0-9-]+)\.firebaseapp\.com",
+                  lambda match: match[1] + auth_domain, html, count=1)
     entries = EntryFiles()
     entries.feed(html)
     entries.paths.update(json.loads(mapping)['imports'].values())
     entries.paths.update(icon['src'] for icon in json.loads(
         (root / 'manifest.webmanifest').read_text())['icons'])
+    if config.is_file():
+        entries.paths.update(('assets/firebase/config.json', 'assets/firebase/firebase-sdk.js'))
 
     files = {}
     for url in sorted({name.removeprefix('./') for name in entries.paths}):
