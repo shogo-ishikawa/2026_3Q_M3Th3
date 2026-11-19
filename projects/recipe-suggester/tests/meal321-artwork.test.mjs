@@ -4,7 +4,7 @@ import {BREAKFAST_RECIPES,BREAKFAST_INGREDIENTS} from '../breakfast-recipes.js';
 import {PANTRY_V325_INGREDIENT_IDS,withoutPantryV325Ingredients} from './helpers/pantry-v325-additions.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {RECIPES,INGREDIENTS} from '../data.js';
 import {MENU_VARIATION_GROUPS,getVariationGroup,groupMenuRecipes} from '../menu-variations.js';
@@ -106,17 +106,32 @@ test('旧版150品とv3.21でそろえた選択式メニューを含む全223品
   for(const [path,expected] of Object.entries(oldArt.files))assert.equal(digest(readFileSync(new URL(`../${path}`,import.meta.url))),expected,path);
 });
 
-test('画像台帳と生成記録の料理ID・大小の画像ファイル・記録された容量が一致する',()=>{
+function webpDimensions(bytes){
+  switch(bytes.toString('ascii',12,16)){
+    case 'VP8 ': return [bytes.readUInt16LE(26)&0x3fff,bytes.readUInt16LE(28)&0x3fff];
+    case 'VP8L': {
+      const dimensions=bytes.readUInt32LE(21);
+      return [(dimensions&0x3fff)+1,((dimensions>>>14)&0x3fff)+1];
+    }
+    case 'VP8X': return [bytes.readUIntLE(24,3)+1,bytes.readUIntLE(27,3)+1];
+    default: throw new Error('WebPの画像ヘッダーを読み取れません。');
+  }
+}
+
+test('画像台帳と生成記録の料理ID・大小の画像ファイル・寸法・記録された容量が一致する',()=>{
   assert.deepEqual(prompts.images.map(row=>row.id).sort(),Object.keys(RECIPE_ARTWORK).sort());
+  const files=readdirSync(new URL('../assets/recipe-art/',import.meta.url)).filter(name=>name.endsWith('.webp'));
+  assert.deepEqual(files.sort(),prompts.images.flatMap(row=>[row.src,row.largeSrc].map(path=>path.split('/').at(-1))).sort());
   const imageHashes=new Set();
   for(const [id,art] of Object.entries(RECIPE_ARTWORK)){
     const row=prompts.images.find(row=>row.id===id);assert.ok(row,id);
+    for(const field of ['name','src','largeSrc','width','height'])assert.equal(row[field],art[field],id);
     for(const key of ['src','largeSrc']){
       const bytes=readFileSync(new URL(`../${art[key]}`,import.meta.url));
       assert.equal(bytes.toString('ascii',0,4),'RIFF',art[key]);assert.equal(bytes.toString('ascii',8,12),'WEBP',art[key]);
+      assert.deepEqual(webpDimensions(bytes),key==='src'?[640,480]:[960,720],art[key]);
       assert.equal(bytes.length,row[key==='src'?'bytes':'largeBytes'],art[key]);
+      const value=digest(bytes);assert.ok(!imageHashes.has(value),`別料理の画像を流用しない: ${art[key]}`);imageHashes.add(value);
     }
-    const bytes=readFileSync(new URL(`../${art.src}`,import.meta.url));
-    const value=digest(bytes);assert.ok(!imageHashes.has(value),`別料理の画像を流用しない: ${id}`);imageHashes.add(value);
   }
 });
