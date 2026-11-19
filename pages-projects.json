@@ -193,6 +193,7 @@
         "portion-guide.js",
         "shopping-status.js",
         "launch-screen.js",
+        "pantry-availability.js",
         "pantry-transfer.js",
         "onboarding.js",
         "cooking-view.js",

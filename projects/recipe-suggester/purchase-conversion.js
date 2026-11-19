@@ -104,3 +104,11 @@ export function derivePurchase(item,settings,data){
     packCount,packedAmount,packSize:setting.packSize,packUnit:setting.packUnit,setting,explanation,text,
     converted:setting.mode==='weight'&&(food.unit!=='g'||setting.yieldFactor!==1||setting.purchaseName!==food.name)};
 }
+
+/** 購入した食品の量を、手持ちで使うレシピの材料単位へ戻します。 */
+export function purchasedToPantry(purchase, actual, data) {
+  if (!positive(actual)) throw Error('実際に買った量は0より大きい数値で入力してください。');
+  if (actual === purchase.amount) return purchase.sourceAmount;
+  if (purchase.setting.mode === 'same') return actual;
+  return actual * purchase.setting.yieldFactor / purchaseGramsPerUnit(purchase.id, data);
+}

@@ -18,16 +18,19 @@ export function eatenShoppingIds(state) {
   return ids;
 }
 
-/** チェック時に確定した材料量だけを移す。同じ購入は再び転記できません。 */
-export function stockReceipt(state, receiptId, data) {
+/** 購入実量から換算した材料量を移す。同じ購入は再び転記できません。 */
+export function stockReceipt(state, receiptId, data, actualAmount) {
   const receipt = state.shoppingReceipts.find(row => row.id === receiptId);
   if (!receipt || receipt.stocked || !Object.hasOwn(data.ingredients, receipt.ingredientId)) {
     throw Error('手持ちに追加できる購入記録を確認してください。');
   }
   const eaten = eatenShoppingIds(state);
   if (receipt.allocations.some(part => eaten.has(part.menuId))) throw Error('食べた料理を含む購入です。残っている量を手持ち食材から登録してください。');
-  addStock(state.pantry, receipt.ingredientId, receipt.amount);
-  receipt.stocked = true;
+  const amount = actualAmount === undefined ? receipt.amount : actualAmount;
+  const current = state.pantry.find(part => part.id === receipt.ingredientId)?.amount ?? 0;
+  if (!Number.isFinite(amount) || amount <= 0 || current + amount > 1e7) throw Error('手持ちに追加する量を確認してください（合計10000000以下）。');
+  addStock(state.pantry, receipt.ingredientId, amount);
+  state.shoppingReceipts = state.shoppingReceipts.map(row => row === receipt ? {...receipt, stocked: true, stockedAmount: amount} : row);
 }
 
 export function cancelReceipt(state, receiptId) {
@@ -35,10 +38,11 @@ export function cancelReceipt(state, receiptId) {
   if (!receipt) throw Error('この購入チェックはすでに取り消されています。');
   if (receipt.stocked) {
     const row = state.pantry.find(part => part.id === receipt.ingredientId);
-    if (!row || row.amount + Number.EPSILON * receipt.amount * 8 < receipt.amount) {
+    const amount = receipt.stockedAmount ?? receipt.amount;
+    if (!row || row.amount + Number.EPSILON * amount * 8 < amount) {
       throw Error('追加した分が手持ちに残っていません。使用を取り消す場合は、先に食事の記録を予定に戻してください。');
     }
-    row.amount = Math.max(0, row.amount - receipt.amount);
+    row.amount = Math.max(0, row.amount - amount);
   }
   state.shoppingReceipts = state.shoppingReceipts.filter(row => row.id !== receiptId);
 }

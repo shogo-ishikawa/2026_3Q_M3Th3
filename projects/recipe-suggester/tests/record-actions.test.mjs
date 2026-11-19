@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {previewReset, resetEntriesRange, createCatalogEntry} from '../record-actions.js';
+import {previewReset, resetEntriesRange, createCatalogEntry, reschedulePlannedMeal} from '../record-actions.js';
 import {defaultJournal, validateJournal, MEAL_IDS} from '../journal.js';
 import {itemNutrition} from '../nutrition.js';
+import {shoppingMenuContext, shoppingMenusFromEntries} from '../shopping-workflow.js';
+import {createShoppingReceipt, pendingShopping} from '../shopping-status.js';
+import {createBatch, takeBatch, batchBalance} from '../batch-cooking.js';
+import {createJournalHistory} from '../journal-history.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 
 const values = (kcal=0, protein=0, fat=0, carbs=0, fiber=0, salt=0) => ({kcal, protein, fat, carbs, fiber, salt});
@@ -131,4 +135,59 @@ test('実際の公開DBから作った記録もv3の保存検査を通り、メ�
   const imported=validateJournal(source,builtin);
   assert.equal(imported.entries[0].items[0].quantity,0.5);assert.equal(imported.entries[0].items[0].portion.unit,'皿');
   assert.ok(imported.entries[0].items[0].allergens.includes('egg'));
+});
+
+test('買い物後に予定を別の週の昼食へ移し、購入割当・食数・移動先の別予定・完了日を保つ', () => {
+  const source = defaultJournal('2026-11-13');
+  const origin = createCatalogEntry(input({status:'planned'}), data);
+  origin.shoppingServings = 3;
+  const destination = createCatalogEntry(input({recipeId:'milk', date:'2026-11-22', meal:'lunch', status:'planned'}), data);
+  source.entries = [origin, destination];
+  source.completedDays = [origin.date];
+  const menus = shoppingMenusFromEntries([{...origin, id:'draft-original'}], data, {from:origin.date, to:origin.date});
+  source.shoppingCatalog = menus.map(menu => ({...menu, origin:'plan'}));
+  source.shoppingList = menus.map(menu => ({...menu, origin:'calendar', ingredientIds:['rice']}));
+  source.shoppingReceipts = [createShoppingReceipt(source.shoppingList, 'rice', data, {id:'rice-receipt'})];
+  source.pantry = [{id:'milk', amount:250}];
+  const before = structuredClone(source);
+  deepFreeze(source);
+  const moved = reschedulePlannedMeal(source, origin.id, destination.date, destination.meal);
+  assert.deepEqual(source, before);
+  assert.deepEqual(moved.entries, [{...origin, date:destination.date, meal:destination.meal}, destination]);
+  assert.deepEqual(moved.completedDays, source.completedDays);
+  assert.deepEqual(moved.pantry, source.pantry);
+  assert.deepEqual(moved.shoppingReceipts, source.shoppingReceipts);
+  for (const collection of ['shoppingList','shoppingCatalog']) {
+    assert.deepEqual(moved[collection][0], {...source[collection][0], date:destination.date, meal:'lunch', label:'2026-11-22 昼食'});
+  }
+  const restored = validateJournal(JSON.parse(JSON.stringify(moved)), data);
+  const context = date => shoppingMenuContext(restored, data, {source:'calendar', from:date, to:date});
+  assert.deepEqual(context(origin.date).menus, []);
+  const later = context(destination.date);
+  assert.equal(later.menus.find(menu => menu.item.id === origin.items[0].id).id, menus[0].id);
+  const need = pendingShopping(later.prepared, data, {receipts:moved.shoppingReceipts, catalog:later.catalog});
+  assert.equal(need.items.find(row => row.id === 'rice').buy, 0);
+  const history = createJournalHistory();
+  history.record(source, moved, '予定を移動', {invalidatePlan:false});
+  assert.deepEqual(history.undo(moved), source);
+});
+
+test('作り置きの予約量を保ち、調理前の移動・実績・不正な日時は拒否する', () => {
+  const source = defaultJournal('2026-11-13');
+  const batch = createBatch({recipe:data.recipes[0], totalGrams:300, sourceQuantity:2, preparedDate:'2026-11-13'}, data);
+  const entry = takeBatch({batchId:batch.id, grams:100, date:'2026-11-14', meal:'lunch', status:'planned'}, [batch], []);
+  const eaten = createCatalogEntry(input(), data);
+  source.batches = [batch];
+  source.entries = [entry, eaten];
+  const moved = reschedulePlannedMeal(source, entry.id, '2026-11-13', 'snack');
+  assert.equal(moved.shoppingList, null);
+  assert.deepEqual(batchBalance(batch, moved.entries), batchBalance(batch, source.entries));
+  assert.doesNotThrow(() => validateJournal(moved, data));
+  assert.equal(reschedulePlannedMeal(moved, entry.id, '2026-11-13', 'snack'), moved);
+  assert.throws(() => reschedulePlannedMeal(source, entry.id, '2026-11-12', 'lunch'), /調理日/);
+  for (const [id,date,meal] of [[eaten.id,'2026-11-15','lunch'], ['missing','2026-11-15','lunch'],
+    [entry.id,'2026-02-30','dinner'], [entry.id,'2026-11-15','brunch']]) {
+    assert.throws(() => reschedulePlannedMeal(source, id, date, meal));
+  }
+  assert.deepEqual(source.entries, [entry, eaten]);
 });

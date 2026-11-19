@@ -3,6 +3,7 @@ import {dateIsValid, MEAL_IDS} from './journal.js';
 import {recipePortion, quantityFromAmount} from './catalog.js';
 import {describeRecipe} from './planner.js';
 import {itemFromRecipe} from './nutrition.js';
+import {shoppingMealSlot} from './shopping-workflow.js';
 
 const statuses = new Set(['planned', 'eaten']);
 const resetStatuses = new Set(['all', ...statuses]);
@@ -69,6 +70,36 @@ export function resetEntriesRange(state, filter) {
     ...state,
     entries: state.entries.filter(entry => !matchesEntry(entry, selected)),
     completedDays: state.completedDays.filter(date => !clearsCompletion(date, selected)),
+  };
+}
+
+export function earliestPlannedMealDate(entry, batches) {
+  const portions = new Set(entry.items.map(item => item.batchId));
+  let earliest = '2000-01-01';
+  for (const batch of batches) {
+    if (portions.has(batch.id) && earliest < batch.preparedDate) earliest = batch.preparedDate;
+  }
+  return earliest;
+}
+
+/** 食事と買い物で同じ料理を指すIDを保ち、予定の日時だけを移す。 */
+export function reschedulePlannedMeal(state, entryId, date, meal) {
+  const entry = state.entries.find(candidate => candidate.id === entryId);
+  if (!entry || entry.status !== 'planned') throw Error('変更する予定をカレンダーから開き直してください。');
+  if (!dateIsValid(date) || !MEAL_IDS.includes(meal)) throw Error('変更先の日付と食事区分を確認してください。');
+  if (date < earliestPlannedMealDate(entry, state.batches)) throw Error('作り置きは調理日以降に予定してください。');
+  if (entry.date === date && entry.meal === meal) return state;
+
+  const ids = new Set(entry.items.map(item => item.id));
+  const slot = shoppingMealSlot(date, meal);
+  // 下書きから保存した料理はカレンダーとは別の買い物IDで購入済みの場合がある。
+  const updateMenu = menu => menu.id.startsWith('[') && ids.has(menu.item.id)
+    ? {...menu, ...slot} : menu;
+  return {
+    ...state,
+    entries: state.entries.map(candidate => candidate === entry ? {...entry, date, meal} : candidate),
+    shoppingCatalog: state.shoppingCatalog.map(updateMenu),
+    shoppingList: state.shoppingList === null ? null : state.shoppingList.map(updateMenu),
   };
 }
 

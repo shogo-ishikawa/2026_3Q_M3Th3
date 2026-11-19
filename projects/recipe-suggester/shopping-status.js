@@ -1,3 +1,4 @@
+import {purchaseSettingFor} from './purchase-conversion.js';
 import {stockPurchaseId} from './strained-stock.js';
 /** 購入量を料理ごとに割り当て、別の日の買い物へ二重計上しません。 */
 import {buildShoppingChecklist} from './shopping-workflow.js';
@@ -46,8 +47,12 @@ function receiptCoverage(receipts) {
     const coverage = receipt.stocked ? stocked : unstocked;
     if (!coverage.has(receipt.ingredientId)) coverage.set(receipt.ingredientId, new Map());
     const ingredient = coverage.get(receipt.ingredientId);
+    // 実購入が予定を下回った場合、別の在庫をその購入分として二重に予約しません。
+    let available = receipt.stockedAmount ?? Infinity;
     for (const allocation of receipt.allocations) {
-      const amount = (ingredient.get(allocation.menuId) ?? 0) + allocation.amount;
+      const share = Math.min(available, allocation.amount);
+      available -= share;
+      const amount = (ingredient.get(allocation.menuId) ?? 0) + share;
       if (!Number.isFinite(amount)) throw Error('購入量の合計が大きすぎます。');
       ingredient.set(allocation.menuId, amount);
     }
@@ -111,6 +116,15 @@ export function pendingShopping(prepared = [], data, {pantry = [], omittedIds = 
   return {...base, items: base.items.map(project), omittedItems: base.omittedItems.map(project)};
 }
 
+/** 同じ料理の全選択材料が揃い、指定食材に実際の購入履歴がある場合だけ買い直せる。 */
+export function isCompletedMenuPurchase(menuId, ingredientIds, prepared, data, options) {
+  const items = pendingShopping(prepared, data, options).items;
+  const sources = items.map(row => ({id: row.id, source: row.sources.find(part => part.menuId === menuId)}))
+    .filter(row => row.source);
+  return sources.some(row => row.source.purchased > 0) && sources.every(row => row.source.buy === 0) &&
+    ingredientIds.every(id => sources.some(row => row.id === id && row.source.purchased > 0));
+}
+
 /** 表示中の不足量だけ購入し、在庫で足りた量や既に買った量を重ねて記録しません。 */
 export function createShoppingReceipt(prepared, ingredientId, data, options = {}) {
   const {now = new Date(), id = globalThis.crypto?.randomUUID?.(), ...settings} = options;
@@ -119,6 +133,7 @@ export function createShoppingReceipt(prepared, ingredientId, data, options = {}
   if (!item || !positive(item.buy)) throw Error('この食材の未購入分はありません。');
   const allocations = item.sources.filter(source => source.buy > 0).map(source => ({menuId: source.menuId, amount: source.buy}));
   const receipt = {id, ingredientId, amount: sum(allocations.map(source => source.amount)), purchasedAt: new Date(time(now)).toISOString(), allocations};
+  receipt.purchaseSetting = purchaseSettingFor(ingredientId, options.purchaseSettings, data);
   checkedReceipts([...(settings.receipts ?? []), receipt]);
   return receipt;
 }
