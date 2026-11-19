@@ -15,7 +15,8 @@ const soup=RECIPES.filter(recipe=>recipe.role==='soup');
 const byId=id=>RECIPES.find(recipe=>recipe.id===id);
 
 test('従来の86品と追加の汁物を10小分類へ重複なく分け、記録とメニューの同じ候補を返す',()=>{
-  const count = 86 + addedSoups.length;
+  const count = 86 + addedSoups.length + 1;
+  assert.equal(recipeFamily(byId('quick-food-cup-soup')), 'soup', '味が未指定のカップスープ');
   const before=JSON.stringify(RECIPES),families=catalogFamilies(RECIPES,{role:'soup'});
   assert.equal(soup.length,count);assert.equal(families.length,10);
   const ids=families.flatMap(family=>catalogVariants(RECIPES,family.id).map(recipe=>recipe.id));
@@ -50,7 +51,8 @@ test('和風・洋風・中華・エスニックと調理法で、紛らわし�
 
 test('カップスープと春雨スープの味違いを小分類で分断せず、提供形態でも絞れる',()=>{
   const families=catalogFamilies(RECIPES,{role:'soup',nature:'instant'});
-  assert.deepEqual(families.map(family=>family.id),['potage','chinese-soup']);
+  assert.deepEqual(families.map(family=>family.id),['potage','chinese-soup','soup']);
+  assert.deepEqual(catalogVariants(RECIPES,'soup',{nature:'instant'}).map(recipe=>recipe.id),['quick-food-cup-soup']);
   assert.equal(catalogVariants(RECIPES,'potage',{nature:'instant'}).length,6);
   assert.equal(catalogVariants(RECIPES,'chinese-soup',{nature:'instant'}).length,5);
   for(const id of ['takeaway-knorr-corn','takeaway-knorr-tomato'])assert.equal(getVariationGroup(id,catalogVariants(RECIPES,'potage')).variantCount,6);

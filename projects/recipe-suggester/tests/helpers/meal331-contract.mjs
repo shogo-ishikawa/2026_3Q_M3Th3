@@ -1,5 +1,6 @@
 // 既存の固定ハッシュは公開当時のDBを対象とする。v3.31以降に追加した料理を分離し、
 // 確認済みの変更点だけを当時の表現へ戻して、それ以外のすべての項目を比較する。
+import {QUICK_FOOD_RECIPES, QUICK_FOOD_INGREDIENTS} from '../../quick-foods.js';
 import assert from 'node:assert/strict';
 import {RECIPES, INGREDIENTS} from '../../data.js';
 import {CELEBRATION_RECIPES, REGIONAL_AND_WORLD_RECIPES} from '../../celebration-recipes.js';
@@ -8,10 +9,10 @@ import {CONVENIENCE_RECIPES, CONVENIENCE_INGREDIENTS} from '../../convenience-st
 import {KYOTO_RECIPES, KYOTO_INGREDIENTS} from '../../kyoto-foods.js';
 import {STRAINED_STOCK_INGREDIENTS, STRAINED_STOCK_RECIPES} from '../../strained-stock.js';
 
-export const recipesAddedSince330 = [...FRUIT_RECIPES, ...CONVENIENCE_RECIPES, ...KYOTO_RECIPES, ...CELEBRATION_RECIPES, ...REGIONAL_AND_WORLD_RECIPES];
+export const recipesAddedSince330 = [...FRUIT_RECIPES, ...CONVENIENCE_RECIPES, ...KYOTO_RECIPES, ...CELEBRATION_RECIPES, ...REGIONAL_AND_WORLD_RECIPES, ...QUICK_FOOD_RECIPES];
 const addedRecipeIds = new Set(recipesAddedSince330.map(recipe => recipe.id));
 export const added331IngredientIds = new Set(Object.keys({
-  ...FRUIT_INGREDIENTS, ...CONVENIENCE_INGREDIENTS, ...KYOTO_INGREDIENTS, ...STRAINED_STOCK_INGREDIENTS,
+  ...FRUIT_INGREDIENTS, ...CONVENIENCE_INGREDIENTS, ...KYOTO_INGREDIENTS, ...STRAINED_STOCK_INGREDIENTS, ...QUICK_FOOD_INGREDIENTS,
 }));
 
 const oldSourceText = {

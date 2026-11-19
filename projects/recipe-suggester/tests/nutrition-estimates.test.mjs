@@ -1,3 +1,4 @@
+import {QUICK_FOOD_INGREDIENTS} from '../quick-foods.js';
 import {BREAKFAST_RECIPES} from '../breakfast-recipes.js';
 import {createPantryExtraIngredients} from '../pantry-extra-ingredients.js';
 import test from 'node:test';
@@ -8,7 +9,7 @@ import {buildCustomDish} from '../dish-customisation.js';
 import {NUTRIENT_KEYS, recipeNutrition, itemFromRecipe, itemNutrition} from '../nutrition.js';
 
 const data = {ingredients: INGREDIENTS, recipes: RECIPES, allergens: ALLERGENS};
-const allProfiles = {...INGREDIENT_NUTRITION,...createPantryExtraIngredients(INGREDIENTS)};
+const allProfiles = {...INGREDIENT_NUTRITION,...createPantryExtraIngredients(INGREDIENTS), ...QUICK_FOOD_INGREDIENTS};
 const close = (actual, expected, label = '') => assert.ok(
   typeof actual === 'number' && Number.isFinite(actual) && Math.abs(actual - expected) < 1e-8,
   `${label}: expected ${expected}, received ${actual}`,

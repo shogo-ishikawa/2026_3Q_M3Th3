@@ -1,10 +1,11 @@
+import {QUICK_FOOD_INGREDIENTS} from '../quick-foods.js';
 import {createPantryExtraIngredients} from '../pantry-extra-ingredients.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { INGREDIENTS } from '../data.js';
 import { INGREDIENT_NUTRITION } from '../ingredient-nutrients.js';
 
-const PROFILES = {...INGREDIENT_NUTRITION,...createPantryExtraIngredients(INGREDIENTS)};
+const PROFILES = {...INGREDIENT_NUTRITION,...createPantryExtraIngredients(INGREDIENTS),...QUICK_FOOD_INGREDIENTS};
 const keys = ['kcal', 'protein', 'fat', 'carbs', 'fiber', 'salt'];
 const value = (id, key, amount = 1) => PROFILES[id].nutritionPerUnit[key] * amount;
 const close = (actual, expected, tolerance = 1e-6) => assert.ok(

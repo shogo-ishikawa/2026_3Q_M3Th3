@@ -19,3 +19,5 @@
 .meal-settings-details{margin-top:.7rem;border-top:1px solid var(--line,#d9dfd3);padding-top:.35rem;min-width:0}
 .meal-settings-details>summary{display:list-item;min-height:44px;padding:.65rem .15rem;cursor:pointer;font-weight:600;overflow-wrap:anywhere}
 .meal-settings-details[open]>summary{margin-bottom:.2rem}
+
+.plan-quick-item { display:block; color:var(--teal,#35624e); font-size:.8125rem; line-height:1.5; }

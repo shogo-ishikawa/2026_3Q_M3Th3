@@ -34,7 +34,7 @@ export function ingredientGroup(id, data) {
   if (id === 'water') return 'water';
   if (['kyoto_kombu_dashi','kyoto_usukuchi','stock_kombu_strained','stock_bonito_strained'].includes(id)) return 'seasoning';
   if (id === 'kyoto_namafu') return 'grain';
-  if (id.startsWith('convenience_')) return 'prepared';
+  if (id.startsWith('convenience_') || id.startsWith('quick_purchase_')) return 'prepared';
   if (OILS.has(id)) return 'oil';
   if (DRINKS.has(id)) return 'drink';
   if (id.startsWith('confectionery_') || id.startsWith('dessert_') ||

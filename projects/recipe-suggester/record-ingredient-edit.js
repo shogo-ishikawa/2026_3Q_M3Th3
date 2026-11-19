@@ -118,7 +118,7 @@ export function editRecordIngredients(item,changes,data) {
       out.diningMatch={...source.diningMatch,mode:'similar'};
       out.shoppingKnown=false;out.ingredientsKnown=false;out.allergensKnown=false;
     } else if (!hasValue) out.nutritionBasis='unknown';
-    else if (basis==='official' || basis==='mixed') out.nutritionBasis='mixed';
+    else if (basis==='official' || basis==='mixed' || source.productLabel) out.nutritionBasis='mixed';
     else if (basis==='ingredients' || changed) out.nutritionBasis='ingredients';
     else out.nutritionBasis='estimate';
   } else {

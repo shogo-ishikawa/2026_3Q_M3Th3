@@ -1,4 +1,5 @@
 /** ジャンル → 食材の種類 → 具体的な食材。栄養やアレルギーの分類とは分けます。 */
+import {QUICK_FOOD_INGREDIENTS} from './quick-foods.js';
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
 import {FRUIT_INGREDIENTS} from './fruit-varieties.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
@@ -81,6 +82,7 @@ const TABLE = {
     ["water", "水", "water"],
   ],
   "prepared": [
+    ["quick-food", "市販品のジャンル", Object.keys(QUICK_FOOD_INGREDIENTS).join(" ")],
     ["sweet-bread", "菓子パン", "convenience_anpan convenience_cream_pan convenience_melon_pan convenience_strawberry_coppe convenience_milk_france convenience_apple_danish convenience_chocolate_croissant convenience_chocolate_chip_bread"],
     ["convenience-meal", "コンビニのおにぎり・弁当・麺", "convenience_salmon_onigiri convenience_tuna_mayo_onigiri convenience_nori_bento convenience_napolitan convenience_zaru_soba"],
     ["counter-food", "ホットスナック・中華まん", "convenience_famichiki convenience_karaage_kun convenience_l_chiki convenience_pork_bun convenience_pizza_bun convenience_corn_dog"],

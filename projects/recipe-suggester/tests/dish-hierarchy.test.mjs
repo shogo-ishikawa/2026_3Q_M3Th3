@@ -50,6 +50,18 @@ test('表示上の主菜と副菜は全件に一意の主材料と具体的な�
   assert.equal(availableCookingMethods(RECIPES).reduce((sum,item) => sum+item.count,0),displayedDishes.length);
 });
 
+test('市販の副菜・主菜は一般名称で分類し、銘柄選択前の具に主材料を仮定しない', () => {
+  for (const [id, category, method] of [
+    ['quick-food-salad', 'vegetable', 'salad'], ['quick-food-boiled-egg', 'egg', 'boil'],
+    ['quick-food-chicken', 'meat', 'fried'], ['quick-food-grilled-skewer', 'meat', 'grill'],
+    ['quick-food-retort-curry', 'product-dependent', 'reheat'],
+    ['quick-food-retort-rice-topping', 'product-dependent', 'reheat'],
+  ]) {
+    const nature = method === 'reheat' ? 'retort' : 'ready-to-eat';
+    assert.ok(browseDishes(RECIPES, {category, method, nature}).includes(byId(id)), id);
+  }
+});
+
 test('同じ揚げ物の大分類でも主材料と料理の形で正しく分ける', () => {
   const expected = [
     ['classic-croquette-potato','vegetable','croquette'],

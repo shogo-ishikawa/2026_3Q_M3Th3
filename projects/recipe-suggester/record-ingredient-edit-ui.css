@@ -46,3 +46,8 @@
 }
 
 #record-ingredient-content > .record-ingredient-editor > h3:first-child { display:none; }
+
+@media (min-width: 40rem) {
+  .product-label-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .product-label-form > :is(p, button, label:first-child) { grid-column: 1 / -1; }
+}

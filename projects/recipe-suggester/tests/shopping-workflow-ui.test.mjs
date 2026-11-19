@@ -179,6 +179,38 @@ test('コピーする一覧も購入済みを除き、材料不明を短く注�
   assert.equal(shoppingChecklistText(null, data), '');
 });
 
+test('買う商品が分かる料理は購入状況と商品表示の確認を分け、材料不明の料理にだけ未確認の注意を出す', () => withDocument(() => {
+  const groceries = {ingredients:{onigiri:{name:'市販のおにぎり',unit:'個'}}};
+  const product = {id:'store',servings:2,ingredientIds:['onigiri'],item:{name:'おにぎり',quantity:1,
+    ingredientsKnown:false,shoppingKnown:true,ingredients:[{id:'onigiri',amount:1}]}};
+  const missing = {id:'unconfirmed',servings:1,ingredientIds:[],item:{name:'手入力の料理',quantity:1,ingredientsKnown:false,ingredients:[]}};
+  const review = mountShoppingWorkflow({view:'review',data:groceries,menus:[product,missing]});
+  const [productCard,missingCard] = byClass(review,'shopping-menu-card');
+  assert.equal(one(productCard,'shopping-menu-status').textContent,'未購入');
+  assert.equal(byClass(productCard,'shopping-review-warning').length,0);
+  assert.match(text(productCard),/原材料とアレルゲンは商品の表示で確認/);
+  assert.equal(one(missingCard,'shopping-menu-status').textContent,'材料を要確認');
+  assert.equal(one(missingCard,'shopping-review-warning').textContent,'未確認の材料があります。');
+  const list = mountShoppingWorkflow({view:'checklist',data:groceries,prepared:[product]});
+  assert.equal(byClass(list,'shopping-missing-note').length,0);
+  assert.match(text(one(list,'shopping-check-description')),/市販のおにぎり.*2個/);
+  assert.match(text(one(list,'shopping-menu-note')),/おにぎりの原材料とアレルゲン/);
+  const check = labelled(list,'市販のおにぎりを購入済みにする');
+  check.checked=true;check.emit('change');
+  assert.equal(one(list,'shopping-check-progress').textContent,'買うものは揃っています');
+  assert.equal(one(list,'shopping-menu-note').hidden,true);
+  const copied=shoppingChecklistText([product,missing],groceries);
+  assert.match(copied,/市販のおにぎり 2個/);
+  assert.match(copied,/材料未確認：手入力の料理\n/);
+  assert.match(copied,/おにぎりの原材料とアレルゲン/);
+  const paid = createShoppingReceipt([product],'onigiri',groceries,{id:'paid',now});
+  assert.equal(shoppingChecklistText([product],groceries,{receipts:[paid]}),'');
+  const old = {...product,item:{...product.item,ingredients:[...product.item.ingredients,{id:'retired-product',amount:1}]}};
+  const unresolved = mountShoppingWorkflow({view:'review',data:groceries,menus:[old]});
+  assert.equal(one(unresolved,'shopping-menu-status').textContent,'材料を要確認');
+  assert.match(text(one(unresolved,'shopping-review-warning')),/未確認の材料/);
+}));
+
 test('献立単位の一括選択で開いている材料とフォーカス先のチェックを作り直さない', () => withDocument(() => {
   const candidates = menus(); candidates[0].date = '2026-11-15'; candidates[0].meal = 'dinner'; candidates[0].origin = 'plan';
   const saved = [];

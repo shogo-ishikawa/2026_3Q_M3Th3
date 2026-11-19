@@ -212,16 +212,16 @@ export function buildShoppingChecklist(selections, data, {pantry = [], omittedId
     // 作り置きの取り分けと外食は、原材料を改めて買いません。
     if (item.batchId || item.restaurant || item.diningMatch) continue;
     const selected = new Set(menu.ingredientIds);
-    let missing = !item.ingredients.length || !item.ingredientsKnown;
+    let missingPurchaseData = !item.ingredients.length;
     // 材料未確認の料理は、買う商品と量を別途確認できた場合に限って集計します。
     const canAggregate = item.ingredientsKnown === true || item.shoppingKnown === true;
     const sourceAmounts = new Map();
     for (const part of item.ingredients) {
-      if (!Object.hasOwn(data.ingredients, part.id)) {missing = true; continue;}
+      if (!Object.hasOwn(data.ingredients, part.id)) {missingPurchaseData = true; continue;}
       if (!selected.has(part.id) || !canAggregate) continue;
       const ingredient = data.ingredients[part.id];
       if (typeof ingredient.name !== 'string' || typeof ingredient.unit !== 'string' || !ingredient.unit) {
-        missing = true; continue;
+        missingPurchaseData = true; continue;
       }
       const needed = part.amount * item.quantity * menu.servings;
       if (!positive(needed)) throw Error('買い物の必要量が大きすぎます。');
@@ -236,7 +236,8 @@ export function buildShoppingChecklist(selections, data, {pantry = [], omittedId
       if (!positive(total.required)) throw Error('買い物の合計量が大きすぎます。');
       total.sources.push({menuId: menu.id, name: item.name, amount: needed, unit: ingredient.unit, servings: menu.servings});
     }
-    if (missing) missingMenus.push({menuId: menu.id, name: item.name,
+    if (missingPurchaseData || !item.ingredientsKnown) missingMenus.push({menuId: menu.id, name: item.name,
+      ...(!missingPurchaseData && item.shoppingKnown === true ? {checkProductLabel:true} : {}),
       reason: canAggregate && item.ingredients.length ? '分かる材料・商品だけを集計しています。原材料や商品表示を確認してください。' : '材料が未確認のため、この料理は合計に含めていません。'});
   }
   const rank = new Map(INGREDIENT_GROUPS.map((group, index) => [group.id, index]));
