@@ -1,3 +1,4 @@
+import {defaultServings, householdAllowsRecipe} from './household-preferences.js';
 import {stockPurchaseId} from './strained-stock.js';
 import {recipeNutrition, recipeConfirmation} from './nutrition.js';
 import {quantityFromAmount, isCompleteMeal, recipeFamily} from './catalog.js';
@@ -5,6 +6,8 @@ import {MEAL_SHARES, normaliseMealPreferences, mealProfile, mealAppropriateCandi
 import {breakfastRole, matchesStaplePreference, isBanshakuDish, canSuggestAtMeal} from './meal-suitability.js';
 import {plannedQuantity} from './portion-guide.js';
 import {dishClassification} from './dish-hierarchy.js';
+import {menuOccasions, OCCASION_LABELS, UNAVAILABLE_OCCASION_REASON, isAvailableOnDate, preferenceScore, personalRanking} from './planner-personalization.js';
+import {recipeOccasionIds} from './celebration-recipes.js';
 
 // 材料の確認 → 食べられる候補 → 履歴との比較、の順に処理します。
 // 食品群の回数は献立の組合せを考える目安です。栄養量の計算ではありません。
@@ -64,7 +67,7 @@ function ingredientIds(values, data, label) {
   });
 }
 
-function constraints(settings, data) {
+function constraints(settings, data, {forPlan = false} = {}) {
   const knownAllergens = checkData(data);
   const allergens = stringList(settings?.allergens ?? [], 'アレルゲン');
   for (const id of allergens) {
@@ -73,6 +76,8 @@ function constraints(settings, data) {
   return {
     allergens,
     excludedIngredients: unique(ingredientIds(settings?.excludedIngredients ?? [], data, '除外食材')),
+    ...(forPlan && settings?.household ? {household:settings.household} : {}),
+    ...(forPlan && settings?.dislikedIngredients?.length ? {dislikedIngredients: ingredientIds(settings.dislikedIngredients, data, '苦手な食材')} : {}),
   };
 }
 
@@ -173,25 +178,25 @@ export function describeRecipe(id, data) {
   return describeRawRecipe(matches[0], data, checkData(data));
 }
 
-function allowed(recipe, selected) {
+function allowed(recipe, selected, data) {
   // ここで除外した料理を、候補不足や「気分」のために戻す処理は置きません。
-  return recipeFamily(recipe) !== 'alcohol' && recipe.allergensKnown !== false &&
-    !(recipe.ingredientsKnown === false && selected.excludedIngredients.length) &&
+  return recipeFamily(recipe) !== 'alcohol' && recipe.allergensKnown !== false && householdAllowsRecipe(recipe, selected.household, data) &&
+    !(recipe.ingredientsKnown === false && (selected.excludedIngredients.length || selected.dislikedIngredients?.length)) &&
     !recipe.allergens.some(id => selected.allergens.includes(id)) &&
-    !recipe.ingredients.some(item => [item.id, ...item.ancestorIds].some(id => selected.excludedIngredients.includes(id)));
+    !recipe.ingredients.some(item => [item.id, ...item.ancestorIds].some(id => selected.excludedIngredients.includes(id) || selected.dislikedIngredients?.includes(id)));
 }
 
-export function eligibleRecipes(settings, data, {role = null} = {}) {
-  const selected = constraints(settings, data);
+export function eligibleRecipes(settings, data, {role = null, forPlan = false} = {}) {
+  const selected = constraints(settings, data, {forPlan});
   if (role !== null && !ROLES.includes(role)) throw new Error('料理の種類を確認してください。');
-  return catalogue(data).recipes.filter(recipe => (!role || recipe.role === role) && allowed(recipe, selected));
+  return catalogue(data).recipes.filter(recipe => (!role || recipe.role === role) && allowed(recipe, selected, data));
 }
 
 function normaliseSettings(settings, data, {allowSnack = false} = {}) {
-  const selected = constraints(settings, data);
+  const selected = constraints(settings, data, {forPlan:true});
   const startDate = settings.startDate ?? localToday();
   const days = settings.days ?? 3;
-  const servings = settings.servings ?? 2;
+  const servings = defaultServings(settings);
   const meal = settings.meal ?? 'dinner';
   if (!validDate(startDate)) throw new Error('開始日は有効な年月日で指定してください。');
   if (!Number.isInteger(days) || days < 1 || days > 7) throw new Error('日数は1〜7日の整数で指定してください。');
@@ -214,7 +219,7 @@ function normaliseSettings(settings, data, {allowSnack = false} = {}) {
   const preferredIngredients = ingredientIds(preferences.preferredIngredients ?? [], data, '優先食材');
   const seed = settings.seed ?? 1;
   if (!['number', 'string'].includes(typeof seed) || (typeof seed === 'number' && !Number.isFinite(seed))) throw new Error('乱数の設定を確認してください。');
-  return {...selected, startDate, days, servings, meal, seed,
+  return {...selected, startDate, days, servings, meal, seed, ...(settings.occasionMenus === false ? {occasionMenus:false} : {}),
     mealPreferences: normaliseMealPreferences(settings.mealPreferences, mood, settings),
     preferences: {genreMode, genre, mood, genreRatios, maxMinutes: preferences.maxMinutes ?? null, preferredIngredients},
   };
@@ -425,6 +430,10 @@ function pick(candidates, settings, history, context, date, role) {
   const variety = settings.meal === 'dinner' && profile?.banshaku && role === 'side'
     ? eveningSideChoices(preferred, history, context, settings, date) : null;
   if (variety) preferred = variety.candidates;
+  for (const occasion of context.occasions ?? []) {
+    const matching = preferred.filter(recipe => recipeOccasionIds(recipe).includes(occasion));
+    if (matching.length) { preferred = matching; break; }
+  }
   const fresh = preferred.filter(recipe => !history.recipeCounts[recipe.id] && !context.used.has(recipe.id));
   const pool = fresh.length ? fresh : preferred;
   if (context.dishReasons && fresh.length && fresh.length < preferred.length) {
@@ -459,6 +468,7 @@ function pick(candidates, settings, history, context, date, role) {
     }
     if (variety) value += variety.score(recipe);
     if (typeof context.scoreRecipe === 'function') value += context.scoreRecipe(recipe, reasons);
+    value += preferenceScore(recipe, context.personal, reasons, date);
     return value;
   };
   let best = pool[0], bestScore = pool.length > 1 ? score(best) : 0;
@@ -473,6 +483,9 @@ function pick(candidates, settings, history, context, date, role) {
   if (context.dishReasons) {
     const reasons = [];
     if (pool.length > 1) score(best, reasons);
+    else if (context.personal) preferenceScore(best, context.personal, reasons, date);
+    const occasion = context.occasions?.find(id => recipeOccasionIds(best).includes(id));
+    if (occasion) reasons.unshift(OCCASION_LABELS[occasion] + 'の料理');
     reasons.push(...filterReasons);
     // 個別の希望がないときも、他の候補と差が付いた食品群を1つだけ示す。
     if (!reasons.length && ['main', 'side', 'soup'].includes(role)) {
@@ -492,6 +505,7 @@ function pick(candidates, settings, history, context, date, role) {
 function incomplete(settings, roles, warnings = []) {
   const missingRoles = unique(roles);
   const messages = [...warnings];
+  if (missingRoles.length && settings.dislikedIngredients?.length) messages.push('苦手な食材も提案から外しています。「設定」の食材と、この食事の主食・飲み物・品数の指定を確認してください。');
   if (missingRoles.length) messages.push(`除外条件を保ったまま${missingRoles.map(role => ROLE_LABELS[role]).join('・')}を用意できませんでした。条件外の料理で埋めていません。`);
   return {ok: false, days: [], settings, missingRoles, warnings: messages};
 }
@@ -503,7 +517,7 @@ function preferenceWarnings(settings, data) {
     try {
       const family = [id, ...ingredientAncestors(id, data, knownAllergens)];
       const allergens = unique(family.flatMap(item => checkedIngredient(item, data, knownAllergens).allergens));
-      if (family.some(item => settings.excludedIngredients.includes(item)) || allergens.some(item => settings.allergens.includes(item))) {
+      if (family.some(item => settings.excludedIngredients.includes(item) || settings.dislikedIngredients?.includes(item)) || allergens.some(item => settings.allergens.includes(item))) {
         warnings.push(`優先食材「${data.ingredients[id].name}」は除外条件と重なるため、除外を優先しました。`);
       }
     } catch {
@@ -583,17 +597,10 @@ export function generatePlan(settings = {}, data) {
   const normalised = normaliseSettings(settings, data);
   const catalog = catalogue(data);
   const profile = normalised.mealPreferences[normalised.meal];
-  const safe = catalog.recipes.filter(recipe => allowed(recipe, normalised) &&
+  const safe = catalog.recipes.filter(recipe => allowed(recipe, normalised, data) &&
     canSuggestAtMeal(recipe, normalised.meal, profile));
-  const byRole = Object.fromEntries(ROLES.map(role => [role, safe.filter(recipe => recipe.role === role)]));
-  // 主食を添えられない場合は、もともと主食を含む主菜だけから選びます。
-  const possibleMains = byRole.main.filter(recipe => recipe.staple || byRole.staple.length);
-  const missing = ['side', 'soup'].filter(role => !byRole[role].length);
-  if (!byRole.main.length) missing.push('main');
-  else if (!possibleMains.length) missing.push('staple');
   const warnings = [...preferenceWarnings(normalised, data),
     ...(catalog.invalidIds.length ? [`材料・手順・確認情報が不足する${catalog.invalidIds.length}品は提案から除外しました。`] : [])];
-  if (missing.length) return incomplete(normalised, missing, warnings);
   const result = [];
   const historyEntries = [...(settings.history ?? [])];
   const used = new Set();
@@ -602,9 +609,17 @@ export function generatePlan(settings = {}, data) {
   let lastSources = [];
   for (let index = 0; index < normalised.days; index++) {
     const date = nextDate(normalised.startDate, index);
+    const occasions = normalised.occasionMenus === false ? [] : menuOccasions(date, settings.personalization?.birthDate);
+    const daily = safe.filter(recipe => isAvailableOnDate(recipe, occasions));
+    const byRole = Object.fromEntries(ROLES.map(role => [role, daily.filter(recipe => recipe.role === role)]));
+    const possibleMains = byRole.main.filter(recipe => recipe.staple || byRole.staple.length);
+    const missing = ['side', 'soup'].filter(role => !byRole[role].length);
+    if (!byRole.main.length) missing.push('main');
+    else if (!possibleMains.length) missing.push('staple');
+    if (missing.length) return incomplete(normalised, missing, warnings);
     const history = analyseHistory(historyEntries, {beforeDate: date, days: 7, beforeMeal: normalised.meal}, data);
     const selected = [];
-    const context = {used, selected, recipeById, groups: new Set(), lastSources, targetGenre: targets[index]};
+    const context = {used, selected, recipeById, groups: new Set(), lastSources, targetGenre: targets[index], occasions, personal: personalRanking(settings, settings.personalization, data)};
     const add = recipe => {
       selected.push(recipe);
       recipe.groups.forEach(group => context.groups.add(group));
@@ -923,6 +938,10 @@ export function generateCalendarPlan(settings = {}, data, options = {}) {
   return buildCalendarPlan(settings, data, options, []);
 }
 
+function celebrationMeal(settings) {
+  return settings.meal === 'all' ? (mealProfile(settings, 'dinner').enabled ? 'dinner' : 'lunch') : settings.meal;
+}
+
 function buildCalendarPlan(settings, data, options, otherDishIds) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('カレンダーの提案条件を確認してください。');
   const meal = options.meal ?? settings.meal ?? 'dinner';
@@ -940,15 +959,19 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
   const completedDays = checkedCompletedDays(options.completedDays), targets = comparisonTargets(options.targets), pantry = options.pantry ?? [];
   if (!Array.isArray(pantry) || pantry.some(part => !part || typeof part.id !== 'string' || !Object.hasOwn(data.ingredients, part.id) || typeof part.amount !== 'number' || !Number.isFinite(part.amount) || part.amount < 0)) throw new Error('手持ち食材の分量を確認してください。');
   const stockedIds = new Set(pantry.filter(part => part.amount > 0).map(part => part.id));
-  const catalog = catalogue(data), safe = catalog.recipes.filter(recipe => allowed(recipe, normalised));
-  if (!['auto','none'].includes(legacyDrinkId) && !safe.some(recipe => recipe.id === legacyDrinkId && recipe.role === 'drink')) return {...incomplete(normalised, ['drink'], ['指定した飲み物を用意できません。登録内容と除外条件を確認してください。']), mode:'calendar'};
+  const catalog = catalogue(data), admitted = catalog.recipes.filter(recipe => allowed(recipe, normalised, data));
+  if (!['auto','none'].includes(legacyDrinkId) && !admitted.some(recipe => recipe.id === legacyDrinkId && recipe.role === 'drink')) return {...incomplete(normalised, ['drink'], ['指定した飲み物を用意できません。登録内容と除外条件を確認してください。']), mode:'calendar'};
   const warnings = [...preferenceWarnings(normalised, data), ...(catalog.invalidIds.length ? [`材料・手順・確認情報が不足する${catalog.invalidIds.length}品は提案から除外しました。`] : [])];
   const meals = (meal === 'all' ? MEALS.slice(0, 3) : [meal]).filter(id => id === 'snack' || mealProfile(normalised, id).enabled);
   if (!meals.length) return {...incomplete(normalised, [], [...warnings, '提案する食事が選ばれていません。朝食・昼食・夕食から選んでください。']), mode: 'calendar'};
-  const recipeById = new Map(safe.map(recipe => [recipe.id, recipe]));
+  const recipeById = new Map(admitted.map(recipe => [recipe.id, recipe]));
+  const personal = personalRanking(settings, options.personalization, data);
+  const eventMeal = options.celebrationMeal ?? celebrationMeal(normalised);
   const days = [], used = new Set(otherDishIds), genres = genreSchedule(normalised, normalised.days * meals.length);let lastSources = [];
   for (let index = 0; index < normalised.days * meals.length; index++) {
     const date = nextDate(normalised.startDate, Math.floor(index / meals.length)), currentMeal = meals[index % meals.length];
+    const occasions = normalised.occasionMenus !== false && currentMeal === eventMeal ? menuOccasions(date, options.personalization?.birthDate) : [];
+    const safe = admitted.filter(recipe => isAvailableOnDate(recipe, occasions));
     const mealSettings = currentMeal === 'snack' ? {...normalised, meal: currentMeal} : resolveMealSettings(normalised, currentMeal), profile = mealProfile(mealSettings, currentMeal);
     const byRole = Object.fromEntries(ROLES.map(role => [role, safe.filter(recipe => recipe.role === role)]));
     const fixedStaple = !['auto', 'none'].includes(mealSettings.stapleId) ? safe.find(recipe => recipe.id === mealSettings.stapleId && recipe.staple) : null;
@@ -959,7 +982,7 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
     const evidence = calendarEvidence(entries, date, currentMeal, data, completedDays), selected = [], quantities = {};
     const dishReasons = Object.create(null);
     let prioritisedStock = false;
-    const context = {used, selected, recipeById, groups: new Set(), lastSources, targetGenre: genres[index], dishReasons,
+    const context = {used, selected, recipeById, groups: new Set(), lastSources, targetGenre: genres[index], dishReasons, personal, occasions,
       scoreRecipe(recipe, reasons) {
         const stockedParts = recipe.ingredients.filter(part => stockedIds.has(part.id));
         if (reasons && stockedParts.length) {
@@ -1019,6 +1042,7 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
       if (!drink) return fail(['drink'], '飲み物の候補がありません。');add(drink);
     }
     const notes = calendarNotes(selected, evidence, mealSettings, targets, genres[index], currentMeal, data);
+    if (occasions.length && !selected.some(recipe => recipeOccasionIds(recipe).some(id => occasions.includes(id)))) notes.reasons.push(UNAVAILABLE_OCCASION_REASON);
     if (completeBase || main?.staple) {notes.reasons.push(cerealBase ? 'オートミールを朝食の主食にし、追加指定の食品を組み合わせています。' : '主食を含む料理を中心にし、別の主食や主菜を重ねていません。');}
     if (mealSettings.stapleId === 'none') {notes.warnings = notes.warnings.filter(message => !message.includes('主食の食品群'));notes.reasons.push('この食事には主食を付けない設定です。');}
     if (profile.yogurt || profile.fruit) notes.reasons.push('追加指定したヨーグルトや果物を含めています。');
@@ -1039,13 +1063,15 @@ export function replaceRecipe(plan, options = {}, data) {
   const settings = {...normaliseSettings({...plan.settings, ...options}, data, {allowSnack: plan.mode === 'calendar'}),
     ...(plan.mode === 'calendar' ? {...calendarStapleSettings(plan.settings), drinkId: plan.settings.drinkId ?? 'none', drinkAmount: plan.settings.drinkAmount ?? null} : {})};
   const {recipes, invalidIds} = catalogue(data);
-  const safe = recipes.filter(recipe => allowed(recipe, settings));
-  const safeById = new Map(safe.map(recipe => [recipe.id, recipe]));
+  const admitted = recipes.filter(recipe => allowed(recipe, settings, data));
+  const safeById = new Map(admitted.map(recipe => [recipe.id, recipe]));
   // 設定変更後に古い献立へ差し替えを行っても、危険な古い料理を残しません。
   if (plan.days.some(day => !Array.isArray(day.recipeIds) || day.recipeIds.some(id => !safeById.has(id)))) {
     return {ok: false, days: [], settings, missingRoles: [], warnings: ['現在の除外条件に合わない料理が献立に含まれます。新しい条件で献立全体を作り直してください。']};
   }
   const currentDay = plan.days[dayIndex];
+  const occasions = settings.occasionMenus !== false && currentDay.meal === celebrationMeal(plan.settings) ? menuOccasions(currentDay.date, options.personalization?.birthDate) : [];
+  const safe = admitted.filter(recipe => isAvailableOnDate(recipe, occasions));
   const local = plan.mode === 'calendar' ? calendarDaySettings(settings, currentDay) : settings;
   activeRecipeIds(currentDay);
   if (!currentDay.recipeIds.includes(options.recipeId)) throw new Error('差し替える料理が見つかりません。');
@@ -1087,7 +1113,7 @@ export function replaceRecipe(plan, options = {}, data) {
       warnings: unique([...(plan.warnings ?? []), ...preferenceWarnings(settings, data), '除外条件に合う別の料理がないため、現在の料理を維持しました。条件外の料理には差し替えていません。'])};
   }
   const dishReasons = Object.assign(Object.create(null), currentDay.dishReasons);
-  const context = {used, selected: others, recipeById: safeById, groups: new Set(others.flatMap(recipe => recipe.groups)), lastSources: [], targetGenre,
+  const context = {used, selected: others, recipeById: safeById, groups: new Set(others.flatMap(recipe => recipe.groups)), lastSources: [], targetGenre, occasions, personal: personalRanking(plan.settings, options.personalization, data),
     ...(evidence ? {dishReasons, scoreRecipe: (recipe, reasons) => calendarNutrientScore(calendarScaled(recipe, local, data), evidence.basis,
       comparisonTargets(options.targets), others, data, currentDay.meal, local, reasons) + mealRecipeScore(recipe, currentDay.meal)} : {})};
   const selected = pick(pool, local, history, context, currentDay.date, slot);
@@ -1162,7 +1188,7 @@ export function regeneratePlanMeal(plan, options = {}, data) {
   if (!plan?.ok || plan.mode !== 'calendar' || !Number.isInteger(dayIndex) || !plan.days?.[dayIndex]) throw Error('編集する献立を選んでください。');
   const current = plan.days[dayIndex];
   if (current.meal === 'snack') throw Error('間食には朝・昼・夕の設定を使いません。');
-  const safeIds = new Set(eligibleRecipes(plan.settings, data).map(recipe => recipe.id));
+  const safeIds = new Set(eligibleRecipes(plan.settings, data, {forPlan:true}).map(recipe => recipe.id));
   if (plan.days.some(day => activeRecipeIds(day).some(id => !safeIds.has(id)))) throw Error('現在の除外条件に合わない料理が含まれます。献立を作り直してください。');
   const mealPreference = {...planMealPreference(plan, dayIndex), ...(options.mealPreference ?? {})};
   if (!options.mealPreference || typeof options.mealPreference !== 'object' || Array.isArray(options.mealPreference)) {
@@ -1175,7 +1201,7 @@ export function regeneratePlanMeal(plan, options = {}, data) {
   const preferences = {...plan.settings.preferences, genreMode: genre === 'all' ? 'any' : 'single', genre};
   const settings = {...plan.settings, startDate: current.date, days: 1, meal: current.meal, mealPreferences, preferences,
     seed: options.seed ?? `${plan.settings.seed}:${current.date}:${current.recipeIds.join(',')}`};
-  const generateOptions = {meal: current.meal, entries: options.entries ?? [], targets: options.targets,
+  const generateOptions = {meal: current.meal, entries: options.entries ?? [], targets: options.targets, personalization: options.personalization, celebrationMeal: celebrationMeal(plan.settings),
     completedDays: options.completedDays, pantry: options.pantry ?? []};
   // 同じ料理しか作れない場合に限り、元の候補を戻します。条件外へは広げません。
   const otherDishIds = plan.days.flatMap((day, index) => index === dayIndex ? [] : activeRecipeIds(day));
@@ -1205,7 +1231,7 @@ export function regeneratePlanMeal(plan, options = {}, data) {
 export function addPlanDish(plan, options = {}, data) {
   const {dayIndex, recipeId} = options;
   if (!plan?.ok || plan.mode !== 'calendar' || !Number.isInteger(dayIndex) || !plan.days?.[dayIndex]) throw Error('追加する献立を選んでください。');
-  const safe = eligibleRecipes(plan.settings, data), byId = new Map(safe.map(recipe => [recipe.id, recipe]));
+  const safe = eligibleRecipes(plan.settings, data, {forPlan:true}), byId = new Map(safe.map(recipe => [recipe.id, recipe]));
   if (plan.days.some(day => day.recipeIds.some(id => !byId.has(id)))) throw Error('現在の除外条件に合わない料理が含まれます。献立を作り直してください。');
   const recipe = byId.get(recipeId);
   if (!recipe) throw Error('除外条件に合う料理を選んでください。');
@@ -1230,7 +1256,7 @@ export function updatePlanStaple(plan, {dayIndex, stapleId, amount = null} = {},
   const selectedAmount = calendarAmount(amount, '主食の量');
   const settings = {...normaliseSettings(plan.settings, data, {allowSnack: true}), ...calendarStapleSettings(plan.settings),
     drinkId: plan.settings.drinkId ?? 'none', drinkAmount: plan.settings.drinkAmount ?? null};
-  const safe = eligibleRecipes(settings, data), byId = new Map(safe.map(recipe => [recipe.id, recipe]));
+  const safe = eligibleRecipes(settings, data, {forPlan:true}), byId = new Map(safe.map(recipe => [recipe.id, recipe]));
   for (const day of plan.days) {
     activeRecipeIds(day);
     if (day.recipeIds.some(id => !byId.has(id))) throw new Error('現在の除外条件に合わない料理が献立に含まれます。献立全体を作り直してください。');
@@ -1268,7 +1294,7 @@ export function toggleDish(plan, {dayIndex, recipeId} = {}, data) {
   for (const day of plan.days) {
     activeRecipeIds(day);
     for (const id of day.recipeIds) {
-      if (!allowed(describeRecipe(id, data), settings)) {
+      if (!allowed(describeRecipe(id, data), settings, data)) {
         return {ok: false, days: [], settings, missingRoles: [], warnings: ['現在の除外条件に合わない料理が献立に含まれます。新しい条件で献立全体を作り直してください。']};
       }
     }
@@ -1285,12 +1311,12 @@ export function toggleDish(plan, {dayIndex, recipeId} = {}, data) {
 export function shoppingList(plan, servings = plan?.settings?.servings ?? 2, data) {
   if (!plan?.ok || !Array.isArray(plan.days)) throw new Error('保存できる献立がありません。');
   if (!Number.isInteger(servings) || servings < 1 || servings > 8) throw new Error('人数は1〜8人の整数で指定してください。');
-  const selected = constraints(plan.settings ?? {}, data);
+  const selected = constraints(plan.settings ?? {}, data, {forPlan:true});
   const items = new Map();
   for (const day of plan.days) {
     for (const id of activeRecipeIds(day)) {
       const recipe = describeRecipe(id, data);
-      if (!allowed(recipe, selected)) throw new Error('除外条件に合わない料理を買い物リストに含めることはできません。献立を作り直してください。');
+      if (!allowed(recipe, selected, data)) throw new Error('除外条件に合わない料理を買い物リストに含めることはできません。献立を作り直してください。');
       for (const part of recipe.ingredients) {
         const purchaseId = stockPurchaseId(part.id);
         const key = `${purchaseId}:${part.unit}`;

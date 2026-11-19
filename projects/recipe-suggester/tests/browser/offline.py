@@ -10,6 +10,7 @@ from threading import Thread
 from playwright.sync_api import expect, sync_playwright
 from account_flow import FixtureDatabase, journal_bytes, login_as, stage_fixture, verify_accounts
 from nutrition_profile import verify_personal_nutrition
+from birthday_family import verify_birthday_family
 from home_install import check_app_only, verify_android_app, verify_app_settings, verify_browser_install
 
 
@@ -144,6 +145,7 @@ if __name__ == "__main__":
                     url = f"http://127.0.0.1:{server.server_port}/course/projects/recipe-suggester/"
                     verify_accounts(browser, url, FixtureDatabase())
                     verify_personal_nutrition(browser, url, FixtureDatabase())
+                    verify_birthday_family(browser, url, FixtureDatabase())
                     verify_browser_install(browser, runner.devices, url)
                     context = browser.new_context(viewport={"width": 390, "height": 844}, locale="ja-JP")
                     FixtureDatabase().connect(context)

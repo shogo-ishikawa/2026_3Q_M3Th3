@@ -645,6 +645,7 @@ dialog::backdrop { background: #1e2b24a8; backdrop-filter: blur(3px); }
 /* Planning flow and direct diary actions. */
 #fixed-staple-fields { margin-top:14px; }
 .plan-date-group { grid-column:1/-1; margin:12px 0 0; font-size:1.125rem; }
+.plan-occasion { display:inline-block; margin-inline-start:.65em; border-radius:10px; padding:.1em .65em; font-size:.8em; color:var(--teal); background:var(--teal-soft); }
 .plan-staple-controls { margin:12px 18px; padding:12px 0; border-top:1px solid var(--line); }
 .plan-staple-controls summary { font-size:0.6875rem; color:var(--teal); }
 .plan-staple-controls form { display:grid; grid-template-columns:minmax(0,1fr) 90px; gap:10px; margin-top:12px; }
@@ -1425,3 +1426,9 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
 #weekly-review th:first-child { text-align: left; }
 #weekly-review th[scope="row"] { font-weight: 600; }
 #weekly-review small { display: block; color: var(--muted); font-size: .75em; font-weight: normal; }
+
+.household-counts { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr)); gap:12px; margin-block:16px; }
+#household-form { margin-bottom:22px; }
+#household-form fieldset { border:0; margin:0; padding:0; }
+#household-form legend { font-weight:700; }
+#household-preferences .ingredient-options button, #household-preferences .selected-ingredients button { min-height:42px; font-size:.875rem; }

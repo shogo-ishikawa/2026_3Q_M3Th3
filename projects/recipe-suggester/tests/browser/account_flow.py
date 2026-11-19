@@ -105,6 +105,24 @@ def verify_accounts(browser, url, db):
     expect(page.locator("#account-sync-state")).to_contain_text("同期しました")
     saved = json.loads(journal_bytes(page))
     assert saved["entries"] and saved["draftPlan"]
+    feedback = page.locator("#taste-feedback")
+    feedback.locator("summary").click()
+    favorite_genre = feedback.get_by_label("お気に入りの料理")
+    plan_genre = feedback.get_by_label("保存した献立")
+    expect(favorite_genre).to_be_enabled()
+    report_key = "mealPaletteTasteReports/member"
+    assert report_key not in db.documents
+    favorite_genre.select_option("中華")
+    plan_genre.select_option("洋食")
+    feedback.get_by_role("button", name="この内容を共有する").click()
+    expect(feedback.get_by_role("status")).to_contain_text("共有しました")
+    assert db.documents[report_key] == {"favoriteGenre": "中華", "planGenre": "洋食"}
+    favorite_genre.select_option("和食")
+    feedback.get_by_role("button", name="この内容を共有する").click()
+    expect(feedback.get_by_role("button", name="この内容を共有する")).to_be_disabled()
+    feedback.get_by_role("button", name="共有を取り消す").click()
+    expect(feedback.get_by_role("status")).to_contain_text("取り消しました")
+    assert report_key not in db.documents
     remote = browser.new_context(service_workers="block")
     db.connect(remote)
     other = remote.new_page()
@@ -133,4 +151,9 @@ def verify_accounts(browser, url, db):
     expect(page.locator("#admin-menu-proposals")).to_be_focused()
     page.locator("#admin-menu-proposals button").click()
     expect(page.locator("#admin-menu-proposals [role=status]")).to_contain_text("まだありません")
+    trends = page.locator("#admin-taste-trends")
+    for i in range(5):
+        db.documents["mealPaletteTasteReports/test-" + str(i)] = {"favoriteGenre": "中華", "planGenre": "未共有"}
+    trends.get_by_role("button").click()
+    expect(trends.locator("li")).to_have_text(["お気に入りの料理　中華（5人）"])
     source.close()

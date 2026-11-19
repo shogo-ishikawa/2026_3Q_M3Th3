@@ -1,12 +1,15 @@
+import {defaultServings} from './household-preferences.js';
 import {capturePlan, restorePlan, draftDishKey} from './saved-plan.js';
+import {setupHouseholdPreferences} from './household-preferences-ui.js';
 import {getAccountSession} from './app-start.js';
+import {birthdayGreeting, menuOccasions, OCCASION_LABELS, personalPlanOptions, removeStaleBirthdayReasons} from './planner-personalization.js';
 import {mountCookingView} from './cooking-view.js';
 import {configureQuantityInput,readQuantityInput,installQuantitySteppers,setQuantityPresets} from './quantity-input.js';
 import {demoStorage, setupWelcome, applyQuickSetup} from './onboarding.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from './data.js';
 import {generateCalendarPlan, replaceRecipe, toggleDish, activeRecipeIds, describeRecipe, eligibleRecipes, updatePlanStaple, regeneratePlanMeal, addPlanDish, planMealPreference} from './planner.js';
 import {GENRES, rebalanceGenreRatios} from './storage.js';
-import {MAX_IMPORT_BYTES, DEFAULT_TARGETS, activeNutritionReference, clearArchivedPersonalProfiles, clearPersonalProfile, hasArchivedPersonalProfile, setNutritionMode, shoppingServingsFor, readJournal, journalSourceChanged, writeJournal, replaceJournal, readJournalBackup, markJournalExport, readJournalExportTime, defaultJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
+import {MAX_IMPORT_BYTES, DEFAULT_TARGETS, activeNutritionReference, clearArchivedBirthDates, clearBirthDate, hasArchivedBirthDate, refreshBirthdayNutrition, setBirthDate, clearArchivedPersonalProfiles, clearPersonalProfile, hasArchivedPersonalProfile, setNutritionMode, shoppingServingsFor, readJournal, journalSourceChanged, writeJournal, replaceJournal, readJournalBackup, markJournalExport, readJournalExportTime, defaultJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
 import {createJournalHistory, manualEditAffected} from './journal-history.js';
 import {mountQuickRecord} from './quick-record-ui.js';
 import {mountRecordSearch} from './record-search-ui.js';
@@ -27,7 +30,7 @@ import {planPortionLabel,portionLabel,formatCookingIngredient,recordPortionPrese
 import {mountCatalogFavourites} from './catalog-favourites-ui.js';
 import {formatNutrient} from './nutrient-format.js';
 import {catalogFamilies,catalogVariants,recipeFamily,recipePortion,CATALOG_CATEGORIES,FOOD_NATURES,recipeNature,isCompleteMeal} from './catalog.js';
-import {renderNutritionProfile, applyNutritionProfileForm, showProfileFields} from './personal-profile-ui.js';
+import {renderNutritionProfile, applyNutritionProfileForm, refreshProfileDateDisplay, showProfileFields, watchJapanDate} from './personal-profile-ui.js';
 import {analyseIntake,compareIntake} from './intake.js';
 import {renderWeeklyReview} from './weekly-review.js';
 import {MEAL_OCCASIONS, mealOccasionsFor} from './meal-occasions.js';
@@ -62,8 +65,8 @@ import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
 import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.2.0';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.2.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.3.0';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.3.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -93,6 +96,7 @@ let recovery=loaded.recovery??null,undoNoticeVisible=false,undoNoticeTimer;
 let backupValidity={raw:null,valid:false};
 const undoHistory=createJournalHistory();
 let state=loaded.state, selectedDate=dateKey(), month=selectedDate.slice(0,7);
+const familySettings = setupHouseholdPreferences({ingredients: INGREDIENTS, getSettings: () => state.settings, commit, guard});
 let {plan, shoppingIds: draftShoppingIds} = restorePlan(state.draftPlan, state.settings, {...builtin, recipes: [...RECIPES, ...state.customRecipes]});
 let visiblePlanDate='';
 let recordSearchState={},quickSearchState={},undoReset=null,resetDateAnchor='',summaryRefreshQueued=false;
@@ -112,16 +116,20 @@ function guard(fn){return (...args)=>{try{const result=fn(...args); if(result?.c
 function showJournalChange(){
   const changed=journalSourceChanged(storage,loaded);
   $('journal-changed').hidden=!changed;
-  if(changed&&state.personalProfile){
+  if(changed && (state.personalProfile || state.birthDate)){
     const incoming=readJournal(storage,builtin);
-    if(!incoming.recovery&&(incoming.source||!incoming.message)&&!incoming.state.personalProfile){
-      // 別端末で削除した詳細項目は、他の編集内容の再読み込みを待たずに表示から外す。
-      delete state.personalProfile;
+    const bodyRemoved=state.personalProfile && !incoming.state.personalProfile;
+    const dateRemoved=state.birthDate && !incoming.state.birthDate;
+    if(!incoming.recovery && (incoming.source || !incoming.message) && (bodyRemoved || dateRemoved)){
+      // 別端末で削除した項目は、他の編集内容の再読み込みを待たずに表示から外す。
+      if(bodyRemoved)delete state.personalProfile;
+      if(dateRemoved){clearBirthDate(state);removeStaleBirthdayReasons(plan);}
       state.profile=incoming.state.profile;
       state.targets=incoming.state.targets;
       if(incoming.state.manualTargets)state.manualTargets=incoming.state.manualTargets;
       else delete state.manualTargets;
       renderProfile();renderNutrition();renderPersistenceStatus();
+      if(dateRemoved){renderPlan();document.dispatchEvent(new Event('meal-personal-date-change'));}
     }
   }
   return changed;
@@ -168,8 +176,9 @@ function renderPersistenceStatus(){
   const backup=readJournalBackup(storage),exported=readJournalExportTime(storage);
   $('backup-export-time').textContent=exported?`最後のバックアップ書き出し：${new Date(exported).toLocaleString('ja-JP')}`:'バックアップはまだ書き出していません。';
   if(backup&&backup.raw!==backupValidity.raw){
-    backupValidity={raw:backup.raw,valid:false,hasPersonal:hasArchivedPersonalProfile(storage)};try{parseJournal(backup.raw,builtin);backupValidity.valid=true;}catch{}
+    backupValidity={raw:backup.raw,valid:false,hasPersonal:hasArchivedPersonalProfile(storage),hasBirthDate:hasArchivedBirthDate(storage)};try{parseJournal(backup.raw,builtin);backupValidity.valid=true;}catch{}
   }
+  $('clear-birth-date').hidden=demo||(!state.birthDate&&!(backup&&backupValidity.hasBirthDate));
   $('clear-personal-profile').hidden=demo||(!state.personalProfile&&!(backup&&backupValidity.hasPersonal));
   $('backup-status-note').textContent=backup?`変更前のデータを端末内に退避しています（${new Date(backup.savedAt).toLocaleString('ja-JP')}）。${backupValidity.valid?'':'この元データは自動で読み込めないため、ファイルに書き出して内容を確認してください。'}`:'読み込みや復旧でデータを置き換える前に、元の内容を端末内へ退避します。';
   $('download-journal-backup').disabled=!backup;$('restore-journal-backup').disabled=!backup||!backupValidity.valid;
@@ -244,7 +253,12 @@ function addQuickEntry(entry,message='食事を記録しました。'){
 }
 
 function renderSettings(){
+  $('occasion-menus').checked=state.settings.occasionMenus!==false;
   const s=state.settings,p=s.preferences;
+  familySettings.update(s);
+  $('servings-note').textContent = s.household?.useForServings
+    ? `家族構成から${defaultServings(s)}人分を選んでいます。人数を変えると手動指定になります。栄養は1人分で記録します。`
+    : '調理と買い物の材料を人数分に換算します。栄養は1人分で記録します。';
   document.documentElement.dataset.textSize=s.textSize;
   for(const input of document.querySelectorAll('input[name="text-size"]'))input.checked=input.value===s.textSize;
   $('start-tab').value=s.startTab;
@@ -253,7 +267,7 @@ function renderSettings(){
     for(const artwork of document.querySelectorAll('.recipe-art'))artwork.remove();
     for(const card of document.querySelectorAll('.has-recipe-art'))card.classList.remove('has-recipe-art');
   }
-  for(const [id,value]of Object.entries({'start-date':s.startDate,'plan-days':s.days,servings:s.servings,'genre-mode':p.genreMode,'single-genre':p.genre==='all'?'和食':p.genre}))$(id).value=value;
+  for(const [id,value]of Object.entries({'start-date':s.startDate,'plan-days':s.days,servings:defaultServings(s),'genre-mode':p.genreMode,'single-genre':p.genre==='all'?'和食':p.genre}))$(id).value=value;
   $('meal-settings').replaceChildren(mountMealSettings({settings:s,data:data(),selectionHost:$('meal-selection'),onChange:(meal,patch)=>{const saved=commit(next=>{Object.assign(next.settings.mealPreferences[meal],patch);},{render:false});if(saved){renderPlan();renderShopping();}return saved;},onError:message=>tell(message,true)}));
   $('required-allergens').replaceChildren();$('other-allergens').replaceChildren();
   for(const a of ALLERGENS)(a.category==='required'?$('required-allergens'):$('other-allergens')).append(check(a.id,a.label,s.allergens.includes(a.id),yes=>commit(next=>{next.settings.allergens=yes?[...next.settings.allergens,a.id]:next.settings.allergens.filter(id=>id!==a.id);},{message:'避ける食材を更新しました。'})));
@@ -300,7 +314,7 @@ function addPantryMealAction(card,entry) {
   const details=node('details','shopping-ingredient-sources');
   details.append(node('summary','','材料を手持ちから差し引く'));
   const field=node('label','','調理する人数 '),count=node('select');
-  selectOptions(count,Array.from({length:8},(_,i)=>[String(i+1),`${i+1}人分`]),String(entry.shoppingServings??1));
+  selectOptions(count,Array.from({length:8},(_,i)=>[String(i+1),`${i+1}人分`]),String(shoppingServingsFor(entry, defaultServings(state.settings, 1))));
   field.append(count);
   const preview=node('p','field-note');
   const apply=button('手持ちを差し引いて食べたにする',()=>{
@@ -434,8 +448,16 @@ function goalLabel(key,reference){
   return `${basis} ${formatNutrient(value,key)} ${unit}`;
 }
 function renderProfile(){
+  renderBirthdayGreeting();
   renderNutritionProfile($,state);
 }
+function renderBirthdayGreeting(){
+  const greeting=demo?'':birthdayGreeting(account.name,state.birthDate);
+  $('account-birthday').textContent=greeting;
+  $('account-birthday').hidden=!greeting;
+  $('account-greeting').hidden=account.isAdmin||Boolean(greeting);
+}
+document.addEventListener('meal-personal-date-change',renderBirthdayGreeting);
 function natureLabel(recipe){return FOOD_NATURES.find(n=>n.id===recipeNature(recipe))?.label??'分類未設定';}
 function familyLabel(recipe){
   const classification=dishClassification(recipe);
@@ -521,13 +543,19 @@ function renderPlan(){
   $('plan-open-shopping').textContent=visiblePlanDate==='all'?'買い物する期間と食材を選ぶ':'この日の食材を選ぶ';
   $('plan-save-calendar').textContent=dates.length>1?'全日程をカレンダーに保存':'予定としてカレンダーへ';
   let stapleChoices;
-  const getStapleChoices=()=>stapleChoices??=eligibleRecipes(state.settings,data()).filter(r=>(r.staple||r.role==='staple')&&!isCompleteMeal(r));
+  const getStapleChoices=()=>stapleChoices??=eligibleRecipes(state.settings,data(),{forPlan:true}).filter(r=>(r.staple||r.role==='staple')&&!isCompleteMeal(r));
   const planMeals=[...new Set(plan.days.map(day=>MEALS[day.meal]))];
   $('plan-date-label').textContent=`${dateLabel(plan.days[0].date)}から${plan.settings.days}日分 / ${planMeals.join('・')}の${plan.days.length}食`;
   let previousDate='';
   for(const [index,day]of plan.days.entries()){
     if(visiblePlanDate!=='all'&&day.date!==visiblePlanDate)continue;
-    if(previousDate!==day.date){$('plan-output').append(node('h3','plan-date-group',dateLabel(day.date)));previousDate=day.date;}
+    if(previousDate!==day.date){
+      const dateHeading=node('h3','plan-date-group',dateLabel(day.date));
+      for(const occasion of plan.settings.occasionMenus===false?[]:menuOccasions(day.date,state.birthDate)){
+        const badge=node('span','plan-occasion',OCCASION_LABELS[occasion]);badge.dataset.menuOccasion=occasion;dateHeading.append(badge);
+      }
+      $('plan-output').append(dateHeading);previousDate=day.date;
+    }
     const card=node('article','day-card'),head=node('div','day-card-heading');
     const editButton=button('料理を替える',()=>openPlanMealEditor(index));
     editButton.id=`plan-edit-${day.date}-${day.meal}`;
@@ -588,7 +616,7 @@ function applyEditedPlan(next,message,{newDraft=false}={}){
   }
   plan=next;renderPlan();renderShopping();tell(message);
 }
-function openCookingView(entry, items = entry.items, servings = shoppingServingsFor(entry, state.settings.servings)) {
+function openCookingView(entry, items = entry.items, servings = shoppingServingsFor(entry, defaultServings(state.settings))) {
   const dialog = $('recipe-dialog');
   $('dialog-title').textContent = dateLabel(entry.date) + 'の' + MEALS[entry.meal];
   $('dialog-meta').textContent = '調理モード';
@@ -637,7 +665,7 @@ function openPlanMealEditor(index){
   $('dialog-title').textContent=`${dateLabel(day.date)}の${MEALS[day.meal]}を替える`;
   $('dialog-meta').textContent='この食事だけ条件を変えて提案します。';
   $('dialog-content').replaceChildren(mountPlanMealEditor({settings:plan.settings,data:data(),day,mealPreference:planMealPreference(plan,index),
-    onApply:({mealPreference,genre})=>{applyEditedPlan(regeneratePlanMeal(plan,{dayIndex:index,mealPreference,genre,entries:state.entries,pantry:state.pantry,targets:state.targets,completedDays:state.completedDays},data()),'この食事の献立を更新しました。');$('recipe-dialog').close();$(`plan-edit-${day.date}-${day.meal}`)?.focus();},onError:message=>tell(message,true)}));
+    onApply:({mealPreference,genre})=>{applyEditedPlan(regeneratePlanMeal(plan,{dayIndex:index,mealPreference,genre,entries:state.entries,pantry:state.pantry,targets:state.targets,completedDays:state.completedDays,personalization:personalPlanOptions(state)},data()),'この食事の献立を更新しました。');$('recipe-dialog').close();$(`plan-edit-${day.date}-${day.meal}`)?.focus();},onError:message=>tell(message,true)}));
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 function openPlanDishPicker(index){
@@ -735,7 +763,7 @@ function queueShoppingItem(item,servings){
   $('shopping-source').value='menu';renderShopping();setKitchenTab('menus');$('recipe-dialog').close();activateTab('kitchen',{focus:true});
 }
 function shoppingAction(getItem){
-  const box=node('div','menu-shopping-action'),label=node('label','','買い物の人数'),select=node('select');select.setAttribute('aria-label','この料理を買い物に追加する人数');selectOptions(select,Array.from({length:8},(_,i)=>[String(i+1),`${i+1}人分`]),String(state.settings.servings));label.append(select);
+  const box=node('div','menu-shopping-action'),label=node('label','','買い物の人数'),select=node('select');select.setAttribute('aria-label','この料理を買い物に追加する人数');selectOptions(select,Array.from({length:8},(_,i)=>[String(i+1),`${i+1}人分`]),String(defaultServings(state.settings)));label.append(select);
   const add=button('食材を買い物に追加',()=>{const item=getItem();if(!item)throw Error('先に料理と量を確認してください。');queueShoppingItem(item,Number(select.value));},'button-secondary');box.append(label,add);return box;
 }
 function openShoppingRegistration(item){
@@ -1047,7 +1075,7 @@ function openDinnerFromRecord(){
         const entry=next.entries.find(old=>old.id===prior.id);
         if(!entry||entry.status!=='planned')throw Error('夕食予定が変わりました。記録を開き直してください。');
         entry.items=items.map(item=>({...item,id:entry.items.find(old=>old.recipeId===item.recipeId)?.id??item.id}));
-      }else next.entries.push({id:uid(),date,meal:'dinner',status:'planned',note:'',items});
+      }else next.entries.push({id:uid(),date,meal:'dinner',status:'planned',note:'',items,shoppingServings:proposal.settings.servings});
     },{invalidate:false,message:'夕食の予定を保存しました。'});
     if(saved){dialog.close();setDate(date);}
   },'button-primary'));
@@ -1559,7 +1587,11 @@ bind('manual-form','submit',event=>{event.preventDefault();const r=readManual(),
     if(editing){const old=next.entries.find(e=>e.id===editing.entryId);if(!old)throw Error('編集する記録が見つかりません。');const at=old.items.findIndex(i=>i.id===editing.itemId);if(at<0)throw Error('編集する料理が見つかりません。');old.items.splice(at,1);if(old.items.length&&note===old.note)old.note='';if(!old.items.length)next.entries=next.entries.filter(e=>e.id!==old.id);next.entries.push(selectedEntry([item],note));}else next.entries.push(selectedEntry([item],note));
   },{invalidate:false,message:save?'食事を記録し、自分のデータベースにも保存しました。':'食事をカレンダーに記録しました。'}))return;resetManual();
 });
-for(const [id,key]of [['start-date','startDate'],['plan-days','days'],['servings','servings']])bind(id,'change',()=>commit(next=>{next.settings[key]=['days','servings'].includes(key)?Number($(id).value):$(id).value;}));
+for(const [id,key]of [['start-date','startDate'],['plan-days','days']])bind(id,'change',()=>commit(next=>{next.settings[key]=key==='days'?Number($(id).value):$(id).value;}));
+bind('servings','change',()=>commit(next=>{
+  next.settings.servings=Number($('servings').value);
+  if(next.settings.household)next.settings.household.useForServings=false;
+}));
 bind('start-tab','change',()=>commit(next=>{next.settings.startTab=$('start-tab').value;},{invalidate:false}));
 bind('hide-recipe-illustrations','change',()=>{recipeLimit=12;commit(next=>{next.settings.hideRecipeIllustrations=$('hide-recipe-illustrations').checked;},{invalidate:false,message:$('hide-recipe-illustrations').checked?'料理イラストを非表示にしました。':'料理イラストを表示します。'});});
 for(const input of document.querySelectorAll('input[name="text-size"]'))input.addEventListener('change',guard(()=>{
@@ -1573,7 +1605,7 @@ function generateMeals(){
   if(shiftDate(state.settings.startDate,state.settings.days-1)>'2100-12-31')throw Error('献立の期間は2100年内で指定してください。');
   undoReset=null;renderReset();
   const settings={...state.settings,meal:'all',seed:Math.floor(Math.random()*2147483647)};
-  const next=generateCalendarPlan(settings,data(),{entries:state.entries,targets:state.targets,meal:settings.meal,pantry:state.pantry,completedDays:state.completedDays});
+  const next=generateCalendarPlan(settings,data(),{entries:state.entries,targets:state.targets,meal:settings.meal,pantry:state.pantry,completedDays:state.completedDays,personalization:personalPlanOptions(state)});
   if(next.ok){
     syncDraftShoppingCatalog(next,new Map());
     shoppingSelection={};
@@ -1588,6 +1620,7 @@ function generateMeals(){
   else if (demo) tell('お試しの献立を作成しました。');
   else tell('献立の下書きを保存しました。カレンダーに登録すると日付ごとの予定に残せます。');
 }
+bind('occasion-menus','change',()=>commit(next=>{next.settings.occasionMenus=$('occasion-menus').checked;}));
 bind('plan-form','submit',event=>{event.preventDefault();generateMeals();});
 bind('dinner-from-record','click',openDinnerFromRecord);
 bind('open-drink-log','click',()=>openDrinkLog());
@@ -1635,6 +1668,29 @@ bind('day-complete','change',()=>commit(next=>{next.completedDays=$('day-complet
 bind('nutrition-period','change',renderNutrition);
 for(const id of ['recipe-family','recipe-nature','recipe-genre','recipe-method'])bind(id,'change',()=>{recipeLimit=12;renderCatalog();});
 bind('recipe-food-category','change',()=>{$('recipe-method').value='all';recipeLimit=12;renderCatalog();});
+function commitBirthDate(change,message){
+  if(!commit(change,{invalidate:false,render:false,message}))return;
+  removeStaleBirthdayReasons(plan,state.birthDate);
+  renderAll();
+  document.dispatchEvent(new Event('meal-personal-date-change'));
+}
+$('birthday-form').hidden=demo;
+bind('birthday-form','submit',event=>{
+  event.preventDefault();
+  if(demo)return;
+  if(!$('birthday-consent').checked)throw Error('生年月日を保存して使う場合は、チェックを入れてください。');
+  const date=$('birth-date').value;
+  if(date===state.birthDate){tell('生年月日は保存済みです。');return;}
+  commitBirthDate(next=>setBirthDate(next,date),'生年月日を保存しました。');
+});
+bind('clear-birth-date','click',()=>{
+  if(demo||!confirm('生年月日をアカウントとこの端末の退避データから削除しますか？自分で書き出したJSONファイルは手元で管理してください。'))return;
+  commitBirthDate(next=>{
+    clearArchivedBirthDates(storage);
+    backupValidity={raw:null,valid:false};
+    clearBirthDate(next);
+  },'生年月日を削除しました。');
+});
 if(demo)$('profile-mode').querySelector('[value="personal"]').disabled=true;
 bind('profile-mode','change',()=>showProfileFields($));
 bind('profile-form','submit',event=>{
@@ -1677,4 +1733,15 @@ setupWelcome({demo, storage, initialError: loaded.message, data: builtin, getSta
   onSave: draft => commit(next => applyQuickSetup(next, draft, builtin), {message: 'かんたん設定を反映しました。'})});
 if (demo) bind('sample-reset','click',()=>{if(confirm('お試し中の変更を消して最初のサンプルに戻しますか？'))location.reload();});
 renderAll();if(loaded.message)tell(loaded.message,/読み込めません|元の保存データ/.test(loaded.message));
+watchJapanDate(today=>{
+  const previousMode=state.profile.mode;
+  refreshBirthdayNutrition(state,today);
+  if(previousMode!==state.profile.mode && $('profile-mode').value===previousMode){
+    $('profile-mode').value=state.profile.mode;
+    showProfileFields($);
+  }
+  refreshProfileDateDisplay($,state,today);
+  if(state.birthDate)renderNutrition();
+  document.dispatchEvent(new Event('meal-personal-date-change'));
+});
 document.dispatchEvent(new Event('meal-palette-ready'));

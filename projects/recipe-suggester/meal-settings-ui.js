@@ -24,7 +24,7 @@ const familyLabel = recipe => CATALOG_CATEGORIES.find(group => group.id === reci
 export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal]) => meal), allowEnable = true, selectionHost, onChange = () => {}, onError = () => {}} = {}) {
   if (!data || typeof onChange !== 'function' || typeof onError !== 'function' || !Array.isArray(meals) || !meals.length || new Set(meals).size !== meals.length || meals.some(meal => !MEALS.some(([id]) => id === meal)) || typeof allowEnable !== 'boolean') throw Error('食事ごとの設定を確認してください。');
   let profiles = normaliseMealPreferences(settings.mealPreferences, settings.preferences?.mood ?? 'all', settings);
-  const available = eligibleRecipes(settings, data), allRecipes = data.recipes ?? [];
+  const available = eligibleRecipes(settings, data, {forPlan:true}), allRecipes = data.recipes ?? [];
   const staples = available.filter(recipe => recipe.role === 'staple' || recipe.role === 'main' && recipe.staple);
   const drinks = available.filter(recipe => recipe.role === 'drink');
   const prefix = `meal-settings-${++counter}`, root = make('div', 'meal-settings');

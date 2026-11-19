@@ -127,6 +127,23 @@ class FirestoreRules(unittest.TestCase):
         self.call(200, "DELETE", self.vote, self.owner)
         self.call(404, "GET", self.vote, self.owner)
 
+    def test_consent_to_genre_summary(self):
+        path = '/mealPaletteTasteReports/' + self.uid
+        report = document(favoriteGenre='和食', planGenre='未共有')
+        self.call(200, 'PATCH', path, self.owner, report)
+        self.call(200, 'PATCH', path, self.owner, document(favoriteGenre='中華', planGenre='洋食'))
+        self.call(200, 'GET', path, self.owner)
+        for invalid in [document(favoriteGenre='和食'), document(favoriteGenre='未共有', planGenre='未共有'),
+                        document(favoriteGenre='和食', planGenre='洋食', email='extra'), document(favoriteGenre='name', planGenre='洋食')]:
+            self.call(403, 'PATCH', path, self.owner, invalid)
+        for who in [None, self.other, self.admin, emulator_token(self.uid, verified=False)]:
+            self.call(403, 'GET', path, who)
+            self.call(403, 'PATCH', path, who, report)
+            self.call(403, 'DELETE', path, who)
+        self.call(403, 'GET', '/mealPaletteTasteReports', self.owner)
+        self.call(200, 'GET', '/mealPaletteTasteReports', self.admin)
+        self.call(200, 'DELETE', path, self.owner)
+
     def test_only_verified_google_admin_can_count_votes(self):
         self.call(200, "PATCH", self.vote, self.owner, document(interest="seafood"))
         query = {"structuredQuery": {"from": [{"collectionId": "mealPaletteMenuVotes"}],

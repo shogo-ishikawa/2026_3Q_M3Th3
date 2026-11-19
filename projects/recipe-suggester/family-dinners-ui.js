@@ -1,4 +1,5 @@
 /** 家族の夕飯を組み合わせで保存し、日付を選んで再利用します。 */
+import {defaultServings} from './household-preferences.js';
 import {createFamilyDinner, planFamilyDinner, mealSetWarnings, MAX_MEAL_SETS} from './meal-sets.js';
 import {sumNutrition} from './nutrition.js';
 import {portionLabel} from './portion-guide.js';
@@ -104,7 +105,7 @@ export function mountFamilyDinners({state, data, date, proposedItems, selectedId
     targetDate.min = '2000-01-01';
     targetDate.max = '2100-12-31';
     targetDate.value = date;
-    const servings = select(Array.from({length:8}, (_, i) => [String(i + 1), (i + 1) + '人分']), String(state.settings.servings));
+    const servings = select(Array.from({length:8}, (_, i) => [String(i + 1), (i + 1) + '人分']), String(defaultServings(state.settings)));
     function showSet() {
       const set = sets.find(set => set.id === chosen.value);
       detail.replaceChildren(summary(set.items, data, describeItem));

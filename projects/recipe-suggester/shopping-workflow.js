@@ -1,4 +1,5 @@
 /** 料理ごとに買う材料を選び、合算した後で家の在庫を一度だけ差し引きます。 */
+import {defaultServings} from './household-preferences.js';
 import {stockPurchaseId} from './strained-stock.js';
 import {dateIsValid, shoppingServingsFor} from './journal.js';
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
@@ -95,7 +96,7 @@ export function shoppingMenuContext(state, data, {source, from, to}) {
   if (source === 'calendar') for (let week = weekOf(from); week <= weekOf(to); week++) reviewWeeks.add(week);
   const entries = planned.filter(entry => reviewWeeks.has(weekOf(entry.date)));
   const calendar = shoppingMenusFromEntries(entries, data, {
-    from: '2000-01-01', to: '2100-12-31', servings: state.settings.servings,
+    from: '2000-01-01', to: '2100-12-31', servings: defaultServings(state.settings),
   }).map(menu => ({...menu, id: knownId.get(menu.item.id) ?? menu.id, origin: 'calendar'}));
   const committedCalendar = calendar.filter(menu => preparedWeeks.has(weekOf(menu.date)));
   const catalog = orderedMenus(prepared, includesDraft ? draft : [], committedCalendar, extras);

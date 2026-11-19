@@ -12,13 +12,13 @@ const data={recipes:RECIPES, ingredients:INGREDIENTS, allergens:ALLERGENS};
 const soup=RECIPES.filter(recipe=>recipe.role==='soup');
 const byId=id=>RECIPES.find(recipe=>recipe.id===id);
 
-test('86品の汁物を10小分類へ重複なく分け、記録とメニューの同じ候補を返す',()=>{
+test('89品の汁物を10小分類へ重複なく分け、記録とメニューの同じ候補を返す',()=>{
   const before=JSON.stringify(RECIPES),families=catalogFamilies(RECIPES,{role:'soup'});
-  assert.equal(soup.length,86);assert.equal(families.length,10);
+  assert.equal(soup.length,89);assert.equal(families.length,10);
   const ids=families.flatMap(family=>catalogVariants(RECIPES,family.id).map(recipe=>recipe.id));
-  assert.equal(ids.length,86);assert.equal(new Set(ids).size,86);
+  assert.equal(ids.length,89);assert.equal(new Set(ids).size,89);
   assert.deepEqual(new Set(ids),new Set(browseDishes(RECIPES,{section:'soup'}).map(recipe=>recipe.id)));
-  assert.equal(families.reduce((total,family)=>total+family.count,0),86);
+  assert.equal(families.reduce((total,family)=>total+family.count,0),89);
   for(const family of families){
     const members=catalogVariants(RECIPES,family.id);
     assert.equal(members.length,family.count);assert.ok(members.every(recipe=>dishSection(recipe)==='soup'));
@@ -66,8 +66,14 @@ test('分類名の検索からも候補を探せ、空の分類や異なる料�
 });
 
 test('旧データの大まかなfamilyを維持し、表示と単位だけを新しい小分類から求める',()=>{
+  const celebrationFamilies = new Map([
+    ['celebration-birthday-carrot-orange-potage', 'potage'],
+    ['celebration-christmas-beet-bean-soup', 'vegetable-soup'],
+    ['celebration-new-year-seabream-soup', 'clear-soup'],
+  ]);
   for(const recipe of soup){
-    assert.ok(['soup','miso-soup'].includes(recipe.family),recipe.id);
+    if (celebrationFamilies.has(recipe.id)) assert.equal(recipe.family, celebrationFamilies.get(recipe.id));
+    else assert.ok(['soup','miso-soup'].includes(recipe.family),recipe.id);
     const decorated=decorateRecipe(recipe);
     assert.deepEqual(decorated,recipe,recipe.id);
     assert.equal(recipePortion(recipe,data).unit,'杯',recipe.id);
