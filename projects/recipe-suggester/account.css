@@ -1,5 +1,5 @@
 /* 認証が変わった直後は開いていたダイアログや操作通知も含めて隠す。 */
-body[data-account-locked] > :not(#account-gate, #install-guide, #launch-screen, noscript) { display: none !important; }
+body[data-account-locked] > :not(#account-gate, #install-guide, #app-qr-dialog, #launch-screen, noscript) { display: none !important; }
 .account-gate {
   min-height: 100svh;
   display: grid;

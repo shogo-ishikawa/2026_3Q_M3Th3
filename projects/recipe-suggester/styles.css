@@ -379,9 +379,10 @@ details[open] > summary .summary-plus { transform: rotate(45deg); }
 .site-footer { display: flex; gap: 25px; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); color: #637158; font-size: 0.5625rem; line-height: 1.8; padding-top: 18px; padding-bottom: 22px; }
 .site-footer > span { font-size: 0.6875rem; font-weight: 650; color: #66755f; white-space: nowrap; }
 .site-footer > span > small { font-weight: 400; margin-left: 5px; color: #637158; font-size: 0.5625rem; }
-.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+.footer-qr-button { border: 0; padding: 0; background: transparent; min-height: 44px; }
 .footer-links a { color: #637158; text-decoration: none; }
-.footer-links a:hover { color: var(--teal); text-decoration: underline; }
+.footer-links a:hover, .footer-qr-button:hover { color: var(--teal); text-decoration: underline; }
 /* Recipe detail dialog */
 dialog { width: min(750px, calc(100% - 32px)); max-height: calc(100dvh - 45px); padding: 28px; color: var(--ink); border: 1px solid #d1d8c6; border-radius: 10px; background: #fff; }
 dialog::backdrop { background: #1e2b24a8; backdrop-filter: blur(3px); }
@@ -900,7 +901,7 @@ summary::after { color:#687953; }
 .site-footer > span { color:#53694a; font-size:0.8125rem; font-family:Georgia,"Times New Roman",serif; font-weight:500; }
 .site-footer > span > small { font-family:Inter,"Noto Sans JP",sans-serif; font-size:0.625rem; }
 .footer-links { gap:20px; }
-.footer-links a { color:#637158; font-size:0.6875rem; }
+.footer-links a, .footer-qr-button { color:#637158; font-size:0.6875rem; }
 
 /* Roomier details without competing with the ingredient composer. */
 dialog { width:min(900px,calc(100% - 40px)); max-height:calc(100dvh - 48px); padding:32px; border:1px solid #d2dcc7; border-radius:20px; background:var(--paper); box-shadow:0 25px 90px #17291c30; scrollbar-width:thin; scrollbar-color:#bdcbb0 transparent; }
@@ -1080,7 +1081,7 @@ dialog::backdrop { background:#2031269e; backdrop-filter:blur(5px); }
   .data-actions p:not(.eyebrow) { font-size:0.75rem; }
   .data-buttons .button-secondary { font-size:0.75rem; }
   .footer-links { gap:10px 17px; }
-  .footer-links a { font-size:0.625rem; }
+  .footer-links a, .footer-qr-button { font-size:0.625rem; }
   dialog { width:calc(100% - 20px); padding:23px 19px; border-radius:15px; max-height:calc(100dvh - 20px); }
   .dialog-header { gap:14px; padding-bottom:20px; margin-bottom:21px; }
   .dialog-header h2 { font-size:1.375rem; }
@@ -1394,8 +1395,11 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
   margin-bottom: 1rem;
 }
 .install-entry svg { flex: none; }
-.install-guide .dialog-header { align-items: center; margin-bottom: 1rem; padding-bottom: .8rem; }
-.install-guide h2 { margin: 0; font-size: 1.2rem; }
+.install-guide .dialog-header, #app-qr-dialog .dialog-header { align-items: center; margin-bottom: 1rem; padding-bottom: .8rem; }
+.install-guide h2, #app-qr-dialog h2 { margin: 0; font-size: 1.2rem; }
+#app-qr-dialog { width: min(24rem, calc(100% - 2rem)); }
+#app-qr-note { margin: 0; font-size: .875rem; }
+#app-qr-dialog img { display: block; max-width: 100%; height: auto; margin: 1rem auto 0; }
 .install-guide h3 { margin-bottom: .4rem; }
 .install-guide ol { margin: 0; padding-left: 1.5em; }
 .install-guide li + li { margin-top: .4rem; }
