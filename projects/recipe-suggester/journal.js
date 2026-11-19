@@ -12,6 +12,7 @@ import {validatePurchaseSettings} from './purchase-conversion.js';
 import {validateBatches, assertBatchUsage} from './batch-cooking.js';
 import {validateRestaurantMetadata} from './restaurant-menu.js';
 import {validateFavourites} from './favourites.js';
+import {validateProductLabel} from './product-label.js';
 import {validateNutritionBasis} from './nutrition-basis.js';
 import {normaliseMealPreferences} from './meal-profiles.js';
 import {STORAGE_KEY as LEGACY_KEY, defaultState, validateState, GROUP_IDS, PROTEIN_IDS, GENRES} from './storage.js';
@@ -31,7 +32,7 @@ export const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000, shoppingExtras: 200, shoppingList: 500, shoppingCatalog: 500, shoppingReceipts: 2000};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'startTab', 'mealPreferences', 'shoppingOmittedIds'];
 const TEXT_SIZE_IDS = ['standard', 'large', 'larger', 'largest'];
-const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis', 'diningMatch', 'ingredientEdit'];
+const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis', 'diningMatch', 'ingredientEdit', 'productLabel'];
 const CUSTOM_KEYS = ['id', 'name', 'role', 'genre', 'minutes', 'servings', 'staple', 'ingredients', 'steps', 'manualNutrition', 'allergens', 'allergensKnown', 'ingredientsKnown', 'groups', 'proteinSources', 'custom', 'portion', 'family', 'variantLabel', 'mealBase', 'nature', 'sourceNote', 'shoppingKnown', 'restaurant', 'nutritionBasis'];
 const INVALID_MESSAGE = '保存内容を読み込めませんでした。元の保存データはそのまま残っています。復旧方法を選ぶまで設定や記録の変更は保存できません。復旧画面から元のデータを書き出すか、バックアップを読み込んでください。復旧後はアレルギーと除外食材も確認してください。';
 const unknownNutrition = () => Object.fromEntries(NUTRIENT_KEYS.map(key => [key, null]));
@@ -296,6 +297,7 @@ function snapshot(source, context, itemIds) {
     ...(source.batchId === undefined ? {} : {batchId: identifier(source.batchId, '作り置きの識別子')}),
     ...(source.diningMatch === undefined ? {} : {diningMatch: diningMatch(source)}),
     ...(source.ingredientEdit === undefined ? {} : {ingredientEdit: ingredientEdit(source,context)}),
+    ...(source.productLabel === undefined ? {} : {productLabel: validateProductLabel(source.productLabel, source.portion ?? {amount:1,unit:'人分'})}),
     ...(source.restaurant === undefined ? {} : {restaurant: validateRestaurantMetadata(source.restaurant, context.data, {historical: true})}), ...sourceMetadata(source)};
 }
 
@@ -352,7 +354,7 @@ function mealPreferencesSetting(value, legacyMood = 'all', legacySettings = {}, 
     record(value, meals, '朝昼夕の食事設定');
     if (meals.some(meal => !Object.hasOwn(value, meal))) throw new Error('朝昼夕の食事設定を確認してください。');
     for (const meal of meals) {
-      record(value[meal], ['volume', 'mood', 'enabled', 'staple', 'stapleId', 'stapleAmount', 'drinkId', 'drinkAmount', 'yogurt', 'fruit', 'stapleVolume', 'sideCount', 'sideType', 'soup', 'banshaku'], '食事ごとの設定');
+      record(value[meal], ['volume', 'mood', 'enabled', 'staple', 'stapleId', 'stapleAmount', 'drinkId', 'drinkAmount', 'yogurt', 'fruit', 'stapleVolume', 'sideCount', 'sideType', 'soup', 'banshaku', 'easyPurchase'], '食事ごとの設定');
       if (!Object.hasOwn(value[meal], 'volume') || !Object.hasOwn(value[meal], 'mood')) throw new Error('食事の量と気分を確認してください。');
     }
   }

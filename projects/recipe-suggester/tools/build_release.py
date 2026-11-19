@@ -39,6 +39,8 @@ FILES = (
     "recipe-illustration.js", "recipe-illustration-ui.js",
     "recipe-artwork-manifest.js",
     "favourites.js", "favourites-ui.js", "favourites-ui.css", "meal-overlap.js",
+    "quick-foods.js",
+    "product-label.js", "product-label-ui.js",
     "nutrition-basis.js", "nutrition-basis-ui.js", "nutrition-basis-ui.css",
     "text-log.js", "text-log-ui.js", "text-log-ui.css", "text-log-configurator-ui.js", "bread-foods.js",
     "soup-intake.js", "soup-intake-ui.js", "soup-intake-ui.css",

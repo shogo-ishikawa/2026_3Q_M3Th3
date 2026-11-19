@@ -48,6 +48,7 @@ export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal
   };
   const toggle = (meal, key, text, value) => {
     const input = make('input', `meal-settings-${key}`); input.id = `${prefix}-${meal}-${key}`; input.type = 'checkbox'; input.checked = value;
+    input.dataset.meal = meal;
     if (key === 'enabled') input.setAttribute('aria-controls', `${prefix}-${meal}-card`);
     input.addEventListener('change', act(() => {
       try {update(meal, {[key]: input.checked});}
@@ -121,6 +122,7 @@ export function mountMealSettings({settings = {}, data, meals = MEALS.map(([meal
       volume.addEventListener('change', act(() => update(meal, {volume: volume.value})));
       mood.addEventListener('change', act(() => update(meal, {mood: mood.value})));
       pair.append(field('おかずの量', volume), field('料理の傾向', mood)); card.append(pair);
+      card.append(toggle(meal, 'easyPurchase', '簡単に済ませる（市販品も候補に）', choice.easyPurchase));
       if (meal === 'dinner') card.append(toggle(meal, 'banshaku', '晩酌向けのおかずを優先する', choice.banshaku));
       const modes = meal === 'breakfast' ? BREAKFAST_STAPLES : OTHER_STAPLES;
       const choices = modes.some(([id]) => id === choice.staple) ? modes : [...modes, [choice.staple, choice.staple === 'bread' ? 'パン' : choice.staple === 'rice-or-bread' ? 'ご飯かパン' : 'オートミール（シリアル）']];

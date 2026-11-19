@@ -207,3 +207,16 @@ test('the evening dish preference is available in dinner settings and the editor
     assert.deepEqual(changes, [{meal: 'dinner', patch: {banshaku: true}}]);
   }
 }));
+
+
+test('easy purchase is opt-in for each meal and independent of the quick-cooking mood',()=>withDocument(()=>{
+ const source=settings(),changes=[];
+ source.mealPreferences.lunch.mood='時短';
+ const root=mountMealSettings({settings:source,data,onChange:(meal,patch)=>changes.push({meal,patch})});
+ const lunch=field(root,'lunch','easyPurchase');
+ assert.equal(lunch.checked,false);
+ lunch.checked=true;lunch.emit('change');
+ assert.deepEqual(changes,[{meal:'lunch',patch:{easyPurchase:true}}]);
+ assert.equal(field(root,'lunch','mood').value,'時短');
+ assert.equal(field(root,'dinner','easyPurchase').checked,false);
+}));

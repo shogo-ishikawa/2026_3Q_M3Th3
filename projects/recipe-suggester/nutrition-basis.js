@@ -113,6 +113,11 @@ export function classifyNutritionBasis(value,data,{snapshot=own(value,'nutrition
   if(kind==='official'&&record(value?.restaurant))description='利用者が登録した公式資料の表示値を基準にしています。資料をアプリが自動照合した値ではありません。提供量・対象範囲・出典を確認してください。';
   if(kind==='ingredients'&&record(value)&&value.manualNutrition!==undefined)description='登録材料の代表値と使用量の合計に対応する概算です。表示した料理の量・材料の状態を確認してください。';
   let label=DETAILS[kind].label;
+  if (snapshot && value?.productLabel && ['manual','mixed'].includes(kind)) {
+    const product=value.productLabel;
+    label=kind==='mixed'?'商品ラベル＋追加材料':'手元の商品の表示値';
+    description=`${product.name || '商品'}の包装にある${product.amount}${product.unit}当たりの表示を入力した記録です。`;
+  }
   if(kind==='unknown'&&unknownKeys.length===KEYS.length&&(!snapshot||own(value,'nutritionBasis'))){
     label='栄養値未登録';
     description='栄養成分の数値は登録されていません。商品の包装に表示があれば、その値を使って記録できます。';

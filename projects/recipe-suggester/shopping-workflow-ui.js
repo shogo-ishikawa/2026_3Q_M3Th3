@@ -19,6 +19,13 @@ const groupLabel = id => INGREDIENT_GROUPS.find(group => group.id === id)?.label
 const fullSelection = menu => ({...menu, ingredientIds: unique((menu.item.ingredients ?? []).map(part => part.id))});
 const stockQuantity = (value, unit) => value.toLocaleString('ja-JP', {maximumSignificantDigits: 12}) + unit;
 const materialAmount = (id, value, data) => formatCookingIngredient(id, value, data, {includeName: false});
+const productLabelNote = '原材料とアレルゲンは商品の表示で確認してください。';
+
+function productNotice(menus, needed) {
+  const outstanding = new Set(needed.flatMap(item => item.sources.filter(source => source.buy > 0).map(source => source.menuId)));
+  const names = unique(menus.filter(menu => menu.checkProductLabel && outstanding.has(menu.menuId)).map(menu => menu.name));
+  return names.length ? `${names.join('、')}の原材料とアレルゲンは、商品の表示で確認してください。` : '';
+}
 
 function grouped(items, data) {
   const groups = new Map();
@@ -51,7 +58,8 @@ export function shoppingChecklistText(prepared, data, {pantry = [], omittedIds =
   if (prepared === null || prepared === undefined) return '';
   const result = pendingShopping(prepared, data, {pantry, omittedIds, receipts, catalog});
   const needed = result.items.filter(item => item.buy > 0);
-  if (!needed.length && !result.missingMenus.length) return '';
+  const missing = result.missingMenus.filter(menu => !menu.checkProductLabel);
+  if (!needed.length && !missing.length) return '';
   const lines = ['買い物リスト'];
   for (const [id, items] of grouped(needed, data)) {
     lines.push(`【${groupLabel(id)}】`);
@@ -61,7 +69,9 @@ export function shoppingChecklistText(prepared, data, {pantry = [], omittedIds =
     }
   }
   if (!needed.length) lines.push('未確認の材料があります。');
-  if (result.missingMenus.length) lines.push(`材料未確認：${unique(result.missingMenus.map(menu => menu.name)).join('、')}`);
+  if (missing.length) lines.push(`材料未確認：${unique(missing.map(menu => menu.name)).join('、')}`);
+  const product = productNotice(result.missingMenus, needed);
+  if (product) lines.push(product);
   return lines.join('\n');
 }
 
@@ -101,10 +111,6 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
     allMenus[index] = fullSelection(menus[0]);
   }
   const ledgerOptions = {pantry, omittedIds, receipts, catalog: allMenus};
-
-  function showWarnings(result, container) {
-    if (result.missingMenus.length) container.append(make('p', 'notice error shopping-missing-note', `材料未確認：${unique(result.missingMenus.map(menu => menu.name)).join('、')}`));
-  }
 
   function renderReview() {
     const review = make('section', 'shopping-review'); review.setAttribute('aria-label', '買い物に使う献立');
@@ -224,7 +230,8 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
           addOne.setAttribute('aria-label', [menu.label, menu.item.name, 'この料理の食材だけを追加'].filter(Boolean).join(' '));
           card.append(addOne);
         }
-        if (state?.unknown || !menu.item.ingredientsKnown || !parts.size) card.append(make('p', 'shopping-review-warning', '未確認の材料があります。'));
+        if (state?.checkProductLabel) card.append(make('p', 'shopping-menu-note', productLabelNote));
+        else if (state?.unknown || !menu.item.ingredientsKnown || !parts.size) card.append(make('p', 'shopping-review-warning', '未確認の材料があります。'));
         cards.append(card);
       }
     }
@@ -237,8 +244,17 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
     const result = pendingShopping(prepared, data, ledgerOptions), needed = result.items.filter(item => item.buy > 0);
     const progress = make('p', 'shopping-check-progress'); progress.setAttribute('role', 'status'); progress.setAttribute('aria-live', 'polite');
     const checklist = make('div', 'shopping-checklist'), rows = [];
-    final.append(progress, checklist);
-    const updateProgress = () => { const count = rows.filter(row => !row.row.hidden).length; progress.textContent = count ? `残り ${count}品目` : result.missingMenus.length ? '未確認の材料があります' : '買うものは揃っています'; for (const group of checklist.children) group.hidden = !rows.some(item => item.group === group && !item.row.hidden); };
+    const labelNote = make('p', 'shopping-menu-note');
+    const missing = result.missingMenus.filter(menu => !menu.checkProductLabel);
+    final.append(progress, checklist, labelNote);
+    if (missing.length) final.append(make('p', 'notice error shopping-missing-note', `材料未確認：${unique(missing.map(menu => menu.name)).join('、')}`));
+    const updateProgress = () => {
+      const active = rows.filter(({row}) => !row.hidden);
+      progress.textContent = active.length ? `残り ${active.length}品目` : missing.length ? '未確認の材料があります' : '買うものは揃っています';
+      for (const group of checklist.children) group.hidden = !active.some(item => item.group === group);
+      labelNote.textContent = productNotice(result.missingMenus, active.map(({item}) => item));
+      labelNote.hidden = !labelNote.textContent;
+    };
     for (const [groupId, items] of grouped(needed, data)) {
       const group = make('section', 'shopping-check-group'); group.append(make('h4', '', groupLabel(groupId)));
       for (const item of items) {
@@ -276,7 +292,7 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
       }
       checklist.append(group);
     }
-    updateProgress(); showWarnings(result, final);
+    updateProgress();
   }
 
   function stockControl(receipt, purchase, foodName) {

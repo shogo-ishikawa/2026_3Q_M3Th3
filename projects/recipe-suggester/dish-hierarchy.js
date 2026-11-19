@@ -7,7 +7,7 @@ export const FOOD_CATEGORIES = Object.freeze([
   ['meat', '肉'], ['fish', '魚介'], ['vegetable', '野菜・いも'],
   ['egg', '卵'], ['bean', '豆・豆腐'], ['mushroom', 'きのこ'],
   ['seaweed', '海藻'], ['dairy', '乳製品'], ['grain', '穀類・めん'],
-  ['fruit', '果物'], ['other', 'その他'],
+  ['fruit', '果物'], ['product-dependent', '商品によって異なる'], ['other', 'その他'],
 ].map(([id, label]) => Object.freeze({id, label})));
 
 /** 料理の形を表します。手作り・即席などの nature とは区別します。 */
@@ -17,7 +17,7 @@ export const COOKING_METHODS = Object.freeze([
   ['hotpot', '鍋料理'], ['stew', '煮込み'],
   ['meuniere', 'ムニエル'], ['stir-fry', '炒め物'], ['steam', '蒸し物'],
   ['boil', 'ゆで物'], ['dressed', '和え物'], ['salad', 'サラダ'],
-  ['pickled', '酢の物・漬物'], ['cold', '冷菜'],
+  ['pickled', '酢の物・漬物'], ['cold', '冷菜'], ['reheat', '温めて食べる'],
   ['other', 'その他'],
 ].map(([id, label]) => Object.freeze({id, label})));
 
@@ -39,6 +39,13 @@ const isDish = section => section === 'main' || section === 'side';
 // 主材料を推測せず、既存の family・role・ID や保存データも変更しません。
 // 旧 role=main の麺・丼も監査に含みますが、表示先は dishSection が優先です。
 const auditedRows = [
+  ['quick-food-salad', 'vegetable', 'salad'],
+  ['quick-food-boiled-egg', 'egg', 'boil'],
+  ['quick-food-chicken', 'meat', 'fried'],
+  ['quick-food-grilled-skewer', 'meat', 'grill'],
+  // 銘柄・中身を指定する前のレトルト商品。栄養の参考にした商品の肉種を分類に使わない。
+  ['quick-food-retort-curry', 'product-dependent', 'reheat'],
+  ['quick-food-retort-rice-topping', 'product-dependent', 'reheat'],
   ["chicken-teriyaki", "meat", "grill"], // 鶏の照り焼き
   ["chicken-tomato", "meat", "stew", "vegetable"], // 鶏肉と野菜のトマト煮
   ["chicken-steam", "meat", "steam", "vegetable"], // 鶏むね肉と白菜の蒸し煮

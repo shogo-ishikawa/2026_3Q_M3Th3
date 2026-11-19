@@ -25,13 +25,14 @@ BASIS = {'ingredients':'材料から概算','official':'公式表示値（参考
 OCCASIONS = ('朝食','昼食','夕食','間食','晩酌')
 JS = """
 import {INGREDIENTS,RECIPES} from './data.js';
+import {quickFoodCategory} from './quick-foods.js';
 import {recipeNutrition} from './nutrition.js';
 import {deriveRecipeBasis} from './nutrition-basis.js';
 import {recipePortion,recipeFamily} from './catalog.js';
 import {hasReviewedMealOccasions,mealOccasionsFor,recipeSceneIds,SCENE_LABELS} from './meal-occasions.js';
 const data={ingredients:INGREDIENTS};
 console.log(JSON.stringify({ingredients:INGREDIENTS,recipes:RECIPES.map(r=>({...r,
-    result:recipeNutrition(r,data),basis:deriveRecipeBasis(r,data),size:recipePortion(r,data),
+    quickCategory:quickFoodCategory(r.id),result:recipeNutrition(r,data),basis:deriveRecipeBasis(r,data),size:recipePortion(r,data),
     family:recipeFamily(r),occasions:mealOccasionsFor(r),scenes:recipeSceneIds(r).map(id => SCENE_LABELS[id]),reviewed:hasReviewedMealOccasions(r)}))}));
 """
 
@@ -144,6 +145,7 @@ def audit(catalogue):
                      '計算の根拠','未確定の成分',*OCCASIONS,'行事・シーン','食品番号（文科省）','資料URL','確認内容・注意点'])
     counts = Counter()
     seen = set()
+    recipes_by_id = {recipe['id']: recipe for recipe in recipes}
     for r in recipes:
         key = r['id']
         require(key not in seen and r['reviewed'] and r['occasions'],key)
@@ -182,7 +184,31 @@ def audit(catalogue):
         refs = [ingredients[p['id']] for p in parts]
         urls = list(dict.fromkeys(URL.findall(r.get('sourceNote',''))))
         codes = set()
-        if r['basis'] in ('ingredients','mixed','estimate'):
+        category = r['quickCategory']
+        if category:
+            sources = category['referenceIds']
+            grams = category.get('referenceGrams')
+            if grams:
+                codes.update(reference_code(ingredients[source]) for source in sources)
+                require(None not in codes, key+' missing ingredient reference')
+                urls.append(MEXT)
+                values = [ingredients[source]['nutritionPerUnit'] for source in sources]
+            else:
+                for source in sources:
+                    source_urls = URL.findall(recipes_by_id[source]['sourceNote'])
+                    require(source_urls, source+' missing product reference')
+                    urls.extend(source_urls)
+                values = [recipes_by_id[source]['manualNutrition'] for source in sources]
+            for nutrient in KEYS:
+                samples = [value[nutrient] for value in values]
+                if None in samples:
+                    require(n[nutrient] is None, key+' unreported '+nutrient)
+                else:
+                    expected = fsum(samples) * (grams or 1) / len(samples)
+                    require(abs(n[nutrient] - expected) <= 0.000501, key+' reference value '+nutrient)
+            basis = '市販ジャンルの代表値'
+            remark.append('参照例：' + '・'.join(sources))
+        elif r['basis'] in ('ingredients','mixed','estimate'):
             raw_codes = [reference_code(i) for i in refs]
             codes.update(code for code in raw_codes if code)
             if codes or r['basis']=='estimate':

@@ -1,5 +1,5 @@
 /** 提案した献立のうち、選んだ一食だけを調整する画面です。 */
-import {eligibleRecipes, GENRES} from './planner.js';
+import {eligiblePlanDishChoices, GENRES} from './planner.js';
 import {CATALOG_CATEGORIES, recipeFamily, recipePortion, quantityFromAmount} from './catalog.js';
 import {dishClassification} from './dish-hierarchy.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
@@ -55,7 +55,7 @@ export function mountPlanDishPicker({settings = {}, data, day, initialCategory =
   root.setAttribute('aria-label', `${MEALS[day.meal]}に料理を追加`);
   const {notice, act} = errorHandling(root, onError);
   const existing = new Set(day.recipeIds.filter(id => !(day.omittedRecipeIds ?? []).includes(id)));
-  const available = eligibleRecipes(settings, data, {forPlan:true}).filter(recipe => !existing.has(recipe.id));
+  const available = eligiblePlanDishChoices(settings, day, data).filter(recipe => !existing.has(recipe.id));
   const type = make('select', 'plan-dish-type'); type.id = `${prefix}-type`; choices(type, TYPES, initialCategory);
   const search = make('input', 'plan-dish-search'); search.id = `${prefix}-search`; search.type = 'search'; search.maxLength = 120; search.placeholder = '料理名や食材で検索';
   const menu = make('select', 'plan-dish-menu'); menu.id = `${prefix}-menu`; menu.required = true;

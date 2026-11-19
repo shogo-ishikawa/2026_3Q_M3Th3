@@ -1,4 +1,4 @@
-import {eligibleRecipes} from './planner.js';
+import {eligibleRecipes, planDayRecipesAllowed} from './planner.js';
 
 // 栄養の集計は食事の記録から計算します。提案の下書きは編集に使う情報だけを保存します。
 export const draftDishKey = (date, meal, recipeId) => JSON.stringify([date, meal, recipeId]);
@@ -22,7 +22,8 @@ export function restorePlan(draft, settings, data) {
   const selected = new Set(draft.days.flatMap(day => day.recipeIds));
   const candidates = {...data, recipes: data.recipes.filter(recipe => selected.has(recipe.id))};
   const allowed = new Set(eligibleRecipes(settings, candidates, {forPlan:true}).map(recipe => recipe.id));
-  if ([...selected].some(id => !allowed.has(id))) {
+  const proposalSettings = {...settings, mealPreferences:draft.settings.mealPreferences};
+  if (draft.days.some(day => !planDayRecipesAllowed(day, proposalSettings, candidates, allowed))) {
     return {plan: {ok: false, days: [], warnings: ['保存した下書きに現在の条件で選べない料理があります。献立を作り直してください。']}, shoppingIds: new Map()};
   }
   const shoppingIds = new Map();

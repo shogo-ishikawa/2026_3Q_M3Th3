@@ -163,7 +163,7 @@ const LABELS = {purchased: '購入済み', partial: '一部購入済み', unpurc
 export function shoppingMenuStatuses(menus, data, {pantry = [], omittedIds = [], receipts = []} = {}) {
   if (!Array.isArray(menus)) throw Error('献立リストを確認してください。');
   const selections = menus.map(scopedIngredients), result = pendingShopping(selections, data, {pantry, omittedIds, receipts});
-  const missing = new Set(result.missingMenus.map(menu => menu.menuId)), omitted = new Set(omittedIds.map(stockPurchaseId));
+  const notices = new Map(result.missingMenus.map(menu => [menu.menuId,menu])), omitted = new Set(omittedIds.map(stockPurchaseId));
   return menus.map(menu => {
     const totals = {totalIngredients: 0, purchasedIngredients: 0, stockIngredients: 0, omittedIngredients: 0,
       unselectedIngredients: 0, remainingIngredients: 0};
@@ -181,13 +181,14 @@ export function shoppingMenuStatuses(menus, data, {pantry = [], omittedIds = [],
     }
     // ingredientIdsは「今回買うもの」の指定です。未選択でも全材料を用意したとは扱いません。
     if (Array.isArray(menu.ingredientIds)) totals.unselectedIngredients = ids.filter(id => !omitted.has(id) && !menu.ingredientIds.some(material => stockPurchaseId(material) === id)).length;
-    const unknown = missing.has(menu.id) || ids.some(id => !Object.hasOwn(data.ingredients, id));
+    const notice = notices.get(menu.id), checkProductLabel = notice?.checkProductLabel === true;
+    const unknown = (!!notice && !checkProductLabel) || ids.some(id => !Object.hasOwn(data.ingredients, id));
     let status;
     if (unknown) status = 'unknown';
     else if (totals.totalIngredients === totals.omittedIngredients) status = 'omitted';
     else if (!totals.remainingIngredients) status = stock > 0 ? (purchased > 0 ? 'ready' : 'stock') : 'purchased';
     else status = purchased > 0 || stock > 0 ? 'partial' : 'unpurchased';
-    return {menuId: menu.id, status, label: LABELS[status], ...totals, unknown};
+    return {menuId: menu.id, status, label: LABELS[status], ...totals, unknown, ...(checkProductLabel ? {checkProductLabel} : {})};
   });
 }
 

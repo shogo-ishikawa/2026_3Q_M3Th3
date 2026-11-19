@@ -7,7 +7,7 @@ export const MEAL_PREFERENCE_IDS = Object.freeze(['breakfast', 'lunch', 'dinner'
 export const MEAL_VOLUME_IDS = Object.freeze(['light', 'normal', 'hearty']);
 export const MEAL_MOOD_IDS = Object.freeze(['all', 'さっぱり', 'ガッツリ', '時短', '定番']);
 export const MEAL_STAPLE_IDS = Object.freeze(['auto', 'rice', 'bread', 'rice-or-bread', 'cereal', 'none', 'rice-meal', 'noodle', 'handheld', 'fixed']);
-export function defaultMealPreference() {return {volume: 'normal', mood: 'all', enabled: true, staple: 'auto', stapleId: 'auto', stapleAmount: null, drinkId: 'none', drinkAmount: null, yogurt: false, fruit: false, stapleVolume: 'auto', sideCount: 'auto', sideType: 'auto', soup: 'auto', banshaku: false};}
+export function defaultMealPreference() {return {volume: 'normal', mood: 'all', enabled: true, staple: 'auto', stapleId: 'auto', stapleAmount: null, drinkId: 'none', drinkAmount: null, yogurt: false, fruit: false, stapleVolume: 'auto', sideCount: 'auto', sideType: 'auto', soup: 'auto', banshaku: false, easyPurchase: false};}
 export const DEFAULT_MEAL_PREFERENCES = Object.freeze(Object.fromEntries(MEAL_PREFERENCE_IDS.map(meal => [meal, Object.freeze(defaultMealPreference())])));
 const PROFILE_KEYS = Object.keys(defaultMealPreference());
 const selectedId = value => typeof value === 'string' && value.trim() && value.length <= 120 && !['__proto__', 'constructor', 'prototype'].includes(value);
@@ -32,6 +32,7 @@ export function normaliseMealPreferences(value, legacyMood = 'all', legacySettin
     const result = {...defaults, ...item};
     if (typeof result.enabled !== 'boolean' || typeof result.yogurt !== 'boolean' || typeof result.fruit !== 'boolean' || !MEAL_STAPLE_IDS.includes(result.staple) || !selectedId(result.stapleId) || !selectedId(result.drinkId) || !amount(result.stapleAmount) || !amount(result.drinkAmount)) throw Error('食事ごとの主食・飲み物・追加食品を確認してください。');
     if (!['auto', ...MEAL_VOLUME_IDS].includes(result.stapleVolume) || !(result.sideCount === 'auto' || Number.isInteger(result.sideCount) && result.sideCount >= 0 && result.sideCount <= 3) || !['auto', 'salad', 'vegetable', 'protein'].includes(result.sideType) || !['auto', 'none', 'include'].includes(result.soup)) throw Error('主食の量・副菜・汁物の設定を確認してください。');
+    if (typeof result.easyPurchase !== 'boolean') throw Error('簡単に済ませる食事の設定を確認してください。');
     if (typeof result.banshaku !== 'boolean' || (result.banshaku && meal !== 'dinner')) throw Error('晩酌向けのおかずは夕食で指定してください。');
     if (result.staple === 'fixed' && ['auto', 'none'].includes(result.stapleId)) throw Error('固定する主食を選んでください。');
     return [meal, result];
