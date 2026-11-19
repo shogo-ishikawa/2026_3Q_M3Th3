@@ -784,7 +784,13 @@ function archivedPersonalState(raw) {
 function withoutArchivedPersonalProfile(raw) {
   const saved = archivedPersonalState(raw);
   if (!saved) return raw;
-  clearPersonalProfile(saved);
+  delete saved.personalProfile;
+  if (saved.profile?.mode === 'personal') {
+    // 壊れた設定の復旧用コピーでは、判断できない比較値や未知の項目を変更しない。
+    try { profile(saved.profile); }
+    catch { return JSON.stringify(saved); }
+    clearPersonalProfile(saved);
+  }
   return JSON.stringify(saved);
 }
 

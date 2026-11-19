@@ -109,6 +109,20 @@ test('端末内の自動退避に詳細項目を残さず、古い退避でも�
   assert.deepEqual(JSON.parse(storage.getItem(JOURNAL_KEY)), make());
 });
 
+test('壊れたプロフィールでも再開始でき、退避時は詳細項目だけを除いて復旧用の内容を保つ', () => {
+  for (const profile of [
+    undefined, null, 'broken', {mode: 'unknown'}, {mode: 'personal', previousMode: 'broken'},
+    {...simple, mode: 'personal', previousMode: 'reference', sex: 'unknown'},
+  ]) {
+    const storage = memory();
+    const partial = {entries: [{note: '復旧したい元のメモ'}], targets: {original: '復旧用'}, ...(profile === undefined ? {} : {profile})};
+    storage.setItem(JOURNAL_KEY, JSON.stringify({...partial, personalProfile: details}));
+    assert.equal(replaceJournal(storage, make(), data), true);
+    assert.deepEqual(JSON.parse(readJournalBackup(storage).raw), partial);
+    assert.deepEqual(JSON.parse(storage.getItem(JOURNAL_KEY)), make());
+  }
+});
+
 test('表示切り替えは保存せず、詳細モードだけ同意と数値入力を求める', () => {
   const nodes = new Map(), get = id => {
     if (!nodes.has(id)) nodes.set(id, {});

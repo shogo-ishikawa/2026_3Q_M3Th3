@@ -1,5 +1,5 @@
 /* tools/update_module_map.py が作成します。 */
-const SHELL_REVISION = "44921f51ae96cda43c147727";
+const SHELL_REVISION = "c3189703100b92367e10985d";
 const SHELL_FILES = {
   "accompaniment-foods.js?v=4.2.0": "sha256-fTLyxcrfAbvim+xA42ra8mqdJc1E60wMHt02lbprACo=",
   "account-boot.js?v=4.2.0": "sha256-rYgO9Zzn8oXWCrQjlpy27vnnjEussd44TtMDaPQ4HgQ=",
@@ -67,7 +67,7 @@ const SHELL_FILES = {
   "intake.js?v=4.2.0": "sha256-cY5mQOh1J5euOdlnxruVwJApjYgFgexeflU5sSGkv0U=",
   "japanese-search.js?v=4.2.0": "sha256-DjayFTsKbPMXJQC3XrFUr4DR2VnuPCSgfSGSoVslLuA=",
   "journal-history.js?v=4.2.0": "sha256-S0/vEZCnDH4URqWRN3SlPio79S9/3ifwC1c/PegnARQ=",
-  "journal.js?v=4.2.0": "sha256-ZSPzXdaTv/+mf00ChSU3GNlU/UGe8dgmflIUT/h8Gc8=",
+  "journal.js?v=4.2.0": "sha256-0uVFa8b/YrP5OZR1BGqL6ZSc6Ok7aS71ssxzD8FrJKU=",
   "kyoto-foods.js?v=4.2.0": "sha256-xn0TNbUyxBJchowzSwuYTdvNHlaENYOtV6Zt+6cT3wo=",
   "launch-screen.js?v=4.2.0": "sha256-2L5FQevY/XXshF9OaAMzGqC5t6tvBqQEN0B3gTslj64=",
   "manifest.webmanifest": "sha256-/PYDkjy1+YWtKG78WY6LBGK3cjYYMfycFUNnplI/gOQ=",

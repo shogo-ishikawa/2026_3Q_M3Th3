@@ -41,6 +41,11 @@ def downloaded_json(page, button):
     return json.loads(Path(event.value.path()).read_text(encoding='utf-8'))
 
 
+def import_json(page, record):
+    page.locator('#import-file').set_input_files({'name': 'profile.json', 'mimeType': 'application/json',
+                                                  'buffer': json.dumps(record).encode()})
+
+
 def verify_personal_nutrition(browser, url, db):
     context = browser.new_context(service_workers='block')
     db.connect(context)
@@ -89,7 +94,6 @@ def verify_personal_nutrition(browser, url, db):
     expect(remote.locator('#profile-mode')).to_have_value('personal')
     expect(remote.locator('#personal-weight')).to_have_value('60.8')
     assert json.loads(journal_bytes(remote)) == active
-    other_device.close()
 
     assert 'mealPaletteMenuVotes/member' not in db.documents
     vote = page.locator('#menu-feedback')
@@ -100,13 +104,15 @@ def verify_personal_nutrition(browser, url, db):
     assert db.documents['mealPaletteMenuVotes/member'] == {'interest': 'regional'}
 
     # 明示的な書き出し／読み込みは詳細を含み、自動退避は除外する。
-    page.locator('#import-file').set_input_files({'name': 'profile.json', 'mimeType': 'application/json',
-                                                   'buffer': json.dumps(active).encode()})
+    import_json(page, original)
+    expect(page.locator('#profile-mode')).to_have_value('manual')
     expect(page.locator('#restore-journal-backup')).to_be_enabled()
-    assert json.loads(journal_bytes(page)) == active
     archived = downloaded_json(page, '#download-journal-backup')
     assert 'personalProfile' not in archived and archived['targets'] == original['targets']
     assert archived['entries'] == original['entries']
+    import_json(page, active)
+    expect(page.locator('#profile-mode')).to_have_value('personal')
+    assert json.loads(journal_bytes(page)) == active
     page.locator('#clear-personal-profile').click()
     expect(page.locator('#profile-mode')).to_have_value('manual')
     expect(page.locator('#personal-age')).to_have_value('')
@@ -114,6 +120,12 @@ def verify_personal_nutrition(browser, url, db):
     expect(page.locator('#account-sync-state')).to_contain_text('同期しました')
     deleted = json.loads(journal_bytes(page))
     assert 'personalProfile' not in deleted and deleted['targets'] == original['targets']
+    # 別端末で同期が再開したとき、開いたままの画面からも入力値が消える。
+    remote.evaluate("window.dispatchEvent(new Event('online'))")
+    expect(remote.locator('#personal-weight')).to_have_value('')
+    expect(remote.locator('#profile-mode')).to_have_value('manual')
+    expect(remote.locator('#target-kcal')).to_have_value('2017')
+    other_device.close()
     page.locator('#restore-journal-backup').click()
     expect(page.locator('#app-message')).to_contain_text('変更前のデータへ戻しました')
     assert 'personalProfile' not in json.loads(journal_bytes(page))
