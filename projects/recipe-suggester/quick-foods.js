@@ -2,6 +2,7 @@ import {CONVENIENCE_RECIPES} from './convenience-staples.js';
 import {INGREDIENT_NUTRITION} from './ingredient-nutrients.js';
 import {TAKEAWAY_RECIPES} from './takeaway-foods.js';
 import {householdAllowsRecipe} from './household-preferences.js';
+import {pastEatenRecipeMeals, uniqueRecipesById} from './taste-history.js';
 
 const allMeals = ['breakfast', 'lunch', 'dinner', 'snack'];
 const meals = allMeals.slice(0, 3), lunchDinner = ['lunch', 'dinner'];
@@ -98,10 +99,12 @@ export function quickFoodCategory(recipeId) {
 
 function historyGenres(entries, byId, date, meal) {
   const counts = new Map();
-  for (const entry of entries) {
-    if (entry.status !== 'eaten' || (date && (entry.date > date ||
-        (entry.date === date && allMeals.indexOf(entry.meal) >= allMeals.indexOf(meal))))) continue;
-    const genres = new Set(entry.items.map(item => byId.get(item.recipeId)?.genre).filter(Boolean));
+  for (const ids of pastEatenRecipeMeals(entries, {date:date || undefined, meal})) {
+    const genres = new Set();
+    for (const id of ids) {
+      const recipe = byId.get(id);
+      if (recipe && !recipe.custom && recipe.genre) genres.add(recipe.genre);
+    }
     for (const genre of genres) counts.set(genre, (counts.get(genre) ?? 0) + 1);
   }
   return counts;
@@ -114,12 +117,12 @@ function rotation(key) {
   return hash >>> 0;
 }
 
-export function quickFoodOptions(data, settings = {}, {meal = 'lunch', entries = [], date = '', seed = 0} = {}) {
+export function quickFoodOptions(data, settings = {}, {meal = 'lunch', entries = [], date = '', seed = 0, historyRecipes = data.recipes} = {}) {
   // 市販のジャンルには商品ごとの配合がないため、原材料に依存する除外条件は確認できない。
   if (settings.allergens?.length || settings.excludedIngredients?.length || settings.dislikedIngredients?.length) return [];
-  const byId = new Map();
-  for (const recipe of data.recipes) byId.set(recipe.id, byId.has(recipe.id) ? null : recipe);
-  const counts = historyGenres(entries, byId, date, meal);
+  const byId = uniqueRecipesById(data.recipes);
+  const evidence = historyRecipes === data.recipes ? byId : uniqueRecipesById(historyRecipes);
+  const counts = historyGenres(entries, evidence, date, meal);
   const prefs = settings.preferences ?? {};
   const options = [];
   for (const category of categories.values()) {

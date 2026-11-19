@@ -6,9 +6,10 @@ import {MEAL_SHARES, normaliseMealPreferences, mealProfile, mealAppropriateCandi
 import {breakfastRole, matchesStaplePreference, isBanshakuDish, canSuggestAtMeal} from './meal-suitability.js';
 import {plannedQuantity} from './portion-guide.js';
 import {dishClassification} from './dish-hierarchy.js';
-import {menuOccasions, OCCASION_LABELS, UNAVAILABLE_OCCASION_REASON, isAvailableOnDate, rotateOccasionRecipes, preferenceScore, personalRanking} from './planner-personalization.js';
+import {menuOccasions, OCCASION_LABELS, UNAVAILABLE_OCCASION_REASON, isAvailableOnDate, rotateOccasionRecipes, preferenceScore, personalRanking, favouriteScore, noteProposedFavourites} from './planner-personalization.js';
 import {recipeOccasionIds} from './celebration-recipes.js';
 import {quickFoodCategory, quickFoodOptions} from './quick-foods.js';
+import {buildTasteHistory, eatenRecipeId, tasteHistoryScore} from './taste-history.js';
 
 // 材料の確認 → 食べられる候補 → 履歴との比較、の順に処理します。
 // 食品群の回数は献立の組合せを考える目安です。栄養量の計算ではありません。
@@ -206,11 +207,17 @@ function quickBaseFits(category, staple) {
   return category.stapleTypes.includes(staple);
 }
 
-function quickMealDishes(options, profile, fixedStaple, used, targetGenre) {
-  // 購入した商品一つがレシピ一つ。レトルトの具とご飯だけは別商品を組み合わせる。
-  const ordered = [...options].sort((a,b) =>
+function rankQuickOptions(options, used, targetGenre, personal, date, meal) {
+  const favouriteScores = new Map(options.map(({recipe}) =>
+    [recipe.id, favouriteScore(recipe.id, personal, date, meal)]));
+  return [...options].sort((a,b) =>
     Number(used.has(a.recipe.id)) - Number(used.has(b.recipe.id)) ||
-    Number(b.recipe.genre === targetGenre) - Number(a.recipe.genre === targetGenre));
+    Number(b.recipe.genre === targetGenre) - Number(a.recipe.genre === targetGenre) ||
+    favouriteScores.get(b.recipe.id) - favouriteScores.get(a.recipe.id));
+}
+
+function quickMealDishes(ordered, profile, fixedStaple) {
+  // 購入した商品一つがレシピ一つ。レトルトの具とご飯だけは別商品を組み合わせる。
   const isRice = recipe => ['plain-rice','quick-food-pack-rice'].includes(recipe?.id);
   const rice = fixedStaple ?? ordered.find(row => row.recipe.id === 'quick-food-pack-rice')?.recipe;
   const centre = ordered.find(({category}) => {
@@ -509,6 +516,7 @@ function pick(candidates, settings, history, context, date, role) {
     filterReasons.unshift(preferred.some(recipe => history.recipeCounts[recipe.id])
       ? '直近7日の実食記録との重複を回避' : '今回の献立内の重複を回避');
   }
+  let lowestTasteScore = Infinity;
   const score = (recipe, reasons) => {
     let value = tieBreak(settings.seed, `${date}:${role}:${recipe.id}`);
     value -= (history.recipeCounts[recipe.id] ?? 0) * 25;
@@ -537,7 +545,10 @@ function pick(candidates, settings, history, context, date, role) {
     }
     if (variety) value += variety.score(recipe);
     if (typeof context.scoreRecipe === 'function') value += context.scoreRecipe(recipe, reasons);
-    value += preferenceScore(recipe, context.personal, reasons, date);
+    const taste = tasteHistoryScore(recipe, context.taste);
+    lowestTasteScore = Math.min(lowestTasteScore, taste);
+    value += taste;
+    value += preferenceScore(recipe, context.personal, reasons, date, settings.meal);
     return value;
   };
   let best = pool[0], bestScore = pool.length > 1 ? score(best) : 0;
@@ -551,8 +562,13 @@ function pick(candidates, settings, history, context, date, role) {
   // 決定時の根拠だけを残す。在庫や記録を後から編集しても、表示の意味が変わらない。
   if (context.dishReasons) {
     const reasons = [];
-    if (pool.length > 1) score(best, reasons);
-    else if (context.personal) preferenceScore(best, context.personal, reasons, date);
+    if (pool.length > 1) {
+      score(best, reasons);
+      const tasteReasons = [];
+      if (tasteHistoryScore(best, context.taste, tasteReasons) > lowestTasteScore) {
+        reasons.splice(1, 0, ...tasteReasons);
+      }
+    } else if (context.personal) preferenceScore(best, context.personal, reasons, date, settings.meal);
     const occasion = context.occasions?.find(id => recipeOccasionIds(best).includes(id));
     if (occasion) reasons.unshift(OCCASION_LABELS[occasion] + 'の料理');
     reasons.push(...filterReasons);
@@ -690,7 +706,8 @@ export function generatePlan(settings = {}, data) {
     if (missing.length) return incomplete(normalised, missing, warnings);
     const history = analyseHistory(historyEntries, {beforeDate: date, days: 7, beforeMeal: normalised.meal}, data);
     const selected = [];
-    const context = {used, selected, recipeById, groups: new Set(), lastSources, targetGenre: targets[index], occasions, personal};
+    const context = {used, selected, recipeById, groups: new Set(), lastSources, targetGenre: targets[index], occasions, personal,
+      taste: buildTasteHistory(settings.history ?? [], data, {date, meal:normalised.meal})};
     const add = recipe => {
       selected.push(recipe);
       recipe.groups.forEach(group => context.groups.add(group));
@@ -707,6 +724,7 @@ export function generatePlan(settings = {}, data) {
       recipeIds: selected.map(recipe => recipe.id), omittedRecipeIds: [],
       ...notes, proposedReasons: [...notes.reasons], proposedWarnings: [...notes.warnings]});
     lastSources = main.proteinSources;
+    noteProposedFavourites(personal, selected.map(recipe => recipe.id), date);
     historyEntries.push({date, meal: normalised.meal, recipeIds: selected.map(recipe => recipe.id)});
   }
   return {ok: true, days: result, settings: normalised, missingRoles: [], warnings,
@@ -764,9 +782,10 @@ function calendarEvidence(entries, date, meal, data, completedDays) {
       }
       (item.groups ?? []).filter(group => FOOD_GROUPS.includes(group)).forEach(group => tags.groups.add(group));
       (item.proteinSources ?? []).filter(source => PROTEIN_SOURCES.includes(source)).forEach(source => tags.sources.add(source));
-      if (typeof item.recipeId === 'string') tags.recipes.add(item.recipeId);
+      const actualId = eatenRecipeId(item);
+      if (actualId) tags.recipes.add(actualId);
       // 店舗の料理と登録時に紐づけた一般料理は、献立の重複を調べるときにも照合する。
-      if (typeof item.restaurant?.genericRecipeId === 'string') tags.recipes.add(item.restaurant.genericRecipeId);
+      if (item.diningMatch?.mode !== 'similar' && !item.ingredientEdit?.baseChanged && typeof item.restaurant?.genericRecipeId === 'string') tags.recipes.add(item.restaurant.genericRecipeId);
       for (const key of NUTRIENTS) {
         const amount = item.nutrition?.[key];
         if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) continue;
@@ -1018,7 +1037,7 @@ function celebrationMeal(settings) {
   return settings.meal === 'all' ? (mealProfile(settings, 'dinner').enabled ? 'dinner' : 'lunch') : settings.meal;
 }
 
-function buildCalendarPlan(settings, data, options, otherDishIds) {
+function buildCalendarPlan(settings, data, options, otherDishIds, evidenceData = data) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('カレンダーの提案条件を確認してください。');
   const meal = options.meal ?? settings.meal ?? 'dinner';
   const legacyStaple = calendarStapleSettings(settings, options);
@@ -1041,7 +1060,7 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
   const meals = (meal === 'all' ? MEALS.slice(0, 3) : [meal]).filter(id => id === 'snack' || mealProfile(normalised, id).enabled);
   if (!meals.length) return {...incomplete(normalised, [], [...warnings, '提案する食事が選ばれていません。朝食・昼食・夕食から選んでください。']), mode: 'calendar'};
   const recipeById = new Map(admitted.map(recipe => [recipe.id, recipe]));
-  const personal = personalRanking(settings, options.personalization, data, entries);
+  const personal = personalRanking(settings, options.personalization, evidenceData, entries);
   const eventMeal = options.celebrationMeal ?? celebrationMeal(normalised);
   const days = [], used = new Set(otherDishIds), genres = genreSchedule(normalised, normalised.days * meals.length);let lastSources = [];
   for (let index = 0; index < normalised.days * meals.length; index++) {
@@ -1055,10 +1074,11 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
     const fail = (roles, reason) => ({...incomplete(normalised, roles, [...warnings, `${date}の${{breakfast:'朝食', lunch:'昼食', dinner:'夕食', snack:'間食'}[currentMeal]}：${reason}`]), mode: 'calendar'});
     if (!['auto', 'none'].includes(mealSettings.stapleId) && !fixedStaple) return fail(['staple'], '指定した主食が除外条件に合いません。');
     if (!['auto', 'none'].includes(mealSettings.drinkId) && !fixedDrink) return fail(['drink'], '指定した飲み物が除外条件に合いません。');
-    const evidence = calendarEvidence(entries, date, currentMeal, data, completedDays), selected = [], quantities = {};
+    const evidence = calendarEvidence(entries, date, currentMeal, evidenceData, completedDays), selected = [], quantities = {};
     const dishReasons = Object.create(null);
     let prioritisedStock = false;
     const context = {used, selected, recipeById, groups: new Set(), lastSources, targetGenre: genres[index], dishReasons, personal, occasions,
+      taste: buildTasteHistory(entries, evidenceData, {date, meal:currentMeal}),
       scoreRecipe(recipe, reasons) {
         const stockedParts = recipe.ingredients.filter(part => stockedIds.has(part.id));
         if (reasons && stockedParts.length) {
@@ -1075,8 +1095,9 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
       quantities[recipe.id] = calendarQuantity(recipe, mealSettings, data);selected.push(calendarScaled(recipe, mealSettings, data, quantities[recipe.id]));used.add(recipe.id);recipe.groups.forEach(group => context.groups.add(group));
     };
     const quickCandidates = quickOptionsForDay({date,meal:currentMeal}, normalised,
-      {...data, recipes:catalog.recipes}, {entries});
-    const quick = quickCandidates.length ? quickMealDishes(quickCandidates, profile, fixedStaple, used, genres[index]) : null;
+      {...data, recipes:catalog.recipes}, {entries, historyRecipes:evidenceData.recipes});
+    const quick = quickCandidates.length ? quickMealDishes(
+      rankQuickOptions(quickCandidates, used, genres[index], personal, date, currentMeal), profile, fixedStaple) : null;
     let main = null, cerealBase = false, completeBase = false;
     if (currentMeal === 'snack') {
       const snack = pick(mealAppropriateCandidates(safe.filter(recipe => recipe.role !== 'drink'), currentMeal), mealSettings, evidence.history, context, date, 'snack');if (!snack) return fail(['snack'], '間食の候補がありません。');add(snack);
@@ -1085,7 +1106,11 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
       for (const recipe of quick) {
         add(recipe);
         const product = quickCandidates.find(row => row.recipe.id === recipe.id);
-        if (product) dishReasons[recipe.id] = ['市販品から選べる候補',product.reason].filter(Boolean);
+        if (product) {
+          const reasons = ['市販品から選べる候補',product.reason].filter(Boolean);
+          favouriteScore(recipe.id, personal, date, currentMeal, reasons, true);
+          dishReasons[recipe.id] = reasons;
+        }
       }
     } else {
       const forceComplete = ['rice-meal', 'noodle', 'handheld', 'cereal'].includes(profile.staple);
@@ -1143,6 +1168,7 @@ function buildCalendarPlan(settings, data, options, otherDishIds) {
     if (profile.yogurt || profile.fruit) notes.reasons.push('追加指定したヨーグルトや果物を含めています。');
     if (prioritisedStock) notes.reasons.push('提案時に登録されていた手持ちの食材を使う候補に加点しました。');
     if (mealSettings.stapleAmount !== null || mealSettings.drinkAmount !== null) notes.reasons.push('固定した主食と飲み物は、指定した量をそのまま使っています。');
+    noteProposedFavourites(personal, selected.map(recipe => recipe.id), date);
     days.push({date, meal: currentMeal, mainId: main?.id ?? null, targetGenre: genres[index], recipeIds: selected.map(recipe => recipe.id), quantities, omittedRecipeIds: [], dishReasons: {...dishReasons},
       stapleId: mealSettings.stapleId, stapleMode: mealSettings.stapleMode, stapleAmount: mealSettings.stapleAmount, drinkId: mealSettings.drinkId, drinkAmount: mealSettings.drinkAmount,
       ...notes, proposedReasons: [...notes.reasons], proposedWarnings: [...notes.warnings], nutritionBasis: evidence.basis});
@@ -1187,13 +1213,14 @@ export function replaceRecipe(plan, options = {}, data) {
         return true;
       });
       const used = new Set(plan.days.flatMap(day => activeRecipeIds(day)));
-      const choice = matching.find(row => !used.has(row.recipe.id)) ?? matching[0];
+      const [choice] = rankQuickOptions(matching, used, currentDay.targetGenre, personal, currentDay.date, currentDay.meal);
       if (!choice) return {...plan, settings, warnings: unique([...(plan.warnings ?? []),'この組み合わせに合う別の市販品がないため、元の品を残しました。'])};
       const nextId = choice.recipe.id;
       const { [options.recipeId]: previousQuantity, ...quantities } = currentDay.quantities;
       quantities[nextId] = previousQuantity;
       const { [options.recipeId]: previousReasons, ...dishReasons } = currentDay.dishReasons ?? {};
       dishReasons[nextId] = ['市販品から選べる候補',choice.reason].filter(Boolean);
+      favouriteScore(nextId, personal, currentDay.date, currentDay.meal, dishReasons[nextId], true);
       const day = omissionNotes({...currentDay, quantities, dishReasons,
         mainId: currentDay.mainId === options.recipeId ? nextId : currentDay.mainId,
         recipeIds: currentDay.recipeIds.map(id => id === options.recipeId ? nextId : id)}, data);
@@ -1240,6 +1267,7 @@ export function replaceRecipe(plan, options = {}, data) {
   }
   const dishReasons = Object.assign(Object.create(null), currentDay.dishReasons);
   const context = {used, selected: others, recipeById: safeById, groups: new Set(others.flatMap(recipe => recipe.groups)), lastSources: [], targetGenre, occasions, personal,
+    taste:buildTasteHistory(options.entries ?? options.history ?? [], data, {date:currentDay.date, meal:currentDay.meal}),
     ...(evidence ? {dishReasons, scoreRecipe: (recipe, reasons) => calendarNutrientScore(calendarScaled(recipe, local, data), evidence.basis,
       comparisonTargets(options.targets), others, data, currentDay.meal, local, reasons) + mealRecipeScore(recipe, currentDay.meal)} : {})};
   const selected = pick(pool, local, history, context, currentDay.date, slot);
@@ -1331,7 +1359,7 @@ export function regeneratePlanMeal(plan, options = {}, data) {
     completedDays: options.completedDays, pantry: options.pantry ?? []};
   // 同じ料理しか作れない場合に限り、元の候補を戻します。条件外へは広げません。
   const otherDishIds = plan.days.flatMap((day, index) => index === dayIndex ? [] : activeRecipeIds(day));
-  let rebuilt = buildCalendarPlan(settings, {...data, recipes: data.recipes.filter(recipe => recipe.id !== current.mainId)}, generateOptions, otherDishIds);
+  let rebuilt = buildCalendarPlan(settings, {...data, recipes: data.recipes.filter(recipe => recipe.id !== current.mainId)}, generateOptions, otherDishIds, data);
   const preferencePenalty = candidate => {
     if (!candidate.ok) return Infinity;
     const centre = data.recipes.find(recipe => recipe.id === candidate.days[0].mainId);

@@ -220,6 +220,7 @@
         "household-preferences.js",
         "household-preferences-ui.js",
         "planner-personalization.js",
+        "taste-history.js",
         "seasonal-preference.js",
         "taste-feedback.js"
       ]

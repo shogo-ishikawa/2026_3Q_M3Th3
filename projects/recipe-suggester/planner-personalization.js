@@ -4,6 +4,7 @@ import {existingOccasionIds} from './occasion-classics.js';
 import {dishClassification, COOKING_METHODS} from './dish-hierarchy.js';
 import {ingredientGroup} from './shopping-categories.js';
 import {seasonalIngredientPreference} from './seasonal-preference.js';
+import {eatenRecipeId} from './taste-history.js';
 
 import {calendarSeason, schoolSeason, menuOccasions, OCCASION_LABELS, RECIPE_TAG_LABELS} from './occasion-calendar.js';
 export {menuOccasions, OCCASION_LABELS};
@@ -63,11 +64,18 @@ export function rotateOccasionRecipes(candidates, personal, date) {
     const ordered = new Set();
     for (const entry of personal.priorEntries) {
       if (entry.date > date) break;
-      for (const id of entry.recipeIds ?? entry.items?.map(item => item.recipeId) ?? []) {
-        ordered.delete(id); ordered.add(id);
+      // 行事料理は過去に本人が予定へ選んだ品も一巡の対象にする。
+      for (const id of entry.items?.map(eatenRecipeId) ?? entry.recipeIds ?? []) {
+        if (id) {ordered.delete(id); ordered.add(id);}
       }
     }
-    for (const id of personal.suggested) {ordered.delete(id); ordered.add(id);}
+    for (const id of personal.suggested) {
+      if (!personal.datedIds.has(id)) {ordered.delete(id); ordered.add(id);}
+    }
+    for (const day of personal.suggestionHistory) {
+      if (day.date > date) continue;
+      for (const id of day.recipeIds) {ordered.delete(id); ordered.add(id);}
+    }
     personal.rotations.set(date, new Map([...ordered].map((id, i) => [id, i])));
   }
   const order = personal.rotations.get(date);
@@ -80,18 +88,66 @@ export function personalPlanOptions(journal) {
   const favourites = journal.favourites ?? [];
   return {
     birthDate: journal.birthDate, familyCalendar: journal.familyCalendar, suggested: journal.suggestedRecipeIds,
+    suggestionHistory: journal.suggestionHistory ?? [],
     favouriteRecipeIds: favourites.map(favourite => favourite.item.recipeId).filter(Boolean),
     favourites: favourites.map(({item, genre}) => ({
-      id: item.recipeId, genre, ingredientIds: item.ingredientsKnown === false ? [] : item.ingredients.map(part => part.id),
+      id: item.recipeId, genre, adjusted:Boolean(item.ingredientEdit || item.productLabel), ingredientIds: item.ingredientsKnown === false ? [] : item.ingredients.map(part => part.id),
     })),
     counts: journal.settings.household?.counts,
     seasonal: journal.settings.occasionMenus !== false,
   };
 }
 
+const mealOrder = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+// 食べた記録は食事枠まで確認する。同日中の再提案には、その献立日で既に示した品も使う。
+function recordFavouriteDate(history, ids, date, slot) {
+  for (const id of ids) {
+    const dates = history.get(id);
+    if (dates) dates.set(date, Math.min(dates.get(date) ?? Infinity, slot));
+  }
+}
+
+export function noteProposedFavourites(personal, ids, date) {
+  if (personal?.favouriteDates.size) recordFavouriteDate(personal.favouriteDates, ids, date, -1);
+}
+
+export function favouriteScore(id, personal, date, meal, reasons, purchasedCategory = false) {
+  const dates = personal?.favouriteDates.get(id);
+  if (!dates) return 0;
+  let last = '';
+  const slot = mealOrder.indexOf(meal);
+  for (const [previous, firstSlot] of dates) {
+    if ((previous < date || (previous === date && firstSlot < slot)) && previous > last) last = previous;
+  }
+  const qualifier = purchasedCategory ? '（市販品の種類）' : personal.adjustedFavourites.has(id) ? '（元の料理）' : '';
+  if (last) {
+    const gap = (Date.parse(date) - Date.parse(last)) / 86400000;
+    if (gap < 7) return -28;
+    if (gap >= 14) {
+      reasons?.unshift('久しぶりのお気に入り' + qualifier);
+      return 38;
+    }
+  }
+  reasons?.unshift('お気に入りの料理' + qualifier);
+  return 22;
+}
+
 export function personalRanking(settings, options, data, entries = []) {
   const favoriteIds = new Set(options?.favouriteRecipeIds ?? []);
+  const favouriteDates = new Map([...favoriteIds].map(id => [id, new Map()]));
+  const suggestionHistory = options?.suggestionHistory ?? [];
+  const datedIds = new Set(suggestionHistory.flatMap(day => day.recipeIds));
+  if (favoriteIds.size) {
+    for (const day of suggestionHistory) recordFavouriteDate(favouriteDates, day.recipeIds, day.date, -1);
+    for (const entry of entries) {
+      if (entry?.status !== 'eaten' || !mealOrder.includes(entry.meal)) continue;
+      recordFavouriteDate(favouriteDates, entry.items?.map(eatenRecipeId) ?? entry.recipeIds ?? [], entry.date, mealOrder.indexOf(entry.meal));
+    }
+  }
   const profiles = options?.favourites ?? [...favoriteIds].map(id => ({id}));
+  const adjustedFavourites = new Set(profiles.filter(profile => profile.adjusted).map(profile => profile.id));
+  for (const profile of profiles) if (!profile.adjusted) adjustedFavourites.delete(profile.id);
   const genres = new Map(), methods = new Map(), foods = new Map();
   const increment = (map, key) => map.set(key, (map.get(key) ?? 0) + 1);
   if (profiles.length) {
@@ -107,14 +163,15 @@ export function personalRanking(settings, options, data, entries = []) {
       for (const id of mainFoods.slice(0, 3)) increment(foods, id);
     }
   }
-  return {favourites: favoriteIds, genres, methods, foods, total: profiles.length, counts: options?.counts ?? settings.household?.counts,
-    suggested: options?.suggested ?? [], recent: new Set(options?.suggested?.slice(-24)), rotations: new Map(),
+  return {favourites: favoriteIds, favouriteDates, adjustedFavourites, genres, methods, foods, total: profiles.length, counts: options?.counts ?? settings.household?.counts,
+    suggested: options?.suggested ?? [], suggestionHistory, datedIds, recentByDate: new Map(),
+    recent: new Set(options?.suggested?.slice(-24).filter(id => !datedIds.has(id))), rotations: new Map(),
     priorEntries: [...entries].sort((a, b) => String(a.date).localeCompare(String(b.date))),
     seasonal: settings.occasionMenus !== false && (options?.seasonal ?? settings.occasionMenus === true)};
 }
 
 /** お気に入りと、家族で取り分けやすい調理形態を比較する。個人の栄養量には換算しない。 */
-export function preferenceScore(recipe, personal, reasons, date) {
+export function preferenceScore(recipe, personal, reasons, date, meal) {
   if (!personal) return 0;
   let score = 0;
   const season = personal.seasonal ? seasonalIngredientPreference(recipe, date) : null;
@@ -125,11 +182,18 @@ export function preferenceScore(recipe, personal, reasons, date) {
   const school = schoolSeason(date), seasonId = calendarSeason(date);
   if (personal.seasonal && school && tags.includes(school)) { score += 5; reasons?.unshift(OCCASION_LABELS[school] + 'の季節の料理'); }
   else if (personal.seasonal && tags.includes(seasonId)) { score += 5; reasons?.unshift(RECIPE_TAG_LABELS[seasonId] + 'の料理'); }
-  if (personal.recent?.has(recipe.id)) score -= 8;
+  if (!personal.recentByDate.has(date)) {
+    const from = new Date(Date.parse(date) - 6 * 86400000).toISOString().slice(0, 10);
+    const recent = new Set(personal.recent);
+    for (const day of personal.suggestionHistory) {
+      if (day.date >= from && day.date <= date) for (const id of day.recipeIds) recent.add(id);
+    }
+    personal.recentByDate.set(date, recent);
+  }
+  if (personal.recentByDate.get(date).has(recipe.id)) score -= 8;
   const method = (personal.total || personal.counts) ? dishClassification(recipe).method : 'other';
   if (personal.favourites.has(recipe.id)) {
-    reasons?.unshift('お気に入りの料理');
-    score += 22;
+    score += favouriteScore(recipe.id, personal, date, meal, reasons);
   } else if (personal.total) {
     const genreVotes = personal.genres.get(recipe.genre) ?? 0;
     const methodVotes = personal.methods.get(method) ?? 0;
