@@ -1,11 +1,10 @@
 // お試しはページを開くたびに新しい記録を作り、端末の保存領域に触れません。
-import {dateKey, defaultJournal, JOURNAL_KEY, PREVIOUS_JOURNAL_KEY, shiftDate} from './journal.js';
+import {dateKey, defaultJournal, JOURNAL_KEY, PREVIOUS_JOURNAL_KEY, setNutritionMode, shiftDate} from './journal.js';
 import {STORAGE_KEY} from './storage.js';
 import {recipePortion} from './catalog.js';
 import {itemFromRecipe} from './nutrition.js';
 import {commonPantryIds} from './shopping-categories.js';
 import {shoppingMenusFromEntries} from './shopping-workflow.js';
-import {deriveReference} from './dietary-reference.js';
 import {matchesJapaneseQuery} from './japanese-search.js';
 
 const WELCOME_KEY = 'meal-palette-welcome-v4';
@@ -59,12 +58,7 @@ export function applyQuickSetup(next, draft, data) {
     const saved = next.settings.shoppingOmittedIds;
     next.settings.shoppingOmittedIds = draft.omitCommon ? [...new Set([...saved, ...common])] : saved.filter(id => !common.includes(id));
   }
-  if (draft.profile) {
-    const reference = deriveReference(draft.profile);
-    if (!reference) throw Error('年代・性別区分・活動量の組み合わせを確認してください。');
-    next.profile = draft.profile;
-    next.targets = {...reference.targets};
-  }
+  if (draft.profile) setNutritionMode(next, draft.profile);
 }
 
 export function setupWelcome({demo, storage, initialError, data, getState, canEdit, onSave}) {

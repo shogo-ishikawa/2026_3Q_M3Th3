@@ -63,17 +63,8 @@ export const DIETARY_REFERENCE_SOURCES = Object.freeze([
   Object.freeze({title: 'ナトリウム（食塩相当量）', url: 'https://www.mhlw.go.jp/content/10904750/001316468.pdf', location: '冊子281ページ／分割PDF 39ページ'}),
 ]);
 
-/**
- * profile.modeは表示側で使います。この関数は明示された3項目だけから計算します。
- * 未選択、対応外の値、75歳以上の「高い」には他の区分を推測せずnullを返します。
- */
-export function deriveReference(profile) {
-  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return null;
-  const {ageBand, sex, activity} = profile;
-  if (![ageBand, sex, activity].every(value => typeof value === 'string')) return null;
-  if (!has(ENERGY_KCAL, sex) || !has(ENERGY_KCAL[sex], ageBand) || !has(ACTIVITY_INDEX, activity)) return null;
-  const kcal = ENERGY_KCAL[sex][ageBand][ACTIVITY_INDEX[activity]];
-  if (kcal === null) return null;
+/** 確認済みの年齢区分・性別・エネルギーに対し、共通の基準表から比較値を求めます。 */
+export function nutrientComparisons(ageBand, sex, kcal) {
   const protein = PROTEIN_RECOMMENDED[sex][ageBand];
   const percentRanges = {protein: PROTEIN_PERCENT[ageBand], fat: FAT_PERCENT, carbs: CARBS_PERCENT};
   const ranges = {};
@@ -93,10 +84,22 @@ export function deriveReference(profile) {
     fiber: FIBRE_GOAL[sex][ageBand],
     salt: SALT_LIMIT[sex],
   };
+  return {targets, ranges, energyPercentRanges};
+}
+
+/**
+ * profile.modeは表示側で使います。この関数は明示された3項目だけから計算します。
+ * 未選択、対応外の値、75歳以上の「高い」には他の区分を推測せずnullを返します。
+ */
+export function deriveReference(profile) {
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return null;
+  const {ageBand, sex, activity} = profile;
+  if (![ageBand, sex, activity].every(value => typeof value === 'string')) return null;
+  if (!has(ENERGY_KCAL, sex) || !has(ENERGY_KCAL[sex], ageBand) || !has(ACTIVITY_INDEX, activity)) return null;
+  const kcal = ENERGY_KCAL[sex][ageBand][ACTIVITY_INDEX[activity]];
+  if (kcal === null) return null;
   return {
-    targets,
-    ranges,
-    energyPercentRanges,
+    ...nutrientComparisons(ageBand, sex, kcal),
     indicators: {kcal: 'estimated', protein: 'recommended', fat: 'range', carbs: 'range', fiber: 'minimum-inclusive', salt: 'maximum-exclusive'},
     labels: {
       kcal: '推定エネルギー必要量（参照体位）',
