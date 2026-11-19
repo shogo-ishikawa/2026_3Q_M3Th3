@@ -1,4 +1,6 @@
-import {recipeFamily} from './catalog.js';
+import {recipeOccasionIds, recipeCollection} from './celebration-recipes.js';
+import {OCCASION_LABELS, RECIPE_TAG_LABELS} from './occasion-calendar.js';
+import {recipeFamily, recipeNature} from './catalog.js';
 import {dishClassification} from './dish-hierarchy.js';
 
 export const MEAL_OCCASIONS = Object.freeze(['朝食', '昼食', '夕食', '間食', '晩酌']);
@@ -75,12 +77,12 @@ const reviewedGroups = [
     tofu-dried-simmer okara-vegetable-patty soy-hijiki-patty cod-fishball mackerel-curry-roast cod-cheese-bake
     soy-taco-rice chicken-pilaf soy-milk-risotto pork-stuffed-pepper potato-pepper-strips kiriboshi-cucumber
     daikon-leaf-tofu chickpea-carrot-lemon carrot-pumpkin-mash side-002 side-005 side-007 side-010 side-014
-    side-019 side-020 side-021 side-024 side-025 side-026 side-035 side-036 side-042 side-043 side-045 side-047
-    side-048 side-050 soup-007 soup-011 soup-012 soup-014 soup-015 soup-016 soup-017 soup-018 soup-020 soup-021
+    side-019 side-020 side-021 side-024 side-025 side-026 side-035 side-036 side-043 side-045 side-047
+    side-048 side-050 soup-011 soup-012 soup-014 soup-016 soup-017 soup-018 soup-020 soup-021
     soup-022 soup-023 soup-025 soup-026 soup-028 soup-029 side-051 side-052 side-053 side-056 side-057 side-058
     side-059 side-060 soup-031 soup-032 soup-033 soup-034 soup-035 soup-036 soup-037 soup-038 soup-039
     staple-potato staple-plain-udon staple-chilled-udon staple-olive-pasta staple-tomato-pasta staple-sesame-soba
-    staple-somen staple-warm-soba snack-sesame-potato breakfast-tofu-scramble breakfast-lentil-potato
+    staple-somen staple-warm-soba snack-sesame-potato breakfast-tofu-scramble
     breakfast-chicken-cabbage breakfast-sardine-tomato breakfast-pork-pumpkin breakfast-tofu-broccoli
     breakfast-shrimp-pea calendar-side-cucumber-chickpea calendar-side-aubergine-sesame
     calendar-side-lotus-edamame calendar-side-tomato-bean calendar-side-pumpkin-almond
@@ -95,7 +97,7 @@ const reviewedGroups = [
     daily-pizza-margherita daily-pizza-mixed daily-pizza-teriyaki daily-pizza-seafood daily-fried-rice-egg
     daily-fried-rice-gomoku daily-fried-rice-kimchi daily-fried-rice-shrimp daily-ramen-soy daily-ramen-salt
     daily-ramen-miso daily-ramen-tanmen daily-donburi-oyako daily-donburi-pork daily-donburi-mapo
-    daily-donburi-chinese daily-donburi-teriyaki daily-miso-tonjiru classic-omelette-rice-cheese
+    daily-donburi-chinese daily-donburi-teriyaki classic-omelette-rice-cheese
     classic-omelette-rice-mushroom classic-omelette-rice-tomato classic-sushi-assorted classic-sushi-tuna
     classic-sushi-salmon classic-sushi-shrimp classic-sushi-squid classic-sushi-roll classic-sushi-inari
     classic-sushi-chirashi classic-hamburg classic-chicken-nanban classic-meatballs-teriyaki
@@ -144,6 +146,7 @@ const reviewedGroups = [
     soup311-clam-chowder-tomato soup311-wonton-pork
   `],
   [['朝食', '昼食', '夕食'], `
+    breakfast-lentil-potato soup-007 soup-015 daily-miso-tonjiru side-042
     omelette-vegetable egg-potato chicken-sandwich egg-tofu-porridge side-001 side-003 side-008 side-023 side-028
     side-029 side-030 side-033 side-034 side-044 side-049 soup-001 soup-002 soup-003 soup-004 soup-005 soup-006
     soup-008 soup-009 soup-010 soup-013 soup-019 soup-024 soup-027 soup-030 soup-040 plain-rice staple-brown-rice
@@ -326,4 +329,67 @@ export function mealOccasionsFor(recipe) {
   if (recipeFamily(recipe) === 'alcohol') return alcoholOccasions;
   if (Array.isArray(recipe.mealOccasions)) return MEAL_OCCASIONS.filter(label => recipe.mealOccasions.includes(label));
   return reviewed.get(recipe.id) ?? fallbackOccasions(recipe, recipeFamily(recipe));
+}
+
+export const SCENE_LABELS = Object.freeze({
+  everyday: '普段の食卓', quick: '忙しい日', bento: 'お弁当', gathering: 'おもてなし',
+  brunch: 'ブランチ', potluck: '持ち寄り', teatime: 'おやつ・休憩', drinks: '晩酌', regional: '郷土料理', world: '世界の料理',
+  ...RECIPE_TAG_LABELS,
+});
+
+// 汁気の少ない弁当のおかずや各地の定番など、調理時間や料理名だけでは決められない場面。
+const curatedScenes = {
+  bento: `classic-tamagoyaki classic-dashimaki kyoto-dashimaki pork-roll chicken-meatball
+    classic-chicken-okara-lotus canteen-hijiki-chicken-tsukune classic-karaage-thigh classic-karaage-breast
+    classic-karaage-salt classic-chicken-plum-shiso side-012 classic-side-hijiki-aburaage
+    classic-side-burdock-konjac classic-side-unohana beef-burdock classic-side-potato-soboro
+    celebration-kids-vegetable-pinwheel celebration-kids-corn-nuggets celebration-kids-potato-waffle`,
+  brunch: `daily-snack-plain-pancake daily-snack-sweet-french-toast savoury-french-toast
+    breakfast-banana-pancake breakfast-chickpea-toast breakfast-egg-sandwich breakfast-english-muffin-egg`,
+  potluck: `classic-side-paprika-bean-marinade side-034 bistro-red-cabbage-two-cheeses`,
+  gathering: `familiar-tempura-assorted familiar-beef-stew bistro-seafood-broccoli-ajillo
+    bistro-mussel-garlic-bake bistro-red-cabbage-two-cheeses classic-sushi-chirashi classic-sashimi-assorted
+    familiar-side-roast-vegetables bistro-beef-cut-steak bistro-cod-shrimp-butter`,
+  regional: `kyoto-keiran-udon kyoto-koimo kyoto-dashimaki kyoto-egg-spring-roll kyoto-yudofu
+    kyoto-namafu-dengaku kyoto-namafu-simmered kyoto-mizuna-aburaage evening-main-aji-sanga
+    evening-main-keichan evening-main-chicken-jibuni evening-main-goya-chanpuru evening-main-tonpei
+    varied-toriten classic-chicken-nanban`,
+  world: `world-tomyum-kung world-massaman-chicken world-mutton-curry world-saag-chicken world-saag-paneer
+    world-naan-plain world-naan-garlic world-naan-butter world-naan-cheese world-naan-sesame world-naan-wholewheat
+    varied-khao-man-gai varied-gapao-rice varied-green-curry-rice varied-butter-chicken-rice varied-tandoori-chicken
+    varied-yukgaejang-soup varied-bulgogi bistro-seafood-broccoli-ajillo bistro-escargot-herb-butter`,
+};
+const curatedScenesByRecipe = new Map();
+for (const [scene, ids] of Object.entries(curatedScenes)) {
+  for (const id of ids.trim().split(/\s+/)) {
+    if (!curatedScenesByRecipe.has(id)) curatedScenesByRecipe.set(id, []);
+    curatedScenesByRecipe.get(id).push(scene);
+  }
+}
+
+export function recipeSceneIds(recipe) {
+  const events = recipeOccasionIds(recipe);
+  const collection = recipeCollection(recipe);
+  const scenes = new Set(events);
+  for (const scene of curatedScenesByRecipe.get(recipe.id) ?? []) scenes.add(scene);
+  if (collection) {
+    scenes.add(collection);
+    for (const id of ['brunch','potluck','gathering']) {
+      if (recipe.searchAliases?.includes(SCENE_LABELS[id])) scenes.add(id);
+    }
+  }
+  if (events.includes('anniversary') || events.includes('birthday')) scenes.add('gathering');
+
+  const nature = recipeNature(recipe), family = recipeFamily(recipe);
+  if (family === 'alcohol') return ['drinks'];
+  const times = mealOccasionsFor(recipe);
+  if (times.includes('晩酌')) scenes.add('drinks');
+  if (family === 'onigiri' && !collection && nature === 'home-cooked') scenes.add('bento');
+  if (times.includes('間食') || (recipe.role === 'drink' && ['tea','coffee'].includes(family))) scenes.add('teatime');
+  if (['instant','retort','fast-food'].includes(nature) ||
+      (nature === 'home-cooked' && recipe.minutes > 0 && recipe.minutes <= 15 && ['main','side','soup','staple'].includes(recipe.role))) scenes.add('quick');
+  const ordinaryMeal = !events.some(id => Object.hasOwn(OCCASION_LABELS, id)) || !recipe.id.startsWith('celebration-');
+  if (ordinaryMeal && !['snack','drink'].includes(recipe.role) && !['fast-food','instant','retort'].includes(nature)) scenes.add('everyday');
+  if (!scenes.size) scenes.add('everyday');
+  return [...scenes];
 }

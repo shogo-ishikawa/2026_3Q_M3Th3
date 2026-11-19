@@ -16,6 +16,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['harvest-moon', 'autumn'], {
     id: 'moon-sardine-lotus', name: 'いわしのすり身とれんこんの月形焼き', role: 'main', family: 'fish-main',
     category: 'fish', method: 'grill', genre: '和食', minutes: 30,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['sardine', 200], ['lotus_root', 100], ['ginger', 5], ['miso', 9], ['starch', 8], ['oil', 8], ['sake', 12], ['water', 20]],
     steps: [
       'れんこんは皮をむいてすり身を上下からはさめるように薄い輪切りを対にして取り、残りを細かく刻む。いわしは皮と小骨を取り、包丁で粘りが出るまでたたく。',
@@ -49,6 +50,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['harvest-moon', 'autumn'], {
     id: 'moon-taro-aonori', name: '絹かつぎの青のりごま塩添え', role: 'side', family: 'small-dish',
     category: 'vegetable', method: 'steam', genre: '和食', minutes: 25,
+    mealOccasions: ['昼食', '夕食', '間食', '晩酌'],
     ingredients: [['taro', 200], ['sesame', 5], ['canteen_aonori', 0.6], ['salt', 0.8]],
     steps: [
       '小さな里いもを選び、皮を傷めないように泥を洗う。分量は皮を除いた可食部の重さで用意する。',
@@ -83,6 +85,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['respect-for-aged', 'senior-friendly', 'autumn'], {
     id: 'elders-aubergine-dengaku', name: '皮むき焼きなすの豆腐田楽', role: 'side', family: 'small-dish',
     category: 'vegetable', method: 'grill', genre: '和食', minutes: 25,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['aubergine', 220], ['silken_tofu', 80], ['miso', 12], ['mirin', 12], ['sugar', 4], ['ginger', 2]],
     steps: [
       'なすはへたの周りに切れ目を入れ、皮に数か所穴を開ける。魚焼きグリルで返しながら皮が黒くなるまで焼く。',
@@ -106,6 +109,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['autumn-equinox', 'autumn'], {
     id: 'equinox-ganmodoki', name: 'にんじんと枝豆の手作りがんもどき', role: 'main', family: 'bean-main',
     category: 'bean', method: 'fried', genre: '和食', minutes: 35,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['tofu', 300], ['yam', 45], ['carrot', 30], ['edamame', 35], ['starch', 15], ['oil', 18], ['ginger', 4], ['soy_sauce', 6]],
     steps: [
       '木綿豆腐を布で包み、重しをしてよく水気を切る。にんじんは細かく刻み、枝豆はゆでて粗く刻む。',
@@ -128,6 +132,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['autumn-equinox', 'autumn'], {
     id: 'equinox-persimmon-shiraae', name: '柿とほうれん草のごま白和え', role: 'side', family: 'small-dish',
     category: 'vegetable', method: 'dressed', genre: '和食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['tofu', 110], ['fruit_persimmon', 100], ['spinach', 95], ['ground_sesame', 8], ['miso', 7], ['sugar', 3]],
     steps: [
       '木綿豆腐を熱湯で2分ゆで、ざるで水を切りながら冷ます。ほうれん草は別にゆでて水気を絞る。',
@@ -139,6 +144,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['autumn-equinox', 'autumn'], {
     id: 'equinox-kenchin', name: '秋彼岸の里いもとまいたけの精進けんちん汁', role: 'soup', family: 'vegetable-soup',
     genre: '和食', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['taro', 90], ['simmered_maitake', 65], ['tofu', 80], ['daikon', 70], ['burdock', 25], ['sesame_oil', 5], ['kyoto_kombu_dashi', 370], ['soy_sauce', 10], ['salt', 0.3]],
     steps: [
       '里いもは皮をむいて薄い半月切りに、大根はいちょう切りにする。ごぼうはささがきにし、まいたけをほぐす。',
@@ -173,6 +179,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['halloween', 'child-friendly'], {
     id: 'halloween-pumpkin-packets', name: 'かぼちゃの三角包み焼き', role: 'side', family: 'side',
     category: 'vegetable', method: 'grill', genre: '洋食', minutes: 25,
+    mealOccasions: ['昼食', '夕食', '間食'],
     ingredients: [['pumpkin', 130], ['dumpling_wrappers', 65], ['palette_cream_cheese', 25], ['curry_powder', 0.3], ['olive_oil', 5], ['salt', 0.3]],
     steps: [
       'かぼちゃの種と皮を除き、小さく切って柔らかく蒸す。水気を飛ばしながらつぶす。',
@@ -252,6 +259,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['new-year', 'winter'], {
     id: 'new-year-yellowtail-yuan', name: 'ぶりの柑橘幽庵焼き', role: 'main', family: 'grilled-fish',
     category: 'fish', method: 'grill', genre: '和食', minutes: 40,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['yellowtail', 230], ['fruit_satsuma', 50], ['soy_sauce', 14], ['mirin', 14], ['sake', 12], ['oil', 3]],
     steps: [
       'みかんの果肉をしぼる。果汁にしょうゆ、みりん、酒を合わせて浅い容器に入れる。',
@@ -263,6 +271,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['new-year'], {
     id: 'new-year-chicken-yawata', name: '鶏もも肉の八幡巻き', role: 'main', family: 'meat-main',
     category: 'meat', method: 'simmer', genre: '和食', minutes: 50,
+    mealOccasions: ['朝食', '昼食', '夕食', '晩酌'],
     ingredients: [['chicken', 280], ['burdock', 65], ['carrot', 55], ['soup311_awase_dashi', 200], ['soy_sauce', 16], ['mirin', 16], ['sake', 12], ['sugar', 5]],
     steps: [
       'ごぼうとにんじんを肉の幅に合わせて細い棒状に切る。だしで下煮し、竹串が通るまで柔らかくする。煮汁を取っておく。',
@@ -274,6 +283,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['new-year', 'winter'], {
     id: 'new-year-persimmon-namasu', name: '柿入り紅白なます', role: 'side', family: 'small-dish',
     category: 'vegetable', method: 'pickled', genre: '和食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食', '晩酌'],
     ingredients: [['daikon', 180], ['carrot', 40], ['fruit_persimmon', 65], ['vinegar', 18], ['sugar', 7], ['salt', 1.2]],
     steps: [
       '大根とにんじんは皮をむいて細いせん切りにする。にんじんは大根よりも少し細く切る。',
@@ -285,6 +295,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['new-year'], {
     id: 'new-year-shrimp-shinjo', name: 'えびしんじょと花にんじんの祝い椀', role: 'soup', family: 'clear-soup',
     genre: '和食', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['shrimp', 120], ['yam', 30], ['starch', 6], ['carrot', 35], ['spinach', 35], ['soup311_awase_dashi', 350], ['kyoto_usukuchi', 5], ['salt', 0.6]],
     steps: [
       'むきえびの背わたを取り、よく拭いて包丁で細かくたたく。すりおろした長いも、片栗粉、塩の半量を混ぜ、粘りが出るまで練る。',
@@ -364,6 +375,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['anniversary'], {
     id: 'anniversary-salmon-terrine', name: '鮭とブロッコリーの二色卵テリーヌ', role: 'side', family: 'small-dish',
     category: 'egg', method: 'steam', genre: '洋食', minutes: 40,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['salmon', 80], ['broccoli', 70], ['egg', 2], ['milk', 70], ['butter', 4], ['salt', 0.6]],
     steps: [
       '鮭は骨と皮を除いて小さく切る。ブロッコリーは柔らかくゆで、湯を切って細かく刻む。',
@@ -387,6 +399,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['autumn'], {
     id: 'autumn-saury-plum-roll', name: 'さんまの梅しそ巻き焼き', role: 'main', family: 'grilled-fish',
     category: 'fish', method: 'grill', genre: '和食', minutes: 25,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['saury', 220], ['ume', 12], ['shiso', 6], ['mirin', 8], ['soy_sauce', 5], ['oil', 4]],
     steps: [
       '三枚おろしのさんまの小骨を除き、長さを半分に切る。梅干しは種を除いて包丁で細かくたたく。',
@@ -409,6 +422,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['autumn'], {
     id: 'autumn-lotus-persimmon', name: 'れんこんと柿の甘酢ごま和え', role: 'side', family: 'small-dish',
     category: 'vegetable', method: 'dressed', genre: '和食', minutes: 20,
+    mealOccasions: ['昼食', '夕食', '晩酌'],
     ingredients: [['lotus_root', 130], ['fruit_persimmon', 85], ['vinegar', 15], ['sugar', 5], ['ground_sesame', 8], ['salt', 0.5]],
     steps: [
       'れんこんは皮をむいて薄いいちょう切りにし、水を替えながら洗う。柿は皮と種を除き、れんこんと同じ大きさに切る。',
@@ -420,6 +434,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['autumn'], {
     id: 'autumn-sweetpotato-miso', name: 'さつまいもと焼きまいたけの豆乳みそ汁', role: 'soup', family: 'miso-soup',
     genre: '和食', minutes: 25,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['sweet_potato', 130], ['simmered_maitake', 80], ['onion', 40], ['kyoto_kombu_dashi', 240], ['soy_milk', 120], ['miso', 16], ['oil', 3]],
     steps: [
       'さつまいもはよく洗って薄い半月切り、玉ねぎは薄切りにする。まいたけは大きめにほぐす。',
@@ -465,6 +480,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['winter', 'senior-friendly'], {
     id: 'winter-cauliflower-negi', name: '焼き長ねぎとカリフラワーの白いポタージュ', role: 'soup', family: 'potage',
     genre: '洋食', minutes: 30,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['cauliflower', 185], ['negi', 90], ['potato', 60], ['milk', 150], ['water', 230], ['olive_oil', 6], ['salt', 1]],
     steps: [
       '長ねぎは白い部分を厚さ1cmに切り、油をひいた鍋で切り口に焼き色を付ける。',
@@ -499,6 +515,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['child-friendly'], {
     id: 'kids-vegetable-pinwheel', name: 'にんじんと青菜のくるくる卵焼き', role: 'side', family: 'small-dish',
     category: 'egg', method: 'grill', genre: '和食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['egg', 2], ['carrot', 35], ['spinach', 35], ['soup311_awase_dashi', 18], ['sugar', 3], ['salt', 0.4], ['oil', 4]],
     steps: [
       'にんじんはすりおろして耐熱容器で柔らかくなるまで加熱する。ほうれん草はゆでて水気を絞り、細かく刻む。',
@@ -521,6 +538,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['child-friendly'], {
     id: 'kids-potato-waffle', name: 'じゃがいもと枝豆のお花ガレット', role: 'side', family: 'side',
     category: 'vegetable', method: 'grill', genre: '洋食', minutes: 25,
+    mealOccasions: ['朝食', '昼食', '夕食', '間食'],
     ingredients: [['potato', 210], ['edamame', 45], ['parmesan_cheese', 12], ['starch', 6], ['oil', 7], ['carrot', 25]],
     steps: [
       'にんじんは薄い輪切りにしてゆでる。枝豆も柔らかくゆで、薄皮を取って細かく刻む。',
@@ -577,6 +595,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['senior-friendly'], {
     id: 'soft-broccoli-egg', name: 'ブロッコリーの穂先と炒り卵のミルク煮', role: 'side', family: 'small-dish',
     category: 'vegetable', method: 'simmer', genre: '洋食', minutes: 15,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['broccoli', 110], ['egg', 1], ['milk', 105], ['butter', 5], ['salt', 0.4]],
     steps: [
       'ブロッコリーの穂先を小さく刻む。茎を使うときは硬い皮を厚めにむき、芯を細かく切る。',
@@ -588,6 +607,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['senior-friendly'], {
     id: 'soft-daikon-shirasu', name: '大根としらすのやさしいおかか煮', role: 'side', family: 'small-dish',
     category: 'vegetable', method: 'simmer', genre: '和食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['daikon', 210], ['shirasu_dried', 18], ['bonito', 3], ['kyoto_kombu_dashi', 160], ['mirin', 8], ['soy_sauce', 4]],
     steps: [
       '大根の皮を厚めにむき、小さな薄いいちょう切りにする。しらすは大きいものがあれば刻む。',
@@ -599,6 +619,7 @@ export const AUTUMN_WINTER_RECIPES = [
   occasionDish(['senior-friendly'], {
     id: 'soft-carrot-soymilk', name: 'にんじんと絹ごし豆腐の豆乳すり流し', role: 'soup', family: 'potage',
     genre: '和食', minutes: 20,
+    mealOccasions: ['朝食', '昼食', '夕食'],
     ingredients: [['carrot', 120], ['silken_tofu', 100], ['kyoto_kombu_dashi', 170], ['soy_milk', 130], ['miso', 10]],
     steps: [
       'にんじんは皮をむいて薄いいちょう切りにし、昆布だしを入れた小鍋で煮る。',

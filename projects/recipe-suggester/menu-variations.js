@@ -90,7 +90,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('rice', 'ご飯', [
     'plain-rice','staple-brown-rice','staple-mixed-rice','staple-barley-rice','staple-wakame-rice',
     'staple-corn-rice','staple-mushroom-rice','staple-turmeric-rice','daily-rice-gomoku',
-    'daily-rice-chicken-burdock','daily-rice-green-peas','daily-rice-hijiki','salmon-fried-rice',
+    'daily-rice-chicken-burdock','daily-rice-green-peas','daily-rice-hijiki','salmon-fried-rice','celebration-regional-hyogo-takomeshi',
   ], {mealBase:false, recipeProfiles:{
       'salmon-fried-rice':{role:'main', mealBase:true},
     }}),
@@ -102,11 +102,14 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('udon', 'うどん', [
     'staple-plain-udon','staple-chilled-udon','daily-udon-plain','daily-udon-kitsune','daily-udon-tanuki',
     'daily-udon-wakame','daily-udon-meat','daily-udon-tempura','daily-udon-curry','kyoto-keiran-udon',
-    'udon-egg','udon-pork',
+    'udon-egg','udon-pork','celebration-regional-kagawa-shippoku',
   ], {recipeProfiles:{
       'udon-egg':{role:'main'},
       'udon-pork':{role:'main'},
     }}),
+  meal('somen', 'そうめん', [
+    'staple-somen','celebration-regional-ishikawa-nasu-somen','celebration-regional-shiga-saba-somen',
+  ], {defaultRecipeId:'staple-somen', recipeProfiles:{'celebration-regional-ishikawa-nasu-somen':{mealBase:false}}}),
   meal('soba', 'そば', [
     'staple-sesame-soba','staple-warm-soba','daily-soba-plain','daily-soba-kitsune','daily-soba-tanuki',
     'daily-soba-wakame','daily-soba-meat','daily-soba-tempura','daily-soba-curry','soba-chicken',
@@ -151,6 +154,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('miso-soup', 'みそ汁', [
     'soup-001','soup-002','soup-003','calendar-soup-cabbage-egg','daily-miso-onion','daily-miso-clam',
     'daily-miso-tonjiru','daily-miso-potato','daily-miso-aburaage-daikon',
+    'celebration-mountain-mushroom-soup','celebration-pumpkin-soymilk-miso','celebration-autumn-sweetpotato-miso',
   ], {role:'soup', staple:false, mealBase:false}),
   dish('omelette', 'オムレツ', [
     'classic-omelette-plain','classic-omelette-cheese','classic-omelette-spinach','classic-omelette-bacon',
@@ -165,7 +169,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   meal('hosomaki', '細巻き', [
     'sushi-hosomaki-kappa','sushi-hosomaki-tekka','sushi-hosomaki-natto','sushi-hosomaki-ume-shiso','sushi-hosomaki-tuna-mayo',
   ]),
-  meal('futomaki', '太巻き', ['sushi-futomaki-egg-vegetable','sushi-futomaki-seafood','sushi-futomaki-salad']),
+  meal('futomaki', '太巻き', ['sushi-futomaki-egg-vegetable','sushi-futomaki-seafood','sushi-futomaki-salad','celebration-regional-chiba-flower-sushi']),
   meal('gunkan', '軍艦巻き', [
     'sushi-gunkan-ikura','sushi-gunkan-negitoro','sushi-gunkan-tuna-mayo','sushi-gunkan-corn-mayo',
     'sushi-gunkan-natto','sushi-gunkan-crab','sushi-gunkan-shirasu',
@@ -268,8 +272,8 @@ export const MENU_VARIATION_GROUPS = freeze([
     'simmered-chicken-salt-lemon-nabe','simmered-ishikari-nabe','simmered-beef-motsu-nabe',
     'simmered-oyster-miso-nabe','simmered-duck-negi-nabe','simmered-chicken-tomato-cheese-nabe',
     'simmered-chicken-curry-nabe','simmered-soy-milk-tantan-nabe','simmered-pork-spinach-joya-nabe',
-    'evening-main-tuna-negi-nabe','kyoto-yudofu',
-  ]),
+    'evening-main-tuna-negi-nabe','kyoto-yudofu','celebration-regional-hiroshima-kaki-dote','celebration-regional-akita-damako',
+  ], {recipeProfiles:{'celebration-regional-akita-damako':{role:'staple', staple:true, mealBase:true}}}),
   dish('yakitori', '焼き鳥', [
     'familiar-yakitori-negima','varied-yakitori-thigh-salt','varied-yakitori-thigh-tare','varied-yakitori-breast-salt',
     'varied-yakitori-skin','varied-yakitori-tsukune','varied-yakitori-tsukune-cheese','varied-yakitori-ume-shiso',
@@ -290,8 +294,11 @@ export const MENU_VARIATION_GROUPS = freeze([
     }}),
   dish('potage', 'ポタージュ', [
     'soup-004','soup-006','soup-008','calendar-soup-cauliflower-potato','familiar-side-corn-potage','soup311-pumpkin-milk-potage',
+    'celebration-birthday-carrot-orange-potage','celebration-red-pepper-potage','celebration-potato-onion-cream',
+    'celebration-pea-onion-potage','celebration-winter-cauliflower-negi',
   ], {role:'soup'}),
-  dish('clear-soup', 'お吸い物・すまし汁', ['soup-018','soup-033','soup311-osuimono-tofu-wakame','soup311-osuimono-asari'], {role:'soup'}),
+  dish('clear-soup', 'お吸い物・すまし汁', ['soup-018','soup-033','soup311-osuimono-tofu-wakame','soup311-osuimono-asari',
+    'celebration-clam-egg-ribbon','celebration-new-year-seabream-soup','celebration-tanabata-somen-star'], {role:'soup'}),
   dish('arajiru', 'あら汁', ['soup311-arajiru-salmon','soup311-arajiru-buri'], {role:'soup'}),
   dish('clam-chowder', 'クラムチャウダー', ['familiar-side-clam-chowder','soup311-clam-chowder-tomato'], {role:'soup'}),
   dish('consomme', 'コンソメスープ', ['soup311-consomme-plain','soup311-consomme-vegetable'], {role:'soup'}),
@@ -346,7 +353,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   ], {defaultRecipeId:'bread-english-muffin-ham-cheese',
     recipeProfiles:{'palette-english-muffin':{nature:'ready-to-eat',mealBase:false}}}),
 
-  meal('rice-porridge', 'おかゆ', ['staple-rice-porridge','staple-sweet-potato-porridge'], {mealBase:false, defaultRecipeId:'staple-rice-porridge'}),
+  meal('rice-porridge', 'おかゆ', ['staple-rice-porridge','staple-sweet-potato-porridge','celebration-regional-nara-chagayu'], {mealBase:false, defaultRecipeId:'staple-rice-porridge'}),
   meal('bought-onigiri', 'おにぎり（購入品）', [
     'convenience-tuna-mayo-onigiri','convenience-salmon-onigiri',
   ], {mealBase:false, nature:'ready-to-eat', defaultRecipeId:'convenience-tuna-mayo-onigiri'}),
@@ -362,10 +369,10 @@ export const MENU_VARIATION_GROUPS = freeze([
   dish('scrambled-eggs', 'スクランブルエッグ', ['classic-scrambled-egg','breakfast-tomato-scramble'], {defaultRecipeId:'classic-scrambled-egg'}),
   dish('spring-roll', '春巻き', ['varied-spring-roll','kyoto-egg-spring-roll'], {defaultRecipeId:'varied-spring-roll'}),
   dish('shumai', 'シュウマイ', ['classic-shumai','varied-shrimp-shumai'], {defaultRecipeId:'varied-shrimp-shumai'}),
-  dish('tsukune', '鶏つくね', ['chicken-meatball','classic-chicken-okara-lotus','canteen-hijiki-chicken-tsukune'], {defaultRecipeId:'chicken-meatball'}),
+  dish('tsukune', '鶏つくね', ['chicken-meatball','classic-chicken-okara-lotus','canteen-hijiki-chicken-tsukune','celebration-chicken-soybean-patties'], {defaultRecipeId:'chicken-meatball'}),
   dish('meatballs', '肉団子', ['pork-meatball','classic-meatballs-teriyaki'], {defaultRecipeId:'pork-meatball'}),
   dish('meuniere', '魚のムニエル', [
-    'familiar-salmon-meuniere','familiar-cod-meuniere','familiar-aji-meuniere',
+    'familiar-salmon-meuniere','familiar-cod-meuniere','familiar-aji-meuniere','celebration-anniversary-seabream-meuniere',
   ], {defaultRecipeId:'familiar-salmon-meuniere'}),
   dish('fish-tatsuta', '魚の竜田揚げ', [
     'familiar-mackerel-tatsuta','canteen-hokke-tatsuta-negi','evening-main-katsuo-tatsuta',
@@ -392,16 +399,24 @@ export const MENU_VARIATION_GROUPS = freeze([
     'evening-side-pickled-celery',
   ], {defaultRecipeId:'classic-side-cucumber-pickle'}),
   side('ohitashi', 'お浸し', [
-    'classic-side-spinach-ohitashi','classic-side-komatsuna-ohitashi','familiar-side-okra-ohitashi',
+    'classic-side-spinach-ohitashi','classic-side-komatsuna-ohitashi','familiar-side-okra-ohitashi','celebration-broccoli-eggy-buds',
   ], {defaultRecipeId:'classic-side-spinach-ohitashi'}),
   side('cucumber-sunomono', 'きゅうりの酢の物', [
     'classic-side-cucumber-sunomono','side-004','classic-side-octopus-cucumber','varied-uzaku',
   ], {defaultRecipeId:'classic-side-cucumber-sunomono'}),
   side('dengaku', '田楽', [
-    'classic-side-tofu-dengaku','classic-tofu-negi-miso','side-013','kyoto-namafu-dengaku',
+    'classic-side-tofu-dengaku','classic-tofu-negi-miso','side-013','kyoto-namafu-dengaku','celebration-elders-aubergine-dengaku',
   ], {defaultRecipeId:'kyoto-namafu-dengaku', recipeProfiles:{
       'classic-tofu-negi-miso':{role:'main'},
     }}),
+  side('shiraae', '白和え', ['side-028','celebration-equinox-persimmon-shiraae'], {defaultRecipeId:'side-028'}),
+  side('namasu', '紅白なます', ['classic-side-namasu','celebration-new-year-persimmon-namasu'], {defaultRecipeId:'classic-side-namasu'}),
+  side('potato-salad', 'ポテトサラダ', ['classic-side-potato-salad','side-049','celebration-potato-scale-salad'], {defaultRecipeId:'classic-side-potato-salad'}),
+  dish('nanbanzuke', '南蛮漬け', ['chicken-nanban-pickle','celebration-mackerel-pickled-tomato'], {defaultRecipeId:'chicken-nanban-pickle'}),
+  soup('kenchin', 'けんちん汁', ['soup-027','celebration-equinox-kenchin'], {defaultRecipeId:'soup-027'}),
+  dish('imoni', '芋煮・いもたき', ['celebration-regional-yamagata-imoni','celebration-regional-ehime-imotaki'], {defaultRecipeId:'celebration-regional-yamagata-imoni'}),
+  side('dolma', 'ドルマ（ピラフ詰め）', ['celebration-midye-dolma','celebration-biber-dolma'], {defaultRecipeId:'celebration-midye-dolma'}),
+  side('salmon-tartare', 'サーモンのタルタル', ['celebration-salmon-tartare-avocado','celebration-salmon-tartare-apple'], {defaultRecipeId:'celebration-salmon-tartare-avocado'}),
   side('taro-simmered', '里いもの煮物', ['classic-side-taro-simmered','kyoto-koimo'], {defaultRecipeId:'kyoto-koimo'}),
   side('hijiki-simmered', 'ひじきの煮物', ['side-029','classic-side-hijiki-aburaage'], {defaultRecipeId:'side-029'}),
   side('coleslaw', 'コールスロー', ['side-044','familiar-side-corn-coleslaw'], {defaultRecipeId:'side-044'}),
@@ -411,7 +426,7 @@ export const MENU_VARIATION_GROUPS = freeze([
   soup('minestrone', 'ミネストローネ', ['familiar-side-minestrone','calendar-soup-tomato-barley'], {defaultRecipeId:'familiar-side-minestrone'}),
   soup('surinagashi', 'すり流し汁', ['soup-030','soup-040'], {defaultRecipeId:'soup-030'}),
   soup('milk-soup', 'ミルクスープ', [
-    'soup-005','soup-009','soup-019','soup-029','calendar-soup-sweet-potato-milk',
+    'soup-005','soup-009','soup-019','soup-029','calendar-soup-sweet-potato-milk','celebration-spring-cabbage-milk-soup',
   ], {defaultRecipeId:'calendar-soup-sweet-potato-milk'}),
   soup('soy-milk-soup', '豆乳スープ', ['soup-024','calendar-soup-edamame-corn','calendar-soup-oat-mushroom'], {defaultRecipeId:'soup-024'}),
   soup('vermicelli-soup', '春雨スープ', ['soup-035','varied-chicken-ball-vermicelli-soup'], {defaultRecipeId:'soup-035'}),

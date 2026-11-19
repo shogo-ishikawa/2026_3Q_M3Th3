@@ -1,4 +1,4 @@
-export const SETTINGS_SECTIONS = ['profile', 'family', 'display', 'data', 'feedback'];
+export const SETTINGS_SECTIONS = ['profile', 'family', 'display', 'data', 'help', 'feedback'];
 
 /** アプリの上位タブと独立した、設定内のキーボード操作とフォーカス。 */
 export function setupSettingsTabs() {

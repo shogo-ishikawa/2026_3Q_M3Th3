@@ -12,10 +12,11 @@ export function showProfileFields(get) {
     get(id).hidden = !visible;
     get(id).disabled = !visible;
   }
-  get('profile-activity-guide').hidden = mode === 'manual';
+  get('manual-targets-panel').hidden = mode !== 'manual';
+  get('profile-apply').hidden = mode === 'manual';
 }
 
-export function renderNutritionProfile(get, state, today = jstDateKey(), previous = {}) {
+export function renderNutritionProfile(get, state, today = jstDateKey(), previous = {}, demo = false) {
   // 生年月日・栄養設定は個別に保存する。別フォームの保存時には未送信の編集を残す。
   const birthday = state.birthDate ?? null;
   if (previous.birthday !== birthday) {
@@ -24,7 +25,8 @@ export function renderNutritionProfile(get, state, today = jstDateKey(), previou
     get('birthday-consent').checked = Boolean(birthday);
   }
   const simple = state.profile, personal = state.personalProfile;
-  const values = {'profile-mode': simple.mode, 'profile-age': simple.ageBand, 'profile-sex': simple.sex,
+  const formMode = simple.setupPending && !demo ? 'personal' : simple.mode;
+  const values = {'profile-mode': formMode, 'profile-age': simple.ageBand, 'profile-sex': simple.sex,
     'profile-activity': simple.activity, 'personal-consent': Boolean(personal)};
   for (const [key, id] of Object.entries(personalInputs)) values[id] = personal?.[key] ?? '';
   const removed = previous.hadPersonal && !personal;
@@ -47,8 +49,8 @@ export function refreshProfileDateDisplay(get, state, today) {
   if (age !== null) get('personal-age').value = age;
   const simple = state.profile, personal = state.personalProfile;
   const reference = activeNutritionReference(state, today);
-  const summary = reference ? reference.label + 'を使用しています。エネルギーの目安は1日 ' + reference.targets.kcal.toLocaleString('ja-JP') + ' kcalです。'
-    : '手入力の比較値を使用しています。';
+  const summary = reference ? reference.label + '：1日 ' + reference.targets.kcal.toLocaleString('ja-JP') + ' kcal'
+    : simple.setupPending ? 'プロフィール設定前は初期値で比較します。' : '手入力の目安で比較しています。';
   let detailNote = personal && simple.mode !== 'personal' ? ' 詳細プロフィールは保存済みです。' : '';
   if (age !== null && personal?.ageSource === 'birthDate' && !activeNutritionReference({...state, profile: {mode: 'personal'}}, today)) {
     detailNote += ' 現在の年齢と身体情報は個人の目安の計算対象外です。';
@@ -62,6 +64,8 @@ export function applyNutritionProfileForm(get, state) {
     if (!get('personal-consent').checked) throw Error('詳細プロフィールを保存して使う場合は、チェックを入れてください。');
     const details = Object.fromEntries(Object.entries(personalInputs).map(([key, id]) =>
       [key, ['age', 'heightCm', 'weightKg'].includes(key) ? get(id).valueAsNumber : get(id).value]));
+    const age = state.birthDate ? ageOnDate(state.birthDate) : details.age;
+    if (age >= 75 && age <= 79 && details.activity === 'high') throw Error('75〜79歳は活動量「高い」の目安がありません。目安を手入力できます。');
     if (state.birthDate) {
       delete details.age;
       details.ageSource = 'birthDate';

@@ -47,6 +47,25 @@ test('晩酌料理を地元の読み、慣用表記、濁る複合語で探せ�
   }
 });
 
+test('郷土料理は地名や料理の読み、世界の料理は中黒の有無やかなで探せる', () => {
+  for (const [query, expected] of [
+    ['ぶいやべーす', ['provencal-bouillabaisse']],
+    ['しろみざかなのもけか', ['moqueca']],
+    ['みでぃえどるま', ['midye-dolma']],
+    ['さーもんのたるたる', ['salmon-tartare-avocado', 'salmon-tartare-apple']],
+    ['ほっかいどう いももち', ['regional-hokkaido-imomochi']],
+    ['あおもりけん かやきみそ', ['regional-aomori-kaiyaki']],
+    ['とうのうのくるみごへいもち', ['regional-gifu-gohei']],
+    ['ちゃがゆ ならけん', ['regional-nara-chagayu']],
+    ['おおずのいもたき', ['regional-ehime-imotaki']],
+    ['みやざき ひやじる', ['regional-miyazaki-hiyajiru']],
+    ['あまみのけいはん', ['regional-kagoshima-keihan']],
+  ]) {
+    const found = new Set(browseDishes(named, {query}).map(recipe => recipe.id));
+    for (const id of expected) assert.ok(found.has('celebration-' + id), query + ': ' + id);
+  }
+});
+
 test('別の料理を同一視せず、離れたフィールドをつないで架空の料理名を作らない', () => {
   assert.ok(!matchesJapaneseQuery('焼き餃子','水餃子'));
   assert.ok(!matchesJapaneseQuery('水餃子','やきぎょうざ'));

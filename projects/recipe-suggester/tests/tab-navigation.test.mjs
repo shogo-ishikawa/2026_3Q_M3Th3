@@ -117,6 +117,8 @@ test('設定の直接リンク・従来のリンク・上位タブのクリッ�
     assert.equal(settings.at(-1), 'family');
     changeHash('#settings-data');
     assert.equal(settings.at(-1), 'data');
+    clickLink('#settings-help');
+    assert.equal(settings.at(-1), 'help');
     clickLink('#settings-feedback');
     assert.equal(settings.at(-1), 'feedback');
     changeHash('#settings');

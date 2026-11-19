@@ -18,7 +18,7 @@ export function occasionDish(tags, {
   recipeTags.set(recipeId, Object.freeze([...tagIds]));
   return {
     id: recipeId, name, role, family, genre, minutes, servings: 2, staple, mealBase,
-    nature: 'home-cooked', portion, mealOccasions, tags: minutes <= 20 ? ['時短'] : [],
+    nature: 'home-cooked', portion, mealOccasions, tags: role !== 'staple' && minutes <= 20 ? ['時短'] : [],
     searchAliases: [...new Set([...labels, ...aliases])],
     ...(category ? {displayCategory: category, displayMethod: method, displaySecondaryCategories: []} : {}),
     ingredients: ingredients.map(([id, amount]) => ({id, amount})), steps,

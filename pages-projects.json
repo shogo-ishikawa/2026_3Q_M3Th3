@@ -42,6 +42,8 @@
         "occasion-calendar.js",
         "occasion-classics.js",
         "occasion-recipe.js",
+        "world-occasion-recipes.js",
+        "regional-occasion-recipes.js",
         "seasonal-spring-summer.js",
         "seasonal-autumn-winter.js",
         "drive-photos.js",

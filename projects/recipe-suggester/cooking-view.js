@@ -93,7 +93,6 @@ export function mountCookingView({items, servings, data}) {
   people.addEventListener('change', refreshAmounts);
   refreshAmounts();
   instructions.append(element('h3', '料理ごとの手順'));
-  instructions.append(element('p', '分量は「材料」で確認できます。'));
   for (const item of items) {
     const note = preparedNote(item, data);
     if (note) materials.append(element('p', item.name + ' ｜ ' + note));

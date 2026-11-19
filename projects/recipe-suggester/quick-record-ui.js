@@ -84,7 +84,7 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
   function renderFoods(){
     saved.replaceChildren(make('h4','','お気に入り'));
     const available=favourites.filter(favourite=>favourite.item?.batchId===undefined);
-    if(!available.length)saved.append(make('p','field-note','料理の詳細でお気に入りに保存すると、ここから呼び出せます。'));
+    if(!available.length)saved.append(make('p','field-note','お気に入りはレシピから追加できます。'));
     else{
       const cards=make('div','quick-record-food-grid');available.slice(0,savedLimit).forEach((favourite,index)=>cards.append(foodCard(favourite.item,{name:favourite.name,index})));saved.append(cards);
       if(available.length>savedLimit)saved.append(button('ほかのお気に入りを見る',act(()=>{savedLimit+=3;renderFoods();}),'button-text quick-record-more-saved'));
@@ -92,8 +92,8 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
     recent.replaceChildren(make('h4','','最近使った料理'));
     const savedKeys=new Set(available.map(favourite=>favouriteKey(favourite.item)));
     const recents=recentFoods(entries,{date:context().date,limit:30}).filter(({item})=>!savedKeys.has(favouriteKey(item)));
-    if(!recents.length)recent.append(make('p','field-note','この日以前の食事を記録すると、前回の量で呼び出せます。お気に入りと同じ料理は上にまとめています。'));
-    else{
+    recent.hidden=!recents.length;
+    if(recents.length){
       const cards=make('div','quick-record-food-grid');recents.slice(0,recentLimit).forEach(({item},index)=>cards.append(foodCard(item,{index,source:'recent'})));recent.append(cards);
       if(recents.length>recentLimit)recent.append(button('ほかの最近の料理を見る',act(()=>{recentLimit+=3;renderFoods();}),'button-text quick-record-more-recent'));
     }
@@ -102,7 +102,7 @@ export function mountQuickRecord({data,settings={},entries=[],favourites=[],date
     const selected=context(),matching=entries.filter(entry=>entry.date===selected.date&&entry.meal===selected.meal&&entry.status===selected.status);
     const items=matching.flatMap(entry=>entry.items.map(item=>({item,entryId:entry.id})));
     recorded.replaceChildren(make('h4','',`この食事の記録（${items.length}品）`));
-    if(!items.length){recorded.append(make('p','field-note','まだ記録がありません。上の料理から追加してください。'));return;}
+    if(!items.length)return;
     const list=make('ul','quick-record-entry-list');
     for(const {item,entryId} of items){const row=make('li'),portion=item.portion??{amount:1,unit:'人分'};row.append(button(item.name,act(()=>onOpenItem(structuredClone(item))),'button-text quick-record-item-name'),make('span','quick-record-item-amount',`${rounded(item.quantity*portion.amount)} ${portion.unit}`));
       if(onEditItem && !item.batchId)row.append(button('材料・量を編集',act(()=>onEditItem(structuredClone(item),context(),entryId)),'button-secondary quick-record-edit'));

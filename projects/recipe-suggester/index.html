@@ -4,49 +4,49 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Meal Paletteは食事と栄養のノート。種類とメニューを選んで記録し、栄養の振り返りから献立と買い物へつなげます。">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-fNgZI1ob4gF7r6sgK37LAFRBlthFgXH6z0vFhq/n3i0=' https://apis.google.com; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com; frame-src https://*.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-hE/iD7NR8ymSh25fv3vqULdTDCzoMlxhRVFdYWc3Je0=' https://apis.google.com; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com; frame-src https://*.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="theme-color" content="#25352f">
 <title>Meal Palette｜食事と栄養のノート</title>
 <link rel="icon" href="assets/icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/icons/favicon-48.png" sizes="48x48" type="image/png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=4.4.0">
-<link rel="stylesheet" href="account.css?v=4.4.0">
-  <link rel="stylesheet" href="salad-builder.css?v=4.4.0">
-  <link rel="stylesheet" href="dish-customisation.css?v=4.4.0">
-  <link rel="stylesheet" href="food-composer.css?v=4.4.0">
-  <link rel="stylesheet" href="noodle-composer.css?v=4.4.0">
-  <link rel="stylesheet" href="recipe-arrangement.css?v=4.4.0">
-  <link rel="stylesheet" href="meal-sets-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="purchase-conversion-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="batch-cooking-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="restaurant-menu-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="favourites-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="text-log-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="nutrition-basis-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="soup-intake-ui.css?v=4.4.0">
-  <link rel="stylesheet" href="quantity-input.css?v=4.4.0">
-<link rel="stylesheet" href="pantry-ui.css?v=4.4.0">
-<link rel="stylesheet" href="meal-settings-ui.css?v=4.4.0">
-<link rel="stylesheet" href="meal-plan-editor-ui.css?v=4.4.0">
-<link rel="stylesheet" href="shopping-workflow-ui.css?v=4.4.0">
-<link rel="stylesheet" href="catalog-favourites-ui.css?v=4.4.0">
-<link rel="stylesheet" href="quick-record-ui.css?v=4.4.0">
-<link rel="stylesheet" href="record-search-ui.css?v=4.4.0">
-<link rel="stylesheet" href="record-ingredient-edit-ui.css?v=4.4.0">
-<link rel="stylesheet" href="record-summary-ui.css?v=4.4.0">
-<link rel="stylesheet" href="catalog-filter-ui.css?v=4.4.0">
-<script type="importmap" id="app-module-map">{"imports":{"./accompaniment-foods.js":"./accompaniment-foods.js?v=4.4.0","./account-boot.js":"./account-boot.js?v=4.4.0","./account-identity.js":"./account-identity.js?v=4.4.0","./app-start.js":"./app-start.js?v=4.4.0","./app.js":"./app.js?v=4.4.0","./batch-cooking-ui.js":"./batch-cooking-ui.js?v=4.4.0","./batch-cooking.js":"./batch-cooking.js?v=4.4.0","./bistro-foods.js":"./bistro-foods.js?v=4.4.0","./bread-foods.js":"./bread-foods.js?v=4.4.0","./breakfast-recipes.js":"./breakfast-recipes.js?v=4.4.0","./canteen-foods.js":"./canteen-foods.js?v=4.4.0","./catalog-favourites-ui.js":"./catalog-favourites-ui.js?v=4.4.0","./catalog-filter-ui.js":"./catalog-filter-ui.js?v=4.4.0","./catalog-metadata.js":"./catalog-metadata.js?v=4.4.0","./catalog.js":"./catalog.js?v=4.4.0","./celebration-recipes.js":"./celebration-recipes.js?v=4.4.0","./classics-mains.js":"./classics-mains.js?v=4.4.0","./classics-sides.js":"./classics-sides.js?v=4.4.0","./cloud-journal-firestore.js":"./cloud-journal-firestore.js?v=4.4.0","./cloud-journal.js":"./cloud-journal.js?v=4.4.0","./comfort-foods.js":"./comfort-foods.js?v=4.4.0","./confectionery-foods.js":"./confectionery-foods.js?v=4.4.0","./convenience-staples.js":"./convenience-staples.js?v=4.4.0","./cooking-instructions.js":"./cooking-instructions.js?v=4.4.0","./cooking-view.js":"./cooking-view.js?v=4.4.0","./curry-rice-ui.js":"./curry-rice-ui.js?v=4.4.0","./curry-rice.js":"./curry-rice.js?v=4.4.0","./data.js":"./data.js?v=4.4.0","./dessert-foods.js":"./dessert-foods.js?v=4.4.0","./dietary-reference.js":"./dietary-reference.js?v=4.4.0","./dining-log-ui.js":"./dining-log-ui.js?v=4.4.0","./dining-meal.js":"./dining-meal.js?v=4.4.0","./dining-search.js":"./dining-search.js?v=4.4.0","./dish-customisation-ui.js":"./dish-customisation-ui.js?v=4.4.0","./dish-customisation.js":"./dish-customisation.js?v=4.4.0","./dish-hierarchy.js":"./dish-hierarchy.js?v=4.4.0","./drive-photo-link.js":"./drive-photo-link.js?v=4.4.0","./drive-photo-share.js":"./drive-photo-share.js?v=4.4.0","./drive-photo-ui.js":"./drive-photo-ui.js?v=4.4.0","./drive-photos.js":"./drive-photos.js?v=4.4.0","./evening-mains.js":"./evening-mains.js?v=4.4.0","./evening-sides.js":"./evening-sides.js?v=4.4.0","./everyday-foods.js":"./everyday-foods.js?v=4.4.0","./expanded-foods.js":"./expanded-foods.js?v=4.4.0","./familiar-mains.js":"./familiar-mains.js?v=4.4.0","./familiar-sides.js":"./familiar-sides.js?v=4.4.0","./family-dinners-ui.js":"./family-dinners-ui.js?v=4.4.0","./favourites-ui.js":"./favourites-ui.js?v=4.4.0","./favourites.js":"./favourites.js?v=4.4.0","./food-composer-ui.js":"./food-composer-ui.js?v=4.4.0","./food-composer.js":"./food-composer.js?v=4.4.0","./fruit-varieties.js":"./fruit-varieties.js?v=4.4.0","./household-preferences-ui.js":"./household-preferences-ui.js?v=4.4.0","./household-preferences.js":"./household-preferences.js?v=4.4.0","./ingredient-nutrients.js":"./ingredient-nutrients.js?v=4.4.0","./intake.js":"./intake.js?v=4.4.0","./japanese-search.js":"./japanese-search.js?v=4.4.0","./journal-history.js":"./journal-history.js?v=4.4.0","./journal.js":"./journal.js?v=4.4.0","./kyoto-foods.js":"./kyoto-foods.js?v=4.4.0","./launch-screen.js":"./launch-screen.js?v=4.4.0","./mapo-foods.js":"./mapo-foods.js?v=4.4.0","./mapo-nutrition.js":"./mapo-nutrition.js?v=4.4.0","./meal-occasions.js":"./meal-occasions.js?v=4.4.0","./meal-overlap.js":"./meal-overlap.js?v=4.4.0","./meal-plan-editor-ui.js":"./meal-plan-editor-ui.js?v=4.4.0","./meal-profiles.js":"./meal-profiles.js?v=4.4.0","./meal-sets-ui.js":"./meal-sets-ui.js?v=4.4.0","./meal-sets.js":"./meal-sets.js?v=4.4.0","./meal-settings-ui.js":"./meal-settings-ui.js?v=4.4.0","./meal-suitability.js":"./meal-suitability.js?v=4.4.0","./meat-choice-foods.js":"./meat-choice-foods.js?v=4.4.0","./meat-choices-ui.js":"./meat-choices-ui.js?v=4.4.0","./meat-choices.js":"./meat-choices.js?v=4.4.0","./menu-feedback.js":"./menu-feedback.js?v=4.4.0","./menu-variations.js":"./menu-variations.js?v=4.4.0","./noodle-composer-ui.js":"./noodle-composer-ui.js?v=4.4.0","./noodle-composer.js":"./noodle-composer.js?v=4.4.0","./noodle-foods.js":"./noodle-foods.js?v=4.4.0","./nutrient-format.js":"./nutrient-format.js?v=4.4.0","./nutrition-basis-ui.js":"./nutrition-basis-ui.js?v=4.4.0","./nutrition-basis.js":"./nutrition-basis.js?v=4.4.0","./nutrition.js":"./nutrition.js?v=4.4.0","./occasion-calendar.js":"./occasion-calendar.js?v=4.4.0","./occasion-classics.js":"./occasion-classics.js?v=4.4.0","./occasion-recipe.js":"./occasion-recipe.js?v=4.4.0","./onboarding.js":"./onboarding.js?v=4.4.0","./palette-foods.js":"./palette-foods.js?v=4.4.0","./pantry-catalog.js":"./pantry-catalog.js?v=4.4.0","./pantry-extra-ingredients.js":"./pantry-extra-ingredients.js?v=4.4.0","./pantry-transfer.js":"./pantry-transfer.js?v=4.4.0","./pantry-ui.js":"./pantry-ui.js?v=4.4.0","./performance-foods.js":"./performance-foods.js?v=4.4.0","./personal-nutrition.js":"./personal-nutrition.js?v=4.4.0","./personal-profile-ui.js":"./personal-profile-ui.js?v=4.4.0","./planner-personalization.js":"./planner-personalization.js?v=4.4.0","./planner.js":"./planner.js?v=4.4.0","./portion-guide.js":"./portion-guide.js?v=4.4.0","./prepared-foods.js":"./prepared-foods.js?v=4.4.0","./purchase-conversion-ui.js":"./purchase-conversion-ui.js?v=4.4.0","./purchase-conversion.js":"./purchase-conversion.js?v=4.4.0","./pwa-ui.js":"./pwa-ui.js?v=4.4.0","./quantity-input.js":"./quantity-input.js?v=4.4.0","./quick-record-ui.js":"./quick-record-ui.js?v=4.4.0","./recipe-arrangement-ui.js":"./recipe-arrangement-ui.js?v=4.4.0","./recipe-arrangement.js":"./recipe-arrangement.js?v=4.4.0","./recipe-artwork-manifest.js":"./recipe-artwork-manifest.js?v=4.4.0","./recipe-illustration-ui.js":"./recipe-illustration-ui.js?v=4.4.0","./recipe-illustration.js":"./recipe-illustration.js?v=4.4.0","./recipe-photo-image.js":"./recipe-photo-image.js?v=4.4.0","./record-actions.js":"./record-actions.js?v=4.4.0","./record-ingredient-edit-ui.js":"./record-ingredient-edit-ui.js?v=4.4.0","./record-ingredient-edit.js":"./record-ingredient-edit.js?v=4.4.0","./record-search-ui.js":"./record-search-ui.js?v=4.4.0","./record-summary-ui.js":"./record-summary-ui.js?v=4.4.0","./record-summary.js":"./record-summary.js?v=4.4.0","./recorded-dinner.js":"./recorded-dinner.js?v=4.4.0","./restaurant-menu-ui.js":"./restaurant-menu-ui.js?v=4.4.0","./restaurant-menu.js":"./restaurant-menu.js?v=4.4.0","./salad-builder-ui.js":"./salad-builder-ui.js?v=4.4.0","./salad-builder.js":"./salad-builder.js?v=4.4.0","./saved-plan.js":"./saved-plan.js?v=4.4.0","./seafood-foods.js":"./seafood-foods.js?v=4.4.0","./seasonal-autumn-winter.js":"./seasonal-autumn-winter.js?v=4.4.0","./seasonal-preference.js":"./seasonal-preference.js?v=4.4.0","./seasonal-spring-summer.js":"./seasonal-spring-summer.js?v=4.4.0","./service-worker.js":"./service-worker.js?v=4.4.0","./settings-tabs.js":"./settings-tabs.js?v=4.4.0","./shopping-categories.js":"./shopping-categories.js?v=4.4.0","./shopping-status.js":"./shopping-status.js?v=4.4.0","./shopping-workflow-ui.js":"./shopping-workflow-ui.js?v=4.4.0","./shopping-workflow.js":"./shopping-workflow.js?v=4.4.0","./shopping.js":"./shopping.js?v=4.4.0","./simmered-foods.js":"./simmered-foods.js?v=4.4.0","./soup-intake-ui.js":"./soup-intake-ui.js?v=4.4.0","./soup-intake.js":"./soup-intake.js?v=4.4.0","./soup311-foods.js":"./soup311-foods.js?v=4.4.0","./storage.js":"./storage.js?v=4.4.0","./strained-stock.js":"./strained-stock.js?v=4.4.0","./sushi-foods.js":"./sushi-foods.js?v=4.4.0","./tabs.js":"./tabs.js?v=4.4.0","./takeaway-foods.js":"./takeaway-foods.js?v=4.4.0","./taste-feedback.js":"./taste-feedback.js?v=4.4.0","./tavern-foods.js":"./tavern-foods.js?v=4.4.0","./text-log-configurator-ui.js":"./text-log-configurator-ui.js?v=4.4.0","./text-log-ui.js":"./text-log-ui.js?v=4.4.0","./text-log.js":"./text-log.js?v=4.4.0","./varied-recipes.js":"./varied-recipes.js?v=4.4.0","./weekly-review.js":"./weekly-review.js?v=4.4.0","./world-foods.js":"./world-foods.js?v=4.4.0"}}</script>
+<link rel="stylesheet" href="styles.css?v=4.5.0">
+<link rel="stylesheet" href="account.css?v=4.5.0">
+  <link rel="stylesheet" href="salad-builder.css?v=4.5.0">
+  <link rel="stylesheet" href="dish-customisation.css?v=4.5.0">
+  <link rel="stylesheet" href="food-composer.css?v=4.5.0">
+  <link rel="stylesheet" href="noodle-composer.css?v=4.5.0">
+  <link rel="stylesheet" href="recipe-arrangement.css?v=4.5.0">
+  <link rel="stylesheet" href="meal-sets-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="purchase-conversion-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="batch-cooking-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="restaurant-menu-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="favourites-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="text-log-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="nutrition-basis-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="soup-intake-ui.css?v=4.5.0">
+  <link rel="stylesheet" href="quantity-input.css?v=4.5.0">
+<link rel="stylesheet" href="pantry-ui.css?v=4.5.0">
+<link rel="stylesheet" href="meal-settings-ui.css?v=4.5.0">
+<link rel="stylesheet" href="meal-plan-editor-ui.css?v=4.5.0">
+<link rel="stylesheet" href="shopping-workflow-ui.css?v=4.5.0">
+<link rel="stylesheet" href="catalog-favourites-ui.css?v=4.5.0">
+<link rel="stylesheet" href="quick-record-ui.css?v=4.5.0">
+<link rel="stylesheet" href="record-search-ui.css?v=4.5.0">
+<link rel="stylesheet" href="record-ingredient-edit-ui.css?v=4.5.0">
+<link rel="stylesheet" href="record-summary-ui.css?v=4.5.0">
+<link rel="stylesheet" href="catalog-filter-ui.css?v=4.5.0">
+<script type="importmap" id="app-module-map">{"imports":{"./accompaniment-foods.js":"./accompaniment-foods.js?v=4.5.0","./account-boot.js":"./account-boot.js?v=4.5.0","./account-identity.js":"./account-identity.js?v=4.5.0","./app-start.js":"./app-start.js?v=4.5.0","./app.js":"./app.js?v=4.5.0","./batch-cooking-ui.js":"./batch-cooking-ui.js?v=4.5.0","./batch-cooking.js":"./batch-cooking.js?v=4.5.0","./bistro-foods.js":"./bistro-foods.js?v=4.5.0","./bread-foods.js":"./bread-foods.js?v=4.5.0","./breakfast-recipes.js":"./breakfast-recipes.js?v=4.5.0","./canteen-foods.js":"./canteen-foods.js?v=4.5.0","./catalog-favourites-ui.js":"./catalog-favourites-ui.js?v=4.5.0","./catalog-filter-ui.js":"./catalog-filter-ui.js?v=4.5.0","./catalog-metadata.js":"./catalog-metadata.js?v=4.5.0","./catalog.js":"./catalog.js?v=4.5.0","./celebration-recipes.js":"./celebration-recipes.js?v=4.5.0","./classics-mains.js":"./classics-mains.js?v=4.5.0","./classics-sides.js":"./classics-sides.js?v=4.5.0","./cloud-journal-firestore.js":"./cloud-journal-firestore.js?v=4.5.0","./cloud-journal.js":"./cloud-journal.js?v=4.5.0","./comfort-foods.js":"./comfort-foods.js?v=4.5.0","./confectionery-foods.js":"./confectionery-foods.js?v=4.5.0","./convenience-staples.js":"./convenience-staples.js?v=4.5.0","./cooking-instructions.js":"./cooking-instructions.js?v=4.5.0","./cooking-view.js":"./cooking-view.js?v=4.5.0","./curry-rice-ui.js":"./curry-rice-ui.js?v=4.5.0","./curry-rice.js":"./curry-rice.js?v=4.5.0","./data.js":"./data.js?v=4.5.0","./dessert-foods.js":"./dessert-foods.js?v=4.5.0","./dietary-reference.js":"./dietary-reference.js?v=4.5.0","./dining-log-ui.js":"./dining-log-ui.js?v=4.5.0","./dining-meal.js":"./dining-meal.js?v=4.5.0","./dining-search.js":"./dining-search.js?v=4.5.0","./dish-customisation-ui.js":"./dish-customisation-ui.js?v=4.5.0","./dish-customisation.js":"./dish-customisation.js?v=4.5.0","./dish-hierarchy.js":"./dish-hierarchy.js?v=4.5.0","./drive-photo-link.js":"./drive-photo-link.js?v=4.5.0","./drive-photo-share.js":"./drive-photo-share.js?v=4.5.0","./drive-photo-ui.js":"./drive-photo-ui.js?v=4.5.0","./drive-photos.js":"./drive-photos.js?v=4.5.0","./evening-mains.js":"./evening-mains.js?v=4.5.0","./evening-sides.js":"./evening-sides.js?v=4.5.0","./everyday-foods.js":"./everyday-foods.js?v=4.5.0","./expanded-foods.js":"./expanded-foods.js?v=4.5.0","./familiar-mains.js":"./familiar-mains.js?v=4.5.0","./familiar-sides.js":"./familiar-sides.js?v=4.5.0","./family-dinners-ui.js":"./family-dinners-ui.js?v=4.5.0","./favourites-ui.js":"./favourites-ui.js?v=4.5.0","./favourites.js":"./favourites.js?v=4.5.0","./food-composer-ui.js":"./food-composer-ui.js?v=4.5.0","./food-composer.js":"./food-composer.js?v=4.5.0","./fruit-varieties.js":"./fruit-varieties.js?v=4.5.0","./household-preferences-ui.js":"./household-preferences-ui.js?v=4.5.0","./household-preferences.js":"./household-preferences.js?v=4.5.0","./ingredient-nutrients.js":"./ingredient-nutrients.js?v=4.5.0","./intake.js":"./intake.js?v=4.5.0","./japanese-search.js":"./japanese-search.js?v=4.5.0","./journal-history.js":"./journal-history.js?v=4.5.0","./journal.js":"./journal.js?v=4.5.0","./kyoto-foods.js":"./kyoto-foods.js?v=4.5.0","./launch-screen.js":"./launch-screen.js?v=4.5.0","./mapo-foods.js":"./mapo-foods.js?v=4.5.0","./mapo-nutrition.js":"./mapo-nutrition.js?v=4.5.0","./meal-occasions.js":"./meal-occasions.js?v=4.5.0","./meal-overlap.js":"./meal-overlap.js?v=4.5.0","./meal-plan-editor-ui.js":"./meal-plan-editor-ui.js?v=4.5.0","./meal-profiles.js":"./meal-profiles.js?v=4.5.0","./meal-sets-ui.js":"./meal-sets-ui.js?v=4.5.0","./meal-sets.js":"./meal-sets.js?v=4.5.0","./meal-settings-ui.js":"./meal-settings-ui.js?v=4.5.0","./meal-suitability.js":"./meal-suitability.js?v=4.5.0","./meat-choice-foods.js":"./meat-choice-foods.js?v=4.5.0","./meat-choices-ui.js":"./meat-choices-ui.js?v=4.5.0","./meat-choices.js":"./meat-choices.js?v=4.5.0","./menu-feedback.js":"./menu-feedback.js?v=4.5.0","./menu-variations.js":"./menu-variations.js?v=4.5.0","./noodle-composer-ui.js":"./noodle-composer-ui.js?v=4.5.0","./noodle-composer.js":"./noodle-composer.js?v=4.5.0","./noodle-foods.js":"./noodle-foods.js?v=4.5.0","./nutrient-format.js":"./nutrient-format.js?v=4.5.0","./nutrition-basis-ui.js":"./nutrition-basis-ui.js?v=4.5.0","./nutrition-basis.js":"./nutrition-basis.js?v=4.5.0","./nutrition.js":"./nutrition.js?v=4.5.0","./occasion-calendar.js":"./occasion-calendar.js?v=4.5.0","./occasion-classics.js":"./occasion-classics.js?v=4.5.0","./occasion-recipe.js":"./occasion-recipe.js?v=4.5.0","./onboarding.js":"./onboarding.js?v=4.5.0","./palette-foods.js":"./palette-foods.js?v=4.5.0","./pantry-catalog.js":"./pantry-catalog.js?v=4.5.0","./pantry-extra-ingredients.js":"./pantry-extra-ingredients.js?v=4.5.0","./pantry-transfer.js":"./pantry-transfer.js?v=4.5.0","./pantry-ui.js":"./pantry-ui.js?v=4.5.0","./performance-foods.js":"./performance-foods.js?v=4.5.0","./personal-nutrition.js":"./personal-nutrition.js?v=4.5.0","./personal-profile-ui.js":"./personal-profile-ui.js?v=4.5.0","./planner-personalization.js":"./planner-personalization.js?v=4.5.0","./planner.js":"./planner.js?v=4.5.0","./portion-guide.js":"./portion-guide.js?v=4.5.0","./prepared-foods.js":"./prepared-foods.js?v=4.5.0","./purchase-conversion-ui.js":"./purchase-conversion-ui.js?v=4.5.0","./purchase-conversion.js":"./purchase-conversion.js?v=4.5.0","./pwa-ui.js":"./pwa-ui.js?v=4.5.0","./quantity-input.js":"./quantity-input.js?v=4.5.0","./quick-record-ui.js":"./quick-record-ui.js?v=4.5.0","./recipe-arrangement-ui.js":"./recipe-arrangement-ui.js?v=4.5.0","./recipe-arrangement.js":"./recipe-arrangement.js?v=4.5.0","./recipe-artwork-manifest.js":"./recipe-artwork-manifest.js?v=4.5.0","./recipe-illustration-ui.js":"./recipe-illustration-ui.js?v=4.5.0","./recipe-illustration.js":"./recipe-illustration.js?v=4.5.0","./recipe-photo-image.js":"./recipe-photo-image.js?v=4.5.0","./record-actions.js":"./record-actions.js?v=4.5.0","./record-ingredient-edit-ui.js":"./record-ingredient-edit-ui.js?v=4.5.0","./record-ingredient-edit.js":"./record-ingredient-edit.js?v=4.5.0","./record-search-ui.js":"./record-search-ui.js?v=4.5.0","./record-summary-ui.js":"./record-summary-ui.js?v=4.5.0","./record-summary.js":"./record-summary.js?v=4.5.0","./recorded-dinner.js":"./recorded-dinner.js?v=4.5.0","./regional-occasion-recipes.js":"./regional-occasion-recipes.js?v=4.5.0","./restaurant-menu-ui.js":"./restaurant-menu-ui.js?v=4.5.0","./restaurant-menu.js":"./restaurant-menu.js?v=4.5.0","./salad-builder-ui.js":"./salad-builder-ui.js?v=4.5.0","./salad-builder.js":"./salad-builder.js?v=4.5.0","./saved-plan.js":"./saved-plan.js?v=4.5.0","./seafood-foods.js":"./seafood-foods.js?v=4.5.0","./seasonal-autumn-winter.js":"./seasonal-autumn-winter.js?v=4.5.0","./seasonal-preference.js":"./seasonal-preference.js?v=4.5.0","./seasonal-spring-summer.js":"./seasonal-spring-summer.js?v=4.5.0","./service-worker.js":"./service-worker.js?v=4.5.0","./settings-tabs.js":"./settings-tabs.js?v=4.5.0","./shopping-categories.js":"./shopping-categories.js?v=4.5.0","./shopping-status.js":"./shopping-status.js?v=4.5.0","./shopping-workflow-ui.js":"./shopping-workflow-ui.js?v=4.5.0","./shopping-workflow.js":"./shopping-workflow.js?v=4.5.0","./shopping.js":"./shopping.js?v=4.5.0","./simmered-foods.js":"./simmered-foods.js?v=4.5.0","./soup-intake-ui.js":"./soup-intake-ui.js?v=4.5.0","./soup-intake.js":"./soup-intake.js?v=4.5.0","./soup311-foods.js":"./soup311-foods.js?v=4.5.0","./storage.js":"./storage.js?v=4.5.0","./strained-stock.js":"./strained-stock.js?v=4.5.0","./sushi-foods.js":"./sushi-foods.js?v=4.5.0","./tabs.js":"./tabs.js?v=4.5.0","./takeaway-foods.js":"./takeaway-foods.js?v=4.5.0","./taste-feedback.js":"./taste-feedback.js?v=4.5.0","./tavern-foods.js":"./tavern-foods.js?v=4.5.0","./text-log-configurator-ui.js":"./text-log-configurator-ui.js?v=4.5.0","./text-log-ui.js":"./text-log-ui.js?v=4.5.0","./text-log.js":"./text-log.js?v=4.5.0","./varied-recipes.js":"./varied-recipes.js?v=4.5.0","./weekly-review.js":"./weekly-review.js?v=4.5.0","./world-foods.js":"./world-foods.js?v=4.5.0","./world-occasion-recipes.js":"./world-occasion-recipes.js?v=4.5.0"}}</script>
 </head>
 <body data-account-locked>
-<div id="launch-screen" aria-hidden="true" hidden><img width="1143" height="2048" alt="" data-src="assets/brand/meal-palette-splash.jpg"></div>
-<script src="launch-screen.js?v=4.4.0"></script>
+<div id="launch-screen" aria-hidden="true" hidden><img width="1143" height="2048" alt="" data-src="assets/brand/meal-palette-splash.jpg"><span class="launch-version">v4.5.0</span></div>
+<script src="launch-screen.js?v=4.5.0"></script>
 <main id="account-gate" class="account-gate" aria-labelledby="account-title">
 <div class="account-card">
 <img src="assets/icons/icon-192.png" width="72" height="72" alt="">
 <h1 id="account-title">Meal Palette</h1>
-<p>Googleアカウントでログインすると、献立と栄養の記録をほかの端末でも開けます。</p>
+<p>献立と食事の記録をGoogleアカウントに保存します。</p>
 <button class="button-primary" id="google-login" type="button" disabled>Googleでログイン</button>
 <p id="account-gate-message" role="status">ログイン状態を確認しています…</p>
 <button class="button-secondary" id="account-retry" type="button" hidden>もう一度読み込む</button>
@@ -75,7 +75,7 @@
 <a class="skip-link" href="#main">本文へ移動</a><div class="app-layout">
 <aside class="app-sidebar"><a class="brand" href="./" aria-label="Meal Palette ホーム"><img src="assets/icons/icon-192.png" alt="" width="48" height="48"><span>Meal<span class="brand-second">Palette<span class="brand-dot">.</span></span></span></a><p class="sidebar-caption">食事と栄養のノート</p>
 <nav class="app-tabs" role="tablist" aria-label="アプリの機能" aria-orientation="vertical"><button id="tab-planner" class="app-tab" type="button" role="tab" aria-controls="panel-planner" aria-selected="true" tabindex="0" data-tab="planner"><svg viewbox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="12" r="7"></circle><path d="M2 3v7m3-7v7M2 7h3m-1.5 3v11M22 3v18"></path></svg><span>献立</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-record" class="app-tab" type="button" role="tab" aria-controls="panel-record" aria-selected="false" tabindex="-1" data-tab="record"><svg viewbox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M7 3v4m10-4v4M3 10h18M7 14h2m4 0h2m-8 4h2"></path></svg><span>記録</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-nutrition" class="app-tab" type="button" role="tab" aria-controls="panel-nutrition" aria-selected="false" tabindex="-1" data-tab="nutrition"><svg viewbox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h17M8 16v-4m5 4V7m5 9v-6"></path></svg><span>栄養</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-catalog" class="app-tab" type="button" role="tab" aria-controls="panel-catalog" aria-selected="false" tabindex="-1" data-tab="catalog"><svg viewbox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg><span>メニュー</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-kitchen" class="app-tab" type="button" role="tab" aria-controls="panel-kitchen" aria-selected="false" tabindex="-1" data-tab="kitchen"><svg viewbox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l2 14H3L5 7Z"></path><path d="M8 8V6a4 4 0 0 1 8 0v2"></path></svg><span>買い物</span><span class="tab-arrow" aria-hidden="true">↗</span></button><button id="tab-settings" class="app-tab" type="button" role="tab" aria-controls="panel-settings" aria-selected="false" tabindex="-1" data-tab="settings"><svg viewbox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="m9 3 .5 2.2-2 .9L5.5 5 3 9l1.8 1.5v2.3L3 14l2.5 4 2-.7 2 .9L10 21h4l.5-2.8 2-.9 2 .7 2.5-4-1.8-1.2v-2.3L21 9l-2.5-4-2 1.1-2-.9L14 3H9Z"></path></svg><span>設定</span><span class="tab-arrow" aria-hidden="true">↗</span></button></nav><div class="sidebar-bottom">
-<span class="small-label">YOUR MENU LIBRARY</span><p><strong id="catalog-count">—</strong><span>件のメニュー</span></p><small id="catalog-variant-count"></small>
+<p><strong id="catalog-count">—</strong><span>件のメニュー</span></p><small id="catalog-variant-count"></small>
 <span class="local-note"><i aria-hidden="true"></i>アカウントの記録</span><a href="../../" class="gallery-back" data-browser-only>作品ギャラリー <span aria-hidden="true">↗</span></a>
 </div></aside><div class="app-workspace">
 <div class="account-toolbar" aria-label="アカウント">
@@ -84,10 +84,9 @@
 <button id="account-logout" class="button-text" type="button">ログアウト</button>
 </div>
 <header class="workspace-header"><div>
-<p class="eyebrow">MAKE ROOM FOR GOOD FOOD</p>
-<h1 id="hero-title">食事と栄養をひとつの場所に。</h1>
+<h1 id="hero-title">Meal Palette</h1>
 </div>
-<span class="workspace-version">PERSONAL FOOD JOURNAL <small>v4.4.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
+<span class="workspace-version"><small>v4.5.0</small></span></header><main id="main" class="page-width" tabindex="-1"><div id="app-message" class="notice" role="status" aria-live="polite" hidden></div>
 <section class="panel appearance-settings" id="account-sync-panel" hidden aria-labelledby="account-sync-title">
 <div class="panel-heading"><h3 id="account-sync-title">記録の同期を確認</h3></div>
 <p id="account-sync-state" role="status"></p>
@@ -103,14 +102,14 @@
   スマホにアプリをインストール
 </button>
 <section id="journal-changed" class="panel" role="alert" hidden>
-<p>別の画面で保存データが更新されました。最新の記録で続けるには、この画面を再読み込みしてください。入力途中の内容は消えます。</p>
+<p>別の画面で記録が更新されました。再読み込みすると、入力途中の内容は消えます。</p>
 <button id="reload-journal" type="button" class="button-primary">最新の記録を読み込む</button>
 </section>
 <section id="first-visit" class="welcome-strip" aria-labelledby="first-visit-title" hidden>
-<div><h2 id="first-visit-title">はじめての方へ</h2><p>常備品や避けたい食材を選ぶと、最初の献立から使えます。</p></div>
-<div class="welcome-actions"><button id="first-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="#settings-profile">誕生日・家族構成を設定</a><a class="text-link" href="?demo=week#nutrition" data-sample-link target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only" data-browser-only>（別画面）</span></a><button id="dismiss-first-visit" class="button-text" type="button">閉じる</button></div>
+<div><h2 id="first-visit-title">はじめての方へ</h2></div>
+<div class="welcome-actions"><button id="first-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="#settings-profile">栄養のプロフィールを設定する</a><a class="text-link" href="?demo=week#nutrition" data-sample-link target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only" data-browser-only>（別画面）</span></a><button id="dismiss-first-visit" class="button-text" type="button">閉じる</button></div>
 </section>
-<section id="sample-session" class="welcome-strip" aria-labelledby="sample-title" hidden><div><h2 id="sample-title">1週間のお試し</h2><p>架空の食事記録・明日の予定・買い物リストを操作できます。変更はこの画面だけに反映されます。</p></div>
+<section id="sample-session" class="welcome-strip" aria-labelledby="sample-title" hidden><div><h2 id="sample-title">1週間のお試し</h2><p>サンプルの変更は自分の記録に反映されません。</p></div>
 <div class="welcome-actions"><a class="button-secondary" href="./">お試しを終了</a><button id="sample-reset" class="button-text" type="button">サンプルを最初に戻す</button></div></section>
 <section id="journal-recovery" class="panel journal-recovery" aria-labelledby="recovery-title" role="alert" hidden>
 <h2 id="recovery-title">保存データを保護しています</h2><p>保存内容を読み込めなかったため、記録や設定の保存を止めています。まず元データを書き出してください。バックアップがある場合は読み込んで復旧できます。</p><div class="recovery-actions"><button id="recovery-export" type="button" class="button-primary">元データを書き出す</button><button id="recovery-import" type="button" class="button-secondary">バックアップを読み込む</button><button id="recovery-restart" type="button" class="button-secondary">元データを退避して新しく始める</button></div><p class="field-note">端末内の退避は、ブラウザーの保存データを削除すると一緒に消えます。書き出したファイルは手元に保管してください。</p></section>
@@ -121,10 +120,8 @@
 <div id="quick-record-tools" hidden></div><div id="detailed-record-tools"><section class="calendar-section" id="calendar" aria-labelledby="calendar-title">
       <div class="section-heading">
 <div>
-<p class="eyebrow">FOOD JOURNAL</p>
 <h2 id="calendar-title">毎日の食事</h2>
 </div>
-<p class="section-caption">食べたものも、これからの予定も</p>
 </div>
       <div class="calendar-layout">
         <div class="calendar-board panel">
@@ -143,8 +140,8 @@
           <div class="calendar-legend">
 <span><i class="legend-dot eaten" aria-hidden="true"></i>食べた記録</span><span><i class="legend-dot planned" aria-hidden="true"></i>これからの予定</span>
 </div>
-          <p class="field-note calendar-help">日付を選ぶと、その日の予定と記録を確認できます。食べたら「食べた」に切り替えてください。</p>
-        <label class="check-line day-complete-choice" for="day-complete"><input id="day-complete" type="checkbox"><span>この日の飲食をすべて記録した<small>最近の平均では記録がそろった日を使います。記録0件で完了にすると飲食なしとして集計します。</small></span></label>
+
+        <label class="check-line day-complete-choice" for="day-complete"><input id="day-complete" type="checkbox"><span>この日の飲食をすべて記録した<small>チェックした日を平均に使います。記録が0件なら飲食なしとして数えます。</small></span></label>
 </div>
 
         <div class="day-editor panel" aria-labelledby="selected-date">
@@ -197,19 +194,19 @@
 <option value="枚">枚</option>
 <option value="袋">袋</option><option value="食">食</option><option value="貫">貫</option><option value="切れ">切れ</option><option value="本">本</option></select></label>
 </div>
-<p class="field-note">以下の栄養と材料はこの基準量の分です。</p>
+
 </div>
 <fieldset>
 <legend>基準量の栄養 <span class="optional">分かる項目だけ</span>
 </legend>
-<p class="field-note">商品の表示などを見て入力します。空欄は「不明」として扱い、0にはしません。</p>
+<p class="field-note">商品表示を参考に入力してください。空欄は「不明」になります。</p>
 <div class="manual-nutrients">
 <label for="manual-kcal">エネルギー（kcal）<input id="manual-kcal" type="number" min="0" max="100000" step="0.1" placeholder="不明"></label><label for="manual-protein">たんぱく質（g）<input id="manual-protein" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-fat">脂質（g）<input id="manual-fat" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-carbs">炭水化物（g）<input id="manual-carbs" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-fiber">食物繊維（g）<input id="manual-fiber" type="number" min="0" max="10000" step="0.1" placeholder="不明"></label><label for="manual-salt">食塩相当量（g）<input id="manual-salt" type="number" min="0" max="10000" step="0.01" placeholder="不明"></label>
 </div>
 </fieldset>
-            <label class="check-line save-db-choice" for="manual-save-db"><input id="manual-save-db" type="checkbox"><span>このメニューを自分のデータベースにも保存する<small>次回から自分のメニュー一覧で選べます。</small></span></label>
+            <label class="check-line save-db-choice" for="manual-save-db"><input id="manual-save-db" type="checkbox"><span>このメニューを自分のデータベースにも保存する</span></label>
             <details class="sub-details"><summary>材料・作り方・アレルギーも登録する</summary><div class="details-content">
-<p class="field-note">材料と分量は基準量の分で登録します。材料を登録すると買い物リストにも反映できます。</p>
+<p class="field-note">基準量に使う材料を入力してください。</p>
 <div id="manual-ingredients" class="manual-ingredients"></div>
 <button id="manual-add-ingredient" class="button-secondary compact" type="button">材料を追加</button><label for="manual-steps">作り方 <span class="optional">1行に1つの手順</span><textarea id="manual-steps" rows="4" maxlength="5000" placeholder="例：野菜を食べやすい大きさに切る"></textarea></label><label class="check-line" for="manual-allergens-known"><input id="manual-allergens-known" type="checkbox"><span>アレルギー食材を確認した<small>含まれるものを下で選びます。含まれない場合も確認後にチェックしてください。</small></span></label><div id="manual-allergens" class="choice-grid"></div>
 <p class="field-note">未確認のメニューは自動提案の対象にしません。材料が未登録の場合は、食材の除外条件を確認できません。</p>
@@ -219,7 +216,7 @@
         </div>
       </div>
 <details class="record-reset"><summary>記録をリセットする</summary>
-<p class="field-note">選んだ日の入力や、指定した期間の食事・予定を削除できます。実行前に対象件数を確認します。</p>
+<p class="field-note">削除する期間と記録の件数を確認してください。</p>
 
 <form id="reset-range-form" class="reset-range-form">
 <div class="field-pair"><label for="reset-from">最初の日<input id="reset-from" type="date" required></label><label for="reset-to">最後の日<input id="reset-to" type="date" required></label></div>
@@ -233,7 +230,6 @@
     </div></section><section class="tab-panel" id="panel-nutrition" role="tabpanel" aria-labelledby="tab-nutrition" tabindex="0" hidden><section class="nutrition-section" id="nutrition" aria-labelledby="nutrition-title">
       <div class="section-heading">
 <div>
-<p class="eyebrow">NUTRITION</p>
 <h2 id="nutrition-title">栄養の記録</h2>
 </div>
 <div class="nutrition-controls">
@@ -242,7 +238,7 @@
 <option value="30">30日間</option></select></label>
 </div>
 </div>
-      <p class="section-copy">食べた記録を1人分で集計します。未掲載の項目は「不明」と表示します。 <a href="docs/menu-nutrition-audit.csv" download>全メニューの栄養・分類表（CSV）</a></p>
+      <p class="section-copy">食べた量を1人分で集計します。</p>
       <div id="period-summary" class="period-summary"></div>
 <div id="nutrition-reference-note" class="field-note"></div>
 <a class="text-link" href="#settings-profile">栄養のプロフィールを設定</a>
@@ -260,7 +256,6 @@
     </section><section class="tab-panel" id="panel-planner" role="tabpanel" aria-labelledby="tab-planner" tabindex="0"><section class="" id="planner" aria-labelledby="planner-title">
       <div class="section-heading">
 <div>
-<p class="eyebrow">MEAL PLANNER</p>
 <h2 id="planner-title">次の献立を考える</h2>
 </div>
 <a class="text-link" href="#shopping">買い物リストへ <span aria-hidden="true">↓</span></a>
@@ -286,16 +281,16 @@
 <option value="8">8人分</option></select></label>
 </div>
 <div id="meal-selection"></div>
-<p class="field-note" id="servings-note">調理と買い物の材料を人数分に換算します。栄養は1人分で記録します。</p>
+<p class="field-note" id="servings-note">材料は人数分、栄養は1人分です。</p>
 <label class="choice-label"><input type="checkbox" id="occasion-menus" checked><span>旬の食材や行事の料理を優先する</span></label>
-<p class="field-note">行事の料理は夕食を優先し、夕食を外した日は昼食に提案します。誕生日は「設定」で登録できます。</p>
+
 <details class="settings-details" id="family-event-editor"><summary>家族の記念日・行事を登録</summary><div class="details-content">
-<p class="field-note">入学式・卒業式や地域の行事を、実際に祝う日に合わせられます。</p>
+
 <label for="family-event-date">行事の日付<input id="family-event-date" type="date" min="2000-01-01" max="2100-12-31"></label>
 <label for="family-event-kind">行事の種類<select id="family-event-kind"></select></label>
 <label class="choice-label"><input type="checkbox" id="family-event-annual"><span>毎年同じ月日に祝う</span></label>
 <button class="button-secondary" id="family-event-add" type="button">この行事を保存</button><ul id="family-event-list"></ul>
-<p class="field-note">節分・春分・秋分・十五夜の日付は2020〜2036年に対応しています。2033年の十五夜は祝う日をここで指定してください。</p>
+
 </div></details>
 </div>
 <div id="meal-settings"></div>
@@ -311,12 +306,12 @@
 <button id="ratio-equal" type="button">均等にする</button><button id="ratio-japanese" type="button">和食を多めに</button>
 </div>
 <div id="genre-ratios" class="genre-ratios"></div>
-<p class="field-note">合計 <strong id="ratio-total">100%</strong>。ひとつを変えると残りを自動で配分します。日数が少ない場合は近い割合で提案します。</p>
+<p class="field-note">合計 <strong id="ratio-total">100%</strong>。残りの割合は自動で調整します。</p>
 </div>
-<p class="field-note">ジャンルは優先する目安です。食材を避ける条件は常に優先します。</p>
+
 </div></details>
           <details class="settings-details"><summary>できれば使いたい食材</summary><div class="details-content">
-<label class="sr-only" for="preferred-search">優先したい食材を探す</label><input id="preferred-search" type="search" placeholder="例：鶏肉、じゃがいも" autocomplete="off"><p class="field-note">候補を押して選びます。必ず使う条件ではありません。</p>
+<label class="sr-only" for="preferred-search">優先したい食材を探す</label><input id="preferred-search" type="search" placeholder="例：鶏肉、じゃがいも" autocomplete="off">
 <div id="preferred-selections" class="selected-ingredients preferred-selections"></div>
 <div id="preferred-options" class="ingredient-options"></div>
 </div></details>
@@ -326,18 +321,18 @@
 <details class="allergen-details"><summary>ほかのアレルギー食材</summary><div id="other-allergens" class="choice-grid"></div></details>
 </fieldset></details>
           <details class="settings-details"><summary>追加で避ける食材</summary><div class="details-content">
-<label class="sr-only" for="ingredient-search">避ける食材を探す</label><input id="ingredient-search" type="search" placeholder="例：トマト、しめじ" autocomplete="off"><p class="field-note">選んだ食材と、その食材を原料とする登録済みの材料を除きます。</p>
+<label class="sr-only" for="ingredient-search">避ける食材を探す</label><input id="ingredient-search" type="search" placeholder="例：トマト、しめじ" autocomplete="off"><p class="field-note">選んだ食材を原料とする材料も除きます。</p>
 <div id="ingredient-selections" class="selected-ingredients"></div>
 <div id="ingredient-options" class="ingredient-options"></div>
 </div></details>
-          <p class="allergy-note">加工品や調味料の原材料は商品によって異なります。商品の表示も確認してください。製造・調理中の混入は判定できません。</p>
+          <p class="allergy-note">加工品・調味料は商品表示も確認してください。製造・調理中の混入は判定できません。</p>
 <button class="button-primary generate-button" type="submit">この条件で献立を作る <span aria-hidden="true">↗</span></button>
         </form></aside>
         <div class="plan-section">
 <div class="plan-heading">
 <div>
-<span class="small-label">YOUR NEXT MEALS</span><h3 id="plan-result-title" tabindex="-1">これからの献立</h3>
-<p id="plan-date-label" class="date-label">条件を選んで提案を作成</p>
+<h3 id="plan-result-title" tabindex="-1">これからの献立</h3>
+<p id="plan-date-label" class="date-label"></p>
 </div>
 <button id="plan-save-calendar" class="button-secondary" type="button" disabled>予定としてカレンダーへ</button>
 </div>
@@ -347,24 +342,19 @@
 <button id="plan-back-settings" class="button-text" type="button">献立の条件に戻る</button>
 </div>
 <div id="plan-output"><div class="empty-plan">
-<span class="empty-mark" aria-hidden="true">◒</span><h3>次のごはんをここから。</h3>
-<p>条件を選んで「献立を作る」を押してください。<br>食べた記録があれば、その内容も参考にします。</p>
-<div class="meal-parts">
-<span>主食</span><span>主菜・副菜</span><span>飲み物</span>
-</div>
+<span class="empty-mark" aria-hidden="true">◒</span><h3>まだ献立がありません</h3>
+<p>条件を選んで「この条件で献立を作る」を押してください。</p>
 </div></div>
-<p class="field-note">提案を保存すると「これからの予定」として登録します。実際に食べた内容に合わせて量や料理を直せます。</p>
+
 </div>
       </div>
     </section>
 
-    </section><section class="tab-panel" id="panel-kitchen" role="tabpanel" aria-labelledby="tab-kitchen" tabindex="0" hidden><div class="kitchen-heading"><h2>買い物</h2></div><nav id="kitchen-tabs" class="kitchen-tabs" role="tablist" aria-label="買い物の機能"><button id="kitchen-tab-checklist" type="button" role="tab" data-kitchen-tab="checklist" aria-controls="kitchen-panel-checklist" aria-selected="true" tabindex="0">チェックリスト</button><button id="kitchen-tab-menus" type="button" role="tab" data-kitchen-tab="menus" aria-controls="kitchen-panel-menus" aria-selected="false" tabindex="-1">献立から追加</button><button id="kitchen-tab-purchased" type="button" role="tab" data-kitchen-tab="purchased" aria-controls="kitchen-panel-purchased" aria-selected="false" tabindex="-1">購入済み</button><button id="kitchen-tab-pantry" type="button" role="tab" data-kitchen-tab="pantry" aria-controls="kitchen-panel-pantry" aria-selected="false" tabindex="-1">手持ち食材</button><button id="kitchen-tab-settings" type="button" role="tab" data-kitchen-tab="settings" aria-controls="kitchen-panel-settings" aria-selected="false" tabindex="-1">買い物設定</button><button id="kitchen-tab-help" type="button" role="tab" data-kitchen-tab="help" aria-controls="kitchen-panel-help" aria-selected="false" tabindex="-1">使い方</button></nav><section id="kitchen-panel-checklist" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-checklist" tabindex="0" ><div id="shopping"><div id="shopping-list"></div><div class="shopping-actions"><button id="copy-shopping" class="button-secondary" type="button">未購入リストをコピー</button><button id="shopping-add-more" class="button-text" type="button">献立から追加</button></div><div id="shopping-copy-fallback" hidden><label for="shopping-copy-text">長押しまたは右クリックでコピーできます<textarea id="shopping-copy-text" rows="6" readonly></textarea></label></div></div></section><section id="kitchen-panel-menus" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-menus" tabindex="0" hidden><div class="shopping-source-controls"><label for="shopping-source">献立の選択<select id="shopping-source"><option value="draft">作成した献立</option><option value="calendar">カレンダーの予定</option><option value="menu">メニューから選んだ料理</option></select></label><div class="field-pair"><label for="shopping-from">最初の日<input id="shopping-from" type="date"></label><label for="shopping-days">買い物する日数<select id="shopping-days"><option value="1">1日分</option><option value="2">2日分</option><option value="3" selected>3日分</option><option value="4">4日分</option><option value="5">5日分</option><option value="6">6日分</option><option value="7">7日分</option></select></label></div><div class="shopping-range-actions"><button id="shopping-prev-range" type="button" class="button-text">前の期間</button><button id="shopping-next-range" type="button" class="button-text">次の期間</button></div></div><p id="shopping-status" role="status"></p><div id="shopping-review-list"></div></section><section id="kitchen-panel-purchased" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-purchased" tabindex="0" hidden><div id="shopping-purchased-list"></div></section><section id="kitchen-panel-pantry" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-pantry" tabindex="0" hidden><div id="pantry"><h2>手持ちの食材</h2><div id="pantry-tools"></div></div></section><section id="kitchen-panel-settings" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-settings" tabindex="0" hidden><h2>買い物に含めない食材</h2><label class="choice-label"><input id="shopping-omit-common" type="checkbox">水と基本調味料をまとめて外す</label><div id="shopping-omitted-choices" class="choice-grid"></div><label for="shopping-omit-search">ほかの食材を探す<input id="shopping-omit-search" type="search" placeholder="例：こしょう"></label><div id="shopping-omit-options" class="ingredient-options"></div><div id="shopping-omitted-selections" class="selected-ingredients"></div></section><section id="kitchen-panel-help" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-help" tabindex="0" hidden><h2>使い方</h2><details class="help-topic"><summary>買い物の進め方</summary><p>「献立から追加」で2〜3日分などの期間を選びます。必要な食材にチェックを入れ「チェックリストに追加」を押してください。同じ食材はまとめて表示します。</p></details><details class="help-topic"><summary>買ったものをチェックする</summary><p>購入チェックを入れた食材は「購入済み」へ移ります。間違えた場合は購入を取り消せます。食材を開くと使う料理と必要量を確認できます。</p></details><details class="help-topic"><summary>1週間の献立を数回に分けて買う</summary><p>作成した献立は買い物用に保存します。「次の期間」で次の2〜3日分へ進めます。各料理の表示で購入済み・一部購入済み・未購入を確認してください。別の期間を追加しても前の購入記録は残ります。</p></details><details class="help-topic"><summary>購入済みの表示期間</summary><p>「購入済み」には直近7日分を表示します。7日を過ぎた項目は一覧から隠れます。献立の購入状況を照合する記録は残るため、同じ食材をもう一度買う扱いにはしません。</p></details><details class="help-topic"><summary>手持ちの食材を探す</summary><p>ジャンルから食材の種類へ進みます。肉なら牛肉・豚肉・鶏肉などを選んでから部位を探せます。名前で検索することもできます。手持ちは同じ食材を合算した後に差し引きます。「購入済み」では材料を手持ちに追加できます。「記録」のカレンダーでは予定を開き、調理に使った分を確認して差し引けます。</p></details><details class="help-topic"><summary>水や調味料を省く</summary><p>「買い物設定」で常備しているものを選びます。水と基本調味料をまとめて外した後も個別に選び直せます。レシピの材料や栄養は変わりません。</p></details><details class="help-topic"><summary>朝・昼・夕の条件を選ぶ</summary><p>「献立」で食事ごとの主食と量を選びます。朝はご飯・パン・どちらか・オートミール・主食なしなどを選べます。飲み物やヨーグルト、果物も追加できます。昼と夜はご飯もの・麺類・サンドイッチなどを選ぶか、おまかせにできます。</p></details><details class="help-topic"><summary>一食だけ変更・追加する</summary><p>各献立の「料理を替える」で主食やジャンルなどを指定し直せます。「＋ 料理を追加」では小鉢・ヨーグルト・果物などをその食事だけに付けられます。変更後の料理は買い物の追加候補にも反映します。</p></details><details class="help-topic"><summary>主食の量と副菜を指定する</summary><p>主食の量はおかずと別々に選べます。主食を数値で固定した場合はその量を使います。朝・昼・夕の「副菜・汁物の詳細設定」では副菜の数、1品目の種類、汁物の有無を指定できます。</p></details><details class="help-topic"><summary>量と材料の目安</summary><p>自動提案のご飯は小盛り100g・ふつう150g・大盛り200gが基本です。パンは1枚や半枚、おかずは少なめ・ふつう・多めで表示します。材料の重量と個数は調理しやすい目安です。大きさや食べる量に合わせて調整してください。</p></details><details class="help-topic"><summary>栄養とアレルギー</summary><p>栄養は材料や商品表示から求めた目安です。カロリーは整数、その他は小数第一位まで表示します。未登録の成分は不明のまま扱います。加工品の原材料とアレルギー表示は実際の商品でも確認してください。</p></details><details class="help-topic"><summary>記録・お気に入り・保存</summary><p>「記録」で食べた内容を残し「栄養」で振り返れます。お気に入りは記録とメニューの両方から呼び出せます。同じGoogleアカウントでログインすると、ほかの端末でも記録を開けます。同期の状況は「設定」で確認できます。</p></details><details class="help-topic"><summary>参考にした資料</summary><p><a href="https://www.maff.go.jp/j/syokuiku/minna_navi/recipe/healthy.html" target="_blank" rel="noopener">農林水産省の朝食メニュー</a>、<a href="https://park.ajinomoto.co.jp/contents/basic/ingredients_bunryou/" target="_blank" rel="noopener">味の素の食材の目安量</a>、<a href="https://kyo-kenko.city.kyoto.lg.jp/food-education/trivia/seasoning/" target="_blank" rel="noopener">京都市の調味料の量</a>を参考にしています。食材の大きさや品種で量は変わります。アプリのご飯の小盛り・大盛りは選びやすさのために定めた量です。</p></details></section>
+    </section><section class="tab-panel" id="panel-kitchen" role="tabpanel" aria-labelledby="tab-kitchen" tabindex="0" hidden><div class="kitchen-heading"><h2>買い物</h2></div><nav id="kitchen-tabs" class="kitchen-tabs" role="tablist" aria-label="買い物の機能"><button id="kitchen-tab-checklist" type="button" role="tab" data-kitchen-tab="checklist" aria-controls="kitchen-panel-checklist" aria-selected="true" tabindex="0">チェックリスト</button><button id="kitchen-tab-menus" type="button" role="tab" data-kitchen-tab="menus" aria-controls="kitchen-panel-menus" aria-selected="false" tabindex="-1">献立から追加</button><button id="kitchen-tab-purchased" type="button" role="tab" data-kitchen-tab="purchased" aria-controls="kitchen-panel-purchased" aria-selected="false" tabindex="-1">購入済み</button><button id="kitchen-tab-pantry" type="button" role="tab" data-kitchen-tab="pantry" aria-controls="kitchen-panel-pantry" aria-selected="false" tabindex="-1">手持ち食材</button><button id="kitchen-tab-settings" type="button" role="tab" data-kitchen-tab="settings" aria-controls="kitchen-panel-settings" aria-selected="false" tabindex="-1">買い物設定</button><button id="kitchen-tab-help" type="button" role="tab" data-kitchen-tab="help" aria-controls="kitchen-panel-help" aria-selected="false" tabindex="-1">使い方</button></nav><section id="kitchen-panel-checklist" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-checklist" tabindex="0" ><div id="shopping"><div id="shopping-list"></div><div class="shopping-actions"><button id="copy-shopping" class="button-secondary" type="button">未購入リストをコピー</button><button id="shopping-add-more" class="button-text" type="button">献立から追加</button></div><div id="shopping-copy-fallback" hidden><label for="shopping-copy-text">長押しまたは右クリックでコピーできます<textarea id="shopping-copy-text" rows="6" readonly></textarea></label></div></div></section><section id="kitchen-panel-menus" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-menus" tabindex="0" hidden><div class="shopping-source-controls"><label for="shopping-source">献立の選択<select id="shopping-source"><option value="draft">作成した献立</option><option value="calendar">カレンダーの予定</option><option value="menu">メニューから選んだ料理</option></select></label><div class="field-pair"><label for="shopping-from">最初の日<input id="shopping-from" type="date"></label><label for="shopping-days">買い物する日数<select id="shopping-days"><option value="1">1日分</option><option value="2">2日分</option><option value="3" selected>3日分</option><option value="4">4日分</option><option value="5">5日分</option><option value="6">6日分</option><option value="7">7日分</option></select></label></div><div class="shopping-range-actions"><button id="shopping-prev-range" type="button" class="button-text">前の期間</button><button id="shopping-next-range" type="button" class="button-text">次の期間</button></div></div><p id="shopping-status" role="status"></p><div id="shopping-review-list"></div></section><section id="kitchen-panel-purchased" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-purchased" tabindex="0" hidden><div id="shopping-purchased-list"></div></section><section id="kitchen-panel-pantry" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-pantry" tabindex="0" hidden><div id="pantry"><h2>手持ちの食材</h2><div id="pantry-tools"></div></div></section><section id="kitchen-panel-settings" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-settings" tabindex="0" hidden><h2>買い物に含めない食材</h2><label class="choice-label"><input id="shopping-omit-common" type="checkbox">水と基本調味料をまとめて外す</label><div id="shopping-omitted-choices" class="choice-grid"></div><label for="shopping-omit-search">ほかの食材を探す<input id="shopping-omit-search" type="search" placeholder="例：こしょう"></label><div id="shopping-omit-options" class="ingredient-options"></div><div id="shopping-omitted-selections" class="selected-ingredients"></div></section><section id="kitchen-panel-help" class="kitchen-tab-panel panel" role="tabpanel" aria-labelledby="kitchen-tab-help" tabindex="0" hidden><h2>使い方</h2><details class="help-topic"><summary>買い物の進め方</summary><p>「献立から追加」で2〜3日分などの期間を選びます。必要な食材にチェックを入れ「選んだ食材を買い物リストに追加」を押してください。同じ食材はまとめて表示します。</p></details><details class="help-topic"><summary>買ったものをチェックする</summary><p>購入チェックを入れた食材は「購入済み」へ移ります。間違えた場合は購入を取り消せます。食材を開くと使う料理と必要量を確認できます。</p></details><details class="help-topic"><summary>1週間の献立を数回に分けて買う</summary><p>作成した献立は買い物用に保存します。「次の期間」で次の2〜3日分へ進めます。各料理の表示で購入済み・一部購入済み・未購入を確認してください。別の期間を追加しても前の購入記録は残ります。</p></details><details class="help-topic"><summary>購入済みの表示期間</summary><p>「購入済み」には直近7日分を表示します。7日を過ぎた項目は一覧から隠れます。献立の購入状況を照合する記録は残るため、同じ食材をもう一度買う扱いにはしません。</p></details><details class="help-topic"><summary>手持ちの食材を探す</summary><p>ジャンルから食材の種類へ進みます。肉なら牛肉・豚肉・鶏肉などを選んでから部位を探せます。名前で検索することもできます。手持ちは同じ食材を合算した後に差し引きます。「購入済み」では材料を手持ちに追加できます。「記録」のカレンダーでは予定を開き、調理に使った分を確認して差し引けます。</p></details><details class="help-topic"><summary>水や調味料を省く</summary><p>「買い物設定」で常備しているものを選びます。水と基本調味料をまとめて外した後も個別に選び直せます。レシピの材料や栄養は変わりません。</p></details><a class="text-link" href="#settings-help">アプリ全体の使い方</a></section>
     </section><section class="tab-panel" id="panel-catalog" role="tabpanel" aria-labelledby="tab-catalog" tabindex="0" hidden><section class="recipe-section" id="recipes" aria-labelledby="recipes-title"><div class="section-heading">
 <div>
-<p class="eyebrow">MENU LIBRARY</p>
 <h2 id="recipes-title">メニューを探す</h2>
 </div>
-<p class="section-caption">手作りも購入品もここから</p>
 </div>
 <details class="catalog-favourites-section" id="catalog-favourites-panel"><summary>お気に入りのメニューを呼び出す</summary><div id="catalog-favourites"></div></details>
 <div class="recipe-tools">
@@ -372,132 +362,126 @@
 <button type="button" data-role="all" aria-pressed="true">すべて</button><button type="button" data-role="staple" aria-pressed="false">主食</button><button type="button" data-role="main" aria-pressed="false">主菜</button><button type="button" data-role="side" aria-pressed="false">副菜</button><button type="button" data-role="soup" aria-pressed="false">汁物</button><button type="button" data-role="drink" aria-pressed="false">飲み物</button><button type="button" data-role="snack" aria-pressed="false">間食</button></div>
 <label class="search-field" for="recipe-search"><span class="sr-only">料理名や材料で検索</span><input id="recipe-search" type="search" placeholder="料理名・材料で検索"></label>
 </div>
-<p class="hierarchy-guide">料理名や食材名はひらがな・カタカナでも探せます。主菜・副菜は食材カテゴリと調理法、主食や飲み物は種類から絞り込めます。</p>
+
 <div class="library-family recipe-facets">
 <label id="recipe-food-category-field" for="recipe-food-category">食材カテゴリ<select id="recipe-food-category"><option value="all">すべての食材</option></select></label>
 <label id="recipe-method-field" for="recipe-method">調理法<select id="recipe-method"><option value="all">すべての調理法</option></select></label>
 <label id="recipe-family-field" for="recipe-family" hidden>種類<select id="recipe-family"><option value="all">すべての種類</option></select></label>
-<label for="recipe-occasion">食事の場面<select id="recipe-occasion"><option value="all">すべての場面</option></select></label>
+<label for="recipe-occasion">食べる時間帯<select id="recipe-occasion"><option value="all">すべての時間帯</option></select></label>
+<label for="recipe-scene">行事・シーン<select id="recipe-scene"><option value="all">すべての行事・シーン</option></select></label>
 <label for="recipe-genre">ジャンル<select id="recipe-genre"><option value="all">すべてのジャンル</option></select></label>
 <label for="recipe-nature">調理・提供形態<select id="recipe-nature"><option value="all">すべての形態</option></select></label>
 </div>
 
 <p id="catalog-safety-note" class="field-note"></p>
-<p class="field-note">鍋やスープは料理の種類を、おでん・ポトフ・サラダは具材を選べます。刺身や寿司は種類と数、ラーメンは具とスープ量を調整できます。カレーのご飯は0gから指定でき、ナンも主食に用意しています。</p>
+
 <div class="recipe-library-status"><p id="recipe-results-count" class="recipe-results-count" role="status"></p><label class="choice-label illustration-only-filter"><input id="recipe-illustrated-only" type="checkbox"><span>完成イラストのある料理だけ表示</span></label></div>
 <div id="recipe-illustration-filter-note" class="illustration-filter-note" role="status" hidden></div>
-<p id="recipe-illustration-coverage" class="field-note illustration-note">完成イラストは<span id="recipe-illustration-count"></span>品に対応しています。画像は標準レシピをもとにしたAI生成の完成例です。実際の盛り付けや量は材料表と数量欄で確認してください。</p>
+<p id="recipe-illustration-coverage" class="field-note illustration-note">完成イラスト（<span id="recipe-illustration-count"></span>品）はAIによる盛り付け例です。</p>
 <div id="catalog-active-filters"></div>
 <div id="recipe-grid" class="recipe-grid"></div>
 <div class="more-recipes"><button id="more-recipes" class="button-secondary" type="button" hidden>もっと見る</button></div>
-<details class="custom-catalog-details"><summary>自分のデータベースを管理する</summary><p class="field-note">登録済みの食材と量からオリジナルレシピを作れます。レシピだけの保存もできます。ここで削除しても、カレンダーに記録済みの食事は残ります。</p>
+<details class="custom-catalog-details"><summary>自分のデータベースを管理する</summary><p class="field-note">レシピを削除しても、過去の食事記録は残ります。</p>
 <button id="create-original-recipe" type="button" class="button-primary">オリジナルレシピを作る</button>
 <button id="create-restaurant-menu" type="button" class="button-secondary">店別・サイズ別メニューを登録</button>
 <div id="custom-catalog-list" class="custom-catalog-list"></div></details></section>
 
     </section><section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden><div class="section-heading">
 <div>
-<p class="eyebrow">PREFERENCES</p>
-<h2>自分に合わせて使う</h2>
+<h2>設定</h2>
 </div>
-<p class="section-caption">プロフィールとデータの管理</p>
 </div>
 <nav id="settings-tabs" role="tablist" aria-label="設定の項目">
 <button id="settings-tab-profile" role="tab" aria-selected="true" aria-controls="settings-panel-profile" tabindex="0" data-settings="profile" type="button">プロフィール</button>
 <button id="settings-tab-family" role="tab" aria-selected="false" aria-controls="settings-panel-family" tabindex="-1" data-settings="family" type="button">家族・食材</button>
 <button id="settings-tab-display" role="tab" aria-selected="false" aria-controls="settings-panel-display" tabindex="-1" data-settings="display" type="button">表示</button>
-<button id="settings-tab-data" role="tab" aria-selected="false" aria-controls="settings-panel-data" tabindex="-1" data-settings="data" type="button">データ・使い方</button>
+<button id="settings-tab-data" role="tab" aria-selected="false" aria-controls="settings-panel-data" tabindex="-1" data-settings="data" type="button">データ</button>
+<button id="settings-tab-help" role="tab" aria-selected="false" aria-controls="settings-panel-help" tabindex="-1" data-settings="help" type="button">使い方</button>
 <button id="settings-tab-feedback" role="tab" aria-selected="false" aria-controls="settings-panel-feedback" tabindex="-1" data-settings="feedback" type="button">メニューの希望</button>
 </nav>
 <div id="settings-panel-profile" role="tabpanel" aria-labelledby="settings-tab-profile" tabindex="0">
 <div class="settings-grid">
 <section class="profile-section panel" aria-labelledby="profile-title"><div class="panel-heading">
-<span class="section-index">01</span><h3 id="profile-title">プロフィールと栄養の目安</h3>
+<h3 id="profile-title">1日の栄養の目安の計算</h3>
 </div>
-<p class="section-copy">食事の記録と比べる1日あたりの目安を選びます。プロフィールの入力は任意です。</p>
 <p id="sample-profile-note" class="field-note" hidden>サンプルでは生年月日や身体情報を保存できません。<a href="./#settings-profile">自分のプロフィールを開く</a></p>
-<form id="birthday-form" autocomplete="off">
-<label for="birth-date">生年月日（任意）<input id="birth-date" type="date" min="1900-01-01" required></label>
-<p id="birthday-age" class="field-note" aria-live="polite"></p>
-<label class="choice-label"><input id="birthday-consent" type="checkbox" required><span>生年月日を自分のアカウントに保存し、年齢の自動更新・誕生日のお祝いと献立に使う</span></label>
-<p class="field-note">栄養の目安を使わなくても登録できます。管理者向け集計には使いません。自分で書き出したJSONファイルには含まれます。</p>
-<button id="save-birth-date" class="button-secondary" type="submit">生年月日を保存</button>
-<button id="clear-birth-date" class="button-text danger" type="button" hidden>生年月日を削除</button>
-</form>
 <form id="profile-form" autocomplete="off">
-<label for="profile-mode">目安の選び方<select id="profile-mode"><option value="manual" selected>自分で数値を設定する</option>
+<label for="profile-mode">計算方法<select id="profile-mode"><option value="personal" selected>年齢・身長・体重から計算する</option>
 <option value="reference">年代別の参考値を使う</option>
-<option value="personal">年齢・身長・体重から個人の目安を計算する</option></select></label>
-<fieldset id="profile-simple-fields" aria-label="年代別の参考値" hidden disabled><div class="field-pair">
+<option value="manual">目安を手入力する</option></select></label>
+<fieldset id="profile-simple-fields" aria-label="年代別の参考値" hidden disabled>
+<p class="field-note">健康な成人向けです。妊娠・授乳中や食事療法中は医療者の指示に従ってください。</p>
+<div class="field-pair">
 <label for="profile-age">年代<select id="profile-age"><option value="unset">選択しない</option>
 <option value="18-29">18〜29歳</option>
 <option value="30-49">30〜49歳</option>
 <option value="50-64">50〜64歳</option>
 <option value="65-74">65〜74歳</option>
-<option value="75-plus">75歳以上</option></select></label><label for="profile-sex">参照する性別区分<select id="profile-sex"><option value="unset">選択しない</option>
+<option value="75-plus">75歳以上</option></select></label><label for="profile-sex">計算に使う性別<select id="profile-sex"><option value="unset">選択しない</option>
 <option value="male">男性</option>
 <option value="female">女性</option></select></label>
 </div>
 <label for="profile-activity">普段の活動量<select id="profile-activity"><option value="unset">選択しない</option>
-<option value="low">低い</option>
-<option value="moderate">ふつう</option>
-<option value="high">高い</option></select></label></fieldset>
-<fieldset id="profile-personal-fields" aria-label="詳細プロフィール" hidden disabled>
-<p class="field-note">18〜79歳の健康な一般成人が対象です。妊娠・授乳中や食事療法中の方は、医療者に示された値を「自分で設定する比較値」に入力できます。</p>
+<option value="low">低い（主に座って過ごす）</option>
+<option value="moderate">ふつう（通勤や家事で動く）</option>
+<option value="high">高い（運動や活発な仕事をする）</option></select></label></fieldset>
+<fieldset id="profile-personal-fields" aria-label="詳細プロフィール">
+<p class="field-note">18〜79歳の健康な成人向けです。妊娠・授乳中や食事療法中は医療者の指示に従ってください。</p>
 <div class="field-pair">
 <label>年齢（歳）<input id="personal-age" type="number" min="18" max="79" step="1" inputmode="numeric" required></label>
-<label>計算に使う性別区分<select id="personal-sex" required><option value="">選んでください</option><option value="male">男性</option><option value="female">女性</option></select></label>
+<label>計算に使う性別<select id="personal-sex" required><option value="">選んでください</option><option value="male">男性</option><option value="female">女性</option></select></label>
 </div><div class="field-pair">
 <label>身長（cm）<input id="personal-height" type="number" min="100" max="240" step="any" inputmode="decimal" required></label>
 <label>体重（kg）<input id="personal-weight" type="number" min="30" max="250" step="any" inputmode="decimal" required></label>
 </div>
-<label>普段の活動量<select id="personal-activity" required><option value="">選んでください</option><option value="low">低い</option><option value="moderate">ふつう</option><option value="high">高い</option></select></label>
-<p class="field-note">75〜79歳は「低い」「ふつう」のいずれかで計算できます。</p>
-<label class="choice-label"><input id="personal-consent" type="checkbox" required><span>詳細プロフィールを自分のアカウントに保存し、目安の計算に使う</span></label>
-<p class="field-note">管理者へのメニュー提案の集計には使いません。書き出したJSONファイルには含まれます。</p>
+<label>普段の活動量<select id="personal-activity" required><option value="">選んでください</option><option value="low">低い（主に座って過ごす）</option><option value="moderate">ふつう（通勤や家事で動く）</option><option value="high">高い（運動や活発な仕事をする）</option></select></label>
+<label class="choice-label"><input id="personal-consent" type="checkbox" required><span>身体情報を自分のアカウントに保存して計算する</span></label>
 </fieldset>
-<div id="profile-activity-guide" class="activity-guide" hidden>
-<p><strong>低い</strong> 座って過ごすことが多い</p>
-<p><strong>ふつう</strong> 通勤・通学や家事で日常的に動く</p>
-<p><strong>高い</strong> 活発な仕事や運動の習慣がある</p>
-</div>
-<button id="profile-apply" class="button-primary" type="submit">プロフィールと目安を保存</button>
+<button id="profile-apply" class="button-primary" type="submit">栄養の目安を保存</button>
 </form>
 <p id="profile-summary" class="profile-summary" aria-live="polite">プロフィールは未設定です。</p>
 <button id="clear-personal-profile" class="button-text danger" type="button" hidden>詳細プロフィールを削除</button>
-<p class="field-note">成人向けの一般的な参考値です。体格や体調による個人差があります。妊娠・授乳中や治療のための食事には対応していません。<a href="https://www.mhlw.go.jp/stf/newpage_44138.html" target="_blank" rel="noopener noreferrer">食事摂取基準（2025年版）</a></p></section><section class="manual-targets panel" aria-labelledby="manual-targets-title"><div class="panel-heading">
-<span class="section-index">02</span><h3 id="manual-targets-title">自分で設定する比較値</h3>
+</section><section id="manual-targets-panel" class="manual-targets panel" hidden aria-labelledby="manual-targets-title"><div class="panel-heading">
+<h3 id="manual-targets-title">1日の目安を手入力</h3>
 </div>
 <div class="targets-details">
-<p class="field-note">1日の比較値を自由に設定できます。初期値は表示を試すための目安で、個人に必要な量を判定したものではありません。</p>
+<p class="field-note">初期値は入力例です。</p>
 <form id="targets-form">
 <div class="targets-grid">
 <label for="target-kcal">エネルギー（kcal）<input id="target-kcal" type="number" min="1" max="20000" step="1" value="2000" required></label><label for="target-protein">たんぱく質（g）<input id="target-protein" type="number" min="0.1" max="10000" step="0.1" value="60" required></label><label for="target-fat">脂質（g）<input id="target-fat" type="number" min="0.1" max="10000" step="0.1" value="65" required></label><label for="target-carbs">炭水化物（g）<input id="target-carbs" type="number" min="0.1" max="10000" step="0.1" value="280" required></label><label for="target-fiber">食物繊維（g）<input id="target-fiber" type="number" min="0.1" max="10000" step="0.1" value="20" required></label><label for="target-salt">食塩相当量（g）<input id="target-salt" type="number" min="0" max="10000" step="0.1" value="6.5" required></label>
 </div>
-<button class="button-secondary" type="submit">手入力の比較値に切り替えて保存</button>
+<button class="button-secondary" type="submit">手入力の目安を保存</button>
 </form>
 </div>
     </section>
+<form class="profile-section panel" id="birthday-form" autocomplete="off">
+<label for="birth-date">生年月日（任意）<input id="birth-date" type="date" min="1900-01-01" required></label>
+<p id="birthday-age" class="field-note" aria-live="polite"></p>
+<label class="choice-label"><input id="birthday-consent" type="checkbox" required><span>生年月日を保存し、年齢の自動更新と誕生日の献立・お祝いに使う</span></label>
+<button id="save-birth-date" class="button-secondary" type="submit">生年月日を保存</button>
+<button id="clear-birth-date" class="button-text danger" type="button" hidden>生年月日を削除</button>
+</form>
+
 </div>
 </div>
 <div id="settings-panel-family" role="tabpanel" aria-labelledby="settings-tab-family" tabindex="0" hidden>
 <section id="household-preferences" class="panel appearance-settings" aria-labelledby="household-title">
 <div class="panel-heading"><h3 id="household-title">家族構成と苦手な食材</h3></div>
-<p class="section-copy">年代と人数は、家族で取り分けやすい料理を選ぶ参考にします。ここで登録した内容は、自分用の献立に使います。</p>
+
 <form id="household-form" autocomplete="off">
-<fieldset><legend>一緒に食べる人数</legend>
-<p class="field-note">ご自身を含めて入力してください。人数だけを登録する場合は「年代を指定しない」を使えます。</p>
+<fieldset><legend>一緒に食べる人数（自分を含む）</legend>
+
 <div id="household-counts" class="household-counts"></div>
 <p class="field-note" id="household-total" role="status"></p>
 <label class="choice-label"><input id="household-use-servings" type="checkbox"><span>家族の人数を調理と買い物に使う</span></label>
-<p class="field-note">子どもも大人も1人につき1人分で計算します。料理ごとに作る人数を変えられます。</p>
-<p class="field-note">献立は家族で取り分ける一般食向けです。離乳食には対応していません。0〜5歳を登録すると、材料に硬いナッツ類・炒り豆・切り餅を確認できる料理を提案から外します。</p>
+<p class="field-note">子どもも1人分として材料を計算します。</p>
+<p class="field-note">離乳食は対象外です。0〜5歳には硬いナッツ類・炒り豆・切り餅を含む登録料理を提案から外します。</p>
 </fieldset>
 <div class="welcome-actions"><button id="save-household" type="submit" class="button-secondary">家族構成を保存</button>
 <button id="clear-household" type="button" class="button-text" hidden>家族構成を解除</button></div>
 </form>
 <label for="disliked-search">苦手な食材を探す<input id="disliked-search" type="search" placeholder="例：しいたけ、なす" autocomplete="off"></label>
-<p class="field-note">検索結果から選ぶと登録され、その食材を使う料理は献立の提案から外れます。登録した食材を押すと解除できます。</p>
+<p class="field-note">登録した食材を使う料理は献立から外れます。</p>
 <div id="disliked-selections" class="selected-ingredients"></div>
 <div id="disliked-matches" class="ingredient-options"></div>
 </section>
@@ -506,7 +490,7 @@
 <section class="panel appearance-settings" aria-labelledby="appearance-settings-title">
 <div class="panel-heading"><h3 id="appearance-settings-title">表示の設定</h3></div>
 <label class="start-page-choice" for="start-tab">最初に開く画面<select id="start-tab"><option value="planner">献立</option><option value="catalog">メニュー・レシピ検索</option><option value="record">食事の記録</option><option value="nutrition">栄養</option><option value="kitchen">買い物リスト</option></select></label>
-<fieldset class="text-size-control" aria-describedby="text-size-note">
+<fieldset class="text-size-control">
 <legend>文字の大きさ</legend>
 <div class="text-size-options">
 <label class="text-size-option" for="text-size-standard"><input id="text-size-standard" type="radio" name="text-size" value="standard" checked><span>標準<small>100%</small></span></label>
@@ -514,47 +498,75 @@
 <label class="text-size-option" for="text-size-larger"><input id="text-size-larger" type="radio" name="text-size" value="larger"><span>大<small>140%</small></span></label>
 <label class="text-size-option" for="text-size-largest"><input id="text-size-largest" type="radio" name="text-size" value="largest"><span>特大<small>160%</small></span></label>
 </div>
-<p id="text-size-note" class="field-note">料理名や栄養、入力欄やボタンの文字も一緒に変わります。選んだ大きさはアカウントに保存されます。</p>
-<p class="text-size-preview">朝食のトーストとコーヒー。自分に合う大きさで読みやすく。</p>
+
+<p class="text-size-preview">表示例：朝食のトーストとコーヒー</p>
 </fieldset>
 <label class="choice-label" for="hide-recipe-illustrations"><input id="hide-recipe-illustrations" type="checkbox"><span>料理イラストを表示しない</span></label>
-<p class="field-note">料理名や材料、栄養の表示はそのままに、完成イラストの表示と読み込みを止めます。この設定もデータの書き出し・読み込みに含まれます。</p>
+
 </section>
 <section class="panel appearance-settings" id="home-install-panel" data-browser-only aria-labelledby="home-install-title">
 <div class="panel-heading"><h3 id="home-install-title">ホーム画面で使う</h3></div>
 <button class="button-secondary" id="install-meal-palette" data-install-app data-browser-only type="button" hidden>スマホにアプリをインストール</button>
 <p id="home-installed" role="status" hidden>インストールしました。</p>
 <p id="offline-state" class="field-note" role="status">オフラインの準備状況を確認しています…</p>
-<p class="field-note">準備が完了すると、電波の届かないお店でも買い物リストを開いてチェックできます。料理のイラストの読み込みには通信を使います。</p>
-<p class="field-note">同じGoogleアカウントでログインすると、保存した献立と食事の記録をホーム画面でも開けます。</p>
+<p class="field-note">準備ができると、買い物リストはオフラインでも使えます。</p>
+
 </section>
 </div>
 <div id="settings-panel-data" role="tabpanel" aria-labelledby="settings-tab-data" tabindex="0" hidden>
 <section class="data-section" aria-labelledby="data-title"><div class="data-actions">
 <div>
-<p class="eyebrow">KEEP YOUR NOTE</p>
 <h2 id="data-title">記録を手元に残す</h2>
-<p>食事の記録や自分のメニュー、設定をJSONファイルで保存できます。端末を変えるときにも使えます。アレルギーの設定なども含まれるため、共有先にはご注意ください。</p>
+<p>書き出したファイルにはプロフィールやアレルギーの設定も含まれます。共有先にご注意ください。</p>
 </div>
 <div class="data-buttons">
-<p id="backup-export-time" class="field-note"></p><p class="field-note">書き出したファイルが端末に保存されたことを確認してください。</p><p id="backup-status-note" class="field-note"></p><button id="download-journal-backup" class="button-secondary" type="button" disabled>変更前の退避データを書き出す</button><button id="restore-journal-backup" class="button-secondary" type="button" disabled>変更前のデータへ戻す</button>
+<p id="backup-export-time" class="field-note"></p><p id="backup-status-note" class="field-note"></p><button id="download-journal-backup" class="button-secondary" type="button" disabled>変更前の退避データを書き出す</button><button id="restore-journal-backup" class="button-secondary" type="button" disabled>変更前のデータへ戻す</button>
 <button id="export-records" class="button-secondary" type="button">データを書き出す</button><button id="import-records" class="button-secondary" type="button">データを読み込む</button><input id="import-file" type="file" accept=".json,application/json" hidden><button id="clear-history" class="button-text danger" type="button">食事の記録をすべて削除</button>
 </div>
 </div></section>
 
-    <details class="about-section"><summary>献立の選び方と栄養の計算</summary><div class="about-copy">
-<h3>記録を参考にする仕組み</h3>
-<p>はじめにアレルギーと避ける食材の条件を確認します。そのうえで、直近の食べた記録から料理や主な食材の重複を減らし、分かっている栄養や手持ちの食材も参考にして候補を選びます。未来の予定を「食べた量」として数えることはありません。</p>
-<h3>栄養の数字について</h3>
-<p>収録レシピの栄養は、肉の種類・部位や食材・調味料の代表値と使用量から求めた概算です。微量や未登録の成分は食品ごとに見積もり、料理の詳細で根拠を確認できます。商品表示が未確認のものや手入力の空欄は不明のまま扱います。過去の記録は登録時の値を保ちます。</p>
-<div data-browser-only>
+<div class="welcome-actions" id="setup-actions"><button id="settings-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="?demo=week#nutrition" data-sample-link target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only" data-browser-only>（別画面）</span></a></div>
+</div>
+<div id="settings-panel-help" role="tabpanel" aria-labelledby="settings-tab-help" tabindex="0" hidden>
+<section class="panel appearance-settings" aria-labelledby="help-title">
+<div class="panel-heading"><h3 id="help-title">使い方</h3></div>
+<details class="help-topic"><summary>最初にプロフィールを設定する</summary>
+<p>「プロフィール」で年齢・身長・体重などを入力すると、1日の栄養の目安を計算できます。生年月日を保存すると、年齢は誕生日に更新されます。年代別の参考値を選ぶことや、数値を自分で設定することもできます。</p>
+<p>身長・体重や生年月日は管理者向けの集計には使いません。自分で書き出すバックアップには含まれます。</p>
+<a class="text-link" href="#settings-profile">プロフィールを開く</a></details>
+<details class="help-topic"><summary>献立と行事の料理を選ぶ</summary>
+<p>「献立」で日付・人数・朝昼夕を選んで「この条件で献立を作る」を押します。料理を替えたいときは「料理を替える」、副菜を足したいときは「＋ 料理を追加」を選びます。</p>
+<p>アレルギーや苦手な食材を除いた上で、お気に入りや最近食べた料理、手持ちの食材を参考にします。「家族・食材」で年代と人数を登録できます。</p>
+<p>「旬の食材や行事の料理を優先する」を選ぶと、行事の料理は夕食、夕食を外した日は昼食に出ます。入学式や記念日などは「家族の記念日・行事を登録」で祝う日を指定できます。</p>
+<p>節分・春分・秋分・十五夜の自動判定は2020〜2036年に対応しています。2033年の十五夜は祝う日を手動で登録してください。</p>
+<a class="text-link" href="#planner">献立を開く</a></details>
+<details class="help-topic"><summary>食べたものを記録する</summary>
+<p>「記録」で日付と食事を選び、料理と食べた量を追加します。カレンダーに保存した予定は、食べてから「食べたにする」を押します。</p>
+<p>「文章からまとめて記録」では料理名を読点や改行で区切り、候補を確認します。よく食べる組み合わせは「定番セット」に保存すると、量もまとめて呼び出せます。</p>
+<p>作り置きは出来上がった全体の重さを登録し、取り分けた量をグラムで記録します。予定として取り分けた分も残量から引かれます。</p>
+<a class="text-link" href="#calendar">記録を開く</a></details>
+<details class="help-topic"><summary>栄養の数字を読む</summary>
+<p>「栄養」で日付と期間を選び、食べた記録と1日の目安を比べます。料理の栄養は材料や商品表示から求めた概算です。分からない値は「不明」と表示します。料理の詳細で計算の根拠を確認できます。</p>
+<a class="text-link" href="docs/menu-nutrition-audit.csv" download>全メニューの栄養・分類表（CSV）</a></details>
+<details class="help-topic"><summary>レシピを探す・料理写真を残す</summary>
+<p>「メニュー」で料理名や食材名を入力します。ひらがな・カタカナでも検索できます。「食べる時間帯」や「行事・シーン」でも絞れます。種類を選べる料理は、見出しを開いて好きなものを選びます。</p>
+<p>作った料理の写真は、レシピの「自分の料理写真」で「Google Driveに接続」を押し、ログイン中と同じアカウントを選びます。写真を選んで「この写真をDriveに保存」を押すと、同じレシピから見返せます。</p>
+<a class="text-link" href="#recipes">メニューを開く</a></details>
+<details class="help-topic"><summary>人数に合わせて買い物する</summary>
+<p>「買い物」の「献立から追加」で期間と食材を選び、「選んだ食材を買い物リストに追加」を押します。買えたものにチェックを入れると「購入済み」に移ります。手持ちの食材を登録しておくと、その分を差し引きます。</p>
+<p>材料は調理人数分、栄養の記録は1人分です。詳しい買い方や常備品の設定は「買い物」の「使い方」で確認できます。</p>
+<a class="text-link" href="#shopping">買い物を開く</a></details>
+<details class="help-topic"><summary>データを保存する・別の端末で開く</summary>
+<p>献立と食事の記録はアカウントに自動保存されます。別の端末では同じGoogleアカウントでログインしてください。控えを手元に残すには「データ」で「データを書き出す」を選びます。</p>
+<a class="text-link" href="#settings-data">データを開く</a></details>
+<details class="help-topic"><summary>参考にした資料</summary><p><a href="https://www.maff.go.jp/j/syokuiku/minna_navi/recipe/healthy.html" target="_blank" rel="noopener">農林水産省の朝食メニュー</a>、<a href="https://park.ajinomoto.co.jp/contents/basic/ingredients_bunryou/" target="_blank" rel="noopener">味の素の食材の目安量</a>、<a href="https://kyo-kenko.city.kyoto.lg.jp/food-education/trivia/seasoning/" target="_blank" rel="noopener">京都市の調味料の量</a>を参考にしています。食材の大きさや品種で量は変わります。アプリのご飯の小盛り・大盛りは選びやすさのために定めた量です。</p></details>
+<details class="about-section" data-browser-only><summary>教材と出典</summary><div data-browser-only>
 <h3>学生のアイデアから広がる教材</h3>
 <p>学生作品<a href="https://cish25155-prog.github.io/SmartChef/">「AI献立スマートシェフ」</a>のアイデアをもとに、公開教材として機能を追加しました。カレンダーや栄養の集計、手持ち食材の数量管理はブラウザー版の拡張機能です。</p>
 <p><a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/meal_planner.ipynb">Pythonで献立の選び方を学ぶColab教材</a>では、条件の確認やレシピの組み合わせを試せます。ブラウザー版の全機能を移植したものではありません。<a href="https://colab.research.google.com/github/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/recipe_suggester.ipynb">初期のColab教材</a>も残しています。</p>
 <p class="about-links"><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/manual.md">使い方</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/blob/main/projects/recipe-suggester/docs/sources.md">データと出典</a><a href="https://github.com/shogo-ishikawa/2026_3Q_M3Th3/tree/main/projects/recipe-suggester">コードを見る</a></p>
-</div></div></details>
-<div class="welcome-actions" id="setup-actions"><button id="settings-setup" class="button-secondary" type="button">かんたん設定</button><a class="text-link" href="?demo=week#nutrition" data-sample-link target="_blank" rel="noopener">1週間のサンプルを試す<span class="sr-only" data-browser-only>（別画面）</span></a></div>
-<button id="open-app-help" class="button-text" type="button">使い方を見る</button>
+</div></details>
+</section>
 </div>
 <div id="settings-panel-feedback" role="tabpanel" aria-labelledby="settings-tab-feedback" tabindex="0" hidden>
 <div id="menu-feedback"></div>
@@ -562,8 +574,8 @@
 <div id="admin-menu-proposals" tabindex="-1"></div>
 <div id="admin-taste-trends"></div>
 </div>
-  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v4.4.0</small></span><div class="footer-links" data-browser-only>
-<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v4.4.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
+  </section></main><footer class="site-footer page-width"><span>Meal Palette <small>v4.5.0</small></span><div class="footer-links" data-browser-only>
+<a href="https://cish25155-prog.github.io/SmartChef/" target="_blank" rel="noopener noreferrer">学生のオリジナル版 ↗</a><a href="dist/meal-planner_v4.5.0.zip" download>コードをダウンロード</a><a href="../../">作品ギャラリー</a>
 </div></footer>
 </div>
 </div>
@@ -582,15 +594,15 @@
   <div id="record-ingredient-content"></div>
 </dialog>
 
-<script type="module" src="pwa-ui.js?v=4.4.0"></script>
-<script type="module" src="account-boot.js?v=4.4.0"></script>
+<script type="module" src="pwa-ui.js?v=4.5.0"></script>
+<script type="module" src="account-boot.js?v=4.5.0"></script>
 <dialog id="quick-setup" class="welcome-dialog" aria-labelledby="quick-setup-title">
 <h2 id="quick-setup-title">かんたん設定</h2>
 <form id="quick-setup-form">
 <fieldset><legend>買い物で省く常備品</legend><label class="choice-label"><input id="setup-omit-common" type="checkbox">水と基本調味料を買い物リストから外す</label><small id="setup-common-names" class="field-note"></small></fieldset>
 <details><summary>アレルギー・避けたい食材</summary><fieldset><legend>アレルギーで避ける食材</legend><div class="choice-grid" id="setup-allergens"></div><details><summary>ほかのアレルギー食材</summary><div class="choice-grid" id="setup-more-allergens"></div></details></fieldset>
 <label for="setup-search">追加で避けたい食材を探す<input id="setup-search" type="search" placeholder="例：トマト" autocomplete="off"></label><div class="welcome-chips" id="setup-picked"></div><div class="welcome-chips" id="setup-matches"></div><p class="field-note">加工品の原材料とアレルギー表示は実際の商品でも確認してください。</p></details>
-<details><summary>栄養の目安</summary><label class="choice-label"><input type="checkbox" id="setup-reference">プロフィールから参考値を選ぶ</label><fieldset id="setup-profile" hidden><legend>食事摂取基準の参考区分</legend><div class="welcome-profile"><label>年代<select id="setup-age"></select></label><label>参照する性別区分<select id="setup-sex"></select></label><label>普段の活動量<select id="setup-activity"></select></label></div></fieldset><p class="field-note">選ばなければ現在の比較値を使います。「設定」では数値を自分で入力できます。</p></details>
+<details><summary>栄養の目安</summary><label class="choice-label"><input type="checkbox" id="setup-reference">年代別の参考値を使う</label><fieldset id="setup-profile" hidden><legend>食事摂取基準の参考区分</legend><div class="welcome-profile"><label>年代<select id="setup-age"></select></label><label>計算に使う性別<select id="setup-sex"></select></label><label>普段の活動量<select id="setup-activity"></select></label></div></fieldset><p class="field-note">身長・体重を使う計算は「設定」の「プロフィール」で選べます。</p></details>
 <p id="setup-error" class="field-note" role="alert"></p><div class="welcome-actions"><button class="button-primary" type="submit">設定を保存</button><button id="setup-cancel" class="button-secondary" type="button">キャンセル</button></div>
 </form></dialog>
 </div>

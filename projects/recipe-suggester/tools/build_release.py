@@ -9,6 +9,7 @@ FILES = (
     "account.css", "account-boot.js", "account-identity.js", "app-start.js", "saved-plan.js",
     "cloud-journal-firestore.js", "cloud-journal.js", "menu-feedback.js",
     "settings-tabs.js", "occasion-calendar.js", "occasion-classics.js", "occasion-recipe.js",
+    "world-occasion-recipes.js", "regional-occasion-recipes.js",
     "seasonal-spring-summer.js", "seasonal-autumn-winter.js",
     "drive-photos.js", "drive-photo-ui.js", "recipe-photo-image.js", "drive-photo-link.js", "drive-photo-share.js",
     "personal-nutrition.js", "personal-profile-ui.js", "weekly-review.js",

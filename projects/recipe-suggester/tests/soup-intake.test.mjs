@@ -14,7 +14,7 @@ const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-8,`${actual
 const compare=(actual,expected)=>{for(const key of NUTRIENT_KEYS)expected[key]===null?assert.equal(actual[key],null):near(actual[key],expected[key]);};
 
 test('監査済みの汁物・鍋料理は全量摂取で従来値と完全に一致し、1人分へ正規化する',()=>{
-  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,100);
+  const supported=RECIPES.filter(base=>soupIntakeFor(base,data));assert.equal(supported.length,113);
   for(const base of supported){
     const generated=buildSoupIntake({baseRecipe:base},data);
     assert.deepEqual(recipeNutrition(generated,data),recipeNutrition(base,data),base.id);
@@ -32,6 +32,26 @@ test('ぶりと焼きねぎのみぞれ鍋では、残した煮汁に混ぜた�
   assert.deepEqual(ingredientFractions, {
     yellowtail: 0, negi: 0, daikon: 1, kyoto_kombu_dashi: 1, soy_sauce: 1, mirin: 1, ginger: 0,
   });
+});
+
+test('郷土料理では団子の生地・みそを溶いた汁・具に煮含めた調味料を作り方に沿って分ける', () => {
+  const fractions = id => soupIntakeFor(recipe('celebration-regional-' + id), data).ingredientFractions;
+  assert.equal(fractions('akita-damako').salt, 0);
+  assert.equal(fractions('saitama-tsumikko').water, 0);
+  assert.equal(fractions('saitama-tsumikko').soup311_awase_dashi, 1);
+  assert.equal(fractions('miyazaki-hiyajiru').horse_mackerel, 1);
+  assert.equal(fractions('miyazaki-hiyajiru').tofu, 0);
+  assert.equal(fractions('kagoshima-keihan').soy_sauce, 0);
+  assert.equal(fractions('kagoshima-keihan').salt, 0.9);
+});
+
+test('世界のスープでは魚介・パン・千切りキャベツなどの固形具を汁0でも残す', () => {
+  const fractions = id => soupIntakeFor(recipe('celebration-' + id), data).ingredientFractions;
+  assert.equal(fractions('provencal-bouillabaisse').cod, 0);
+  assert.equal(fractions('provencal-bouillabaisse').canned_tomato, 1);
+  assert.equal(fractions('sopa-de-ajo').wholegrain_bread, 0);
+  assert.equal(fractions('caldo-verde').potato, 1);
+  assert.equal(fractions('caldo-verde').cabbage, 0);
 });
 
 test('みそ汁で汁だけを残すとみそ・だしの栄養だけ減り、具の栄養は全量残る',()=>{
