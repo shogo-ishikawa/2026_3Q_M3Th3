@@ -12,9 +12,9 @@ import {quickFoodCategory} from './quick-foods.js';
 import {configureQuantityInput,readQuantityInput,installQuantitySteppers,setQuantityPresets} from './quantity-input.js';
 import {demoStorage, setupWelcome, applyQuickSetup} from './onboarding.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from './data.js';
-import {generateCalendarPlan, replaceRecipe, toggleDish, activeRecipeIds, describeRecipe, eligibleRecipes, updatePlanStaple, regeneratePlanMeal, addPlanDish, planMealPreference} from './planner.js';
+import {generateCalendarPlan, toggleDish, activeRecipeIds, describeRecipe, eligibleRecipes, updatePlanStaple, regeneratePlanMeal, addPlanDish, planMealPreference} from './planner.js';
 import {GENRES, rebalanceGenreRatios} from './storage.js';
-import {MAX_IMPORT_BYTES, DEFAULT_TARGETS, activeNutritionReference, clearArchivedBirthDates, clearBirthDate, hasArchivedBirthDate, refreshBirthdayNutrition, setBirthDate, clearArchivedPersonalProfiles, clearPersonalProfile, hasArchivedPersonalProfile, setNutritionMode, shoppingServingsFor, readJournal, journalSourceChanged, writeJournal, replaceJournal, readJournalBackup, markJournalExport, readJournalExportTime, defaultJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
+import {MAX_IMPORT_BYTES, DEFAULT_TARGETS, activeNutritionReference, clearArchivedBirthDates, clearBirthDate, hasArchivedBirthDate, refreshBirthdayNutrition, setBirthDate, clearArchivedPersonalProfiles, clearPersonalProfile, hasArchivedPersonalProfile, setNutritionMode, shoppingServingsFor, rememberSuggestionDays, readJournal, journalSourceChanged, writeJournal, replaceJournal, readJournalBackup, markJournalExport, readJournalExportTime, defaultJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
 import {createJournalHistory, manualEditAffected} from './journal-history.js';
 import {mountQuickRecord} from './quick-record-ui.js';
 import {mountRecordSearch} from './record-search-ui.js';
@@ -73,8 +73,8 @@ import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
 import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.10.1';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.10.1';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.11.0';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.11.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -600,6 +600,11 @@ function draftEntries(sourcePlan=plan,ids=draftShoppingIds){
   }
   return entries;
 }
+function dishReasonLabels(day, id) {
+  const reasons=day.dishReasons?.[id];
+  if (!Array.isArray(reasons)) return [];
+  return quickFoodCategory(id) ? reasons.filter(label=>label!=='市販品から選べる候補') : reasons;
+}
 function renderPlan(){
   $('plan-day-navigation').hidden=!plan?.ok;
   $('plan-save-calendar').disabled=!plan?.ok;$('plan-output').replaceChildren();
@@ -653,8 +658,7 @@ function renderPlan(){
       const dish=node('div','plan-dish-info');
       dish.append(button(quickFood?.name??r.name,()=>openSnapshot(snapshot(id,day.quantities?.[id]??1),r.custom?undefined:r.minutes),'recipe-name'));
       if(quickFood)dish.append(node('span','plan-quick-item','市販品・商品未指定'));
-      const labels = included && Array.isArray(day.dishReasons?.[id])
-        ? day.dishReasons[id].filter(label => !quickFood || label !== '市販品から選べる候補') : [];
+      const labels = included ? dishReasonLabels(day,id) : [];
       if(labels.length){
         const reasons=node('ul','dish-reason-tags');
         reasons.setAttribute('aria-label',r.name+'を提案した理由');
@@ -690,19 +694,26 @@ function renderPlan(){
   }
   for(const warning of plan.warnings??[])$('plan-output').append(node('p','field-note',warning));
 }
+function rememberProposedMeals(journal, days) {
+  if (!days.length) return;
+  const proposal = {days};
+  journal.suggestedRecipeIds = rememberSuggestions(journal.suggestedRecipeIds, proposal, builtin.recipes);
+  journal.suggestionHistory = rememberSuggestionDays(journal.suggestionHistory, proposal);
+}
 /** 下書きの変更は、買い物に取り込む献立にも反映します。 */
-function syncDraftShoppingCatalog(nextPlan,ids){
+function syncDraftShoppingCatalog(nextPlan,ids,proposedDays){
   if(recovery)throw Error('献立を変更する前に保存データを復旧してください。');
   const entries=draftEntries(nextPlan,ids),from=nextPlan.days[0].date,to=nextPlan.days.at(-1).date;
   const shoppingCatalog=shoppingMenusFromEntries(entries,data(),{from,to,servings:nextPlan.settings.servings})
     .map(menu=>({...menu,origin:'plan'}));
-  const suggestedRecipeIds=rememberSuggestions(state.suggestedRecipeIds,nextPlan,builtin.recipes);
-  const clean=validateJournal({...state,shoppingCatalog,suggestedRecipeIds,draftPlan:capturePlan(nextPlan,ids)},builtin);
+  const next={...state,shoppingCatalog,draftPlan:capturePlan(nextPlan,ids)};
+  rememberProposedMeals(next,proposedDays);
+  const clean=validateJournal(next,builtin);
   persist(clean);state=clean;draftShoppingIds=ids;
 }
-function applyEditedPlan(next,message,{newDraft=false}={}){
+function applyEditedPlan(next,message,{newDraft=false,proposedDays=[]}={}){
   if(!next?.ok)throw Error((next?.warnings??['条件に合う料理がありません。']).join(' '));
-  syncDraftShoppingCatalog(next,newDraft?new Map():new Map(draftShoppingIds));
+  syncDraftShoppingCatalog(next,newDraft?new Map():new Map(draftShoppingIds),proposedDays);
   if(newDraft){
     shoppingSelection={};
     $('shopping-from').value=next.days[0].date;
@@ -760,7 +771,11 @@ function openPlanMealEditor(index){
   $('dialog-title').textContent=`${dateLabel(day.date)}の${MEALS[day.meal]}を替える`;
   $('dialog-meta').textContent='この食事だけ条件を変えて提案します。';
   $('dialog-content').replaceChildren(mountPlanMealEditor({settings:plan.settings,data:data(),day,mealPreference:planMealPreference(plan,index),
-    onApply:({mealPreference,genre})=>{applyEditedPlan(regeneratePlanMeal(plan,{dayIndex:index,mealPreference,genre,entries:state.entries,pantry:state.pantry,targets:state.targets,completedDays:state.completedDays,personalization:personalPlanOptions(state)},data()),'この食事の献立を更新しました。');$('recipe-dialog').close();$(`plan-edit-${day.date}-${day.meal}`)?.focus();},onError:message=>tell(message,true)}));
+    onApply:({mealPreference,genre})=>{
+      const next=regeneratePlanMeal(plan,{dayIndex:index,mealPreference,genre,entries:state.entries,pantry:state.pantry,targets:state.targets,completedDays:state.completedDays,personalization:personalPlanOptions(state)},data());
+      applyEditedPlan(next,'この食事の献立を更新しました。',{proposedDays:[next.days[index]]});
+      $('recipe-dialog').close();$(`plan-edit-${day.date}-${day.meal}`)?.focus();
+    },onError:message=>tell(message,true)}));
   if(!$('recipe-dialog').open)$('recipe-dialog').showModal();
 }
 function openPlanDishPicker(index){
@@ -1271,6 +1286,10 @@ function openDinnerFromRecord(){
   }).join(' ／ ');
   for(const item of items)list.append(node('li','',item.name+'　'+portionLabel(item,catalog)));
   reasons.append(node('summary','','この献立を選んだ理由'));
+  for(const item of items){
+    const labels=dishReasonLabels(day,item.recipeId);
+    if(labels.length)reasons.append(node('p','field-note',item.name+'：'+labels.join('・')));
+  }
   for(const reason of [...day.reasons,...(day.warnings??[])])reasons.append(node('p','field-note',reason));
   const actions=node('div','dinner-preview-actions');
   box.replaceChildren(previous,node('p','field-note','記録した分の合計　'+intake),list,reasons);
@@ -1302,6 +1321,7 @@ function openDinnerFromRecord(){
     if(saved){dialog.close();setDate(date);}
   },'button-primary'));
   box.append(actions);
+  if(!recovery)commit(next=>rememberProposedMeals(next,[day]),{invalidate:false,render:false});
   if(!dialog.open)dialog.showModal();
 }
 function openRestaurantRegistration(baseRecipe=null,{editingRecipe=null}={}){
@@ -1881,7 +1901,7 @@ function generateMeals(){
   const settings={...state.settings,meal:'all',seed:Math.floor(Math.random()*2147483647)};
   const next=generateCalendarPlan(settings,data(),{entries:state.entries,targets:state.targets,meal:settings.meal,pantry:state.pantry,completedDays:state.completedDays,personalization:personalPlanOptions(state)});
   if(next.ok){
-    syncDraftShoppingCatalog(next,new Map());
+    syncDraftShoppingCatalog(next,new Map(),next.days);
     shoppingSelection={};
     $('shopping-from').value=settings.startDate;
     $('shopping-days').value=String(Math.min(3,settings.days));

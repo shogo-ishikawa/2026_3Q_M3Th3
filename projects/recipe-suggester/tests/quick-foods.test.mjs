@@ -103,3 +103,15 @@ test('食事枠を守り、明示したジャンルとその時点で食べた�
   assert.equal(explicit[0].category.genre,'洋食');
   assert.match(explicit[0].reason,/希望/);
 });
+
+test('差し替えで候補から外した料理の実食も照合し、1食の分割や似た料理では回数を水増ししない', () => {
+  const candidates = {...data,recipes:[recipe('onigiri'),recipe('sandwich')]};
+  const options = entries => quickFoodOptions(candidates,{}, {...parameters,entries,historyRecipes:data.recipes});
+  const japanese = entry('eaten','2026-11-15','dinner','chicken-teriyaki');
+  const western = ['2026-11-13','2026-11-14'].map(date=>entry('eaten',date,'dinner','chicken-tomato'));
+  assert.equal(options([japanese,...western])[0].category.genre,'洋食');
+  assert.equal(options([...Array(8).fill(japanese),...western])[0].category.genre,'洋食');
+  const similar = {...japanese,items:[{recipeId:'chicken-teriyaki',diningMatch:{mode:'similar'}}]};
+  assert.deepEqual(options([similar]),options([]));
+  assert.ok(options([japanese]).every(option=>candidates.recipes.includes(option.recipe)));
+});

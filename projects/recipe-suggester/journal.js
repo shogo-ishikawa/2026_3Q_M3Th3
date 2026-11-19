@@ -30,6 +30,7 @@ const MAX_BYTES = 2 * 1024 * 1024;
 // 旧版が書き出した整形済みJSONは改行と字下げの分だけ大きくなります。
 export const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
 const LIMITS = {entries: 5000, items: 100, customRecipes: 500, pantry: 1000, shoppingChecks: 2000, shoppingExtras: 200, shoppingList: 500, shoppingCatalog: 500, shoppingReceipts: 2000};
+const SUGGESTION_LIMITS = {days: 90, recipesPerDay: 128, total: 2048};
 const SETTINGS_KEYS = ['startDate', 'days', 'servings', 'allergens', 'excludedIngredients', 'preferences', 'meal', 'stapleId', 'drinkId', 'stapleAmount', 'drinkAmount', 'stapleMode', 'hideRecipeIllustrations', 'textSize', 'recordView', 'startTab', 'mealPreferences', 'shoppingOmittedIds'];
 const TEXT_SIZE_IDS = ['standard', 'large', 'larger', 'largest'];
 const ITEM_KEYS = ['id', 'recipeId', 'name', 'quantity', 'nutrition', 'ingredients', 'groups', 'proteinSources', 'allergens', 'allergensKnown', 'ingredientsKnown', 'steps', 'role', 'portion', 'nature', 'sourceNote', 'shoppingKnown', 'batchId', 'restaurant', 'nutritionBasis', 'diningMatch', 'ingredientEdit', 'productLabel'];
@@ -615,8 +616,46 @@ function validateFamilyCalendar(value) {
   });
 }
 
+function validateSuggestionHistory(value) {
+  const dates = new Set();
+  let total = 0;
+  return list(value, SUGGESTION_LIMITS.days, '提案した日付').map(day => {
+    record(day, ['date', 'recipeIds'], '日付別の提案履歴');
+    if (!dateIsValid(day.date) || dates.has(day.date)) throw Error('提案履歴の日付を確認してください。');
+    dates.add(day.date);
+    const recipeIds = list(day.recipeIds, SUGGESTION_LIMITS.recipesPerDay, 'その日に提案した料理')
+      .map(id => identifier(id, '提案した料理の識別子'));
+    total += recipeIds.length;
+    if (!recipeIds.length || new Set(recipeIds).size !== recipeIds.length || total > SUGGESTION_LIMITS.total) {
+      throw Error('提案履歴の料理の件数と重複を確認してください。');
+    }
+    return {date: day.date, recipeIds};
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** 自動提案した料理を献立の日付ごとにまとめる。同日の再提案は同じ料理を1品と数える。 */
+export function rememberSuggestionDays(previous = [], plan) {
+  const byDate = new Map(previous.map(day => [day.date, new Set(day.recipeIds)]));
+  for (const day of plan.days) {
+    const ids = byDate.get(day.date) ?? new Set();
+    for (const id of day.recipeIds) {
+      if (!day.omittedRecipeIds?.includes(id)) ids.add(id);
+    }
+    if (ids.size) byDate.set(day.date, ids);
+  }
+  const days = [];
+  let remaining = SUGGESTION_LIMITS.total;
+  for (const date of [...byDate.keys()].sort().reverse().slice(0, SUGGESTION_LIMITS.days)) {
+    const recipeIds = [...byDate.get(date)].slice(-Math.min(remaining, SUGGESTION_LIMITS.recipesPerDay));
+    days.push({date, recipeIds});
+    remaining -= recipeIds.length;
+    if (!remaining) break;
+  }
+  return days.reverse();
+}
+
 function validateV3(value, data) {
-  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'manualTargets', 'profile', 'personalProfile', 'birthDate', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts', 'familyCalendar', 'suggestedRecipeIds', 'draftPlan', 'drivePhotoLinks'], '保存データ');
+  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'manualTargets', 'profile', 'personalProfile', 'birthDate', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts', 'familyCalendar', 'suggestedRecipeIds', 'suggestionHistory', 'draftPlan', 'drivePhotoLinks'], '保存データ');
   const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), recipeIds: new Set(data.recipes.map(recipe => recipe.id)), allergenIds: new Set(data.allergens.map(allergen => allergen.id)), customIds: new Set()};
   const customRecipes = list(value.customRecipes, LIMITS.customRecipes, 'マイレシピ').map(recipe => customRecipe(recipe, context));
   const recipes = [...data.recipes, ...customRecipes];
@@ -686,9 +725,11 @@ function validateV3(value, data) {
   const familyCalendar = validateFamilyCalendar(value.familyCalendar);
   removeStaleBirthdayReasons(draftPlan, birthDate, familyCalendar);
   const suggestedRecipeIds = unique(list(value.suggestedRecipeIds ?? [], 2048, '提案した料理').map(id => identifier(id)));
+  const suggestionHistory = validateSuggestionHistory(value.suggestionHistory === undefined ? [] : value.suggestionHistory);
   const drivePhotoLinks = validateDrivePhotoLinks(value.drivePhotoLinks, new Set(recipes.map(recipe => recipe.id)));
   return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, ...nutrition, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites, shoppingExtras, shoppingList, shoppingCatalog: catalog, shoppingReceipts: receipts,
     ...(familyCalendar.length ? {familyCalendar} : {}), ...(suggestedRecipeIds.length ? {suggestedRecipeIds} : {}),
+    ...(suggestionHistory.length ? {suggestionHistory} : {}),
     ...(drivePhotoLinks.length ? {drivePhotoLinks} : {}),
     ...(draftPlan === undefined ? {} : {draftPlan})};
 }
