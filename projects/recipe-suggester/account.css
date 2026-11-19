@@ -19,6 +19,8 @@ body[data-account-locked] > :not(#account-gate, #install-guide, #app-qr-dialog, 
 .account-card p { line-height: 1.7; }
 .account-card .button-primary { display: flex; width: 100%; justify-content: center; min-height: 46px; margin-top: 1.5rem; }
 .account-card .button-text { display: block; margin-top: 1rem; }
+.account-help { margin-top: 1rem; color: var(--ink); font-size: .9rem; }
+.account-help summary { cursor: pointer; }
 #account-gate-message { color: #52624c; font-size: .85rem; }
 .account-toolbar {
   display: flex; align-items: center; justify-content: flex-end; gap: .9rem;

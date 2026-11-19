@@ -31,6 +31,9 @@ meal-drive-photos {display:block;}
 .drive-photo-panel button {margin:.35rem .4rem .35rem 0;}
 .drive-photo-panel ul {padding-inline-start:1.2em; overflow-wrap:anywhere;}
 .drive-photo-preview {display:block; max-width:100%; max-height:22rem; margin-block:.5rem; object-fit:contain;}
+@media (max-width: 760px) {
+  #settings-panel-help .course-details { display: none; }
+}
 html[data-standalone] [data-browser-only] { display: none !important; }
 @media (display-mode: standalone) {
   [data-browser-only] { display: none !important; }

@@ -27,6 +27,10 @@ def verify_browser_install(browser, devices, url):
         """)
         page = context.new_page()
         page.goto(url)
+        introduction = page.locator("#account-gate .account-help")
+        introduction.get_by_text("使い方", exact=True).click()
+        expect(introduction).to_contain_text("集計に個人情報は含まれません。", use_inner_text=True)
+        expect(page.locator("#account-content")).to_be_hidden()
         locked_install = page.locator("#account-gate [data-install-app]")
         expect(locked_install).to_be_visible()
         locked_install.click()
@@ -57,6 +61,7 @@ def verify_browser_install(browser, devices, url):
         expect(page.locator("#profile-form")).to_be_visible()
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
         page.locator("#settings-tab-display").click()
+        check_offline_status(page)
         settings = page.locator("#install-meal-palette")
         expect(settings).to_have_accessible_name(INSTALL_LABEL)
         if device == "Pixel 7":
@@ -93,16 +98,30 @@ def check_app_only(page):
     )
 
 
+def check_offline_status(page):
+    section = page.get_by_role("region", name="オフラインでの買い物")
+    expect(section.get_by_role("heading", name="オフラインでの買い物")).to_be_visible()
+    status = section.get_by_role("status")
+    expect(status).to_be_visible()
+    expect(status).to_have_id("offline-state")
+    expect(page.locator("#offline-state")).to_have_count(1)
+
+
 def verify_app_settings(page):
     page.locator("#tab-settings").click()
     page.locator("#settings-tab-display").click()
     expect(page.locator("#appearance-settings-title")).to_be_visible()
     expect(page.locator("#home-install-panel")).to_be_hidden()
     expect(page.locator("#install-guide")).to_be_hidden()
-    expect(page.locator("#offline-state")).to_be_hidden()
+    check_offline_status(page)
+    expect(page.locator("#offline-state")).to_have_text("オフラインで使えます。", timeout=90000)
     page.locator("#settings-tab-help").click()
     guide = page.locator("#settings-panel-help")
     expect(guide).to_be_visible()
+    profile = guide.locator("details").filter(has_text="最初にプロフィールを設定する")
+    profile.locator("summary").click()
+    expect(profile.get_by_text("集計に個人情報は含まれません。", exact=True)).to_be_visible()
+    expect(guide.get_by_text("スマホで開く・ホーム画面に追加する", exact=True)).to_be_hidden()
     topic = guide.locator("details").filter(has_text="レシピを探す・料理写真を残す")
     topic.locator("summary").click()
     expect(topic.get_by_text("「自分の料理写真」", exact=False)).to_be_visible()
