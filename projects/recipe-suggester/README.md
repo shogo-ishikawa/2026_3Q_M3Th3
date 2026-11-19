@@ -1,10 +1,12 @@
 # Meal Palette（ミールパレット）
 
-対応版：v4.11.0 ／ 更新日：2026年11月20日
+対応版：v4.11.1 ／ 更新日：2026年11月20日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
 
 Web版とホーム画面版はGoogleアカウントでログインして使います。献立の下書き、カレンダーの予定、食べた量と栄養の目安は同じアカウントでほかの端末からも開けます。
+
+使い始めの手順はログイン画面の「使い方」で確認できます。ログイン後は「設定」→「使い方」で詳しい操作を選べます。
 
 v4.11.0では、お気に入りの料理を日を空けて再提案します。食べた記録がたまると、よく選ぶジャンルや調理法も献立に反映します。
 
@@ -157,7 +159,7 @@ v3.9.1までに、刺身の切れ数やチーズの個数からの重量換算�
 
 v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v4.4.0.zip)
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v4.11.1.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
