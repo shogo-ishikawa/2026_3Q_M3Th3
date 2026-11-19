@@ -193,7 +193,10 @@
         "saved-plan.js",
         "cloud-journal-firestore.js",
         "cloud-journal.js",
-        "menu-feedback.js"
+        "menu-feedback.js",
+        "personal-nutrition.js",
+        "personal-profile-ui.js",
+        "weekly-review.js"
       ]
     },
     {

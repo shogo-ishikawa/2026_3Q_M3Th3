@@ -1,10 +1,12 @@
 # Meal Palette（ミールパレット）
 
-対応版：v4.1.0 ／ 更新日：2026年11月19日
+対応版：v4.2.0 ／ 更新日：2026年11月19日
 
 食事の記録、栄養の振り返り、次の献立と買い物をつなぐブラウザーアプリです。食べたものを種類から選び、ご飯はg、飲み物はml、おにぎりは個数で記録できます。旧「献立ノート」の機能を引き継ぎ、6つのタブで操作を切り替えます。
 
 Web版とホーム画面版はGoogleアカウントでログインして使います。献立の下書き、カレンダーの予定、食べた量と栄養の目安は同じアカウントでほかの端末からも開けます。
+
+v4.2.0では、希望する方は「設定」で年齢・身長・体重などを登録し、自分の体格と活動量に応じた1日の栄養の目安を確認できます。「栄養」では選んだ日までの7日間と、その前の7日間の摂取量を比較できます。週ごとの振り返りは詳細プロフィールを入力する前から使えます。
 
 「スマホにアプリをインストール」からMeal Paletteをホーム画面に追加できます。ホーム画面から開くと食事や買い物の機能に直接アクセスできます。学生作品や講義資料へのリンクは通常のWeb版で参照できます。ログインとオフラインの準備を済ませておくと、通信が切れた店内でも買い物リストを操作できます。
 
@@ -135,7 +137,7 @@ v3.9.1までに、刺身の切れ数やチーズの個数からの重量換算�
 
 v3.7.1で整えた栄養計算も引き継いでいます。肉の種類・部位や食材・調味料の代表値に使用量を掛けた概算です。保存済みの食事は登録時の料理名、量、栄養を保ちます。
 
-**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v4.1.0.zip)
+**[ブラウザーで開く](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/)** ／ [使い方](docs/manual.md) ／ [コード一式（ZIP）](https://shogo-ishikawa.github.io/2026_3Q_M3Th3/projects/recipe-suggester/dist/meal-planner_v4.2.0.zip)
 
 [学生オリジナル「AI献立スマートシェフ」を開く](https://cish25155-prog.github.io/SmartChef/)
 
@@ -233,7 +235,7 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 
 その日の飲食をすべて登録したら「この日の飲食をすべて記録した」を選びます。最近の平均には記録を完了した日を使い、成分が不明な日はその成分の平均から除きます。計算に使った日数も表示するので、入力途中の日が平均を小さく見せることを避けられます。
 
-「設定」では18歳以上の年代、基準表の性別区分、普段の活動量を選び、厚生労働省の「日本人の食事摂取基準（2025年版）」から比較の目安を選べます。数値を自分で設定する方法も使えます。体格に応じた必要量の計算や健康状態の診断ではありません。妊娠・授乳中、18歳未満、治療用の自動設定には対応していません。
+「設定」では、年代・性別区分・活動量に対応する基準表の参考値を選ぶか、比較値を自分で指定できます。詳細プロフィールを選ぶと18〜79歳の一般成人を対象に、身長・体重も使って体重を維持するためのエネルギーを推定します。詳しい条件は[計算方法と適用範囲](docs/personal-nutrition.md)で確認できます。
 
 酒・飲料・補食の商品例は[商品表示の出典](docs/performance-food-sources.md)にまとめています。食品の対応や換算は[栄養値の出典](docs/nutrition-sources.md)、年代別の目安は[食事摂取基準の出典](docs/dietary-reference-sources.md)にまとめています。
 
@@ -326,6 +328,8 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `dish-hierarchy.js` | 主菜・副菜の食材カテゴリと調理法、検索と選択肢の件数 |
 | `ingredient-nutrients.js` | 食品成分表と単位当たりの栄養 |
 | `dietary-reference.js` | 年代・性別・活動量と比較用の目安 |
+| `personal-nutrition.js`・`personal-profile-ui.js` | 任意の詳細プロフィールと個人向けの栄養の目安 |
+| `weekly-review.js` | 完了した日の摂取量から前週との変化を集計 |
 | `planner.js` | 除外条件と候補選び、記録を使った提案、組み合わせの変更 |
 | `nutrition.js`・`intake.js` | 1人分の計算、期間集計、不明分と記録完了日の扱い |
 | `journal.js` | v3保存形式の検査、旧版からの移行、日付処理 |
@@ -335,10 +339,10 @@ DBにない食事は名前と量だけでも手入力できます。栄養成分
 | `account-boot.js`・`cloud-journal.js`・`cloud-journal-firestore.js` | Google認証、アカウント別の端末保存とクラウド同期 |
 | `menu-feedback.js` | 任意のメニュー希望と管理者の候補一覧 |
 
-ZIPは`v4.1.0/`に展開します。Macでは次の場所に置けます。
+ZIPは`v4.2.0/`に展開します。Macでは次の場所に置けます。
 
 ```text
-/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v4.1.0
+/Users/shogo/Dropbox/share_data/open_material/misc/apps/MealPalette/v4.2.0
 ```
 
 配布ZIPを自分の環境で動かすには、使用するFirebaseプロジェクトのGoogle認証でローカルのホスト名を許可し、プロジェクトに対応するSDKとWeb設定を用意します。準備後に展開先で`python3 tools/serve.py`を実行します。[Firebaseの設定手順](firebase/README.md)

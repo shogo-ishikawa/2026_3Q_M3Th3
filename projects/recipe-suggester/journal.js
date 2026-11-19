@@ -1,6 +1,7 @@
 // 食事記録と設定を検証し、渡されたアカウントの保存先で読み書きします。
 import {CATALOG_CATEGORIES, FOOD_NATURES} from './catalog.js';
 import {deriveReference} from './dietary-reference.js';
+import {derivePersonalNutrition} from './personal-nutrition.js';
 import {recipeConfirmation} from './nutrition.js';
 import {validateMealSets} from './meal-sets.js';
 import {validatePurchaseSettings} from './purchase-conversion.js';
@@ -423,10 +424,64 @@ function shoppingReceipts(value) {
 }
 
 function profile(value) {
-  record(value, ['ageBand', 'sex', 'activity', 'mode'], '比較用プロフィール');
-  const allowed = {ageBand: ['unset', '18-29', '30-49', '50-64', '65-74', '75-plus'], sex: ['unset', 'male', 'female'], activity: ['unset', 'low', 'moderate', 'high'], mode: ['manual', 'reference']};
+  record(value, ['ageBand', 'sex', 'activity', 'mode', 'previousMode'], '比較用プロフィール');
+  const allowed = {ageBand: ['unset', '18-29', '30-49', '50-64', '65-74', '75-plus'], sex: ['unset', 'male', 'female'], activity: ['unset', 'low', 'moderate', 'high'], mode: ['manual', 'reference', 'personal']};
   for (const [key, values] of Object.entries(allowed)) if (!values.includes(value[key])) throw new Error('年代・性別・活動量・比較方法を確認してください。');
-  return Object.fromEntries(Object.keys(allowed).map(key => [key, value[key]]));
+  if (value.mode === 'personal') {
+    if (!['manual', 'reference'].includes(value.previousMode) || (value.previousMode === 'reference' && !deriveReference(value))) throw Error('詳細プロフィールを削除した後に使う比較方法を確認してください。');
+  } else if (value.previousMode !== undefined) throw Error('比較方法の設定を確認してください。');
+  return {...value};
+}
+
+function validatePersonalProfile(value) {
+  record(value, ['age', 'heightCm', 'weightKg', 'sex', 'activity'], '詳細プロフィール');
+  if (!derivePersonalNutrition(value)) throw Error('入力した年齢・身長・体重・性別区分・活動量の組み合わせでは、個人の目安を計算できません。');
+  return {...value};
+}
+
+export function activeNutritionReference(state) {
+  if (state.profile.mode === 'personal') return derivePersonalNutrition(state.personalProfile);
+  if (state.profile.mode === 'reference') return deriveReference(state.profile);
+  return null;
+}
+
+/** 手入力の目安と年代設定は、ほかの比較方法を使っている間も保つ。 */
+export function setNutritionMode(state, selection, details = state.personalProfile) {
+  const previous = state.profile;
+  let chosen = selection;
+  if (selection.mode === 'personal') {
+    details = validatePersonalProfile(details);
+    const previousMode = previous.mode === 'personal' ? previous.previousMode : previous.mode;
+    chosen = {...previous, mode: 'personal', previousMode};
+  }
+  const next = profile(chosen);
+  const reference = activeNutritionReference({profile: next, personalProfile: details});
+  if (next.mode === 'reference' && !reference) throw Error('年代・基準表の性別・活動量を選んでください。75歳以上の「高い」活動量には参照値がありません。');
+  if (next.mode === 'manual') {
+    state.targets = {...(state.manualTargets ?? (previous.mode === 'personal' ? DEFAULT_TARGETS : state.targets))};
+    delete state.manualTargets;
+  } else {
+    if (previous.mode === 'manual') state.manualTargets = {...state.targets};
+    state.targets = {...reference.targets};
+  }
+  if (next.mode === 'personal') state.personalProfile = details;
+  state.profile = next;
+}
+
+export function clearPersonalProfile(state) {
+  if (state.profile?.mode === 'personal') {
+    const {previousMode, ...previous} = state.profile;
+    const reference = previousMode === 'reference' && deriveReference(previous);
+    state.profile = {...previous, mode: reference ? 'reference' : 'manual'};
+    state.targets = {...(reference ? reference.targets : state.manualTargets ?? DEFAULT_TARGETS)};
+    if (!reference) delete state.manualTargets;
+  }
+  delete state.personalProfile;
+}
+
+function nutritionTargets(value) {
+  record(value, NUTRIENT_KEYS, '比較の目安');
+  return Object.fromEntries(NUTRIENT_KEYS.map(key => [key, number(value[key], '比較の目安', {zero: key === 'salt', max: key === 'kcal' ? 20000 : 10000})]));
 }
 
 export function shoppingServingsFor(entry, fallback) {
@@ -486,7 +541,7 @@ function validateDraft(source, data, recipes) {
 }
 
 function validateV3(value, data) {
-  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts', 'draftPlan'], '保存データ');
+  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'manualTargets', 'profile', 'personalProfile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts', 'draftPlan'], '保存データ');
   const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), recipeIds: new Set(data.recipes.map(recipe => recipe.id)), allergenIds: new Set(data.allergens.map(allergen => allergen.id)), customIds: new Set()};
   const customRecipes = list(value.customRecipes, LIMITS.customRecipes, 'マイレシピ').map(recipe => customRecipe(recipe, context));
   const recipes = [...data.recipes, ...customRecipes];
@@ -521,11 +576,12 @@ function validateV3(value, data) {
     pantryIds.add(part.id);
     return {id: part.id, amount: number(part.amount, '手持ちの量', {zero: true})};
   });
-  record(value.targets, NUTRIENT_KEYS, '比較の目安');
-  let targets = Object.fromEntries(NUTRIENT_KEYS.map(key => [key, number(value.targets[key], '比較の目安', {zero: key === 'salt', max: key === 'kcal' ? 20000 : 10000})]));
+  let targets = nutritionTargets(value.targets);
+  const manualTargets = value.manualTargets === undefined ? undefined : nutritionTargets(value.manualTargets);
+  const personalProfile = value.personalProfile === undefined ? undefined : validatePersonalProfile(value.personalProfile);
   const selectedProfile = profile(value.profile);
-  if (selectedProfile.mode === 'reference') {
-    const reference = deriveReference(selectedProfile);
+  if (selectedProfile.mode !== 'manual') {
+    const reference = activeNutritionReference({profile: selectedProfile, personalProfile});
     if (!reference) throw new Error('このプロフィールでは食事摂取基準の比較値を使えません。年代・性別・活動量を選ぶか、手動の比較値へ切り替えてください。');
     if (NUTRIENT_KEYS.some(key => Math.abs(targets[key] - reference.targets[key]) > 1e-6)) throw new Error('プロフィールと食事摂取基準の比較値が一致しません。手動の値を使う場合は比較方法を手動にしてください。');
     // 微小な丸め差だけを認め、保存時は出典と同じ基準値へそろえます。
@@ -543,6 +599,7 @@ function validateV3(value, data) {
   const shoppingList = value.shoppingList === undefined ? null : shoppingMenus(value.shoppingList, data, {prepared: true});
   const catalog = shoppingCatalog(value.shoppingCatalog, data), receipts = shoppingReceipts(value.shoppingReceipts);
   return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites, shoppingExtras, shoppingList, shoppingCatalog: catalog, shoppingReceipts: receipts,
+    ...(manualTargets && selectedProfile.mode !== 'manual' ? {manualTargets} : {}), ...(personalProfile ? {personalProfile} : {}),
     ...(value.draftPlan === undefined ? {} : {draftPlan: validateDraft(value.draftPlan, data, recipes)})};
 }
 
@@ -695,8 +752,10 @@ export function replaceJournal(storage, state, data, session) {
     if (session && !sameJournalSource(session.source, source)) return false;
     if (source) {
       const backups = rawBackups(storage);
-      const previous = backups.find(backup => backup.key === source.key && backup.raw === source.raw);
-      const backup = previous ?? {...source, savedAt: new Date().toISOString()};
+      // プロフィールをクラウドで削除した後、別の端末の自動退避から再登録されるのを防ぐ。
+      const raw = withoutArchivedPersonalProfile(source.raw);
+      const previous = backups.find(backup => backup.key === source.key && backup.raw === raw);
+      const backup = previous ?? {...source, raw, savedAt: new Date().toISOString()};
       const history = backups.filter(item => item !== previous);
       history.push(backup);
       // Retain all distinct originals. A quota failure leaves the current source untouched.
@@ -713,6 +772,37 @@ export function readJournalBackups(storage) {
 
 export function readJournalBackup(storage) {
   return readJournalBackups(storage).at(-1) ?? null;
+}
+
+function archivedPersonalState(raw) {
+  let saved;
+  try { saved = JSON.parse(raw); }
+  catch { return null; }
+  return saved && Object.hasOwn(saved, 'personalProfile') ? saved : null;
+}
+
+function withoutArchivedPersonalProfile(raw) {
+  const saved = archivedPersonalState(raw);
+  if (!saved) return raw;
+  clearPersonalProfile(saved);
+  return JSON.stringify(saved);
+}
+
+export function hasArchivedPersonalProfile(storage) {
+  return readJournalBackups(storage).some(backup => archivedPersonalState(backup.raw));
+}
+
+/** 書き出したファイルには触れず、このアカウントの端末内の各退避データを更新する。 */
+export function clearArchivedPersonalProfiles(storage) {
+  const archives = rawBackups(storage);
+  let changed = false;
+  for (const archive of archives) {
+    const raw = withoutArchivedPersonalProfile(archive.raw);
+    if (raw === archive.raw) continue;
+    archive.raw = raw;
+    changed = true;
+  }
+  if (changed) storage.setItem(JOURNAL_BACKUP_KEY, JSON.stringify(archives));
 }
 
 /** This records an export operation, not proof that a download reached a device. */

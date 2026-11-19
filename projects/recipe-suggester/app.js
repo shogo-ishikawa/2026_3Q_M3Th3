@@ -6,7 +6,7 @@ import {demoStorage, setupWelcome, applyQuickSetup} from './onboarding.js';
 import {ALLERGENS, INGREDIENTS, RECIPES} from './data.js';
 import {generateCalendarPlan, replaceRecipe, toggleDish, activeRecipeIds, describeRecipe, eligibleRecipes, updatePlanStaple, regeneratePlanMeal, addPlanDish, planMealPreference} from './planner.js';
 import {GENRES, rebalanceGenreRatios} from './storage.js';
-import {MAX_IMPORT_BYTES, shoppingServingsFor, readJournal, journalSourceChanged, writeJournal, replaceJournal, readJournalBackup, markJournalExport, readJournalExportTime, defaultJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
+import {MAX_IMPORT_BYTES, DEFAULT_TARGETS, activeNutritionReference, clearArchivedPersonalProfiles, clearPersonalProfile, hasArchivedPersonalProfile, setNutritionMode, shoppingServingsFor, readJournal, journalSourceChanged, writeJournal, replaceJournal, readJournalBackup, markJournalExport, readJournalExportTime, defaultJournal, validateJournal, parseJournal, dateKey, dateIsValid, monthCells, shiftDate, entriesForDay} from './journal.js';
 import {createJournalHistory, manualEditAffected} from './journal-history.js';
 import {mountQuickRecord} from './quick-record-ui.js';
 import {mountRecordSearch} from './record-search-ui.js';
@@ -27,8 +27,9 @@ import {planPortionLabel,portionLabel,formatCookingIngredient,recordPortionPrese
 import {mountCatalogFavourites} from './catalog-favourites-ui.js';
 import {formatNutrient} from './nutrient-format.js';
 import {catalogFamilies,catalogVariants,recipeFamily,recipePortion,CATALOG_CATEGORIES,FOOD_NATURES,recipeNature,isCompleteMeal} from './catalog.js';
-import {deriveReference} from './dietary-reference.js';
+import {renderNutritionProfile, applyNutritionProfileForm, showProfileFields} from './personal-profile-ui.js';
 import {analyseIntake,compareIntake} from './intake.js';
+import {renderWeeklyReview} from './weekly-review.js';
 import {MEAL_OCCASIONS, mealOccasionsFor} from './meal-occasions.js';
 import {setupTabs} from './tabs.js';
 import {previewReset,resetEntriesRange,createCatalogEntry} from './record-actions.js';
@@ -61,8 +62,8 @@ import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
 import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.1.0';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.1.0';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.2.0';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.2.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -111,6 +112,18 @@ function guard(fn){return (...args)=>{try{const result=fn(...args); if(result?.c
 function showJournalChange(){
   const changed=journalSourceChanged(storage,loaded);
   $('journal-changed').hidden=!changed;
+  if(changed&&state.personalProfile){
+    const incoming=readJournal(storage,builtin);
+    if(!incoming.recovery&&(incoming.source||!incoming.message)&&!incoming.state.personalProfile){
+      // 別端末で削除した詳細項目は、他の編集内容の再読み込みを待たずに表示から外す。
+      delete state.personalProfile;
+      state.profile=incoming.state.profile;
+      state.targets=incoming.state.targets;
+      if(incoming.state.manualTargets)state.manualTargets=incoming.state.manualTargets;
+      else delete state.manualTargets;
+      renderProfile();renderNutrition();renderPersistenceStatus();
+    }
+  }
   return changed;
 }
 function requireCurrentJournal(){
@@ -155,8 +168,9 @@ function renderPersistenceStatus(){
   const backup=readJournalBackup(storage),exported=readJournalExportTime(storage);
   $('backup-export-time').textContent=exported?`最後のバックアップ書き出し：${new Date(exported).toLocaleString('ja-JP')}`:'バックアップはまだ書き出していません。';
   if(backup&&backup.raw!==backupValidity.raw){
-    backupValidity={raw:backup.raw,valid:false};try{parseJournal(backup.raw,builtin);backupValidity.valid=true;}catch{}
+    backupValidity={raw:backup.raw,valid:false,hasPersonal:hasArchivedPersonalProfile(storage)};try{parseJournal(backup.raw,builtin);backupValidity.valid=true;}catch{}
   }
+  $('clear-personal-profile').hidden=demo||(!state.personalProfile&&!(backup&&backupValidity.hasPersonal));
   $('backup-status-note').textContent=backup?`変更前のデータを端末内に退避しています（${new Date(backup.savedAt).toLocaleString('ja-JP')}）。${backupValidity.valid?'':'この元データは自動で読み込めないため、ファイルに書き出して内容を確認してください。'}`:'読み込みや復旧でデータを置き換える前に、元の内容を端末内へ退避します。';
   $('download-journal-backup').disabled=!backup;$('restore-journal-backup').disabled=!backup||!backupValidity.valid;
 }
@@ -365,7 +379,7 @@ function renderNutrition(){
   const date=$('nutrition-date').value||selectedDate,days=Number($('nutrition-period').value||1);
   const actual=summariseEntries(state.entries,{from:date,to:date}),planned=summariseEntries(state.entries,{from:date,to:date,status:'planned'});
   const period=analyseIntake(state.entries,{to:date,days,completedDays:state.completedDays});
-  const reference=state.profile.mode==='reference'?deriveReference(state.profile):null;
+  const reference=activeNutritionReference(state);
   const dayCompleted=state.completedDays.includes(date),hasDay=actual.entryCount>0||dayCompleted;
   const box=$('nutrition-view');box.replaceChildren();
   box.append(node('p','nutrition-caption',days===1?`${dateLabel(date)} · 食べた記録 ${actual.entryCount}件 / ${actual.recordedMeals}食分${planned.entryCount?` · 予定 ${planned.entryCount}件（集計外）`:''}`:`${period.from}〜${period.to} · 記録がそろった日の1日平均`));
@@ -389,8 +403,9 @@ function renderNutrition(){
   if(days===1&&actual.unknownItems)box.append(node('p','field-note',`${actual.unknownItems}品に未入力の栄養があります。表示は分かっている量の合計です。`));
   $('period-summary').replaceChildren(node('p','',`${days}日間で${period.totals.recordedDays}日の記録があります。うち${period.completedCount}日を記録完了として登録しています。`),node('p','field-note',days===1?(dayCompleted?'この日の飲食は記録済みとして比較します。未入力の栄養は比較しません。':'飲食の記録がそろったら「記録」タブで完了にチェックできます。'):period.completedCount?'平均には記録がそろった日だけを使います。栄養が不明の日は成分ごとに除き、対象の日数を表示します。':'記録がそろった日がないため平均は表示していません。空白の日を0として計算しません。'));
   const refBox=$('nutrition-reference-note');refBox.replaceChildren();
-  if(reference){refBox.append(node('strong','',`2025年版の目安 · ${reference.label}`),node('p','field-note','参照体位の一般成人に対する比較用です。体格、妊娠・授乳、治療用の調整は行いません。1日だけの数字で健康状態を判定するものではありません。'));
+  if(reference){refBox.append(node('strong','',`2025年版の目安 · ${reference.label}`),node('p','field-note',reference.notes[0]));
     const detail=node('details');detail.append(node('summary','','目安の種類と出典を見る'));
+    if(state.profile.mode==='personal')detail.append(node('p','field-note',`基礎代謝量の推定値 約${fmt(reference.basalKcal,0)} kcal/日 × 身体活動レベル ${reference.activityFactor}。結果は50 kcal単位で表示します。`));
     detail.append(node('p','field-note',`たんぱく質は推奨量${reference.targets.protein}gを表示しています。目標エネルギー比率${reference.energyPercentRanges.protein.min}〜${reference.energyPercentRanges.protein.max}%（${fmt(reference.ranges.protein.min)}〜${fmt(reference.ranges.protein.max)}g）とは別の指標です。脂質と炭水化物のバーは公式範囲の中央を比較の便宜値にしています。`));
     for(const source of reference.references.slice(0,2)){const link=node('a','text-link',source.title);link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';detail.append(link);}refBox.append(detail);
   }else{refBox.append(node('strong','','手動で設定した比較値'),node('p','field-note','年代・基準表の性別・活動量に合わせた目安は「設定」タブで選べます。初期値は表示を試すための参考値です。'));}
@@ -404,7 +419,9 @@ function renderNutrition(){
     col.append(node('span','',energy),bar,node('span','',d.slice(5).replace('-','/')),node('small','',`${daily.recordedMeals}食${state.completedDays.includes(d)?' ✓':''}`));chart.append(col);
   }
   $('weekly-view').append(chart,node('p','field-note',`直近${chartDays}日間のエネルギー（kcal）。✓は記録完了、＋?は不明分を含む日です。未完了の日も分かっている量を表示します。`));
-  for(const key of NUTRIENT_KEYS){$('target-'+key).value=Number(state.targets[key].toFixed(3));$('target-'+key).step='any';}
+  renderWeeklyReview($('weekly-review'), state.entries, state.completedDays, date);
+  const manual=state.manualTargets??(state.profile.mode==='personal'?DEFAULT_TARGETS:state.targets);
+  for(const key of NUTRIENT_KEYS){$('target-'+key).value=Number(manual[key].toFixed(3));$('target-'+key).step='any';}
 }
 function goalLabel(key,reference){
   const value=state.targets[key],unit=NUTRIENT_UNITS[key];
@@ -413,12 +430,11 @@ function goalLabel(key,reference){
   if(key==='salt')return `目標量 ${`${formatNutrient(value,key)} ${unit}`}未満`;
   if(key==='fiber')return `目標量 ${`${formatNutrient(value,key)} ${unit}`}以上`;
   if(key==='protein')return `推奨量 ${`${formatNutrient(value,key)} ${unit}`}`;
-  return `参照体位の推定値 ${`${formatNutrient(value,key)} ${unit}`}`;
+  const basis=state.profile.mode==='personal'?'体重を維持する目安':'参照体位の推定値';
+  return `${basis} ${formatNutrient(value,key)} ${unit}`;
 }
 function renderProfile(){
-  for(const [id,key]of [['profile-age','ageBand'],['profile-sex','sex'],['profile-activity','activity'],['profile-mode','mode']])$(id).value=state.profile[key];
-  const reference=state.profile.mode==='reference'?deriveReference(state.profile):null;
-  $('profile-summary').textContent=reference?`${reference.label}の比較値を使用しています。`:'手動の比較値を使用しています。プロフィールの入力は任意です。';
+  renderNutritionProfile($,state);
 }
 function natureLabel(recipe){return FOOD_NATURES.find(n=>n.id===recipeNature(recipe))?.label??'分類未設定';}
 function familyLabel(recipe){
@@ -1588,7 +1604,11 @@ bind('plan-open-shopping','click',()=>{
   renderShopping();activateTab('kitchen');setKitchenTab('menus',{focus:true});
 });
 bind('plan-save-calendar','click',()=>{const entries=draftEntries().filter(e=>e.items.length).map(e=>({...e,id:uid(),shoppingServings:plan.settings.servings}));if(!entries.length)throw Error('料理を1品以上含む献立を作成してください。');if(!commit(next=>next.entries.push(...entries),{message:'献立を予定としてカレンダーに登録しました。食べたら記録を切り替えてください。'}))return;$('shopping-source').value='calendar';$('calendar-status').value='planned';$('calendar-meal').value=entries[0].meal;setDate(entries[0].date);renderShopping();activateTab('record',{focus:true});});
-bind('targets-form','submit',event=>{event.preventDefault();commit(next=>{next.targets=Object.fromEntries(NUTRIENT_KEYS.map(k=>[k,readQuantityInput($('target-'+k),{label:NUTRIENT_LABELS[k]})]));next.profile.mode='manual';},{message:'比較用の目標値を保存しました。'});});
+bind('targets-form','submit',event=>{event.preventDefault();commit(next=>{
+  const {ageBand,sex,activity}=next.profile;
+  setNutritionMode(next,{ageBand,sex,activity,mode:'manual'});
+  next.targets=Object.fromEntries(NUTRIENT_KEYS.map(k=>[k,readQuantityInput($('target-'+k),{label:NUTRIENT_LABELS[k]})]));
+},{invalidate:false,message:'手入力の比較値を保存しました。'});});
 bind('shopping-omit-search','input',renderShoppingOmissions);
 bind('shopping-omit-common','change',()=>{const checked=$('shopping-omit-common').checked,ids=commonPantryIds(data());commit(next=>{next.settings.shoppingOmittedIds=checked?[...new Set([...next.settings.shoppingOmittedIds,...ids])]:next.settings.shoppingOmittedIds.filter(id=>!ids.includes(id));},{invalidate:false});});
 bind('kitchen-tabs','click',event=>{const tab=event.target.closest('[data-kitchen-tab]');if(tab)setKitchenTab(tab.dataset.kitchenTab);});
@@ -1615,7 +1635,20 @@ bind('day-complete','change',()=>commit(next=>{next.completedDays=$('day-complet
 bind('nutrition-period','change',renderNutrition);
 for(const id of ['recipe-family','recipe-nature','recipe-genre','recipe-method'])bind(id,'change',()=>{recipeLimit=12;renderCatalog();});
 bind('recipe-food-category','change',()=>{$('recipe-method').value='all';recipeLimit=12;renderCatalog();});
-bind('profile-form','submit',event=>{event.preventDefault();const profile={ageBand:$('profile-age').value,sex:$('profile-sex').value,activity:$('profile-activity').value,mode:$('profile-mode').value};const reference=deriveReference(profile);if(profile.mode==='reference'&&!reference)throw Error('年代・基準表の性別・活動量を選んでください。75歳以上の「高い」活動量は参照値がないため手動で設定できます。');commit(next=>{next.profile=profile;if(profile.mode==='reference')next.targets={...reference.targets};},{message:'栄養の比較方法を保存しました。'});});
+if(demo)$('profile-mode').querySelector('[value="personal"]').disabled=true;
+bind('profile-mode','change',()=>showProfileFields($));
+bind('profile-form','submit',event=>{
+  event.preventDefault();
+  commit(next=>applyNutritionProfileForm($,next),{invalidate:false,message:'栄養の比較方法を保存しました。'});
+});
+bind('clear-personal-profile','click',()=>{
+  if(!confirm('詳細プロフィールを自分のアカウントとこの端末の退避データから削除しますか？すでに書き出したJSONファイルは手元で管理してください。'))return;
+  commit(next=>{
+    clearArchivedPersonalProfiles(storage);
+    backupValidity={raw:null,valid:false};
+    clearPersonalProfile(next);
+  },{invalidate:false,message:'詳細プロフィールを削除しました。'});
+});
 selectOptions($('recipe-food-category'),[['all','すべての食材']],'all');
 selectOptions($('recipe-method'),[['all','すべての調理法']],'all');
 
