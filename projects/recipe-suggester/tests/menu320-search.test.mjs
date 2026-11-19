@@ -35,14 +35,22 @@ test('ピザはすべて・主食の両方から検索でき、元の4種類を�
 test('ピザの検索候補とイラストの有無は別条件で、未対応の絵を流用しない',()=>{
   const pizzas=RECIPES.filter(recipe=>pizzaIds.includes(recipe.id));
   assert.equal(pizzas.length,4);
+  const picturedPizzaIds=['daily-pizza-margherita','daily-pizza-mixed','daily-pizza-teriyaki'];
+  const illustrated=browseDishes(enriched(),{query:'ピザ'}).filter(recipe=>recipeArtwork(recipe));
+  for(const id of [...picturedPizzaIds,'bread-toast-pizza']){
+    assert.ok(ids(illustrated).includes(id),id);
+    assert.equal(recipeArtwork(illustrated.find(recipe=>recipe.id===id))?.recipeId,id);
+  }
+
+  // 1種類の絵だけを登録した場合、ほかのピザは同じ分類でも絵を借りない。
+  const margherita='daily-pizza-margherita';
+  const artwork={[margherita]:recipeArtwork(pizzas.find(recipe=>recipe.id===margherita))};
   for(const recipe of pizzas){
     assert.equal(dishSection(recipe),'staple');
-    if(recipe.id==='daily-pizza-margherita')assert.equal(recipeArtwork(recipe)?.recipeId,recipe.id);
-    else assert.equal(recipeArtwork(recipe),null);
+    const picture=recipeArtwork(recipe,{artwork});
+    if(recipe.id===margherita)assert.equal(picture?.recipeId,margherita);
+    else assert.equal(picture,null);
   }
-  const illustrated=browseDishes(enriched(),{query:'ピザ'}).filter(recipe=>recipeArtwork(recipe));
-  assert.ok(ids(illustrated).includes('daily-pizza-margherita'));
-  assert.ok(ids(illustrated).includes('bread-toast-pizza'));
 });
 
 test('お刺身・お刺し身・御刺身は共通の検索で刺身と同じ候補へ到達する',()=>{
