@@ -25,8 +25,10 @@ class EntryFiles(HTMLParser):
         if tag == 'link' and attrs.get('rel') in {
                 'stylesheet', 'icon', 'mask-icon', 'manifest', 'apple-touch-icon'}:
             self.paths.add(attrs['href'])
-        if tag == 'img' and 'data-src' in attrs:
-            self.paths.add(attrs['data-src'])
+        if tag == 'img':
+            for attribute in ('src', 'data-src'):
+                if attrs.get(attribute):
+                    self.paths.add(attrs[attribute])
         if tag == 'script' and 'src' in attrs:
             self.paths.add(attrs['src'])
 

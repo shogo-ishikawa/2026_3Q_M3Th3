@@ -2,22 +2,37 @@
 const state = document.getElementById('offline-state');
 const installButtons = document.querySelectorAll('[data-install-app]');
 const guide = document.getElementById('install-guide');
+const qrDialog = document.getElementById('app-qr-dialog');
 const standalone = window.matchMedia('(display-mode: standalone)');
 let installOffer;
 let installedThisVisit = false;
 let promptPending = false;
 let guideOpener;
+let qrOpener;
 
 function updateInstallGuide() {
-  const installed = installedThisVisit || standalone.matches || navigator.standalone === true;
+  const appMode = standalone.matches || navigator.standalone === true;
+  const installed = installedThisVisit || appMode;
   for (const button of installButtons) {
     button.hidden = installed;
     button.disabled = promptPending;
   }
-  document.getElementById('home-install-panel').hidden = standalone.matches || navigator.standalone === true;
+  document.getElementById('home-install-panel').hidden = appMode;
+  if (appMode && qrDialog.open) qrDialog.close();
   document.getElementById('home-installed').hidden = !installedThisVisit;
   if (installed && guide.open) guide.close();
 }
+
+for (const button of document.querySelectorAll('[data-open-app-qr]')) {
+  button.addEventListener('click', () => {
+    qrOpener = button;
+    qrDialog.showModal();
+  });
+}
+document.getElementById('close-app-qr').addEventListener('click', () => qrDialog.close());
+qrDialog.addEventListener('close', () => {
+  if (qrOpener?.getClientRects().length) qrOpener.focus();
+});
 
 function showInstallGuide(button) {
   const ua = navigator.userAgent;
