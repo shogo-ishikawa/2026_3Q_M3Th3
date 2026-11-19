@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 
 from playwright.sync_api import expect, sync_playwright
+from account_flow import FixtureDatabase, journal_bytes, login_as, stage_fixture, verify_accounts
 from home_install import check_app_only, verify_android_app, verify_app_settings, verify_browser_install
 
 
@@ -26,6 +27,7 @@ def verify(context, url, server):
     context.on("weberror", lambda error: errors.append(str(error.error)))
     page.on("dialog", lambda dialog: dialog.accept())
     page.goto(url)
+    login_as(page)
     expect(page.locator("#launch-screen")).to_be_hidden()
     assert page.locator("#launch-screen img").get_attribute("src") is None
     page.locator("#first-setup").click()
@@ -34,7 +36,7 @@ def verify(context, url, server):
     expect(page.locator("#quick-setup")).not_to_be_visible()
 
     # 講義用サンプルを編集しても通常画面の保存データは同じ。
-    original = page.evaluate("localStorage.getItem('kondate-note-v3')")
+    original = journal_bytes(page)
     assert original and json.loads(original)["settings"]["shoppingOmittedIds"]
     page.locator("#tab-settings").click()
     sample_link = page.locator("#setup-actions [data-sample-link]")
@@ -49,7 +51,7 @@ def verify(context, url, server):
     remaining = sample_rows.count()
     sample_rows.first.locator("input[type=checkbox]").click()
     expect(sample_rows).to_have_count(remaining - 1)
-    assert sample.evaluate("localStorage.getItem('kondate-note-v3')") == original
+    assert journal_bytes(page) == original
     sample.close()
 
     page.locator("#tab-planner").click()
@@ -118,7 +120,7 @@ def verify(context, url, server):
     page.reload()
     page.locator("#kitchen-tab-purchased").click()
     expect(page.locator("#shopping-purchased-list")).to_contain_text("手持ちに追加済み")
-    state = page.evaluate("JSON.parse(localStorage.getItem('kondate-note-v3'))")
+    state = json.loads(journal_bytes(page))
     receipt = next(r for r in state["shoppingReceipts"] if r["ingredientId"] == item)
     assert receipt["stocked"]
     assert any(p["id"] == item and p["amount"] == receipt["amount"] for p in state["pantry"])
@@ -132,14 +134,16 @@ if __name__ == "__main__":
         site = Path(temp)
         folder = site / "course" / "projects"
         folder.mkdir(parents=True)
-        (folder / "recipe-suggester").symlink_to(app, target_is_directory=True)
+        stage_fixture(app, folder / "recipe-suggester")
         with LocalSite(("127.0.0.1", 0), partial(Handler, directory=str(site))) as server:
             Thread(target=server.serve_forever, daemon=True).start()
             with sync_playwright() as runner:
                 chrome = shutil.which("google-chrome") or shutil.which("chromium")
                 with runner.chromium.launch(executable_path=chrome, args=["--no-sandbox"]) as browser:
                     url = f"http://127.0.0.1:{server.server_port}/course/projects/recipe-suggester/"
+                    verify_accounts(browser, url, FixtureDatabase())
                     verify_browser_install(browser, runner.devices, url)
                     context = browser.new_context(viewport={"width": 390, "height": 844}, locale="ja-JP")
+                    FixtureDatabase().connect(context)
                     verify(context, url, server)
     print("スマホの追加案内・講義リンクの切り替え・デモ分離・調理・オフライン再起動・購入と在庫保存を確認しました。")

@@ -185,7 +185,15 @@
         "cooking-view.js",
         "pwa-ui.js",
         "service-worker.js",
-        "manifest.webmanifest"
+        "manifest.webmanifest",
+        "account.css",
+        "account-boot.js",
+        "account-identity.js",
+        "app-start.js",
+        "saved-plan.js",
+        "cloud-journal-firestore.js",
+        "cloud-journal.js",
+        "menu-feedback.js"
       ]
     },
     {

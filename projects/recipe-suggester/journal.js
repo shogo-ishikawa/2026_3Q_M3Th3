@@ -1,4 +1,4 @@
-// 個人の食事記録とマイレシピは、このブラウザー内にだけ保存します。
+// 食事記録と設定を検証し、渡されたアカウントの保存先で読み書きします。
 import {CATALOG_CATEGORIES, FOOD_NATURES} from './catalog.js';
 import {deriveReference} from './dietary-reference.js';
 import {recipeConfirmation} from './nutrition.js';
@@ -436,8 +436,57 @@ export function shoppingServingsFor(entry, fallback) {
   return count;
 }
 
+// 編集用の下書き。食べた実績やカレンダーの予定とは独立しています。
+function validateDraft(source, data, recipes) {
+  record(source, ['settings', 'warnings', 'days'], '献立の下書き');
+  const {seed, ...sourceSettings} = source.settings;
+  if (!(Number.isFinite(seed) || typeof seed === 'string' && seed.length <= 1000)) throw Error('下書きの提案条件を確認してください。');
+  const base = settings(sourceSettings, data, recipes);
+  const labels = values => list(values, 100, '下書きの説明').map(value => text(value, 2000, '下書きの説明'));
+  const amount = value => value === null ? null : number(value, '下書きの分量', {max: 100000});
+  const end = shiftDate(base.startDate, base.days - 1);
+  const slots = new Set(), items = new Set();
+  const days = list(source.days, 28, '下書きの食事').map(day => {
+    record(day, ['date', 'meal', 'mainId', 'targetGenre', 'recipeIds', 'quantities', 'omittedRecipeIds', 'dishReasons',
+      'stapleId', 'stapleMode', 'stapleAmount', 'drinkId', 'drinkAmount', 'mealPreference', 'reasons',
+      'warnings', 'proposedReasons', 'proposedWarnings', 'itemIds'], '下書きの食事');
+    const slot = day.date + '/' + day.meal;
+    if (!dateIsValid(day.date) || day.date < base.startDate || day.date > end ||
+        !MEAL_IDS.includes(day.meal) || slots.has(slot)) throw Error('下書きの日付と食事区分を確認してください。');
+    slots.add(slot);
+    const recipeIds = list(day.recipeIds, 50, '下書きの料理').map(id => identifier(id));
+    const known = new Set(recipeIds);
+    if (!known.size || recipeIds.length !== known.size || (day.mainId !== null && !known.has(day.mainId)) ||
+        (day.targetGenre !== null && !GENRES.includes(day.targetGenre))) throw Error('下書きの主菜と料理の組み合わせを確認してください。');
+    const checkMap = (map, validate) => Object.fromEntries(Object.entries(record(map, recipeIds, '料理ごとの設定'))
+      .map(([id, value]) => [id, validate(value)]));
+    const quantities = checkMap(day.quantities, value => number(value, '料理の量', {max: 1000}));
+    const itemIds = checkMap(day.itemIds, value => {
+      identifier(value, '買い物の識別子');
+      if (items.has(value)) throw Error('下書きの買い物の識別子が重複しています。');
+      items.add(value);
+      return value;
+    });
+    if (!['adaptive', 'fixed'].includes(day.stapleMode)) throw Error('下書きの主食を確認してください。');
+    const result = {date: day.date, meal: day.meal, mainId: day.mainId, targetGenre: day.targetGenre,
+      recipeIds, quantities, itemIds, omittedRecipeIds: ids(day.omittedRecipeIds, known, '除いた料理'),
+      stapleId: identifier(day.stapleId), stapleMode: day.stapleMode, stapleAmount: amount(day.stapleAmount),
+      drinkId: identifier(day.drinkId), drinkAmount: amount(day.drinkAmount), dishReasons: checkMap(day.dishReasons, labels),
+      reasons: labels(day.reasons), warnings: labels(day.warnings),
+      proposedReasons: labels(day.proposedReasons), proposedWarnings: labels(day.proposedWarnings)};
+    if (day.mealPreference !== undefined) {
+      if (day.meal === 'snack') throw Error('間食の設定を確認してください。');
+      result.mealPreference = mealPreferencesSetting({...base.mealPreferences, [day.meal]: day.mealPreference},
+        base.preferences.mood, base, recipes)[day.meal];
+    }
+    return result;
+  });
+  if (!days.length) throw Error('下書きに食事がありません。');
+  return {settings: {...base, seed}, days, warnings: labels(source.warnings)};
+}
+
 function validateV3(value, data) {
-  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts'], '保存データ');
+  record(value, ['version', 'settings', 'entries', 'customRecipes', 'pantry', 'targets', 'profile', 'completedDays', 'shoppingChecks', 'mealSets', 'purchaseSettings', 'batches', 'favourites', 'shoppingExtras', 'shoppingList', 'shoppingCatalog', 'shoppingReceipts', 'draftPlan'], '保存データ');
   const context = {data, ingredientIds: new Set(Object.keys(data.ingredients)), recipeIds: new Set(data.recipes.map(recipe => recipe.id)), allergenIds: new Set(data.allergens.map(allergen => allergen.id)), customIds: new Set()};
   const customRecipes = list(value.customRecipes, LIMITS.customRecipes, 'マイレシピ').map(recipe => customRecipe(recipe, context));
   const recipes = [...data.recipes, ...customRecipes];
@@ -493,7 +542,8 @@ function validateV3(value, data) {
   const shoppingExtras = shoppingMenus(value.shoppingExtras, data);
   const shoppingList = value.shoppingList === undefined ? null : shoppingMenus(value.shoppingList, data, {prepared: true});
   const catalog = shoppingCatalog(value.shoppingCatalog, data), receipts = shoppingReceipts(value.shoppingReceipts);
-  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites, shoppingExtras, shoppingList, shoppingCatalog: catalog, shoppingReceipts: receipts};
+  return {version: 3, settings: settings(value.settings, data, recipes), entries, customRecipes, pantry, targets, profile: selectedProfile, completedDays, shoppingChecks, mealSets, purchaseSettings, batches, favourites, shoppingExtras, shoppingList, shoppingCatalog: catalog, shoppingReceipts: receipts,
+    ...(value.draftPlan === undefined ? {} : {draftPlan: validateDraft(value.draftPlan, data, recipes)})};
 }
 
 function legacyNutrition(recipe, data) {

@@ -1,0 +1,13 @@
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "asia-northeast1",
+    "predeploy": ["node check-location.mjs"],
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": { "host": "127.0.0.1", "port": 8080 },
+    "ui": { "enabled": false }
+  }
+}

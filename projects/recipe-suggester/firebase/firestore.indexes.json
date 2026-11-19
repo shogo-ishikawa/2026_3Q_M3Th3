@@ -1,0 +1,10 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "parts",
+      "fieldPath": "text",
+      "indexes": []
+    }
+  ]
+}

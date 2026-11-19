@@ -1,10 +1,16 @@
 """公開するソースだけを、バージョン名のフォルダーへまとめます。"""
 from pathlib import Path
+import os
 import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
+    "account.css", "account-boot.js", "account-identity.js", "app-start.js", "saved-plan.js",
+    "cloud-journal-firestore.js", "cloud-journal.js", "menu-feedback.js",
+    "firebase/README.md", "firebase/firebase.json", "firebase/firestore.indexes.json",
+    "firebase/firestore.rules", "firebase/check-location.mjs", "firebase/tests/firestore_rules.py",
+    "firebase/tests/journal_transactions.mjs",
     "README.md", "VERSION", "package.json", "CLAUDE_CODE_PROMPT.md",
     "index.html", "styles.css", "app.js", "storage.js", "planner.js", "data.js",
     "recipe_suggester.ipynb", "meal_planner.ipynb",
@@ -43,12 +49,12 @@ def public_files():
             raise ValueError(f"公開用ファイルが見つかりません：{filename}")
         yield path
     for directory in DIRECTORIES:
-        for path in sorted((ROOT / directory).rglob("*")):
-            relative = path.relative_to(ROOT)
-            if any(part in SKIP or part.startswith(".") for part in relative.parts):
-                continue
-            if path.is_file() and not path.is_symlink():
-                yield path
+        for folder, dirs, filenames in os.walk(ROOT / directory):
+            dirs[:] = sorted(name for name in dirs if name not in SKIP and not name.startswith("."))
+            for name in sorted(filenames):
+                path = Path(folder) / name
+                if not name.startswith(".") and path.is_file() and not path.is_symlink():
+                    yield path
 
 
 def stage(destination):

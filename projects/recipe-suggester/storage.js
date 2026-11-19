@@ -1,4 +1,4 @@
-// 食事の記録は、このブラウザーの中だけに保存します。
+// 旧版の端末データを読み込むための形式と検証処理です。
 export const STORAGE_KEY = 'kondate-note-v1';
 export const GROUP_IDS = ['staple', 'vegetable', 'protein', 'dairy', 'fruit'];
 export const PROTEIN_IDS = ['meat', 'fish', 'egg', 'soy'];

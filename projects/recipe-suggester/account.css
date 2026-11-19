@@ -1,0 +1,31 @@
+/* 認証が変わった直後は開いていたダイアログや操作通知も含めて隠す。 */
+body[data-account-locked] > :not(#account-gate, #install-guide, #launch-screen, noscript) { display: none !important; }
+.account-gate {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--canvas, #f5f4eb);
+}
+.account-card {
+  width: min(100%, 26rem);
+  padding: clamp(1.5rem, 7vw, 3rem);
+  border: 1px solid var(--line, #d9decf);
+  border-radius: 1.5rem;
+  background: #fffef7;
+}
+.account-card > img { border-radius: 22%; }
+.account-card h1 { margin: .6rem 0; font: 2.5rem/1.1 Georgia, serif; color: #25392e; }
+.account-card p { line-height: 1.7; }
+.account-card .button-primary { display: flex; width: 100%; justify-content: center; min-height: 46px; margin-top: 1.5rem; }
+.account-card .button-text { display: block; margin-top: 1rem; }
+#account-gate-message { color: #52624c; font-size: .85rem; }
+.account-toolbar {
+  display: flex; align-items: center; justify-content: flex-end; gap: .9rem;
+  padding: .4rem clamp(1rem, 5vw, 4rem); color: var(--ink); font-size: .85rem;
+}
+#account-greeting { min-width: 0; overflow-wrap: anywhere; }
+#account-admin { color: #a12224; border: 0; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+#account-admin, #account-logout { flex: none; min-height: 44px; }
+#account-sync-panel { margin-bottom: 1rem; }
+@media print { .account-toolbar { display: none; } }

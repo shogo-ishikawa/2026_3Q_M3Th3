@@ -1,3 +1,5 @@
+import {capturePlan, restorePlan, draftDishKey} from './saved-plan.js';
+import {getAccountSession} from './app-start.js';
 import {mountCookingView} from './cooking-view.js';
 import {configureQuantityInput,readQuantityInput,installQuantitySteppers,setQuantityPresets} from './quantity-input.js';
 import {demoStorage, setupWelcome, applyQuickSetup} from './onboarding.js';
@@ -59,8 +61,8 @@ import {deriveRecipeBasis} from './nutrition-basis.js';
 import {soupIntakeFor} from './soup-intake.js';
 import {mountSoupIntake} from './soup-intake-ui.js';
 import {RECIPE_ARTWORK} from './recipe-artwork-manifest.js';
-import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.0.1';
-import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.0.1';
+import {recipeIllustrationElement} from './recipe-illustration-ui.js?v=4.1.0';
+import {recipeArtwork,liveBreadArtworkRecipe,snapshotArtworkRecipe} from './recipe-illustration.js?v=4.1.0';
 import {MAPO_SEARCH_ALIASES} from './mapo-foods.js';
 import {NOODLE_TOPPINGS} from './noodle-foods.js';
 import {noodleComposerFor,defaultNoodleSelection,eligibleNoodleSelections} from './noodle-composer.js';
@@ -70,6 +72,7 @@ import {mountCurryRice} from './curry-rice-ui.js';
 import {groupMenuRecipes,getVariationGroup,variantLabel,variationSearchAliases} from './menu-variations.js';
 import {FOOD_CATEGORIES,COOKING_METHODS,dishClassification,browseDishes,availableDishCategories,availableCookingMethods} from './dish-hierarchy.js';
 
+const account = getAccountSession();
 installQuantitySteppers(document);
 
 const builtin = {recipes: RECIPES, ingredients: INGREDIENTS, allergens: ALLERGENS};
@@ -83,29 +86,25 @@ const fmt = (value, digits=1) => Number(value).toLocaleString('ja-JP',{maximumFr
 const amount = (n,unit='') => `${fmt(n,2)}${unit ? ` ${unit}`:''}`;
 const dateLabel = date => new Intl.DateTimeFormat('ja-JP',{month:'long',day:'numeric',weekday:'short'}).format(new Date(`${date}T12:00:00`));
 const demo = new URLSearchParams(location.search).get('demo') === 'week';
-let storage;
-if (demo) storage = demoStorage(builtin);
-else {
-  try {storage=window.localStorage;} catch {storage={getItem(){throw Error();},setItem(){throw Error();}};}
-}
+const storage = demo ? demoStorage(builtin) : account.storage;
 const loaded=readJournal(storage,builtin);
 let recovery=loaded.recovery??null,undoNoticeVisible=false,undoNoticeTimer;
 let backupValidity={raw:null,valid:false};
 const undoHistory=createJournalHistory();
-let state=loaded.state, selectedDate=dateKey(), month=selectedDate.slice(0,7), plan=null;
+let state=loaded.state, selectedDate=dateKey(), month=selectedDate.slice(0,7);
+let {plan, shoppingIds: draftShoppingIds} = restorePlan(state.draftPlan, state.settings, {...builtin, recipes: [...RECIPES, ...state.customRecipes]});
 let visiblePlanDate='';
 let recordSearchState={},quickSearchState={},undoReset=null,resetDateAnchor='',summaryRefreshQueued=false;
-let draftShoppingIds=new Map();
 let shoppingSelection={},kitchenTab='checklist',pantryFilter={};
-let roleFilter='all',recipeLimit=12,storageWarning='',editing=null,toastTimer,manualBasis='manual';
+let roleFilter='all',recipeLimit=12,editing=null,toastTimer,manualBasis='manual';
 const data=()=>({...builtin,recipes:[...RECIPES,...state.customRecipes]});
 const recipeById=id=>data().recipes.find(r=>r.id===id);
 const toast=node('div','toast'); toast.hidden=true; toast.setAttribute('aria-hidden','true'); document.body.append(toast);
 
 function tell(message,error=false){
-  const text=[message,storageWarning].filter(Boolean).join(' ');
-  $('app-message').textContent=text; $('app-message').hidden=!text; $('app-message').className=`notice${error||storageWarning?' error':''}`;
-  if(!text)return; toast.textContent=text; toast.hidden=false; toast.classList.toggle('error',error||!!storageWarning);
+  const text=message;
+  $('app-message').textContent=text; $('app-message').hidden=!text; $('app-message').className=`notice${error?' error':''}`;
+  if(!text)return; toast.textContent=text; toast.hidden=false; toast.classList.toggle('error',error);
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.hidden=true,6500);
 }
 function guard(fn){return (...args)=>{try{const result=fn(...args); if(result?.catch)result.catch(e=>tell(e.message,true));}catch(e){tell(e.message,true);}};}
@@ -123,13 +122,14 @@ function persist(next){
     requireCurrentJournal();
     recovery=readJournal(storage,builtin).recovery??recovery;
   }
-  storageWarning=saved?'':recovery?'元の保存データを保護しています。復旧画面から保存方法を選んでください。':'このブラウザーに保存できません。画面を閉じる前にデータを書き出してください。';
-  return saved;
+  if(!saved)throw Error(recovery?'元の保存データを保護しています。復旧画面から保存方法を選んでください。':'変更を端末に保存できませんでした。同期の状態と端末の空き容量を確認してから、もう一度お試しください。');
 }
 function commit(change,{invalidate=true,message='',render=true}={}){
   if(recovery){renderAll();throw Error('元の保存データを保護しています。先に復旧画面で元データを書き出すか、保存データを読み込んでください。');}
   requireCurrentJournal();
-  const next=structuredClone(state); change(next); discardRemovedCookedMenus(state,next); const clean=validateJournal(next,builtin);
+  const next=structuredClone(state); change(next);
+  if(invalidate)delete next.draftPlan;
+  discardRemovedCookedMenus(state,next); const clean=validateJournal(next,builtin);
   const warnings=[],catalogData={...builtin,recipes:[...RECIPES,...clean.customRecipes]};
   for(const entry of clean.entries){
     const prior=state.entries.find(old=>old.id===entry.id),sameSlot=prior&&prior.date===entry.date&&prior.meal===entry.meal&&prior.status===entry.status;
@@ -141,7 +141,7 @@ function commit(change,{invalidate=true,message='',render=true}={}){
   if(messages.length&&!confirm(`${messages.join('\n')}\n\n追加のご飯や別皿として、このまま登録しますか？`)){tell('登録を取り消しました。');return false;}
   persist(clean);
   const remembered=undoHistory.record(state,clean,message||'記録の変更',{invalidatePlan:invalidate});
-  state=clean;undoReset=null; if(invalidate)plan=null; if(render)renderAll();else{renderPersistenceStatus();renderHistory();} if(message||storageWarning)tell(message);
+  state=clean;undoReset=null; if(invalidate)plan=null; if(render)renderAll();else{renderPersistenceStatus();renderHistory();} if(message)tell(message);
   if(remembered)showUndoNotice();
   return true;
 }
@@ -188,6 +188,7 @@ function performUndo(){
     if(!['auto','none'].includes(s.stapleId)&&!recipes.some(r=>r.id===s.stapleId&&(r.role==='staple'||r.role==='main'&&r.staple===true))){s.stapleId='auto';s.stapleAmount=null;s.stapleMode='adaptive';choicesAdjusted=true;}
     if(s.drinkId!=='none'&&!recipes.some(r=>r.id===s.drinkId&&r.role==='drink')){s.drinkId='none';s.drinkAmount=null;choicesAdjusted=true;}
     if(reconcileMealSelections(next,recipes))choicesAdjusted=true;
+    if(invalidatePlan||choicesAdjusted)delete next.draftPlan;
     const clean=validateJournal(next,builtin);
     persist(clean);
     return clean;
@@ -202,7 +203,8 @@ function replaceSavedJournal(next,message){
     requireCurrentJournal();
     throw Error('元データの退避または新しい内容の保存ができませんでした。現在の保存データはそのままです。先にJSONを書き出し、端末の空き容量などを確認してください。');
   }
-  state=next;recovery=null;storageWarning='';undoHistory.clear();undoReset=null;plan=null;undoNoticeVisible=false;
+  state=next;recovery=null;undoHistory.clear();undoReset=null;undoNoticeVisible=false;
+  ({plan, shoppingIds: draftShoppingIds} = restorePlan(next.draftPlan, next.settings, data()));
   resetManual();catalogFavouriteFilters={};recordSearchState={};quickSearchState={};shoppingSelection={};kitchenTab='checklist';$('shopping-from').value=state.settings.startDate;renderAll();tell(message);
 }
 function quantityPresets(input,recipe,portion){
@@ -474,7 +476,7 @@ function draftEntries(sourcePlan=plan,ids=draftShoppingIds){
   for(const day of sourcePlan.days){
     const items=activeRecipeIds(day).map(id=>{
       const item=snapshot(id,day.quantities?.[id]??1);
-      const key=JSON.stringify([day.date,day.meal,id]);
+      const key=draftDishKey(day.date,day.meal,id);
       if(!ids.has(key))ids.set(key,uid());
       item.id=ids.get(key);
       return item;
@@ -556,7 +558,7 @@ function syncDraftShoppingCatalog(nextPlan,ids){
   const entries=draftEntries(nextPlan,ids),from=nextPlan.days[0].date,to=nextPlan.days.at(-1).date;
   const shoppingCatalog=shoppingMenusFromEntries(entries,data(),{from,to,servings:nextPlan.settings.servings})
     .map(menu=>({...menu,origin:'plan'}));
-  const clean=validateJournal({...state,shoppingCatalog},builtin);
+  const clean=validateJournal({...state,shoppingCatalog,draftPlan:capturePlan(nextPlan,ids)},builtin);
   persist(clean);state=clean;draftShoppingIds=ids;
 }
 function applyEditedPlan(next,message,{newDraft=false}={}){
@@ -1566,7 +1568,9 @@ function generateMeals(){
   plan=next;visiblePlanDate='';renderPlan();renderShopping();
   $('plan-result-title').focus();
   $('plan-result-title').scrollIntoView({block:'start'});
-  tell(plan.ok?'献立を作成しました。':'献立の条件を確認してください。',!plan.ok);
+  if (!plan.ok) tell('献立の条件を確認してください。', true);
+  else if (demo) tell('お試しの献立を作成しました。');
+  else tell('献立の下書きを保存しました。カレンダーに登録すると日付ごとの予定に残せます。');
 }
 bind('plan-form','submit',event=>{event.preventDefault();generateMeals();});
 bind('dinner-from-record','click',openDinnerFromRecord);
@@ -1624,7 +1628,8 @@ bind('undo-last-action','click',performUndo);bind('undo-notice-action','click',p
 bind('recovery-export','click',()=>{if(recovery){downloadText(recovery.raw,`meal-palette_original_${dateKey()}.json`);tell('保護中の元データを書き出しました。ファイルの保存を確認してください。');}});
 bind('reload-journal','click',()=>location.reload());
 if(!demo){
-  window.addEventListener('storage',event=>{if(event.storageArea===storage)showJournalChange();});
+  window.addEventListener('storage',event=>{if(storage.ownsEvent?.(event))showJournalChange();});
+  document.addEventListener('meal-cloud-journal-change',showJournalChange);
   window.addEventListener('pageshow',showJournalChange);
 }
 bind('recovery-import','click',()=>$('import-file').click());
