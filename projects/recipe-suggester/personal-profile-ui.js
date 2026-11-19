@@ -15,18 +15,26 @@ export function showProfileFields(get) {
   get('profile-activity-guide').hidden = mode === 'manual';
 }
 
-export function renderNutritionProfile(get, state, today = jstDateKey()) {
-  get('birth-date').value = state.birthDate ?? '';
-  get('birthday-consent').checked = Boolean(state.birthDate);
+export function renderNutritionProfile(get, state, today = jstDateKey(), previous = {}) {
+  // 生年月日・栄養設定は個別に保存する。別フォームの保存時には未送信の編集を残す。
+  const birthday = state.birthDate ?? null;
+  if (previous.birthday !== birthday) {
+    if (previous.birthday && !birthday && get('personal-age').readOnly) get('personal-age').value = state.personalProfile?.age ?? '';
+    get('birth-date').value = birthday ?? '';
+    get('birthday-consent').checked = Boolean(birthday);
+  }
   const simple = state.profile, personal = state.personalProfile;
-  get('profile-mode').value = simple.mode;
-  get('profile-age').value = simple.ageBand;
-  get('profile-sex').value = simple.sex;
-  get('profile-activity').value = simple.activity;
-  for (const [key, id] of Object.entries(personalInputs)) get(id).value = personal?.[key] ?? '';
-  get('personal-consent').checked = Boolean(personal);
+  const values = {'profile-mode': simple.mode, 'profile-age': simple.ageBand, 'profile-sex': simple.sex,
+    'profile-activity': simple.activity, 'personal-consent': Boolean(personal)};
+  for (const [key, id] of Object.entries(personalInputs)) values[id] = personal?.[key] ?? '';
+  const removed = previous.hadPersonal && !personal;
+  for (const [id, value] of Object.entries(values)) {
+    if (!removed && previous.values?.[id] === value) continue;
+    get(id)[id === 'personal-consent' ? 'checked' : 'value'] = value;
+  }
   showProfileFields(get);
   refreshProfileDateDisplay(get, state, today);
+  return {birthday, values, hadPersonal: Boolean(personal)};
 }
 
 /** 日付だけが変わったときは、編集中の入力値や同意欄を維持する。 */

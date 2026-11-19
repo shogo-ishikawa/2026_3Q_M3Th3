@@ -7,7 +7,7 @@ function navigation(initialHash, run, startTab=()=>'planner') {
   const windowEvents = {};
   const documentEvents = {};
   const controls = new Map();
-  const kitchen = [];
+  const kitchen = [], settings = [];
   const orientation = new Map();
   const layout = {matches: false, addEventListener(type, handler) {this[type] = handler;}};
   const tablist = {setAttribute: (key, value) => orientation.set(key, value)};
@@ -38,7 +38,7 @@ function navigation(initialHash, run, startTab=()=>'planner') {
   };
   for (const [key, value] of Object.entries(globals)) {before[key] = globalThis[key];globalThis[key] = value;}
   try {
-    setupTabs({onKitchenRoute: tab => kitchen.push(tab),startTab});
+    setupTabs({onKitchenRoute: tab => kitchen.push(tab),onSettingsRoute: tab => settings.push(tab),startTab});
     const changeHash = hash => {location.hash = hash;windowEvents.hashchange();};
     function clickLink(hash, other = {}) {
       let prevented = false;
@@ -46,7 +46,7 @@ function navigation(initialHash, run, startTab=()=>'planner') {
       documentEvents.click({target: {closest: () => link}, preventDefault() {prevented = true;}, ...other});
       return prevented;
     }
-    run({document, location, main, buttons, kitchen, orientation, layout, changeHash, clickLink});
+    run({document, location, main, buttons, kitchen, settings, orientation, layout, changeHash, clickLink});
   } finally {
     for (const [key, value] of Object.entries(before)) {
       if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
@@ -109,4 +109,19 @@ test('a preferred start screen works with no hash and explicit shared links take
     assert.equal(document.body.dataset.activeTab,'kitchen');
     assert.deepEqual(kitchen,['pantry']);
   }, ()=>'catalog');
+});
+
+test('設定の直接リンク・従来のリンク・上位タブのクリックで正しい設定を開く', () => {
+  navigation('#settings-family', ({document, settings, buttons, changeHash, clickLink}) => {
+    assert.equal(document.body.dataset.activeTab, 'settings');
+    assert.equal(settings.at(-1), 'family');
+    changeHash('#settings-data');
+    assert.equal(settings.at(-1), 'data');
+    clickLink('#settings-feedback');
+    assert.equal(settings.at(-1), 'feedback');
+    changeHash('#settings');
+    assert.equal(settings.at(-1), 'profile');
+    buttons.at(-1).click();
+    assert.equal(settings.at(-1), 'profile');
+  });
 });

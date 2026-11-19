@@ -1,3 +1,4 @@
+import {existingOccasionLabels} from './occasion-classics.js';
 import {matchesJapaneseQuery,japaneseQueryRank} from './japanese-search.js';
 /** メニューの大分類と1人分の表示量。記録する栄養はquantity倍率で扱います。 */
 export const CATALOG_CATEGORIES = Object.freeze([
@@ -250,7 +251,7 @@ function matchesQuery(recipe, query, familyId = recipeFamily(recipe)) {
   const family = categories.get(familyId);
   return matchesJapaneseQuery([recipe.name, recipe.variantLabel, family.label,
     FOOD_NATURES.find(nature => nature.id === recipeNature(recipe)).label,
-    ...(recipe.tags ?? []), ...(recipe.searchAliases ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)], query);
+    ...(recipe.tags ?? []), ...existingOccasionLabels(recipe), ...(recipe.searchAliases ?? []), ...(recipe.ingredients ?? []).map(part => part.name ?? part.id)], query);
 }
 
 function recipeList(recipes) {

@@ -12,7 +12,15 @@ let before, changed;
 export const initializeApp = options => ({options});
 export const getAuth = () => auth;
 export const getFirestore = app => ({app});
-export class GoogleAuthProvider { setCustomParameters() {} }
+export class GoogleAuthProvider {
+  setCustomParameters() {}
+  addScope(scope) { this.scope=scope; }
+  static credentialFromResult(result) { return result.credential; }
+}
+export async function reauthenticateWithPopup(user,provider) {
+  if(user!==auth.currentUser || provider.scope!=='https://www.googleapis.com/auth/drive.file') throw Error('fixture: invalid scope or user');
+  return {user,credential:{accessToken:'test-drive-'+user.uid}};
+}
 export function beforeAuthStateChanged(_, callback) { before = callback; }
 export function onIdTokenChanged(_, callback) {
   changed = callback;
@@ -57,11 +65,15 @@ export async function runTransaction(_, callback) {
 }
 export const getDocFromServer = async path => snapshot((await database({op: 'snapshot'})).documents[path]);
 export const collection = (_, path) => path;
-export const where = (field, op, value) => ({field, value});
+export const where = (field, op, value) => ({field, op, value});
+export const or = (...filters) => ({filters});
 export const query = (path, filter) => ({path, ...filter});
 export async function getCountFromServer(q) {
   const {documents} = await database({op: 'snapshot'});
+  const matches = (data, filter) => filter.op === 'array-contains'
+    ? Array.isArray(data[filter.field]) && data[filter.field].includes(filter.value)
+    : data[filter.field] === filter.value;
   const count = Object.entries(documents).filter(([path, data]) =>
-    path.startsWith(q.path + '/') && data[q.field] === q.value).length;
+    path.startsWith(q.path + '/') && (q.filters ?? [q]).some(filter => matches(data, filter))).length;
   return {data: () => ({count})};
 }

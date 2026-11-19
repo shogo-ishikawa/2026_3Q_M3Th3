@@ -8,6 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "account.css", "account-boot.js", "account-identity.js", "app-start.js", "saved-plan.js",
     "cloud-journal-firestore.js", "cloud-journal.js", "menu-feedback.js",
+    "settings-tabs.js", "occasion-calendar.js", "occasion-classics.js", "occasion-recipe.js",
+    "seasonal-spring-summer.js", "seasonal-autumn-winter.js",
+    "drive-photos.js", "drive-photo-ui.js", "recipe-photo-image.js", "drive-photo-link.js", "drive-photo-share.js",
     "personal-nutrition.js", "personal-profile-ui.js", "weekly-review.js",
     "celebration-recipes.js", "household-preferences.js", "household-preferences-ui.js",
     "planner-personalization.js", "seasonal-preference.js", "taste-feedback.js",

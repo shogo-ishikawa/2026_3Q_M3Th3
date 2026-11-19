@@ -1,8 +1,10 @@
+import {SETTINGS_SECTIONS} from './settings-tabs.js';
 /** URLを保ちながら、キーボードでも切り替えられるアプリ内タブ。 */
 const ROUTES={calendar:'record',record:'record',nutrition:'nutrition',planner:'planner',shopping:'kitchen',pantry:'kitchen',kitchen:'kitchen',recipes:'catalog',catalog:'catalog',settings:'settings'};
+for(const section of SETTINGS_SECTIONS)ROUTES['settings-'+section]='settings';
 const HASHES={record:'calendar',nutrition:'nutrition',planner:'planner',kitchen:'shopping',catalog:'recipes',settings:'settings'};
 
-export function setupTabs({onKitchenRoute=()=>{},startTab=()=>'planner'}={}){
+export function setupTabs({onKitchenRoute=()=>{},onSettingsRoute=()=>{},startTab=()=>'planner'}={}){
   const buttons=[...document.querySelectorAll('[role="tab"][data-tab]')];
   const tablist=buttons[0].closest('[role="tablist"]');
   const compactLayout=window.matchMedia('(max-width:760px)');
@@ -10,17 +12,18 @@ export function setupTabs({onKitchenRoute=()=>{},startTab=()=>'planner'}={}){
   updateOrientation();
   compactLayout.addEventListener('change',updateOrientation);
 
-  function activate(id,{focus=false,update=true,scroll=true}={}){
+  function activate(id,{focus=false,update=true,scroll=true,section='profile'}={}){
     if(!Object.hasOwn(HASHES,id))id='planner';
     for(const button of buttons){const active=button.dataset.tab===id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;const panel=document.getElementById(button.getAttribute('aria-controls'));if(panel)panel.hidden=!active;}
     document.body.dataset.activeTab=id;
+    if(id==='settings')onSettingsRoute(section);
     if(update)history.replaceState(null,'',`#${HASHES[id]}`);
     if(focus)buttons.find(button=>button.dataset.tab===id)?.focus();
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
   }
-  function followRoute(hash){
+  function followRoute(hash,scroll=false){
     if(!Object.hasOwn(ROUTES,hash))return;
-    activate(ROUTES[hash],{update:false,scroll:false});
+    activate(ROUTES[hash],{update:false,scroll,section:hash.startsWith('settings-')?hash.slice(9):'profile'});
     if(hash==='pantry')onKitchenRoute('pantry');
     if(hash==='shopping')onKitchenRoute('checklist');
   }
@@ -43,7 +46,7 @@ export function setupTabs({onKitchenRoute=()=>{},startTab=()=>'planner'}={}){
       document.getElementById('main').focus();
       return;
     }
-    followRoute(hash);
+    followRoute(hash,true);
   });
   window.addEventListener('hashchange',()=>followRoute(location.hash.slice(1)||startTab()));
   const initial=location.hash.slice(1);

@@ -14,7 +14,8 @@ function updateInstallGuide() {
     button.hidden = installed;
     button.disabled = promptPending;
   }
-  document.getElementById('home-installed').hidden = !installed;
+  document.getElementById('home-install-panel').hidden = standalone.matches || navigator.standalone === true;
+  document.getElementById('home-installed').hidden = !installedThisVisit;
   if (installed && guide.open) guide.close();
 }
 

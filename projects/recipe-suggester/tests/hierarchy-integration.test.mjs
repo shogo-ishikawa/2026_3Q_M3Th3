@@ -130,7 +130,10 @@ test('新87品の階層が統合後も使え、別の食材カテゴリから同
     }
   }
   const meuniere = browseDishes(RECIPES, {section: 'main', category: 'fish', method: 'meuniere'});
-  assert.deepEqual(meuniere.map(recipe => recipe.id).sort(), ['familiar-aji-meuniere', 'familiar-cod-meuniere', 'familiar-salmon-meuniere']);
+  assert.deepEqual(meuniere.map(recipe => recipe.id).sort(), [
+    'celebration-anniversary-seabream-meuniere', 'celebration-kids-fish-carrot-sauce',
+    'familiar-aji-meuniere', 'familiar-cod-meuniere', 'familiar-salmon-meuniere',
+  ]);
   const fromMeat = browseDishes(RECIPES, {section: 'main', category: 'meat', method: 'hotpot'});
   const fromBeans = browseDishes(RECIPES, {section: 'main', category: 'bean', method: 'hotpot'});
   assert.equal(fromMeat.find(recipe => recipe.id === 'familiar-sukiyaki'), fromBeans.find(recipe => recipe.id === 'familiar-sukiyaki'));

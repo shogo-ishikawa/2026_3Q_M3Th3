@@ -23,6 +23,7 @@ def verify_birthday_family(browser, url, db):
     expect(page.locator('#birthday-age')).to_contain_text('35')
     expect(page.locator('#account-birthday')).to_be_hidden()
 
+    page.locator('#settings-tab-family').click()
     page.locator('#household-count-adult').fill('2')
     page.locator('#household-count-child').fill('1')
     page.locator('#household-use-servings').check()
@@ -37,6 +38,7 @@ def verify_birthday_family(browser, url, db):
     expect(page.locator('#account-birthday')).to_have_text('花子さん、お誕生日おめでとうございます！')
     page.locator('#tab-settings').click()
     expect(page.locator('#birthday-age')).to_contain_text('36')
+    page.locator('#settings-tab-family').click()
     expect(page.locator('#household-count-child')).to_have_value('1')
     expect(page.locator('#disliked-selections')).to_contain_text('生しいたけ')
     page.locator('#tab-planner').click()
@@ -53,7 +55,11 @@ def verify_birthday_family(browser, url, db):
     entries = json.loads(journal_bytes(page))['entries']
     assert entries and all(row['shoppingServings'] == 3 for row in entries)
     items = [item for row in entries for item in row['items']]
-    assert any(item.get('recipeId', '').startswith('celebration-birthday-') for item in items)
+    ids = [item.get('recipeId') for item in items]
+    assert page.evaluate("""async ids => {
+        const {recipeOccasionIds} = await import('./celebration-recipes.js');
+        return ids.some(id => recipeOccasionIds({id}).includes('birthday'));
+    }""", ids)
     assert not any(part['id'] == 'shiitake' for item in items for part in item.get('ingredients', []))
     page.locator('#tab-kitchen').click()
     page.locator('#kitchen-tab-menus').click()
@@ -66,6 +72,20 @@ def verify_birthday_family(browser, url, db):
         page.locator('#start-date').fill(date)
         page.locator('#plan-form button[type=submit]').click()
         expect(page.locator(f'[data-menu-occasion="{occasion}"]').first).to_be_visible()
+    # 登録した毎年の記念日が翌年の献立に現れ、取り消せる。
+    page.locator('#family-event-editor summary').click()
+    page.locator('#family-event-date').fill('2026-06-18')
+    page.locator('#family-event-kind').select_option('anniversary')
+    page.locator('#family-event-annual').check()
+    page.locator('#family-event-add').click()
+    expect(page.locator('#family-event-list')).to_contain_text('2026-06-18 記念日（毎年）')
+    page.locator('#start-date').fill('2027-06-18')
+    page.locator('#plan-form button[type=submit]').click()
+    expect(page.locator('[data-menu-occasion="anniversary"]').first).to_be_visible()
+    expect(page.locator('.dish-reason-tags').filter(has_text='記念日の料理').first).to_be_visible()
+    page.locator('#family-event-list button').click()
+    expect(page.locator('#family-event-list li')).to_have_count(0)
+    assert 'familyCalendar' not in json.loads(journal_bytes(page))
     # 生年月日を消しても、既に編集した料理・分量・買い物の識別子は保つ。
     page.locator('#start-date').fill('2026-04-11')
     page.locator('#plan-form button[type=submit]').click()

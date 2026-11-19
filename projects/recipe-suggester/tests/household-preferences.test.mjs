@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {recipeOccasionIds} from '../celebration-recipes.js';
 import assert from 'node:assert/strict';
 import {HOUSEHOLD_AGES, defaultServings, householdSize, validateHousehold, householdAllowsRecipe} from '../household-preferences.js';
 import {defaultJournal, parseJournal, validateJournal} from '../journal.js';
@@ -109,7 +110,7 @@ test('0〜5歳の家庭では刻んだくるみの誕生日サラダを外し、
   settings.mealPreferences.dinner.soup = 'include';
   const plan = generateCalendarPlan(settings, data, {personalization: {birthDate: '1990-11-19'}});
   assert.ok(plan.ok);
-  assert.ok(plan.days[0].recipeIds.includes(potage.id));
+  assert.ok(plan.days[0].recipeIds.map(recipe).some(dish => dish.role === 'soup' && recipeOccasionIds(dish).includes('birthday')));
   assert.ok(!plan.days[0].recipeIds.includes(salad.id));
   const persisted = capturePlan(plan, new Map());
   assert.ok(!Object.hasOwn(persisted.settings, 'household'));

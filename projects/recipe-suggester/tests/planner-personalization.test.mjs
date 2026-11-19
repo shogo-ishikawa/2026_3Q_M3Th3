@@ -1,8 +1,9 @@
 import test from 'node:test';
+import {OCCASION_LABELS} from '../occasion-calendar.js';
 import assert from 'node:assert/strict';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {birthdayGreeting, menuOccasions, personalPlanOptions} from '../planner-personalization.js';
-import {recipeOccasionIds} from '../celebration-recipes.js';
+import {recipeOccasionIds, CELEBRATION_RECIPES} from '../celebration-recipes.js';
 import {defaultJournal, validateJournal} from '../journal.js';
 import {eligibleRecipes, generateCalendarPlan, regeneratePlanMeal} from '../planner.js';
 import {capturePlan, restorePlan} from '../saved-plan.js';
@@ -37,18 +38,20 @@ test('夕食だけを該当日の行事に寄せ、昼食のみの日・再提�
   const settings = {...state.settings, days:1, meal:'all'}, options = {personalization: personalPlanOptions(state)};
   const plan = generateCalendarPlan(settings, catalog, options);
   assert.ok(plan.ok);
-  const themed = day => day.recipeIds.flatMap(id => recipeOccasionIds(recipe(id)));
+  const dedicated = new Set(CELEBRATION_RECIPES.map(item => item.id));
+  const themed = day => day.recipeIds.filter(id => dedicated.has(id)).flatMap(id => recipeOccasionIds(recipe(id))).filter(tag => Object.hasOwn(OCCASION_LABELS,tag));
+  const matchesBirthday = day => day.recipeIds.some(id => recipeOccasionIds(recipe(id)).includes('birthday'));
   assert.deepEqual(plan.days.slice(0,2).flatMap(themed), []);
-  assert.ok(themed(plan.days[2]).includes('birthday'));
+  assert.ok(matchesBirthday(plan.days[2]));
   assert.match(Object.values(plan.days[2].dishReasons).flat().join(), /誕生日の料理/);
-  assert.ok(themed(regeneratePlanMeal(plan, {...options, dayIndex:2}, catalog).days[2]).includes('birthday'));
+  assert.ok(matchesBirthday(regeneratePlanMeal(plan, {...options, dayIndex:2}, catalog).days[2]));
   const noEvents = generateCalendarPlan({...settings,occasionMenus:false}, catalog, options);
   assert.deepEqual(noEvents.days.flatMap(themed), []);
   const ordinary = generateCalendarPlan({...settings,startDate:'2026-12-26'}, catalog, options);
   assert.deepEqual(ordinary.days.flatMap(themed), []);
   settings.mealPreferences.dinner.enabled = false;
   const lunch = generateCalendarPlan(settings, catalog, options).days.find(day => day.meal === 'lunch');
-  assert.ok(themed(lunch).includes('birthday'));
+  assert.ok(matchesBirthday(lunch));
 });
 
 test('苦手な食材とその派生食材を全役割から外し、固定した飲み物でも条件を緩めない', () => {

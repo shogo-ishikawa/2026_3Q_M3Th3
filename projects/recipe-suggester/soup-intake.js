@@ -115,6 +115,8 @@ const AUDITED_PARTITIONS = [
   ['soup311-consomme-plain', 'water soup311_consomme parsley', 'water soup311_consomme'], // コンソメスープ
   ['soup311-consomme-vegetable', 'cabbage onion carrot mushroom water soup311_consomme black_pepper', 'water soup311_consomme black_pepper'], // 野菜のコンソメスープ
   ['soup311-wonton-pork', 'soup311_wonton_wrappers pork_minced negi ginger soy_sauce sake sesame_oil salt noodle_chinese_stock komatsuna black_pepper', 'sake noodle_chinese_stock', {"soy_sauce":0.5,"sesame_oil":0.5}], // 豚肉と長ねぎのワンタンスープ
+  // 大根おろしは汁ごとだしへ混ぜる。ぶり、ねぎ、薄切りしょうがを具として扱う。
+  ['celebration-winter-yellowtail-leek', 'yellowtail negi daikon kyoto_kombu_dashi soy_sauce mirin ginger', 'daikon kyoto_kombu_dashi soy_sauce mirin'],
 ];
 const HOMOGENEOUS = new Set(['soup-004','soup-006','soup-008','soup-031','soup-032','calendar-soup-cauliflower-potato','familiar-side-corn-potage','soup311-pumpkin-milk-potage']);
 const audited = new Map(AUDITED_PARTITIONS.map(([id,all,broth,partial={}])=>{

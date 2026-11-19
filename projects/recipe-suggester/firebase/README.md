@@ -33,9 +33,9 @@ firebase firestore:databases:get '(default)' --project meal-palette-98d2c
 
 食事記録、献立、栄養の設定を保存するドキュメントは UID ごとに分かれています。Google でログインした本人だけがアプリから読み書きできます。管理者としてログインしても他人の食事記録を参照する権限は付きません。Firebase コンソールやサーバーからの管理操作は Google Cloud IAM の権限で管理されます。
 
-利用者が「この希望を集計に送る」操作をしたときだけ、希望の分類を `mealPaletteMenuVotes/{uid}` に1件保存します。希望を変更すると同じ1件を更新し、取り消すと削除します。希望票にはメールアドレス、食事の内容、栄養値、自由記述を保存しません。
+利用者が「この希望を集計に送る」操作をしたときだけ、希望の分類を `mealPaletteMenuVotes/{uid}` の本人の文書に保存します。初めの1件は従来の `interest` で保存し、2件目の追加時に従来分も含む `interests` リストに移します。その後は1件ずつ追加・変更・撤回でき、最後の希望を取り消すと文書を削除します。希望票にはメールアドレス、食事の内容、栄養値、自由記述を保存しません。
 
-管理画面では分類別の件数を Firestore の集計クエリで取得し、5票以上集まったテーマを新メニュー候補に使います。Firestore は集計にもコレクションの一覧権限を使うため、この権限のある管理者は別のクライアントから UID と希望分類の組を照会できます。公開する管理画面には個票を表示しません。
+管理画面では単一票と複数票を同じ OR 集計で照合し、テーマごとに1人1票として数えます。5人以上が希望したテーマを新メニュー候補に使います。複数の希望を保存するには同梱の `mealPaletteMenuVotes` のルールを適用してください。Firestore は集計にもコレクションの一覧権限を使うため、この権限のある管理者は別のクライアントから UID と希望分類の組を照会できます。公開する管理画面には個票を表示しません。
 
 お気に入りと献立のジャンルは、本人が設定で送信した場合だけ `mealPaletteTasteReports/{uid}` に保存します。保存するフィールドは `favoriteGenre` と `planGenre` の2つです。各項目は5種類のジャンルまたは「未共有」です。利用者は共有する分類を修正・撤回できます。管理画面では項目・ジャンル別に5人以上のグループを表示します。希望票と同じく、一覧権限を持つ管理者は別のクライアントからUIDと分類の組を照会できます。
 
@@ -49,3 +49,10 @@ firebase emulators:exec --project demo-meal-palette --only firestore "python3 te
 ```
 
 [Firestore のロケーション](https://firebase.google.com/docs/firestore/locations) ／ [データベースの管理](https://firebase.google.com/docs/firestore/manage-databases) ／ [Web で Google ログインを使う](https://firebase.google.com/docs/auth/web/google-signin) ／ [集計クエリと権限](https://firebase.google.com/docs/firestore/query-data/aggregation-queries)
+
+
+## レシピの写真をGoogle ドライブと連携する
+
+Google Cloud コンソールで、このFirebaseプロジェクトの「APIとサービス」から Google Drive API を有効にします。「Google Auth Platform」→「データアクセス」で `https://www.googleapis.com/auth/drive.file` を構成し、対象ユーザーがアプリを利用できる公開ステータスになっていることを確認します。Meal Palette はFirebaseログインに使っているGoogleアカウントで、写真の接続を選んだときに追加の権限を求めます。取得したアクセストークンはメモリー内に保持し、料理写真は本人のDriveに保存します。
+
+利用者が自分のDriveでコピーしたファイルリンクを登録する機能には、Drive APIの設定は不要です。リンクは利用者自身の献立と同じ非公開の記録に保存します。[Google Workspace API の有効化](https://developers.google.com/workspace/guides/enable-apis)・[Google Drive の権限](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)

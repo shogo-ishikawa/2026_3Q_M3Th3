@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ALLERGENS, INGREDIENTS, RECIPES} from '../data.js';
 import {seasonalIngredientPreference} from '../seasonal-preference.js';
-import {CELEBRATION_RECIPES, recipeOccasionIds} from '../celebration-recipes.js';
+import {CLASSIC_CELEBRATION_RECIPES, CELEBRATION_RECIPES, recipeOccasionIds} from '../celebration-recipes.js';
+import {RECIPE_TAG_LABELS} from '../occasion-calendar.js';
 import {browseDishes} from '../dish-hierarchy.js';
 import {canSuggestAtMeal} from '../meal-suitability.js';
 import {describeRecipe, eligibleRecipes} from '../planner.js';
@@ -12,16 +13,17 @@ import {shoppingForEntries} from '../shopping.js';
 import {defaultJournal, parseJournal} from '../journal.js';
 
 const data = {recipes: RECIPES, ingredients: INGREDIENTS, allergens: ALLERGENS};
-const additions = RECIPES.filter(recipe => recipeOccasionIds(recipe).length);
+const celebrationIds = new Set(CELEBRATION_RECIPES.map(recipe => recipe.id));
+const additions = RECIPES.filter(recipe => celebrationIds.has(recipe.id));
 const date = '2026-12-25';
 
 test('各行事を名前で検索でき、主菜2品・副菜・汁物を昼食や夕食に選べる', () => {
-  assert.equal(additions.length, 12);
+  assert.equal(CLASSIC_CELEBRATION_RECIPES.length, 12);
   assert.deepEqual(additions.map(item => item.id), CELEBRATION_RECIPES.map(item => item.id));
   assert.deepEqual(recipeOccasionIds({id: 'plain-rice'}), []);
   assert.equal(new Set(RECIPES.map(item => item.name)).size, RECIPES.length);
   for (const [id, term] of [['birthday', '誕生日'], ['christmas', 'クリスマス'], ['new-year', 'お正月']]) {
-    const dishes = additions.filter(recipe => recipeOccasionIds(recipe).includes(id));
+    const dishes = CLASSIC_CELEBRATION_RECIPES.filter(recipe => recipeOccasionIds(recipe).includes(id));
     assert.deepEqual(dishes.map(recipe => recipe.role).sort(), ['main', 'main', 'side', 'soup']);
     const found = new Set(browseDishes(RECIPES, {query: term}).map(recipe => recipe.id));
     for (const recipe of dishes) {
@@ -32,6 +34,25 @@ test('各行事を名前で検索でき、主菜2品・副菜・汁物を昼食�
       assert.equal(recipe.nature, 'home-cooked');
     }
   }
+});
+
+test('行事と季節の各分類で名前から料理を探せ、2人分の配合と作業を区別できる', () => {
+  const ids = new Set(additions.map(recipe => recipe.id));
+  assert.equal(ids.size, additions.length);
+  assert.equal(ids.size, CELEBRATION_RECIPES.length);
+  for (const [tag, label] of Object.entries(RECIPE_TAG_LABELS)) {
+    const recipes = additions.filter(recipe => recipeOccasionIds(recipe).includes(tag));
+    assert.ok(recipes.length >= 4, label);
+    const found = new Set(browseDishes(RECIPES, {query: label}).map(recipe => recipe.id));
+    for (const recipe of recipes) {
+      assert.ok(found.has(recipe.id), label + ' / ' + recipe.name);
+      assert.ok(canSuggestAtMeal(recipe, 'lunch') && canSuggestAtMeal(recipe, 'dinner'), recipe.name);
+      assert.ok(recipe.steps.length >= 3 && recipe.steps.every(step => step.trim().length >= 8), recipe.name);
+      assert.ok(recipe.ingredientsKnown && recipe.allergensKnown && recipe.shoppingKnown, recipe.name);
+    }
+  }
+  const uniqueMethods = new Set(additions.map(recipe => recipe.steps.join('\n')));
+  assert.equal(uniqueMethods.size, additions.length);
 });
 
 test('使用する全材料から6成分とアレルゲンを求め、通常の除外設定を尊重する', () => {
