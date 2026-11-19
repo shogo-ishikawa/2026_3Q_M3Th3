@@ -26,3 +26,14 @@
   .catalog-filter-alternatives { display:grid; grid-template-columns:minmax(0,1fr); }
   .catalog-filter-alternative { width:100%; justify-content:flex-start; }
 }
+
+.catalog-pantry-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .75rem 1rem;
+  margin: 1rem 0;
+}
+.catalog-pantry-tools > label { min-width: 8rem; }
+.catalog-pantry-tools > [hidden] { display: none; }
+.pantry-catalog-shortfall { margin: .25rem .5rem; font-size: .875rem; color: var(--teal,#35624e); }

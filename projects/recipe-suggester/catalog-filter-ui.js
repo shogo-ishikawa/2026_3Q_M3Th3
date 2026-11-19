@@ -1,5 +1,5 @@
 /** 検索の絞り込みを見えるようにし、除外条件を保ったまま任意の条件を外します。 */
-const OPTIONAL_IDS = new Set(['query', 'section', 'category', 'method', 'family', 'genre', 'nature', 'illustrated', 'evening', 'occasion', 'scene']);
+const OPTIONAL_IDS = new Set(['query', 'section', 'category', 'method', 'family', 'genre', 'nature', 'illustrated', 'evening', 'occasion', 'scene', 'pantry']);
 
 function make(tag, className, text) {
   const element = document.createElement(tag);

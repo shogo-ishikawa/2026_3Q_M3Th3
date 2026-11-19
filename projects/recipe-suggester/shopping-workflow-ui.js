@@ -2,7 +2,8 @@ import {stockPurchaseId} from './strained-stock.js';
 /** 買うもの・献立・購入済みを別々の画面に表示します。 */
 import {pendingShopping, shoppingMenuStatuses, visibleReceipts} from './shopping-status.js';
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
-import {derivePurchase} from './purchase-conversion.js';
+import {derivePurchase, purchasedToPantry, purchaseDefaults} from './purchase-conversion.js';
+import {configureQuantityInput, readQuantityInput} from './quantity-input.js';
 import {mountPurchaseEditor} from './purchase-conversion-ui.js';
 import {formatCookingIngredient, formatPurchaseAmount, portionLabel} from './portion-guide.js';
 
@@ -16,6 +17,7 @@ const unique = values => [...new Set(values)];
 const clone = value => structuredClone(value);
 const groupLabel = id => INGREDIENT_GROUPS.find(group => group.id === id)?.label ?? 'その他';
 const fullSelection = menu => ({...menu, ingredientIds: unique((menu.item.ingredients ?? []).map(part => part.id))});
+const stockQuantity = (value, unit) => value.toLocaleString('ja-JP', {maximumSignificantDigits: 12}) + unit;
 const materialAmount = (id, value, data) => formatCookingIngredient(id, value, data, {includeName: false});
 
 function grouped(items, data) {
@@ -237,6 +239,41 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
     updateProgress(); showWarnings(result, final);
   }
 
+  function stockControl(receipt, purchase, foodName) {
+    const wrapper = make('div', 'shopping-stock-control');
+    const amountLabel = receipt.purchaseSetting ? '実際に買った量' : '手持ちに入れる量';
+    const label = make('label', '', `${amountLabel}（${purchase.unit}）`);
+    const input = make('input', 'shopping-stock-input');
+    input.type = 'number';
+    input.min = '0';
+    input.required = true;
+    input.setAttribute('aria-label', `${purchase.name}の${amountLabel}（${purchase.unit}）`);
+    const initial = purchase.packedAmount ?? purchase.amount;
+    const initialText = initial.toLocaleString('en-US', {useGrouping: false, maximumSignificantDigits: 12});
+    input.value = initialText;
+    configureQuantityInput(input);
+    label.append(input);
+    function stockAmount() {
+      const actual = readQuantityInput(input, {label: amountLabel});
+      return purchasedToPantry(purchase, input.value === initialText ? initial : actual, data);
+    }
+    const transfer = control('手持ちに追加', 'button-secondary shopping-stock-receipt', () => onStockReceipt(receipt.id, stockAmount()));
+    function update() {
+      try {
+        const value = stockAmount();
+        transfer.textContent = `手持ちに追加（${foodName} ${stockQuantity(value, purchase.sourceUnit)}）`;
+        transfer.disabled = false;
+      } catch {
+        transfer.textContent = '手持ちに追加';
+        transfer.disabled = true;
+      }
+    }
+    input.addEventListener('input', update);
+    update();
+    wrapper.append(label, transfer);
+    return wrapper;
+  }
+
   function renderPurchased() {
     const section = make('section', 'shopping-purchased'); section.setAttribute('aria-label', '購入済みの食材'); root.append(section);
     const recent = visibleReceipts(receipts, {now, days: 7});
@@ -245,9 +282,18 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
     for (const receipt of recent) {
       const ingredient = data.ingredients[receipt.ingredientId], row = make('article', 'shopping-receipt-row'); row.dataset.receiptId = receipt.id;
       const foodName = ingredient?.name ?? '現在の一覧にない食材';
-      const purchase = ingredient ? purchaseText({id: receipt.ingredientId, unit: ingredient.unit, buy: receipt.amount}, purchaseSettings, data) : null;
+      // 過去の購入設定がない履歴は、保存済みの材料単位で扱います。
+      let purchase = null;
+      if (ingredient) {
+        const setting = receipt.purchaseSetting ?? {
+          ...purchaseDefaults(receipt.ingredientId, data), mode: 'same', yieldFactor: 1, purchaseName: foodName
+        };
+        purchase = purchaseText({id: receipt.ingredientId, unit: ingredient.unit, buy: receipt.amount}, [setting], data);
+      }
       const heading = make('div', 'shopping-receipt-heading');
-      heading.append(make('strong', '', purchase?.purchase.name ?? foodName), make('span', 'shopping-check-quantity', purchase?.quantity ?? String(receipt.amount)));
+      const stocked = receipt.stocked && ingredient;
+      heading.append(make('strong', '', stocked ? foodName : purchase?.purchase.name ?? foodName),
+        make('span', 'shopping-check-quantity', stocked ? stockQuantity(receipt.stockedAmount ?? receipt.amount, ingredient.unit) : purchase?.quantity ?? String(receipt.amount)));
       const stamp = new Date(receipt.purchasedAt), date = Number.isNaN(stamp.getTime()) ? '' : new Intl.DateTimeFormat('ja-JP', {month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'}).format(stamp);
       row.append(heading, make('p', 'shopping-receipt-date', receipt.legacy ? '旧版から引き継いだ購入チェック' : date));
       const details = make('details', 'shopping-ingredient-sources'); details.append(make('summary', '', `使う献立 ${receipt.allocations.length}品`));
@@ -259,9 +305,7 @@ export function mountShoppingWorkflow({view = 'checklist', menus = [], catalog =
       details.append(sources); row.append(details);
       if (receipt.stocked) row.append(make('p', 'field-note', '手持ちに追加済み'));
       else if (ingredient && onStockReceipt && canStockReceipt(receipt)) {
-        const quantity = materialAmount(receipt.ingredientId, receipt.amount, data);
-        row.append(control(`手持ちに追加（${foodName} ${quantity}）`, 'button-secondary shopping-stock-receipt',
-          () => onStockReceipt(receipt.id)));
+        row.append(stockControl(receipt, purchase.purchase, foodName));
       } else if (ingredient && onStockReceipt) {
         row.append(make('p', 'field-note', '食べた分を含みます。余った分は「手持ち食材」に登録できます。'));
       }

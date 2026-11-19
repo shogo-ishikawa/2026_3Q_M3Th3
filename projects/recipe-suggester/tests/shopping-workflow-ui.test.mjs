@@ -238,3 +238,23 @@ test('購入済みの食材は材料の単位で手持ちへ転記し、転記�
   assert.equal(byClass(cooked,'shopping-stock-receipt').length,0);
   assert.match(text(cooked),/余った分は/);
 }));
+
+test('actual purchased weight starts at the original packaged amount, supports edits and previews the edible quantity', () => withDocument(() => {
+  const setting = {id:'carrot',mode:'weight',yieldFactor:.9,purchaseName:'皮つきにんじん',packSize:300,packUnit:'袋'};
+  const saved = [], purchased = receipt(prepared(),'carrot',{purchaseSettings:[setting]});
+  const root = mountShoppingWorkflow({view:'purchased', receipts:[purchased], now, data,
+    purchaseSettings:[{...setting,packSize:100,yieldFactor:.5}], onStockReceipt:(...args)=>saved.push(args)});
+  const input = one(root,'shopping-stock-input'), transfer = one(root,'shopping-stock-receipt');
+  assert.equal(input.value,'300');
+  assert.match(transfer.textContent,/270g/);
+  input.value='250';input.emit('input');
+  assert.match(transfer.textContent,/225g/);
+  transfer.emit('click');assert.deepEqual(saved,[[purchased.id,225]]);
+  input.value='0';input.emit('input');assert.equal(transfer.disabled,true);
+  const oldReceipt = receipt();
+  delete oldReceipt.purchaseSetting;
+  const old = one(mountShoppingWorkflow({view:'purchased', receipts:[oldReceipt], purchaseSettings:[setting],
+    now,data,onStockReceipt:()=>{}}),'shopping-stock-input');
+  assert.equal(Number(old.value),purchased.amount);
+  assert.match(old.getAttribute('aria-label'),/手持ちに入れる量/);
+}));

@@ -62,3 +62,7 @@
  html[data-text-size=largest] .shopping-check-row,html[data-text-size=larger] .shopping-check-row { grid-template-columns:minmax(0,1fr); }
  html[data-text-size=largest] .shopping-check-row>.shopping-ingredient-sources,html[data-text-size=larger] .shopping-check-row>.shopping-ingredient-sources { grid-column:1; }
 }
+
+.shopping-stock-control { display:flex; flex-wrap:wrap; align-items:end; gap:.45rem .7rem; margin-block:.4rem; }
+.shopping-stock-control label { display:grid; gap:.15rem; font-size:.85rem; }
+.shopping-stock-control input { width:9rem; max-width:100%; }

@@ -407,10 +407,10 @@ function shoppingCatalog(value, data) {
   });
 }
 
-function shoppingReceipts(value) {
+function shoppingReceipts(value, data) {
   const seen = new Set();
   return list(value === undefined ? [] : value, LIMITS.shoppingReceipts, '買い物の購入履歴').map(source => {
-    record(source, ['id', 'ingredientId', 'amount', 'purchasedAt', 'allocations', 'legacy', 'stocked'], '買い物の購入履歴');
+    record(source, ['id', 'ingredientId', 'amount', 'purchasedAt', 'allocations', 'legacy', 'stocked', 'stockedAmount', 'purchaseSetting'], '買い物の購入履歴');
     const id = identifier(source.id, '購入履歴の識別子');
     if (seen.has(id)) throw new Error('購入履歴の識別子が重複しています。');
     seen.add(id);
@@ -430,7 +430,17 @@ function shoppingReceipts(value) {
     if (!allocations.length) throw new Error('購入した量を使う料理を確認してください。');
     const allocated = allocations.reduce((sum, part) => sum + part.amount, 0);
     if (allocated > amount + Math.max(1, amount, allocated) * 1e-9) throw new Error('料理ごとの購入量が購入した量を超えています。');
-    return {id, ingredientId, amount, purchasedAt, allocations, ...(source.stocked === undefined ? {} : {stocked: bool(source.stocked, false, '手持ちへの追加状態')}), ...(source.legacy === undefined ? {} : {legacy: bool(source.legacy, false, '旧版の購入チェック')})};
+    const transfer = {};
+    if (source.stockedAmount !== undefined) {
+      if (source.stocked !== true) throw Error('手持ちに追加した実量は転記済みの購入履歴に保存してください。');
+      transfer.stockedAmount = number(source.stockedAmount, '手持ちに追加した実量');
+    }
+    if (source.purchaseSetting !== undefined) {
+      const [setting] = validatePurchaseSettings([source.purchaseSetting], data);
+      if (setting.id !== ingredientId) throw Error('購入した食材と換算設定が一致しません。');
+      transfer.purchaseSetting = setting;
+    }
+    return {id, ingredientId, amount, purchasedAt, allocations, ...transfer, ...(source.stocked === undefined ? {} : {stocked: bool(source.stocked, false, '手持ちへの追加状態')}), ...(source.legacy === undefined ? {} : {legacy: bool(source.legacy, false, '旧版の購入チェック')})};
   });
 }
 
@@ -667,7 +677,7 @@ function validateV3(value, data) {
   const favourites = validateFavourites(value.favourites === undefined ? [] : value.favourites, data);
   const shoppingExtras = shoppingMenus(value.shoppingExtras, data);
   const shoppingList = value.shoppingList === undefined ? null : shoppingMenus(value.shoppingList, data, {prepared: true});
-  const catalog = shoppingCatalog(value.shoppingCatalog, data), receipts = shoppingReceipts(value.shoppingReceipts);
+  const catalog = shoppingCatalog(value.shoppingCatalog, data), receipts = shoppingReceipts(value.shoppingReceipts, data);
   const draftPlan = value.draftPlan === undefined ? undefined : validateDraft(value.draftPlan, data, recipes);
   const familyCalendar = validateFamilyCalendar(value.familyCalendar);
   removeStaleBirthdayReasons(draftPlan, birthDate, familyCalendar);

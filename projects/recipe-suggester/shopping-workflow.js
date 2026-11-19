@@ -1,6 +1,7 @@
 /** 料理ごとに買う材料を選び、合算した後で家の在庫を一度だけ差し引きます。 */
 import {defaultServings} from './household-preferences.js';
 import {stockPurchaseId} from './strained-stock.js';
+import {favouriteKey} from './favourites.js';
 import {dateIsValid, shoppingServingsFor} from './journal.js';
 import {INGREDIENT_GROUPS, ingredientGroup} from './shopping-categories.js';
 
@@ -20,6 +21,48 @@ function menuItem(item) {
   for (const part of item.ingredients) {
     if (!validId(part.id) || !positive(part.amount)) throw Error('料理の材料と必要量を確認してください。');
   }
+}
+
+/** メニューから追加した同じ配合・人数は、確認欄とチェックリストで同じ購入履歴を使う。 */
+export function matchingMenuShopping(state, item, servings) {
+  const key = favouriteKey(item);
+  const matches = menu => menu.servings === servings && menu.item.quantity === item.quantity &&
+    favouriteKey(menu.item) === key;
+  return (state.shoppingList ?? []).find(menu => menu.origin === 'menu' && menu.ingredientIds.length && matches(menu)) ??
+    state.shoppingExtras.find(matches);
+}
+
+export function mergeShoppingSelections(prepared, selections) {
+  const merged = new Map((prepared ?? []).map(menu => [menu.id, menu]));
+  for (const menu of selections) {
+    const previous = merged.get(menu.id);
+    merged.set(menu.id, {...menu, ingredientIds: [...new Set([...(previous?.ingredientIds ?? []), ...menu.ingredientIds])]});
+  }
+  return [...merged.values()];
+}
+
+/** 不足食材の種類だけを選ぶ。分量は元レシピのまま保存し、チェックリストで手持ちを一度引く。 */
+export function missingShoppingSelection(state, item, servings, missingIds, {newOrder = false} = {}) {
+  const ids = new Set(missingIds);
+  const ingredientIds = [...new Set(item.ingredients.map(part => part.id).filter(id => ids.has(stockPurchaseId(id))))];
+  if (!ingredientIds.length) return null;
+  const matched = !newOrder && matchingMenuShopping(state, item, servings);
+  const prepared = matched && state.shoppingList?.find(menu => menu.id === matched.id);
+  if (prepared && ingredientIds.every(id => prepared.ingredientIds.includes(id))) return null;
+  return {id: matched?.id ?? item.id, item: matched?.item ?? item, servings,
+    label: 'メニューから追加', origin: 'menu', ingredientIds};
+}
+
+/** 旧明細と購入履歴の紐付けを残し、完了した料理へ現在の手持ちを割り当てない。 */
+export function retireMenuShopping(state, menuId) {
+  const previous = state.shoppingList.find(menu => menu.id === menuId);
+  previous.origin = 'menu';
+  previous.ingredientIds = [];
+  state.shoppingExtras = state.shoppingExtras.filter(menu => menu.id !== menuId);
+}
+
+export function shoppingMealSlot(date, meal) {
+  return {date, meal, label: `${date} ${MEAL_LABELS[meal]}`};
 }
 
 /** 予定の各料理を独立した選択肢にします。食事・料理IDの組を使い、同名料理も区別します。 */
@@ -42,8 +85,7 @@ export function shoppingMenusFromEntries(entries, data, {from, to, servings = 2}
       const id = JSON.stringify([entry.id, item.id]);
       if (seen.has(id)) throw Error('買い物に使う料理の識別子が重複しています。');
       seen.add(id);
-      menus.push({id, item: structuredClone(item), servings: menuServings, date: entry.date, meal: entry.meal,
-        label: `${entry.date} ${MEAL_LABELS[entry.meal]}`});
+      menus.push({id, item: structuredClone(item), servings: menuServings, ...shoppingMealSlot(entry.date, entry.meal)});
     }
   }
   return menus;
@@ -75,7 +117,8 @@ export function shoppingMenuContext(state, data, {source, from, to}) {
   // 調理して手持ちを減らした料理を、残りの献立の在庫割り当てに含めない。
   const usedItems = new Set(state.entries.filter(entry => entry.pantryUse).flatMap(entry => entry.items.map(item => item.id)));
   const outstanding = menu => !menu.id.startsWith('[') || !usedItems.has(menu.item.id);
-  const activeList = state.shoppingList?.filter(outstanding) ?? null;
+  const activeList = state.shoppingList?.filter(menu => outstanding(menu) &&
+    !(menu.origin === 'menu' && !menu.ingredientIds.length)) ?? null;
   const prepared = activeList ?? [], draft = state.shoppingCatalog.filter(outstanding);
   const extras = state.shoppingExtras.map(menu => ({...menu, origin: 'menu', label: 'メニューから追加', extra: true}));
   const knownId = new Map();

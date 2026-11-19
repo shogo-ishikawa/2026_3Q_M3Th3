@@ -114,3 +114,55 @@ test('invalid transfer markers are protected and unlinked old records remain unt
     assert.equal(memory.get(JOURNAL_KEY),saved);
   }
 });
+
+test('actual stock becomes available across meals once and cancellation uses the confirmed quantity after reload', () => {
+  const state = fixture(), receipt = purchase(state, 1), planned = receipt.amount;
+  state.pantry = [{id:'rice', amount:12}];
+  stockReceipt(state, receipt.id, data, planned + 30);
+  assert.equal(state.shoppingReceipts[0].stockedAmount, planned + 30);
+  assert.equal(need(state).sources[1].purchased, planned);
+  assert.equal(need(state).sources[0].stock, 42);
+  const restored = parseJournal(JSON.stringify(state), data);
+  assert.throws(() => stockReceipt(restored, receipt.id, data, 50));
+  cancelReceipt(restored, receipt.id);
+  assert.deepEqual(restored.pantry, [{id:'rice', amount:12}]);
+  assert.throws(() => cancelReceipt(restored, receipt.id));
+});
+
+test('a partial purchase covers only its real quantity; invalid inputs and consumed surplus cannot be undone', () => {
+  const state = fixture(), receipt = purchase(state, 1);
+  const unchanged = structuredClone(state);
+  for (const input of [null, 0, -1, NaN, Infinity, 1e7 + 1]) {
+    assert.throws(() => stockReceipt(state, receipt.id, data, input));
+    assert.deepEqual(state, unchanged);
+  }
+  stockReceipt(state, receipt.id, data, 40);
+  assert.equal(need(state).sources[1].buy, receipt.amount - 40);
+  assert.equal(need(state).sources[1].purchased, 40);
+  state.pantry[0].amount += 15;
+  assert.equal(need(state).sources[0].stock, 15);
+  state.pantry[0].amount = 38;
+  assert.throws(() => cancelReceipt(state, receipt.id));
+  assert.equal(state.shoppingReceipts.length, 1);
+  const legacy = fixture(), old = purchase(legacy, 1);
+  old.stocked = true;
+  legacy.pantry = [{id:'rice', amount:old.amount + 15}];
+  cancelReceipt(legacy, old.id);
+  assert.equal(legacy.pantry[0].amount, 15);
+});
+
+test('purchase settings stay with a receipt and mismatched settings or transfer markers fail validation', () => {
+  const state = fixture(), receipt = createShoppingReceipt(state.shoppingList,'rice',data,{
+    id:'packed-rice', now:date, purchaseSettings:[], catalog:state.shoppingCatalog
+  });
+  state.shoppingReceipts.push(receipt);
+  assert.equal(parseJournal(JSON.stringify(state),data).shoppingReceipts[0].purchaseSetting.yieldFactor,2.3);
+  const corrupt = structuredClone(state);
+  corrupt.shoppingReceipts[0].purchaseSetting.id = 'carrot';
+  assert.throws(() => validateJournal(corrupt,data));
+  receipt.stockedAmount = 30;
+  assert.throws(() => validateJournal(state,data));
+  receipt.stocked = true;
+  receipt.stockedAmount = -1;
+  assert.throws(() => validateJournal(state,data));
+});
