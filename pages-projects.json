@@ -193,6 +193,8 @@
         "portion-guide.js",
         "shopping-status.js",
         "launch-screen.js",
+        "ingredient-options.js",
+        "ingredient-picker-ui.js",
         "pantry-availability.js",
         "pantry-transfer.js",
         "onboarding.js",

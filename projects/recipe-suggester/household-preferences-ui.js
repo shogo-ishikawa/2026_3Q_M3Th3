@@ -1,5 +1,5 @@
 import {HOUSEHOLD_AGES, MAX_PLAN_SERVINGS, householdSize, validateHousehold} from './household-preferences.js';
-import {matchesJapaneseQuery} from './japanese-search.js';
+import {fillIngredientPicker} from './ingredient-picker-ui.js';
 import {configureQuantityInput, readQuantityInput} from './quantity-input.js';
 
 /** 家族人数の編集中に、別の設定の保存でフォームを上書きしない。 */
@@ -7,8 +7,8 @@ export function setupHouseholdPreferences({ingredients, getSettings, commit, gua
   const find = id => document.getElementById(id);
   const counts = {};
   const form = find('household-form'), use = find('household-use-servings');
-  const ingredientsByName = Object.entries(ingredients);
-  const search = find('disliked-search'), results = find('disliked-matches'), selected = find('disliked-selections');
+  const data = {ingredients};
+  const search = find('disliked-search'), picker = find('disliked-picker'), selected = find('disliked-selections');
   let savedHousehold;
 
   function inputCounts() {
@@ -55,22 +55,17 @@ export function setupHouseholdPreferences({ingredients, getSettings, commit, gua
     return element;
   }
   function matches() {
-    const query = search.value.trim(), ids = getSettings().dislikedIngredients ?? [];
-    results.replaceChildren();
-    if (!query) return;
-    const found = ingredientsByName.filter(([id, item]) => !ids.includes(id) && matchesJapaneseQuery([item.name, id], query));
-    if (!found.length) results.textContent = '追加できる食材が見つかりません。別の名前で探してください。';
-    for (const [id, item] of found.slice(0, 20)) {
-      results.append(button('＋ ' + item.name, () => {
-        const saved = commit(next => {
-          next.settings.dislikedIngredients = [...new Set([...(next.settings.dislikedIngredients ?? []), id])];
-        }, {message: item.name + 'を苦手な食材に登録しました。'});
-        if (saved) { search.value = ''; matches(); search.focus(); }
-      }));
-    }
-    if (found.length > 20) results.append('ほかにも候補があります。食材名をもう少し入力してください。');
+    fillIngredientPicker(picker, data, search.value, getSettings().dislikedIngredients ?? []);
   }
   search.addEventListener('input', matches);
+  picker.addEventListener('change', guard(() => {
+    const id = picker.value;
+    if (!id) return;
+    const saved = commit(next => {
+      next.settings.dislikedIngredients = [...new Set([...(next.settings.dislikedIngredients ?? []), id])];
+    }, {message: ingredients[id].name + 'を苦手な食材に登録しました。'});
+    if (saved) { search.value = ''; matches(); }
+  }));
   function update(settings) {
     const saved = settings.household ?? null;
     const signature = JSON.stringify(saved);

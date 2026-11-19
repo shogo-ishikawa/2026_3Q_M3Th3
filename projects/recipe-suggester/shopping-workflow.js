@@ -32,11 +32,14 @@ export function matchingMenuShopping(state, item, servings) {
     state.shoppingExtras.find(matches);
 }
 
-export function mergeShoppingSelections(prepared, selections) {
+export function mergeShoppingSelections(prepared, selections, {single = false} = {}) {
   const merged = new Map((prepared ?? []).map(menu => [menu.id, menu]));
   for (const menu of selections) {
     const previous = merged.get(menu.id);
-    merged.set(menu.id, {...menu, ingredientIds: [...new Set([...(previous?.ingredientIds ?? []), ...menu.ingredientIds])]});
+    const {stockScope, ...fields} = menu;
+    const selectedOnly = single && (!previous || previous.stockScope === 'selected');
+    merged.set(menu.id, {...fields, ...(selectedOnly ? {stockScope:'selected'} : {}),
+      ingredientIds: [...new Set([...(previous?.ingredientIds ?? []), ...menu.ingredientIds])]});
   }
   return [...merged.values()];
 }
@@ -123,13 +126,15 @@ export function shoppingMenuContext(state, data, {source, from, to}) {
   const extras = state.shoppingExtras.map(menu => ({...menu, origin: 'menu', label: 'メニューから追加', extra: true}));
   const knownId = new Map();
   for (const menu of [...draft, ...prepared]) if (menu.id.startsWith('[')) knownId.set(menu.item.id, menu.id);
-  const preparedIds = new Set(prepared.map(menu => menu.id));
+  const bulk = prepared.filter(menu => menu.stockScope !== 'selected');
+  const preparedIds = new Set(bulk.map(menu => menu.id));
   const includesDraft = draft.some(menu => preparedIds.has(menu.id));
+  const includesExtras = extras.some(menu => preparedIds.has(menu.id));
 
   // カレンダーの在庫は献立の開始日を基準に7日単位で割り当てます。
   const start = Date.parse(state.settings.startDate);
   const weekOf = date => Math.floor((Date.parse(date) - start) / (7 * 86400000));
-  const preparedWeeks = new Set(prepared.filter(menu => menu.origin === 'calendar' && menu.date).map(menu => weekOf(menu.date)));
+  const preparedWeeks = new Set(bulk.filter(menu => menu.origin === 'calendar' && menu.date).map(menu => weekOf(menu.date)));
   const planned = state.entries.filter(entry => entry.status === 'planned');
   for (const entry of planned) {
     if (entry.items.some(item => preparedIds.has(knownId.get(item.id)))) preparedWeeks.add(weekOf(entry.date));
@@ -142,11 +147,25 @@ export function shoppingMenuContext(state, data, {source, from, to}) {
     from: '2000-01-01', to: '2100-12-31', servings: defaultServings(state.settings),
   }).map(menu => ({...menu, id: knownId.get(menu.item.id) ?? menu.id, origin: 'calendar'}));
   const committedCalendar = calendar.filter(menu => preparedWeeks.has(weekOf(menu.date)));
-  const catalog = orderedMenus(prepared, includesDraft ? draft : [], committedCalendar, extras);
-  const reviewCatalog = orderedMenus(catalog, source === 'draft' ? draft : [], source === 'calendar' ? calendar : []);
+  const single = prepared.filter(menu => menu.stockScope === 'selected');
+  const singleIds = new Set(single.map(menu => menu.id));
+  const catalog = orderedMenus(bulk, includesDraft ? draft : [], committedCalendar,
+    includesExtras ? extras.filter(menu => !singleIds.has(menu.id)) : []);
+  const reserved = new Set(catalog.map(menu => menu.id));
+  // 新たな一品が確定済みの料理から在庫を奪わないよう、登録順で末尾に加える。
+  catalog.push(...single.filter(menu => !reserved.has(menu.id)));
+  const reviewCatalog = orderedMenus(catalog, source === 'draft' ? draft : [], source === 'calendar' ? calendar : [],
+    source === 'menu' ? extras : []);
   const dated = source === 'draft' ? draft : calendar;
   const menus = source === 'menu' ? extras : orderedMenus(dated.filter(menu => !menu.date || (menu.date >= from && menu.date <= to)));
   return {menus, catalog, reviewCatalog, prepared:activeList};
+}
+
+/** 一品選ぶときは、すでに確定している在庫割当と対象料理だけを照合する。 */
+export function draftDishShoppingContext(state, data, date, meal, recipeId) {
+  const context = shoppingMenuContext(state, data, {source: 'draft', from: date, to: date});
+  const menu = context.menus.find(menu => menu.meal === meal && menu.item.recipeId === recipeId);
+  return {menu, catalog: context.catalog, prepared: context.prepared};
 }
 
 /** 今回のチェックリストから外します。購入済みの献立は履歴を照合できるように残します。 */

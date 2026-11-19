@@ -1275,6 +1275,7 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
 
 /* Use the space inside the card. A desktop two-column layout can also leave a narrow card. */
 .day-card { container: meal-card / inline-size; }
+.plan-dish-info > .plan-dish-shopping { display:block;min-height:44px;margin-inline-start:auto; }
 @container meal-card (max-width: 26rem) {
   .day-card-heading { flex-wrap: wrap; align-items: center; gap: 4px 12px; }
   .dish-row {
@@ -1286,6 +1287,7 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
   }
   .dish-row > .choice-label { grid-row: 1 / span 2; align-self: start; min-height: 44px; }
   .plan-dish-info { text-align: left; }
+  .plan-dish-info > .plan-dish-shopping { margin-inline-start:0; }
   .plan-dish-info > .recipe-name { min-height: 44px; }
   .dish-reason-tags { justify-content: flex-start; margin: 0 0 .25rem; }
   .dish-row > .dish-amount { grid-column: 2; max-width: none; text-align: left; font-size: .75rem; }
@@ -1461,3 +1463,8 @@ body[data-active-tab="kitchen"] #app-message:not(.error){position:absolute;width
 .drive-photo-links label { display: grid; gap: .35rem; margin-block: 1rem .5rem; }
 .drive-photo-links input { width: 100%; min-width: 0; }
 .drive-photo-links li { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; margin-block: .4rem; }
+
+select.ingredient-picker { display:block; width:100%; max-width:100%; min-width:0; min-height:44px; margin:.5rem 0; }
+
+.ingredient-quick-matches[hidden] { display:none; }
+.ingredient-quick-matches button { min-height:44px; font-size:.875rem; }

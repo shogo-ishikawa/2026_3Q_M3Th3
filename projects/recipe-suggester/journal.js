@@ -381,7 +381,7 @@ function shoppingMenus(value, data, {prepared = false} = {}) {
   if (prepared && value === null) return null;
   const seen = new Set(), maximum = prepared ? LIMITS.shoppingList : LIMITS.shoppingExtras;
   return list(value === undefined ? [] : value, maximum, '買い物のメニュー').map(source => {
-    record(source, prepared ? ['id', 'item', 'servings', 'ingredientIds', 'label', 'date', 'meal', 'origin'] : ['id', 'item', 'servings'], '買い物のメニュー');
+    record(source, prepared ? ['id', 'item', 'servings', 'ingredientIds', 'label', 'date', 'meal', 'origin', 'stockScope'] : ['id', 'item', 'servings'], '買い物のメニュー');
     const id = text(source.id, prepared ? 500 : 120, '買い物のメニューの識別子');
     if (['__proto__', 'constructor', 'prototype'].includes(id) || seen.has(id)) throw new Error('買い物のメニューの識別子が重複または不正です。');
     seen.add(id);
@@ -391,7 +391,9 @@ function shoppingMenus(value, data, {prepared = false} = {}) {
     // DBから削除された材料も、過去のスナップショットにある場合は残して注意へ回します。
     const ingredientIds = ids(source.ingredientIds, new Set(item.ingredients.map(part => part.id)), '買い物で選んだ食材');
     if (source.ingredientIds === undefined) throw new Error('買い物で選んだ食材を確認してください。');
-    return {id, item, servings: source.servings, ingredientIds, ...shoppingMenuDetails(source)};
+    if (source.stockScope !== undefined && source.stockScope !== 'selected') throw Error('買い物の在庫を割り当てる範囲を確認してください。');
+    return {id, item, servings: source.servings, ingredientIds, ...shoppingMenuDetails(source),
+      ...(source.stockScope === 'selected' ? {stockScope:'selected'} : {})};
   });
 }
 

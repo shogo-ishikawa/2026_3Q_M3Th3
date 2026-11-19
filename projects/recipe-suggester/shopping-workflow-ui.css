@@ -23,6 +23,7 @@
 .shopping-menu-toggle input,.shopping-material-choice input { flex:0 0 auto; width:1.3rem; height:1.3rem; accent-color:#365d47; }
 .shopping-review-warning,.shopping-menu-note { font-size:.8rem; margin:.4rem 0 0; color:#86622b; }
 .shopping-prepare { width:100%; margin-top:.25rem; }
+.shopping-prepare-menu { min-height:44px; margin-top:.35rem; }
 .shopping-final { display:grid; gap:.65rem; min-width:0; }
 .shopping-empty { color:var(--muted,#687266); font-size:.9rem; margin:.5rem 0; }
 .shopping-check-progress { font-size:.9rem; font-weight:700; color:var(--green,#365d47); margin:0; }
